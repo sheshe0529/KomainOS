@@ -1,0 +1,25 @@
+# Perfil de las pruebas de integracion (*IT). Usa la base dbkomainos_test con
+# un esquema "KomainOS" propio que Flyway limpia y vuelve a crear en cada
+# corrida (DEC-22). Nunca debe apuntar a DBKomainOS.
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: ${KOMAINOS_TEST_DB_URL:jdbc:postgresql://localhost:5432/dbkomainos_test}
+    username: ${KOMAINOS_TEST_DB_USUARIO:postgres}
+    password: ${KOMAINOS_TEST_DB_CLAVE:${KOMAINOS_DB_CLAVE}}
+
+  flyway:
+    clean-disabled: false
+    baseline-on-migrate: false
+
+komainos:
+  seguridad:
+    jwt:
+      secreto: c2VjcmV0by1kZS1wcnVlYmFzLXNvbG8tcGFyYS1lbC1wZXJmaWwtdGVzdA==
+      expiracion-minutos: 15
+    administrador-inicial:
+      clave: ""
+  planificacion:
+    proceso-automatico:
+      habilitado: false

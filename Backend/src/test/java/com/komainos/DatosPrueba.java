@@ -1,0 +1,78 @@
+package com.komainos;
+
+import com.komainos.inventario.dominio.DiaSemana;
+import com.komainos.inventario.dominio.Entorno;
+import com.komainos.inventario.dominio.FamiliaSistemaOperativo;
+import com.komainos.inventario.dominio.NivelCriticidad;
+import com.komainos.inventario.dominio.NivelCriticidad.DatosNivelCriticidad;
+import com.komainos.inventario.dominio.Servidor;
+import com.komainos.inventario.dominio.SistemaOperativo;
+import com.komainos.inventario.dominio.VentanaMantenimiento;
+import com.komainos.inventario.dominio.VersionSistemaOperativo;
+import com.komainos.seguridad.dominio.Rol;
+import com.komainos.seguridad.dominio.Usuario;
+import com.komainos.seguridad.dominio.UsuarioAutenticado;
+
+import java.time.LocalTime;
+import java.util.List;
+
+/**
+ * Constructores centralizados de entidades para las pruebas. Cuando el modelo
+ * gana un atributo obligatorio se toca un solo archivo.
+ */
+public final class DatosPrueba {
+
+    private DatosPrueba() {
+    }
+
+    public static Usuario usuario(int id, String codigo, Rol rol) {
+        Usuario u = Usuario.nuevo(codigo, "Usuario " + codigo, "hash", rol);
+        u.setId(id);
+        return u;
+    }
+
+    public static UsuarioAutenticado autenticado(int id, String codigo, Rol rol) {
+        return new UsuarioAutenticado(usuario(id, codigo, rol));
+    }
+
+    public static Entorno entorno(int id, String nombre) {
+        Entorno e = Entorno.nuevo(nombre, null);
+        e.setId(id);
+        return e;
+    }
+
+    public static NivelCriticidad criticidad(int id, String nombre, int prioridad) {
+        NivelCriticidad n = NivelCriticidad.nuevo(new DatosNivelCriticidad(nombre, prioridad, 7, 30, 24, 48));
+        n.setId(id);
+        return n;
+    }
+
+    public static VersionSistemaOperativo version(int id, String so, String version) {
+        SistemaOperativo sistema = SistemaOperativo.nuevo(so, FamiliaSistemaOperativo.LINUX);
+        sistema.setId(id * 100);
+        VersionSistemaOperativo v = VersionSistemaOperativo.nueva(sistema, version);
+        v.setId(id);
+        return v;
+    }
+
+    public static Servidor servidor(int id, String hostname, Usuario responsable) {
+        Servidor s = Servidor.nuevo();
+        s.setId(id);
+        s.setHostname(hostname);
+        s.setDireccionIp("10.0.0." + id);
+        s.setResponsable(responsable);
+        s.setEntorno(entorno(1, "Producción"));
+        s.setNivelCriticidad(criticidad(1, "Alta", 1));
+        s.setVersionSistemaOperativo(version(1, "Ubuntu", "22.04"));
+        return s;
+    }
+
+    public static VentanaMantenimiento ventana(DiaSemana diaInicio, String horaInicio, DiaSemana diaFin, String horaFin) {
+        return VentanaMantenimiento.nueva(diaInicio, LocalTime.parse(horaInicio), diaFin, LocalTime.parse(horaFin));
+    }
+
+    public static Servidor conVentanas(Servidor servidor, VentanaMantenimiento... ventanas) {
+        servidor.reemplazarVentanas(List.of(ventanas));
+        return servidor;
+    }
+}

@@ -1,0 +1,17 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Secretos: la configuracion se inyecta por entorno, nunca se versiona (RNF03).
+.env
+*.pem
+*.key
+
+.idea/
+*.iml
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+*.log

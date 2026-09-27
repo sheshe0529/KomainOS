@@ -1,0 +1,157 @@
+package com.komainos.inventario.api;
+
+import com.komainos.inventario.api.dto.BajaPeticion;
+import com.komainos.inventario.api.dto.ConfiguracionPeticion;
+import com.komainos.inventario.api.dto.FichaServidorRespuesta;
+import com.komainos.inventario.api.dto.ResultadoBajaRespuesta;
+import com.komainos.inventario.api.dto.ServidorPeticion;
+import com.komainos.inventario.api.dto.ServidorResumenRespuesta;
+import com.komainos.inventario.api.dto.VentanasPeticion;
+import com.komainos.inventario.dominio.EstadoServidor;
+import com.komainos.inventario.dominio.FiltroServidores;
+import com.komainos.inventario.dominio.ServicioServidor;
+import com.komainos.inventario.dominio.ServicioServidor.DatosConfiguracion;
+import com.komainos.inventario.dominio.ServicioServidor.ResultadoBaja;
+import com.komainos.inventario.dominio.ventana.CalendarioSemanal.IntervaloSemanal;
+import com.komainos.seguridad.dominio.AlcanceUsuario;
+import com.komainos.seguridad.dominio.UsuarioAutenticado;
+import com.komainos.shared.api.PaginaRespuesta;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Inventario de servidores virtuales (RF09-RF11, RF14, RF17-RF19, RF70, RF72, RF73).
+ *
+ * <p>El controlador solo traduce: valida el borde, resuelve el alcance y
+ * mapea. Las reglas viven en {@link ServicioServidor}.
+ */
+@RestController
+@RequestMapping("/api/servidores")
+@RequiredArgsConstructor
+@Tag(name = "Inventario de servidores")
+public class ServidorController {
+
+    private final ServicioServidor servicio;
+
+    @GetMapping
+    @Operation(summary = "Lista el inventario dentro del alcance del usuario (RF11)")
+    public PaginaRespuesta<ServidorResumenRespuesta> listar(
+            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) EstadoServidor estado,
+            @RequestParam(required = false) Integer idEntorno,
+            @RequestParam(required = false) Integer idNivelCriticidad,
+            @RequestParam(required = false) Integer idSistemaOperativo,
+            @RequestParam(required = false) Integer idResponsable,
+            @RequestParam(required = false) String datacenter,
+            @PageableDefault(size = 20, sort = "hostname", direction = Sort.Direction.ASC) Pageable paginacion,
+            @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        var filtro = new FiltroServidores(texto, estado, idEntorno, idNivelCriticidad, idSistemaOperativo,
+                idResponsable, datacenter);
+        return PaginaRespuesta.de(servicio.listar(filtro, AlcanceUsuario.de(solicitante), paginacion),
+                InventarioMapeador::resumen);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Consulta la ficha del servidor (RF14)")
+    public FichaServidorRespuesta ficha(@PathVariable Integer id,
+                                        @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        return InventarioMapeador.ficha(servicio.ficha(id, AlcanceUsuario.de(solicitante)));
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Registra un servidor detectando duplicados (RF09)")
+    public FichaServidorRespuesta crear(@Valid @RequestBody ServidorPeticion peticion,
+                                        @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
+        Integer id = servicio.crear(peticion.aDatos(), alcance.actor()).getId();
+        return InventarioMapeador.ficha(servicio.ficha(id, alcance));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Actualiza los atributos del servidor (RF10)")
+    public FichaServidorRespuesta actualizar(@PathVariable Integer id, @Valid @RequestBody ServidorPeticion peticion,
+                                             @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
+        servicio.actualizar(id, peticion.aDatos(), alcance.actor());
+        return InventarioMapeador.ficha(servicio.ficha(id, alcance));
+    }
+
+    @PutMapping("/{id}/configuracion")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Crea o modifica la configuración de mantenimiento (RF17, RF70)")
+    public FichaServidorRespuesta configurar(@PathVariable Integer id,
+                                             @Valid @RequestBody ConfiguracionPeticion peticion,
+                                             @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
+        servicio.configurar(id, new DatosConfiguracion(peticion.frecuenciaRevisionDias(),
+                peticion.frecuenciaMantenimientoDias(), peticion.modalidadPlanificacion()), alcance.actor());
+        return InventarioMapeador.ficha(servicio.ficha(id, alcance));
+    }
+
+    /**
+     * RF18 (administrador, cualquier servidor) y RF19 (responsable, solo los
+     * suyos). El alcance lo verifica el servicio.
+     */
+    @PutMapping("/{id}/ventanas")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'RESPONSABLE')")
+    @Operation(summary = "Reemplaza la ventana permisiva del servidor (RF18, RF19)")
+    public FichaServidorRespuesta reemplazarVentanas(@PathVariable Integer id,
+                                                     @Valid @RequestBody VentanasPeticion peticion,
+                                                     @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
+        var intervalos = peticion.ventanas().stream()
+                .map(v -> new IntervaloSemanal(v.diaInicio(), v.horaInicio(), v.diaFin(), v.horaFin()))
+                .toList();
+        servicio.reemplazarVentanas(id, intervalos, alcance);
+        return InventarioMapeador.ficha(servicio.ficha(id, alcance));
+    }
+
+    /**
+     * La baja es una transicion de estado y no un DELETE: RF72 exige conservar
+     * el historial del servidor.
+     */
+    @PostMapping("/{id}/baja")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Solicita la baja del servidor conservando su historial (RF72)")
+    public ResultadoBajaRespuesta darDeBaja(@PathVariable Integer id, @Valid @RequestBody BajaPeticion peticion,
+                                            @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
+        ResultadoBaja resultado = servicio.solicitarBaja(id, peticion.motivo(), alcance.actor());
+        String mensaje = resultado.aplicada()
+                ? "Servidor dado de baja; se retiraron %d mantenimiento(s) pendiente(s)".formatted(resultado.ordenesRetiradas())
+                : "La baja quedó pendiente: se aplicará al finalizar el mantenimiento en curso";
+        return new ResultadoBajaRespuesta(resultado.aplicada(), resultado.ordenesRetiradas(), mensaje,
+                InventarioMapeador.solicitud(resultado.solicitud()),
+                InventarioMapeador.ficha(servicio.ficha(id, alcance)));
+    }
+
+    @PostMapping("/{id}/reactivacion")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Reactiva un servidor dado de baja (RF73)")
+    public FichaServidorRespuesta reactivar(@PathVariable Integer id,
+                                            @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
+        servicio.reactivar(id, alcance.actor());
+        return InventarioMapeador.ficha(servicio.ficha(id, alcance));
+    }
+}
