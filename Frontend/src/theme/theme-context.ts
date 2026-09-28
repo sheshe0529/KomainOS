@@ -1,13 +1,18 @@
 import { createContext, useContext } from 'react'
 
+/** Tema aplicado a la interfaz. */
 export type Theme = 'light' | 'dark'
+
+/** Lo que elige el usuario: un tema fijo o seguir al sistema operativo. */
+export type PreferenciaTema = Theme | 'system'
 
 export const THEME_STORAGE_KEY = 'komainos:theme'
 
 export interface ThemeContextValue {
+  /** Tema que se ve en este momento. */
   theme: Theme
-  toggleTheme: () => void
-  setTheme: (theme: Theme) => void
+  preferencia: PreferenciaTema
+  setPreferencia: (preferencia: PreferenciaTema) => void
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null)

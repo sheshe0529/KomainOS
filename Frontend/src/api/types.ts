@@ -163,6 +163,8 @@ export interface FichaServidorRespuesta {
   ventanas?: VentanaRespuesta[]
   grupos?: ReferenciaSimple[]
   bajaPendiente?: SolicitudBajaRespuesta
+  historialBajas?: SolicitudBajaRespuesta[]
+  reactivaciones?: ReactivacionRespuesta[]
 }
 
 export interface FilaAnalisisRespuesta {
@@ -351,6 +353,11 @@ export interface PropuestaRespuesta {
   tramos?: Tramo[]
 }
 
+export interface ReactivacionRespuesta {
+  fecha?: string
+  usuario?: ReferenciaSimple
+}
+
 export interface ReferenciaSimple {
   id?: number
   nombre?: string
@@ -405,6 +412,11 @@ export interface ServidorResumenRespuesta {
   direccionIp?: string
   datacenter?: string
   servidorFisico?: string
+  vlan?: string
+  cluster?: string
+  dns?: string
+  plataforma?: string
+  descripcion?: string
   sistemaOperativo?: ReferenciaSimple
   versionSistemaOperativo?: ReferenciaSimple
   familiaSistemaOperativo?: 'LINUX' | 'WINDOWS'
@@ -412,6 +424,7 @@ export interface ServidorResumenRespuesta {
   criticidad?: CriticidadResumen
   responsable?: ReferenciaSimple
   estado?: 'PENDIENTE_DE_CONFIGURACION' | 'ACTIVO' | 'DADO_DE_BAJA'
+  fechaAlta?: string
   fechaActualizacion?: string
 }
 
@@ -434,6 +447,7 @@ export interface SolicitudBajaRespuesta {
   id?: number
   estado?: 'PENDIENTE' | 'APLICADA'
   motivo?: string
+  solicitante?: ReferenciaSimple
   fechaSolicitud?: string
   fechaAplicacion?: string
 }

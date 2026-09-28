@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
 
 const CONTROL =
   'w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none disabled:bg-panel-muted disabled:text-ink-soft'
@@ -34,9 +34,8 @@ export function Entrada(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${CONTROL} ${props.className ?? ''}`} />
 }
 
-export function Selector(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`${CONTROL} ${props.className ?? ''}`} />
-}
+/** Lista desplegable con el estilo del panel; ver Selector.tsx. */
+export { Selector } from './Selector'
 
 export function AreaTexto(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea rows={3} {...props} className={`${CONTROL} ${props.className ?? ''}`} />

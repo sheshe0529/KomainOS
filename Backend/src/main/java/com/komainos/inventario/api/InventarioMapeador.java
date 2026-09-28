@@ -6,6 +6,7 @@ import com.komainos.inventario.api.dto.FichaServidorRespuesta;
 import com.komainos.inventario.api.dto.GrupoResumenRespuesta;
 import com.komainos.inventario.api.dto.ServidorResumenRespuesta;
 import com.komainos.inventario.api.dto.ServidorResumenRespuesta.CriticidadResumen;
+import com.komainos.inventario.api.dto.ReactivacionRespuesta;
 import com.komainos.inventario.api.dto.SolicitudBajaRespuesta;
 import com.komainos.inventario.api.dto.VentanaRespuesta;
 import com.komainos.inventario.dominio.ConfiguracionGrupo;
@@ -41,6 +42,7 @@ public final class InventarioMapeador {
         VersionSistemaOperativo version = s.getVersionSistemaOperativo();
         return new ServidorResumenRespuesta(
                 s.getId(), s.getHostname(), s.getDireccionIp(), s.getDatacenter(), s.getServidorFisico(),
+                s.getVlan(), s.getCluster(), s.getDns(), s.getPlataforma(), s.getDescripcion(),
                 new ReferenciaSimple(version.getSistemaOperativo().getId(), version.getSistemaOperativo().getNombre()),
                 new ReferenciaSimple(version.getId(), version.descripcionCompleta()),
                 version.getSistemaOperativo().getFamilia(),
@@ -48,6 +50,7 @@ public final class InventarioMapeador {
                 criticidad(s.getNivelCriticidad()),
                 new ReferenciaSimple(s.getResponsable().getId(), s.getResponsable().getNombreCompleto()),
                 s.getEstado(),
+                s.getFechaAlta(),
                 s.getFechaActualizacion());
     }
 
@@ -69,7 +72,12 @@ public final class InventarioMapeador {
                 ficha.configuracion().map(InventarioMapeador::configuracion).orElse(null),
                 ventanas(s.getVentanas()),
                 ficha.grupos().stream().map(g -> new ReferenciaSimple(g.getId(), g.getNombre())).toList(),
-                ficha.bajaPendiente().map(InventarioMapeador::solicitud).orElse(null));
+                ficha.bajaPendiente().map(InventarioMapeador::solicitud).orElse(null),
+                ficha.bajas().stream().map(InventarioMapeador::solicitud).toList(),
+                ficha.reactivaciones().stream()
+                        .map(r -> new ReactivacionRespuesta(r.fecha(), r.usuario() == null ? null
+                                : new ReferenciaSimple(r.usuario().getId(), r.usuario().getNombreCompleto())))
+                        .toList());
     }
 
     public static ConfiguracionRespuesta configuracion(ConfiguracionMantenimiento c) {
@@ -97,8 +105,9 @@ public final class InventarioMapeador {
     }
 
     public static SolicitudBajaRespuesta solicitud(SolicitudBaja s) {
-        return new SolicitudBajaRespuesta(s.getId(), s.getEstado(), s.getMotivo(), s.getFechaSolicitud(),
-                s.getFechaAplicacion());
+        return new SolicitudBajaRespuesta(s.getId(), s.getEstado(), s.getMotivo(),
+                new ReferenciaSimple(s.getSolicitante().getId(), s.getSolicitante().getNombreCompleto()),
+                s.getFechaSolicitud(), s.getFechaAplicacion());
     }
 
     public static GrupoResumenRespuesta resumen(FichaGrupo ficha) {

@@ -7,6 +7,7 @@ import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Entrada, Selector } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { VistaSemanalVentanas } from './VistaSemanalVentanas'
 import { ETIQUETA_DIA } from '@/utils/etiquetas'
 
 interface VentanasModalProps {
@@ -140,6 +141,11 @@ export function VentanasModal({ abierto, hostname, actuales, onCerrar, onGuardar
         >
           Agregar intervalo
         </Boton>
+
+        <div className="mt-1 border-t border-line pt-4">
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Vista de la semana</h4>
+          <VistaSemanalVentanas ventanas={filas.filter((f) => !mismoDiaInvalido(f))} vacio="Sin intervalos." altoHora={14} />
+        </div>
       </form>
     </Modal>
   )

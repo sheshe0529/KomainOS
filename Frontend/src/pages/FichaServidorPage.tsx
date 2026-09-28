@@ -9,6 +9,7 @@ import { BajaModal } from '@/components/inventario/BajaModal'
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
 import { ServidorFormulario } from '@/components/inventario/ServidorFormulario'
 import { VentanasModal } from '@/components/inventario/VentanasModal'
+import { VistaSemanalVentanas } from '@/components/inventario/VistaSemanalVentanas'
 import { OrdenesDelObjetivo } from '@/components/planificacion/OrdenesDelObjetivo'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
 import { useAvisos } from '@/components/ui/avisos-context'
@@ -79,6 +80,11 @@ export function FichaServidorPage() {
   const estado = s.estado ? ESTADO_SERVIDOR[s.estado] : undefined
   const dadoDeBaja = s.estado === 'DADO_DE_BAJA'
   const criticidad = catalogos.datos?.criticidades.find((c) => c.id === s.criticidad?.id)
+  const ultimaBaja = s.historialBajas?.find((b) => b.estado === 'APLICADA')
+  const eventosBaja = [
+    ...(s.historialBajas ?? []).map((b) => ({ tipo: 'baja' as const, fecha: b.fechaSolicitud ?? '', baja: b })),
+    ...(s.reactivaciones ?? []).map((r) => ({ tipo: 'reactivacion' as const, fecha: r.fecha ?? '', usuario: r.usuario?.nombre })),
+  ].sort((a, b) => b.fecha.localeCompare(a.fecha))
 
   return (
     <div className="flex flex-col gap-6">
@@ -134,10 +140,26 @@ export function FichaServidorPage() {
       </div>
 
       {s.bajaPendiente && (
-        <p className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
-          Baja solicitada el {formatearFechaHora(s.bajaPendiente.fechaSolicitud)}: se aplicará al finalizar el mantenimiento en
-          curso. Motivo: {s.bajaPendiente.motivo}
-        </p>
+        <div className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm">
+          <p className="font-medium text-warning">
+            Baja solicitada el {formatearFechaHora(s.bajaPendiente.fechaSolicitud)}
+            {s.bajaPendiente.solicitante?.nombre && ` por ${s.bajaPendiente.solicitante.nombre}`}: se aplicará al finalizar el
+            mantenimiento en curso.
+          </p>
+          <p className="mt-1 text-ink">Motivo: {s.bajaPendiente.motivo}</p>
+        </div>
+      )}
+      {dadoDeBaja && ultimaBaja && (
+        <div className="rounded-lg border border-line bg-panel-muted px-4 py-3 text-sm">
+          <p className="font-medium text-ink">
+            Dado de baja el {formatearFechaHora(ultimaBaja.fechaAplicacion ?? ultimaBaja.fechaSolicitud)}
+            {ultimaBaja.solicitante?.nombre && ` por ${ultimaBaja.solicitante.nombre}`}. No admite mantenimientos nuevos y conserva
+            su historial.
+          </p>
+          <p className="mt-1 text-ink-soft">
+            <span className="font-medium text-ink">Motivo:</span> {ultimaBaja.motivo}
+          </p>
+        </div>
       )}
       {s.estado === 'PENDIENTE_DE_CONFIGURACION' && (
         <p className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
@@ -197,22 +219,60 @@ export function FichaServidorPage() {
           ) : (
             <p className="text-sm text-ink-soft">Sin configuración de mantenimiento.</p>
           )}
-
-          <h4 className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-ink-faint">Ventana permisiva</h4>
-          {s.ventanas && s.ventanas.length > 0 ? (
-            <ul className="flex flex-col gap-2">
-              {s.ventanas.map((v, i) => (
-                <li key={i} className="flex items-center justify-between rounded-lg bg-panel-muted px-3 py-2 text-sm">
-                  <span className="text-ink">{textoVentana(v)}</span>
-                  <span className="font-mono text-xs text-ink-faint">{formatearDuracion(v.duracionMinutos)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-ink-soft">Sin ventana definida: el servidor no puede planificarse.</p>
-          )}
         </Tarjeta>
       </div>
+
+      <Tarjeta
+        titulo="Ventana permisiva"
+        acciones={
+          puedeEditarVentana &&
+          !dadoDeBaja && (
+            <Boton icono={CalendarClock} variante="fantasma" onClick={() => setDialogo('ventanas')}>
+              Editar
+            </Boton>
+          )
+        }
+      >
+        <VistaSemanalVentanas ventanas={s.ventanas ?? []} vacio="Sin ventana definida: el servidor no puede planificarse." />
+        {s.ventanas && s.ventanas.length > 0 && (
+          <ul className="mt-4 flex flex-wrap gap-2">
+            {s.ventanas.map((v, i) => (
+              <li key={i} className="flex items-center gap-2 rounded-lg bg-panel-muted px-3 py-1.5 text-sm">
+                <span className="text-ink">{textoVentana(v)}</span>
+                <span className="font-mono text-xs text-ink-faint">{formatearDuracion(v.duracionMinutos)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Tarjeta>
+
+      {eventosBaja.length > 0 && (
+        <Tarjeta titulo="Historial de bajas y reactivaciones">
+          <ol className="flex flex-col gap-3">
+            {eventosBaja.map((e, i) =>
+              e.tipo === 'baja' ? (
+                <li key={i} className="flex flex-col gap-0.5 border-l-2 border-danger/60 pl-3 text-sm">
+                  <span className="font-medium text-ink">
+                    Baja {e.baja.estado === 'APLICADA' ? 'aplicada' : 'pendiente'}
+                    {e.baja.fechaAplicacion && ` el ${formatearFechaHora(e.baja.fechaAplicacion)}`}
+                  </span>
+                  <span className="text-xs text-ink-faint">
+                    Solicitada el {formatearFechaHora(e.baja.fechaSolicitud)} · {e.baja.solicitante?.nombre ?? 'Sistema'}
+                  </span>
+                  <span className="text-ink-soft">Motivo: {e.baja.motivo}</span>
+                </li>
+              ) : (
+                <li key={i} className="flex flex-col gap-0.5 border-l-2 border-success/60 pl-3 text-sm">
+                  <span className="font-medium text-ink">Reactivado</span>
+                  <span className="text-xs text-ink-faint">
+                    {formatearFechaHora(e.fecha)} · {e.usuario ?? 'Sistema'}
+                  </span>
+                </li>
+              ),
+            )}
+          </ol>
+        </Tarjeta>
+      )}
 
       <OrdenesDelObjetivo idServidor={idServidor} version={versionOrdenes} />
 

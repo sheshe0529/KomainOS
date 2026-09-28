@@ -8,6 +8,7 @@ import { Dato, Tarjeta } from '@/components/common/Tarjeta'
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
 import { GrupoFormulario } from '@/components/inventario/GrupoFormulario'
 import { IntegrantesModal } from '@/components/inventario/IntegrantesModal'
+import { VistaSemanalVentanas } from '@/components/inventario/VistaSemanalVentanas'
 import { OrdenesDelObjetivo } from '@/components/planificacion/OrdenesDelObjetivo'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
 import { useAvisos } from '@/components/ui/avisos-context'
@@ -115,8 +116,8 @@ export function FichaGrupoPage() {
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Tarjeta titulo="Características comunes" className="lg:col-span-2">
+      <div className="grid gap-6">
+        <Tarjeta titulo="Características comunes">
           <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
             <Dato etiqueta="Responsable" valor={g.responsable?.nombre} />
             <Dato etiqueta="Entorno" valor={g.entorno?.nombre} />
@@ -142,19 +143,19 @@ export function FichaGrupoPage() {
 
         <Tarjeta titulo="Ventana permisiva del grupo">
           <p className="mb-3 text-xs text-ink-soft">Intersección de las ventanas de todos sus integrantes.</p>
-          {g.ventanaEfectiva && g.ventanaEfectiva.length > 0 ? (
-            <ul className="flex flex-col gap-2">
+          <VistaSemanalVentanas
+            ventanas={g.ventanaEfectiva ?? []}
+            vacio={g.integrantes?.length ? 'Los integrantes no comparten ningún intervalo: el grupo no puede planificarse.' : 'Sin integrantes.'}
+          />
+          {g.ventanaEfectiva && g.ventanaEfectiva.length > 0 && (
+            <ul className="mt-4 flex flex-wrap gap-2">
               {g.ventanaEfectiva.map((v, i) => (
-                <li key={i} className="flex items-center justify-between rounded-lg bg-panel-muted px-3 py-2 text-sm">
+                <li key={i} className="flex items-center gap-2 rounded-lg bg-panel-muted px-3 py-1.5 text-sm">
                   <span className="text-ink">{textoVentana(v)}</span>
                   <span className="font-mono text-xs text-ink-faint">{formatearDuracion(v.duracionMinutos)}</span>
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="text-sm text-ink-soft">
-              {g.integrantes?.length ? 'Los integrantes no comparten ningún intervalo: el grupo no puede planificarse.' : 'Sin integrantes.'}
-            </p>
           )}
         </Tarjeta>
       </div>

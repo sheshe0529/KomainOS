@@ -1,39 +1,50 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { THEME_STORAGE_KEY, ThemeContext, type Theme } from './theme-context'
+import { THEME_STORAGE_KEY, ThemeContext, type PreferenciaTema, type Theme } from './theme-context'
 
-function getInitialTheme(): Theme {
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
-  if (stored === 'light' || stored === 'dark') return stored
+const CONSULTA_OSCURO = '(prefers-color-scheme: dark)'
 
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-  return prefersDark ? 'dark' : 'light'
+function leerPreferencia(): PreferenciaTema {
+  try {
+    const guardada = window.localStorage.getItem(THEME_STORAGE_KEY)
+    if (guardada === 'light' || guardada === 'dark' || guardada === 'system') return guardada
+  } catch {
+    // Sin almacenamiento disponible (modo privado, datos bloqueados): se sigue al sistema.
+  }
+  return 'system'
 }
 
+function temaDelSistema(): Theme {
+  return window.matchMedia(CONSULTA_OSCURO).matches ? 'dark' : 'light'
+}
+
+/**
+ * Tema claro, oscuro o el del sistema operativo (DEC-33). Con «Sistema» la
+ * interfaz cambia en cuanto cambia la preferencia del equipo, sin recargar.
+ */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme)
+  const [preferencia, setPreferencia] = useState<PreferenciaTema>(leerPreferencia)
+  const [sistema, setSistema] = useState<Theme>(temaDelSistema)
+  const theme: Theme = preferencia === 'system' ? sistema : preferencia
 
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.toggle('dark', theme === 'dark')
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
-  }, [theme])
-
-  // Sigue la preferencia del sistema si el usuario nunca eligió manualmente.
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (event: MediaQueryListEvent) => {
-      const hasManualChoice = window.localStorage.getItem(THEME_STORAGE_KEY)
-      if (!hasManualChoice) {
-        setThemeState(event.matches ? 'dark' : 'light')
-      }
-    }
-    media.addEventListener('change', handleChange)
-    return () => media.removeEventListener('change', handleChange)
+    const media = window.matchMedia(CONSULTA_OSCURO)
+    const alCambiar = (evento: MediaQueryListEvent) => setSistema(evento.matches ? 'dark' : 'light')
+    media.addEventListener('change', alCambiar)
+    return () => media.removeEventListener('change', alCambiar)
   }, [])
 
-  const setTheme = useCallback((next: Theme) => setThemeState(next), [])
-  const toggleTheme = useCallback(() => setThemeState((prev) => (prev === 'light' ? 'dark' : 'light')), [])
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }, [theme])
 
-  return <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>{children}</ThemeContext.Provider>
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, preferencia)
+    } catch {
+      // La preferencia solo dura esta sesión.
+    }
+  }, [preferencia])
+
+  return <ThemeContext.Provider value={{ theme, preferencia, setPreferencia }}>{children}</ThemeContext.Provider>
 }

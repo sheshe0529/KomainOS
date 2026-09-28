@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.List;
 
 /**
  * Registra operaciones de negocio en la bitacora (RNF06).
@@ -46,6 +47,16 @@ public class ServicioAuditoria {
                 .motivo(recortar(operacion.motivo()))
                 .fechaHora(Tiempo.ahora(reloj))
                 .build());
+    }
+
+    /**
+     * Operaciones de un tipo registradas sobre un servidor, la mas reciente
+     * primero. La bitacora es la unica fuente de algunos hechos, como las
+     * reactivaciones (RF73), que no tienen tabla propia.
+     */
+    @Transactional(readOnly = true)
+    public List<RegistroAuditoria> consultarSobreServidor(Integer idServidor, String operacion) {
+        return repositorio.findByIdServidorAndOperacionOrderByFechaHoraDescIdDesc(idServidor, operacion);
     }
 
     private String json(Object valor) {

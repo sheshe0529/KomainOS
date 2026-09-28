@@ -36,5 +36,7 @@ public record FichaServidorRespuesta(
         ConfiguracionRespuesta configuracion,
         List<VentanaRespuesta> ventanas,
         List<ReferenciaSimple> grupos,
-        SolicitudBajaRespuesta bajaPendiente) {
+        SolicitudBajaRespuesta bajaPendiente,
+        List<SolicitudBajaRespuesta> historialBajas,
+        List<ReactivacionRespuesta> reactivaciones) {
 }

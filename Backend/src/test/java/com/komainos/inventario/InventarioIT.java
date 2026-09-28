@@ -179,8 +179,19 @@ class InventarioIT extends PruebaIntegracion {
 
         servidores.reactivar(s.getId(), actor);
         em.flush();
+        em.clear();
         assertThat(jdbc.queryForObject("select estado::text from servidor where id_servidor = ?", String.class,
                 s.getId())).isEqualTo("PENDIENTE_DE_CONFIGURACION");
+
+        // La ficha conserva el motivo, quién pidió la baja y quién reactivó el servidor.
+        var ficha = servidores.ficha(s.getId(), new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR));
+        assertThat(ficha.bajas()).singleElement().satisfies(b -> {
+            assertThat(b.getMotivo()).isEqualTo("Fin de vida útil");
+            assertThat(Hibernate.isInitialized(b.getSolicitante())).isTrue();
+            assertThat(b.getSolicitante().getCodigo()).isEqualTo("admin.it");
+        });
+        assertThat(ficha.reactivaciones()).singleElement()
+                .satisfies(r -> assertThat(r.usuario().getCodigo()).isEqualTo("admin.it"));
     }
 
     @Test

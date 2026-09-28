@@ -1,5 +1,6 @@
 package com.komainos.inventario.dominio;
 
+import com.komainos.auditoria.dominio.RegistroAuditoria;
 import com.komainos.auditoria.dominio.ServicioAuditoria;
 import com.komainos.auditoria.dominio.ServicioAuditoria.Operacion;
 import com.komainos.inventario.dominio.ventana.CalendarioSemanal.IntervaloSemanal;
@@ -86,11 +87,28 @@ public class ServicioServidor {
     @Transactional(readOnly = true)
     public FichaServidor ficha(Integer id, AlcanceUsuario alcance) {
         Servidor servidor = obtener(id, alcance);
+        List<SolicitudBaja> bajas = solicitudesBaja.findByServidorIdOrderByFechaSolicitudDesc(id);
         return new FichaServidor(
                 servidor,
                 configuraciones.findByServidorId(id),
                 grupos.findDelServidor(id),
-                solicitudesBaja.findFirstByServidorIdAndEstado(id, EstadoSolicitudBaja.PENDIENTE));
+                bajas.stream().filter(b -> b.getEstado() == EstadoSolicitudBaja.PENDIENTE).findFirst(),
+                bajas,
+                reactivaciones(id));
+    }
+
+    /**
+     * RF73: las reactivaciones no tienen tabla propia; quedan en la bitacora
+     * con quien las hizo (RNF06).
+     */
+    private List<Reactivacion> reactivaciones(Integer idServidor) {
+        List<RegistroAuditoria> registros = auditoria.consultarSobreServidor(idServidor, "REACTIVAR_SERVIDOR");
+        Map<Integer, Usuario> autores = new HashMap<>();
+        usuarios.findAllById(registros.stream().map(RegistroAuditoria::getIdUsuario).filter(Objects::nonNull).toList())
+                .forEach(u -> autores.put(u.getId(), u));
+        return registros.stream()
+                .map(r -> new Reactivacion(r.getFechaHora(), r.getIdUsuario() == null ? null : autores.get(r.getIdUsuario())))
+                .toList();
     }
 
     // ------------------------------------------------------------ alta y edicion
@@ -443,8 +461,17 @@ public class ServicioServidor {
     }
 
     /** Informacion consolidada de la ficha (RF14). */
+    /**
+     * @param bajas          solicitudes de baja, la más reciente primero (RF72)
+     * @param reactivaciones reactivaciones, la más reciente primero (RF73)
+     */
     public record FichaServidor(Servidor servidor, Optional<ConfiguracionServidor> configuracion,
-                                List<GrupoMantenimiento> grupos, Optional<SolicitudBaja> bajaPendiente) {
+                                List<GrupoMantenimiento> grupos, Optional<SolicitudBaja> bajaPendiente,
+                                List<SolicitudBaja> bajas, List<Reactivacion> reactivaciones) {
+    }
+
+    /** @param usuario quien reactivó; nulo si lo hizo un proceso del sistema */
+    public record Reactivacion(Instant fecha, Usuario usuario) {
     }
 
     /**

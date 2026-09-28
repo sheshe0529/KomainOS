@@ -103,8 +103,15 @@ export function CronogramaPage() {
           <div className="flex items-center gap-2">
             {esAdmin && (
               <>
-                <Boton icono={RefreshCw} onClick={ejecutarPlanificacion} cargando={ejecutando} title="Genera ahora los ciclos automáticos pendientes">
-                  Planificar ciclos
+                {/* El proceso automático ya corre solo (cada 15 minutos por defecto) y al guardar una
+                    configuración; este botón lo adelanta, por ejemplo tras cambiar ventanas o parámetros. */}
+                <Boton
+                  icono={RefreshCw}
+                  onClick={ejecutarPlanificacion}
+                  cargando={ejecutando}
+                  title="Ejecuta en este momento la planificación automática: genera la orden del próximo ciclo de cada servidor y grupo en modalidad automática que aún no la tenga. El sistema lo hace solo cada 15 minutos."
+                >
+                  Planificar ahora
                 </Boton>
                 <Boton variante="primario" icono={CalendarPlus} onClick={() => setEligiendo(true)}>
                   Programar
