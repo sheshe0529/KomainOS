@@ -1,9 +1,9 @@
 package com.komainos.seguridad.config;
 
-import com.komainos.seguridad.dominio.Rol;
-import com.komainos.seguridad.dominio.ServicioUsuario;
-import com.komainos.seguridad.infra.UsuarioRepositorio;
-import com.komainos.shared.dominio.Actor;
+import com.komainos.seguridad.model.Rol;
+import com.komainos.seguridad.repository.UsuarioRepositorio;
+import com.komainos.seguridad.service.ServicioUsuario;
+import com.komainos.shared.model.Actor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;

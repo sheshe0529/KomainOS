@@ -1,28 +1,28 @@
 package com.komainos.inventario;
 
 import com.komainos.PruebaIntegracion;
-import com.komainos.auditoria.infra.AuditoriaRepositorio;
-import com.komainos.inventario.dominio.DatosServidor;
-import com.komainos.inventario.dominio.EstadoServidor;
-import com.komainos.inventario.dominio.EstadoSolicitudBaja;
-import com.komainos.inventario.dominio.FamiliaSistemaOperativo;
-import com.komainos.inventario.dominio.ModalidadPlanificacion;
-import com.komainos.inventario.dominio.ModoEjecucion;
-import com.komainos.inventario.dominio.NivelCriticidad.DatosNivelCriticidad;
-import com.komainos.inventario.dominio.Servidor;
-import com.komainos.inventario.dominio.ServicioCatalogos;
-import com.komainos.inventario.dominio.ServicioGrupo;
-import com.komainos.inventario.dominio.ServicioServidor;
-import com.komainos.inventario.dominio.ServicioServidor.DatosConfiguracion;
-import com.komainos.inventario.dominio.ventana.CalendarioSemanal.IntervaloSemanal;
-import com.komainos.inventario.infra.ConfiguracionServidorRepositorio;
-import com.komainos.seguridad.dominio.AlcanceUsuario;
-import com.komainos.seguridad.dominio.Rol;
-import com.komainos.seguridad.dominio.ServicioUsuario;
-import com.komainos.seguridad.dominio.Usuario;
-import com.komainos.seguridad.dominio.UsuarioAutenticado;
-import com.komainos.shared.dominio.Actor;
-import com.komainos.shared.error.ReglaNegocioException;
+import com.komainos.auditoria.repository.AuditoriaRepositorio;
+import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
+import com.komainos.inventario.model.DatosServidor;
+import com.komainos.inventario.model.EstadoServidor;
+import com.komainos.inventario.model.EstadoSolicitudBaja;
+import com.komainos.inventario.model.FamiliaSistemaOperativo;
+import com.komainos.inventario.model.ModalidadPlanificacion;
+import com.komainos.inventario.model.ModoEjecucion;
+import com.komainos.inventario.model.NivelCriticidad.DatosNivelCriticidad;
+import com.komainos.inventario.model.Servidor;
+import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
+import com.komainos.inventario.service.ServicioCatalogos;
+import com.komainos.inventario.service.ServicioGrupo;
+import com.komainos.inventario.service.ServicioServidor.DatosConfiguracion;
+import com.komainos.inventario.service.ServicioServidor;
+import com.komainos.seguridad.model.AlcanceUsuario;
+import com.komainos.seguridad.model.Rol;
+import com.komainos.seguridad.model.Usuario;
+import com.komainos.seguridad.model.UsuarioAutenticado;
+import com.komainos.seguridad.service.ServicioUsuario;
+import com.komainos.shared.exception.ReglaNegocioException;
+import com.komainos.shared.model.Actor;
 import jakarta.persistence.EntityManager;
 import org.hibernate.Hibernate;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,8 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalTime;
 import java.util.List;
 
-import static com.komainos.inventario.dominio.DiaSemana.DOMINGO;
-import static com.komainos.inventario.dominio.DiaSemana.SABADO;
+import static com.komainos.inventario.model.DiaSemana.DOMINGO;
+import static com.komainos.inventario.model.DiaSemana.SABADO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -86,8 +86,8 @@ class InventarioIT extends PruebaIntegracion {
                 idVersion, "VMware", idEntorno, idCriticidad, dueno.getId(), null), Actor.usuario(admin.getId()));
     }
 
-    private static IntervaloSemanal ventana(com.komainos.inventario.dominio.DiaSemana di, String hi,
-                                            com.komainos.inventario.dominio.DiaSemana df, String hf) {
+    private static IntervaloSemanal ventana(com.komainos.inventario.model.DiaSemana di, String hi,
+                                            com.komainos.inventario.model.DiaSemana df, String hf) {
         return new IntervaloSemanal(di, LocalTime.parse(hi), df, LocalTime.parse(hf));
     }
 

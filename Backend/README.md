@@ -48,25 +48,47 @@ coinciden con las tablas.
 
 ## Estructura
 
-Un paquete por módulo de negocio, cortado en capas:
+Primero por **componente** de la vista de componentes de R2.2, y dentro de cada
+componente por el **rol** de cada clase (DEC-33):
 
 ```
 com.komainos
-├── shared/         errores, archivos de intercambio, reloj, OpenAPI, validaciones comunes
 ├── seguridad/      autenticación JWT, usuarios, roles y alcance por usuario (RF01–RF03)
 ├── auditoria/      bitácora de operaciones (RNF06)
 ├── inventario/     catálogos, servidores, grupos, ventanas, importación y exportación (RF09–RF21, RF70–RF76)
 ├── mantenimiento/  órdenes de mantenimiento, su detalle, historial y máquina de estados
-└── planificacion/  algoritmo voraz, cronograma y proceso automático (RF27–RF38, RF46, RF51, RF64)
-    ├── api/        controlador, DTO, mapeador   → depende de dominio
-    ├── dominio/    entidades, enums, servicios  → depende de infra
-    └── infra/      repositorios, especificaciones
+├── planificacion/  algoritmo voraz, cronograma y proceso automático (RF27–RF38, RF46, RF51, RF64)
+│   ├── controller/     endpoints REST (@RestController): validan el borde y delegan
+│   ├── dto/            contrato HTTP: *Peticion y *Respuesta
+│   ├── mapper/         entidad → DTO
+│   ├── service/        casos de uso y reglas de negocio (@Service); algoritmo/ es el planificador voraz
+│   ├── model/          entidades JPA, enums y datos de entrada del dominio
+│   ├── event/          eventos de dominio entre componentes
+│   ├── repository/     acceso a datos (Spring Data) y consultas dinámicas
+│   └── config/         propiedades y configuración del componente
+└── shared/         lo transversal, que no es un componente
+    ├── controller/     manejo global de errores
+    ├── dto/            forma de error, página, referencia simple
+    ├── exception/      excepciones de negocio comunes
+    ├── validation/     validaciones reutilizables (dirección IP)
+    ├── model/          Actor, Intervalo
+    ├── util/           Tiempo; archivo/: lectura y escritura XLSX, CSV, YAML, JSON
+    └── config/         reloj, OpenAPI
 ```
 
-Las dependencias apuntan en una sola dirección: `api → dominio → infra`. El
-dominio no importa nada de `api`, por eso los servicios devuelven entidades y
-el mapeo a DTO ocurre en el controlador. Entre módulos, el inventario no
-depende de la planificación: se comunican por eventos y puertos (DEC-27).
+Cada componente solo tiene las carpetas que necesita.
+
+**Reglas de dependencia**, verificadas por `ArquitecturaTest` en cada `mvn test`:
+
+- Dentro de un componente: `controller → service → repository`. Los servicios
+  devuelven entidades y no conocen DTO, mapeadores ni controladores, así que el
+  mismo caso de uso sirve a la API, a los procesos programados y a la
+  importación masiva. Los controladores no usan repositorios directamente.
+- Entre componentes no hay ciclos: planificación → mantenimiento → inventario
+  → seguridad → auditoría → shared. Cuando un componente necesita algo de uno
+  que está "después", lo pide mediante un puerto (interfaz) que el otro
+  implementa, como `PuertoMantenimientos` (DEC-27) o `PuertoParametrosSesion`
+  (DEC-33).
 
 El algoritmo de planificación está especificado en
 `Documentos/Decisiones/Algoritmo_planificacion_voraz.md`.

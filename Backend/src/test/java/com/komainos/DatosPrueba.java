@@ -1,17 +1,17 @@
 package com.komainos;
 
-import com.komainos.inventario.dominio.DiaSemana;
-import com.komainos.inventario.dominio.Entorno;
-import com.komainos.inventario.dominio.FamiliaSistemaOperativo;
-import com.komainos.inventario.dominio.NivelCriticidad;
-import com.komainos.inventario.dominio.NivelCriticidad.DatosNivelCriticidad;
-import com.komainos.inventario.dominio.Servidor;
-import com.komainos.inventario.dominio.SistemaOperativo;
-import com.komainos.inventario.dominio.VentanaMantenimiento;
-import com.komainos.inventario.dominio.VersionSistemaOperativo;
-import com.komainos.seguridad.dominio.Rol;
-import com.komainos.seguridad.dominio.Usuario;
-import com.komainos.seguridad.dominio.UsuarioAutenticado;
+import com.komainos.inventario.model.DiaSemana;
+import com.komainos.inventario.model.Entorno;
+import com.komainos.inventario.model.FamiliaSistemaOperativo;
+import com.komainos.inventario.model.NivelCriticidad.DatosNivelCriticidad;
+import com.komainos.inventario.model.NivelCriticidad;
+import com.komainos.inventario.model.Servidor;
+import com.komainos.inventario.model.SistemaOperativo;
+import com.komainos.inventario.model.VentanaMantenimiento;
+import com.komainos.inventario.model.VersionSistemaOperativo;
+import com.komainos.seguridad.model.Rol;
+import com.komainos.seguridad.model.Usuario;
+import com.komainos.seguridad.model.UsuarioAutenticado;
 
 import java.time.LocalTime;
 import java.util.List;

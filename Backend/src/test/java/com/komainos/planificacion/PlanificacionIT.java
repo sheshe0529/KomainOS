@@ -1,33 +1,33 @@
 package com.komainos.planificacion;
 
 import com.komainos.PruebaIntegracion;
-import com.komainos.inventario.dominio.DatosServidor;
-import com.komainos.inventario.dominio.DiaSemana;
-import com.komainos.inventario.dominio.FamiliaSistemaOperativo;
-import com.komainos.inventario.dominio.ModalidadPlanificacion;
-import com.komainos.inventario.dominio.ModoEjecucion;
-import com.komainos.inventario.dominio.NivelCriticidad.DatosNivelCriticidad;
-import com.komainos.inventario.dominio.ServicioCatalogos;
-import com.komainos.inventario.dominio.ServicioGrupo;
-import com.komainos.inventario.dominio.ServicioParametrosSistema;
-import com.komainos.inventario.dominio.ServicioParametrosSistema.DatosParametros;
-import com.komainos.inventario.dominio.ServicioServidor;
-import com.komainos.inventario.dominio.ServicioServidor.DatosConfiguracion;
-import com.komainos.inventario.dominio.ventana.CalendarioSemanal.IntervaloSemanal;
-import com.komainos.mantenimiento.dominio.EstadoDetalleOrden;
-import com.komainos.mantenimiento.dominio.EstadoOrden;
-import com.komainos.mantenimiento.dominio.Orden;
-import com.komainos.mantenimiento.dominio.OrigenOrden;
-import com.komainos.mantenimiento.dominio.ServicioConsultaOrdenes;
-import com.komainos.planificacion.dominio.ServicioCronograma;
-import com.komainos.planificacion.dominio.ServicioPlanificacion;
-import com.komainos.planificacion.dominio.algoritmo.PlanificacionImposibleException;
-import com.komainos.seguridad.dominio.AlcanceUsuario;
-import com.komainos.seguridad.dominio.Rol;
-import com.komainos.seguridad.dominio.ServicioUsuario;
-import com.komainos.seguridad.dominio.Usuario;
-import com.komainos.seguridad.dominio.UsuarioAutenticado;
-import com.komainos.shared.dominio.Actor;
+import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
+import com.komainos.inventario.model.DatosServidor;
+import com.komainos.inventario.model.DiaSemana;
+import com.komainos.inventario.model.FamiliaSistemaOperativo;
+import com.komainos.inventario.model.ModalidadPlanificacion;
+import com.komainos.inventario.model.ModoEjecucion;
+import com.komainos.inventario.model.NivelCriticidad.DatosNivelCriticidad;
+import com.komainos.inventario.service.ServicioCatalogos;
+import com.komainos.inventario.service.ServicioGrupo;
+import com.komainos.inventario.service.ServicioParametrosSistema.DatosParametros;
+import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.ServicioServidor.DatosConfiguracion;
+import com.komainos.inventario.service.ServicioServidor;
+import com.komainos.mantenimiento.model.EstadoDetalleOrden;
+import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.Orden;
+import com.komainos.mantenimiento.model.OrigenOrden;
+import com.komainos.mantenimiento.service.ServicioConsultaOrdenes;
+import com.komainos.planificacion.service.ServicioCronograma;
+import com.komainos.planificacion.service.ServicioPlanificacion;
+import com.komainos.planificacion.service.algoritmo.PlanificacionImposibleException;
+import com.komainos.seguridad.model.AlcanceUsuario;
+import com.komainos.seguridad.model.Rol;
+import com.komainos.seguridad.model.Usuario;
+import com.komainos.seguridad.model.UsuarioAutenticado;
+import com.komainos.seguridad.service.ServicioUsuario;
+import com.komainos.shared.model.Actor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,8 +43,8 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 
-import static com.komainos.inventario.dominio.DiaSemana.DOMINGO;
-import static com.komainos.inventario.dominio.DiaSemana.SABADO;
+import static com.komainos.inventario.model.DiaSemana.DOMINGO;
+import static com.komainos.inventario.model.DiaSemana.SABADO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -120,7 +120,7 @@ class PlanificacionIT extends PruebaIntegracion {
     }
 
     private List<Orden> ordenesDe(Integer idServidor) {
-        return consulta.listar(new com.komainos.mantenimiento.dominio.FiltroOrdenes(null, idServidor, null, null,
+        return consulta.listar(new com.komainos.mantenimiento.model.FiltroOrdenes(null, idServidor, null, null,
                 null, null, null), alcanceAdmin, org.springframework.data.domain.PageRequest.of(0, 50)).getContent();
     }
 

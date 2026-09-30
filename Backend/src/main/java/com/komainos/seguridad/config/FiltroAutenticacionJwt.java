@@ -1,6 +1,6 @@
 package com.komainos.seguridad.config;
 
-import com.komainos.seguridad.jwt.ServicioJwt;
+import com.komainos.seguridad.service.ServicioJwt;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

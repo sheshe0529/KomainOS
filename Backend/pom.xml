@@ -21,6 +21,7 @@
         <java.version>21</java.version>
         <springdoc.version>2.7.0</springdoc.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <archunit.version>1.4.1</archunit.version>
         <poi.version>5.4.1</poi.version>
     </properties>
 
@@ -115,6 +116,13 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Pruebas de arquitectura: verifican en cada mvn test la estructura por componente y capa (DEC-33). -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>${archunit.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

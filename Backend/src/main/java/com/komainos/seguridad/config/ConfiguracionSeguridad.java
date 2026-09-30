@@ -1,10 +1,10 @@
 package com.komainos.seguridad.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.komainos.seguridad.dominio.UsuarioAutenticado;
-import com.komainos.seguridad.infra.UsuarioRepositorio;
-import com.komainos.seguridad.jwt.ServicioJwt;
-import com.komainos.shared.api.ErrorRespuesta;
+import com.komainos.seguridad.model.UsuarioAutenticado;
+import com.komainos.seguridad.repository.UsuarioRepositorio;
+import com.komainos.seguridad.service.ServicioJwt;
+import com.komainos.shared.dto.ErrorRespuesta;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
