@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CalendarPlus, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
+import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { planificacionApi } from '@/api/planificacion'
 import type { OrdenResumenRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
@@ -14,7 +14,6 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { useConsulta } from '@/hooks/useConsulta'
 import { PUNTO_GRUPO, grupoCronograma } from '@/utils/etiquetas'
 import { claveDia, formatearMesAnio } from '@/utils/formato'
-import { textoDeError } from '@/utils/errores'
 
 const DIAS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
 
@@ -43,7 +42,6 @@ export function CronogramaPage() {
   const mes = mesDesdeParametro(parametros.get('mes'))
   const [eligiendo, setEligiendo] = useState(false)
   const [objetivo, setObjetivo] = useState<ObjetivoProgramacion>()
-  const [ejecutando, setEjecutando] = useState(false)
 
   const inicio = inicioDeGrilla(mes)
   const fin = new Date(inicio)
@@ -67,26 +65,6 @@ export function CronogramaPage() {
     setParametros({ mes: `${nuevo.getFullYear()}-${String(nuevo.getMonth() + 1).padStart(2, '0')}` })
   }
 
-  async function ejecutarPlanificacion() {
-    setEjecutando(true)
-    try {
-      const r = await planificacionApi.ejecutarPlanificacion()
-      const generadas = r.ordenesGeneradas?.length ?? 0
-      const sinIntervalo = r.sinIntervalo?.length ?? 0
-      avisar(
-        generadas === 0 && sinIntervalo === 0
-          ? 'No había ciclos automáticos pendientes de planificar.'
-          : `Planificación automática: ${generadas} orden(es) generada(s)${sinIntervalo ? `, ${sinIntervalo} sin intervalo disponible` : ''}.`,
-        sinIntervalo ? 'info' : 'exito',
-      )
-      ordenes.recargar()
-    } catch (e) {
-      avisar(textoDeError(e), 'error')
-    } finally {
-      setEjecutando(false)
-    }
-  }
-
   const hoy = claveDia(new Date())
   const celdas = Array.from({ length: 42 }, (_, i) => {
     const d = new Date(inicio)
@@ -101,22 +79,11 @@ export function CronogramaPage() {
         description="Vista mensual de las órdenes programadas. Seleccione un día para ver su distribución horaria."
         actions={
           <div className="flex items-center gap-2">
+            {/* La planificación automática la ejecuta el sistema por sí solo (RF27, DEC-36). */}
             {esAdmin && (
-              <>
-                {/* El proceso automático ya corre solo (cada 15 minutos por defecto) y al guardar una
-                    configuración; este botón lo adelanta, por ejemplo tras cambiar ventanas o parámetros. */}
-                <Boton
-                  icono={RefreshCw}
-                  onClick={ejecutarPlanificacion}
-                  cargando={ejecutando}
-                  title="Ejecuta en este momento la planificación automática: genera la orden del próximo ciclo de cada servidor y grupo en modalidad automática que aún no la tenga. El sistema lo hace solo cada 15 minutos."
-                >
-                  Planificar ahora
-                </Boton>
-                <Boton variante="primario" icono={CalendarPlus} onClick={() => setEligiendo(true)}>
-                  Programar
-                </Boton>
-              </>
+              <Boton variante="primario" icono={CalendarPlus} onClick={() => setEligiendo(true)}>
+                Programar
+              </Boton>
             )}
           </div>
         }

@@ -7,7 +7,6 @@ import type {
   ProgramarOrdenPeticion,
   PropuestaRespuesta,
   ReprogramarOrdenPeticion,
-  ResumenPlanificacionRespuesta,
 } from './types'
 
 export interface FiltroOrdenes {
@@ -55,5 +54,4 @@ export const planificacionApi = {
       `/planificacion/propuesta${consulta({ idServidor: objetivo.idServidor, idGrupo: objetivo.idGrupo, desde: desde?.toISOString() })}`,
     ),
   /** RF27/RF29: ejecuta ahora la planificación automática. */
-  ejecutarPlanificacion: () => http.post<ResumenPlanificacionRespuesta>('/planificacion/ejecuciones'),
 }
