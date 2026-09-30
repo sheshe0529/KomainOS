@@ -1,14 +1,15 @@
 -- =============================================================================
 -- Vacia los datos de negocio de la base de DESARROLLO de KomainOS.
 --
--- Conserva el esquema, el historial de Flyway y los datos iniciales de V2
--- (factor_ciclo y configuracion_sistema). El administrador inicial se vuelve a
--- crear al arrancar el backend si KOMAINOS_ADMIN_CLAVE_INICIAL esta definida.
+-- Conserva el esquema y los datos del sistema de 02_datos_sistema.sql
+-- (factor_ciclo y configuracion_sistema). Despues se puede cargar
+-- 03_datos_prueba.sql, o arrancar el backend: si no queda ningun administrador,
+-- lo crea con KOMAINOS_ADMIN_CLAVE_INICIAL (DEC-21).
 --
 -- NUNCA ejecutar en una base con datos reales: la auditoria es de solo
 -- insercion por diseño (RNF06) y este script la vacia.
 --
---   psql -h localhost -U postgres -d DBKomainOS -f scripts/limpiar_datos_desarrollo.sql
+--   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/limpiar_datos_desarrollo.sql
 -- =============================================================================
 BEGIN;
 SET LOCAL search_path TO "KomainOS";

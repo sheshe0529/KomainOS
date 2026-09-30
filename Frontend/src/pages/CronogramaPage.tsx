@@ -175,7 +175,7 @@ export function CronogramaPage() {
                     >
                       <span
                         className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-xs ${
-                          esHoy ? 'bg-accent font-semibold text-accent-ink' : fueraDeMes ? 'text-ink-faint' : 'text-ink-soft'
+                          esHoy ? 'bg-accent font-semibold text-accent-ink ring-2 ring-detail' : fueraDeMes ? 'text-ink-faint' : 'text-ink-soft'
                         }`}
                       >
                         {d.getDate()}

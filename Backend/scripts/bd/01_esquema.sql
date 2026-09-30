@@ -1,19 +1,21 @@
 -- =============================================================================
--- V1 - Esquema vigente de KomainOS (48 tablas, 30 enumerados, 78 claves foraneas)
+-- 01 - Esquema de KomainOS (48 tablas, 30 enumerados, 78 claves foraneas)
 --
 -- Reproduce exactamente el esquema "KomainOS" de la base DBKomainOS, extraido
--- con pg_dump --schema-only el 2026-09-26. Es la fuente de verdad del modelo
--- (Registro de decisiones DEC-02): coincide con el diccionario de datos R2.4,
--- incluidas las restricciones ck_configuracion_sistema_unico,
--- ck_ventana_intervalo y uq_regla_politica_cambio que faltan en
--- Documentos/Docs/DDL_KOMAINOS.sql.
+-- con pg_dump --schema-only el 2026-09-26. Es el esquema con el que trabaja el
+-- backend (DEC-02, DEC-34): coincide con el diccionario de datos R2.4, incluidas
+-- las restricciones ck_configuracion_sistema_unico, ck_ventana_intervalo y
+-- uq_regla_politica_cambio, y difiere de Documentos/Docs/DDL_KOMAINOS.sql, que
+-- usa el esquema public y otros nombres de enumerados.
 --
--- En DBKomainOS esta migracion NO se ejecuta: Flyway hace baseline en la
--- version 1 porque el esquema ya existia (DEC-05). En una base nueva crea el
--- esquema completo. El esquema lo crea Flyway (spring.flyway.schemas).
+-- Uso, sobre una base vacia:
+--   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/01_esquema.sql
+--   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/02_datos_sistema.sql
 --
--- Una migracion aplicada nunca se edita: cualquier cambio va en V2, V3...
+-- Las pruebas de integracion lo ejecutan sobre dbkomainos_test en cada corrida.
 -- =============================================================================
+
+CREATE SCHEMA IF NOT EXISTS "KomainOS";
 
 CREATE TYPE "KomainOS".enum_dia_semana AS ENUM (
     'LUNES',

@@ -17,9 +17,16 @@
   --color-ink-soft: #64748b;
   --color-ink-faint: #98a2b3;
 
-  --color-accent: #5046e5;
+  /* Color institucional (logo): azul marino #063061. Texto y botones
+     principales; 13:1 sobre blanco. */
+  --color-accent: #063061;
   --color-accent-ink: #ffffff;
-  --color-accent-soft: #eeedfd;
+  --color-accent-soft: #e6ecf4;
+
+  /* Cian del logo: SOLO para detalles decorativos (indicadores, marcas,
+     líneas finas), nunca como color principal ni como texto sobre fondo
+     claro (1,6:1 sobre blanco). */
+  --color-detail: #00dffb;
 
   --color-success: #12925a;
   --color-success-soft: #e6f6ee;
@@ -28,8 +35,9 @@
   --color-danger: #d92d20;
   --color-danger-soft: #fdeceb;
 
-  /* Serie unica de los graficos (validada con dataviz/validate_palette.js). */
-  --color-serie-1: #5046e5;
+  /* Serie unica de los graficos: el matiz del azul institucional con la
+     luminosidad que exige dataviz/validate_palette.js (sobre #ffffff). */
+  --color-serie-1: #1859a7;
 }
 
 /* Paleta oscura: mismos nombres de variable, valores distintos.
@@ -44,9 +52,13 @@
   --color-ink-soft: #97a2b8;
   --color-ink-faint: #5d6780;
 
-  --color-accent: #8b85ff;
+  /* El #063061 no se distingue sobre fondo oscuro: mismo matiz, aclarado
+     (7,2:1 sobre el panel). */
+  --color-accent: #74a9e7;
   --color-accent-ink: #0b0f19;
-  --color-accent-soft: rgba(139, 133, 255, 0.16);
+  --color-accent-soft: rgba(116, 169, 231, 0.16);
+
+  --color-detail: #00dffb;
 
   --color-success: #3ecf8e;
   --color-success-soft: rgba(62, 207, 142, 0.12);
@@ -55,7 +67,8 @@
   --color-danger: #f0685f;
   --color-danger-soft: rgba(240, 104, 95, 0.12);
 
-  --color-serie-1: #7c74f5;
+  /* Validada con dataviz/validate_palette.js sobre el panel #131826. */
+  --color-serie-1: #518ad6;
 }
 
 @layer base {

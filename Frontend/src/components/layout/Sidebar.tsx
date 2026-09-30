@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { isNavGroup, navegacionPara, type NavGroup, type NavItem, type NavLeaf } from '@/config/navigation'
 import { useSesion } from '@/auth/sesion-context'
+import { Logo } from '@/components/common/Logo'
 
 interface SidebarProps {
   collapsed: boolean
@@ -63,8 +64,11 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
   }
 
   function leafClasses({ isActive }: { isActive: boolean }) {
-    return `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-      isActive ? 'bg-accent-soft text-accent' : 'text-ink-soft hover:bg-panel-muted hover:text-ink'
+    // El cian del logo marca la sección activa como detalle; el fondo y el color del texto ya la distinguen.
+    return `relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+      isActive
+        ? 'bg-accent-soft text-accent before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-detail'
+        : 'text-ink-soft hover:bg-panel-muted hover:text-ink'
     }`
   }
 
@@ -142,9 +146,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
           {/* Con el menú colapsado no caben el logo y el botón lado a lado:
               en escritorio el propio logo pasa a ser el botón de expandir. */}
           <div className={`flex min-w-0 items-center gap-2 ${collapsed ? 'lg:hidden' : ''}`}>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-ink">
-              K
-            </span>
+            <Logo decorativo className="h-9 w-9 shrink-0" />
             <span className="truncate font-semibold text-ink">KomainOS</span>
           </div>
 
@@ -162,9 +164,9 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
               onClick={onToggleCollapsed}
               aria-label="Expandir menú"
               title="Expandir menú"
-              className="group relative hidden h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-ink lg:flex"
+              className="group relative hidden h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-panel-muted hover:text-ink lg:flex"
             >
-              <span className="transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0">K</span>
+              <Logo decorativo className="h-9 w-9 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
               <PanelLeftOpen
                 className="absolute h-[18px] w-[18px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
                 aria-hidden="true"

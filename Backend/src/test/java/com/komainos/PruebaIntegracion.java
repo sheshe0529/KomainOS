@@ -1,7 +1,9 @@
 package com.komainos;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
+import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer;
+import org.springframework.boot.sql.init.DatabaseInitializationMode;
+import org.springframework.boot.sql.init.DatabaseInitializationSettings;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -11,17 +13,21 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import javax.sql.DataSource;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 
 /**
  * Base de las pruebas de integracion (*IT): contexto completo contra el
  * PostgreSQL local, base {@code dbkomainos_test}, esquema {@code KomainOS}.
  *
- * <p>Que el contexto arranque ya prueba algo: Flyway aplico V1 y V2 sobre un
- * esquema vacio y Hibernate valido que las entidades coinciden con las tablas.
- * El esquema se limpia al crear el contexto (DEC-22); nunca apunta a DBKomainOS.
+ * <p>Que el contexto arranque ya prueba algo: el esquema se recreo con
+ * scripts/bd/01_esquema.sql y 02_datos_sistema.sql, los mismos con los que se
+ * crea una base nueva, y Hibernate valido que las entidades coinciden con las
+ * tablas (DEC-22, DEC-34). Nunca apunta a DBKomainOS.
  *
  * <p>El reloj de los servicios queda fijo en {@link #AHORA} (lunes 2026-09-28
  * 09:00 en Lima) para que la planificacion sea reproducible.
@@ -38,7 +44,7 @@ public abstract class PruebaIntegracion {
     protected JdbcTemplate jdbc;
 
     /**
-     * Vacia los datos de negocio conservando los datos iniciales de V2. Lo usan
+     * Vacia los datos de negocio conservando los de 02_datos_sistema.sql. Lo usan
      * las pruebas que no pueden envolverse en una transaccion porque ejercitan
      * transacciones propias (procesos automaticos, eventos tras confirmar).
      */
@@ -63,28 +69,52 @@ public abstract class PruebaIntegracion {
     static class ConfiguracionPruebas {
 
         @Bean
-        FlywayMigrationStrategy limpiarYMigrar() {
-            return flyway -> {
-                // Salvaguarda: clean() borra todo el esquema. Nunca sobre una base
-                // que no sea explicitamente de pruebas.
-                try (var conexion = flyway.getConfiguration().getDataSource().getConnection()) {
-                    String base = conexion.getCatalog();
-                    if (base == null || !base.toLowerCase().contains("test")) {
-                        throw new IllegalStateException(
-                                "Las pruebas de integracion solo limpian bases de pruebas; se intento usar " + base);
-                    }
-                } catch (java.sql.SQLException ex) {
-                    throw new IllegalStateException(ex);
-                }
-                flyway.clean();
-                flyway.migrate();
-            };
+        InicializadorBaseDePruebas inicializadorBaseDePruebas(DataSource dataSource) {
+            return new InicializadorBaseDePruebas(dataSource);
         }
 
         @Bean
         @Primary
         Clock relojFijo() {
             return Clock.fixed(AHORA, ZoneOffset.UTC);
+        }
+    }
+
+    /**
+     * Recrea el esquema de pruebas con los scripts de scripts/bd, que son los
+     * mismos que crean una base nueva (DEC-34). Spring Boot lo ejecuta antes de
+     * iniciar JPA, de modo que Hibernate valida las entidades contra ese esquema.
+     */
+    static class InicializadorBaseDePruebas extends DataSourceScriptDatabaseInitializer {
+
+        private final DataSource dataSource;
+
+        InicializadorBaseDePruebas(DataSource dataSource) {
+            super(dataSource, ajustes());
+            this.dataSource = dataSource;
+        }
+
+        private static DatabaseInitializationSettings ajustes() {
+            DatabaseInitializationSettings ajustes = new DatabaseInitializationSettings();
+            ajustes.setSchemaLocations(List.of("file:scripts/bd/01_esquema.sql"));
+            ajustes.setDataLocations(List.of("file:scripts/bd/02_datos_sistema.sql"));
+            ajustes.setMode(DatabaseInitializationMode.ALWAYS);
+            ajustes.setEncoding(StandardCharsets.UTF_8);
+            return ajustes;
+        }
+
+        @Override
+        public boolean initializeDatabase() {
+            JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+            // Salvaguarda: se borra el esquema completo. Nunca sobre una base
+            // que no sea explicitamente de pruebas.
+            String base = jdbc.queryForObject("select current_database()", String.class);
+            if (base == null || !base.toLowerCase().contains("test")) {
+                throw new IllegalStateException(
+                        "Las pruebas de integracion solo recrean bases de pruebas; se intento usar " + base);
+            }
+            jdbc.execute("DROP SCHEMA IF EXISTS \"KomainOS\" CASCADE");
+            return super.initializeDatabase();
         }
     }
 }

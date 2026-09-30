@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import { useSesion } from '@/auth/sesion-context'
+import { Logo } from '@/components/common/Logo'
 import { Boton } from '@/components/ui/Boton'
 import { Campo, Entrada } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
@@ -42,9 +43,10 @@ export function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center bg-canvas px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-xl font-bold text-accent-ink">K</span>
+          <Logo decorativo className="h-24 w-24" />
           <div>
             <h1 className="text-2xl font-semibold text-ink">KomainOS</h1>
+            <span className="mx-auto mt-2 block h-1 w-10 rounded-full bg-detail" aria-hidden="true" />
             <p className="mt-1 text-sm text-ink-soft">Gestión automatizada del mantenimiento de servidores virtuales</p>
           </div>
         </div>

@@ -1,9 +1,11 @@
 -- =============================================================================
--- V2 - Datos iniciales que el sistema necesita para operar (DEC-21)
+-- 02 - Datos que el sistema necesita para operar (DEC-21, DEC-34)
 --
--- Solo se siembran valores con respaldo documental o parametros globales sin
--- los cuales la planificacion no puede funcionar. Los catalogos de negocio
--- (entornos, criticidades, sistemas operativos) los registra el administrador.
+-- Solo valores con respaldo documental o parametros globales sin los cuales la
+-- planificacion no puede funcionar. Se ejecuta una vez, despues de 01_esquema.sql;
+-- es idempotente (ON CONFLICT DO NOTHING). Los catalogos de negocio (entornos,
+-- criticidades, sistemas operativos) los registra el administrador o el script
+-- de datos de prueba 03.
 -- =============================================================================
 
 -- RF64: factor que ajusta la periodicidad base segun el resultado del ciclo.

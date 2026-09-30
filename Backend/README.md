@@ -1,25 +1,34 @@
 # KomainOS — backend
 
 API REST del sistema de gestión automatizada del mantenimiento de servidores
-virtuales. Java 21, Spring Boot 3.4, PostgreSQL 18, Flyway.
+virtuales. Java 21, Spring Boot 3.4, PostgreSQL 18.
 
 ## Puesta en marcha
 
+El backend se conecta directamente a una base existente: no crea ni modifica
+tablas (DEC-34). La base se prepara una vez con los scripts de `scripts/bd/`.
+
 1. Crear las bases en el PostgreSQL local (puerto 5432):
    - `DBKomainOS` — desarrollo.
-   - `dbkomainos_test` — pruebas de integración. Flyway **limpia** su esquema en cada corrida (DEC-22).
-2. Copiar `.env.example` a `.env` y completar la clave de la base, el secreto JWT
+   - `dbkomainos_test` — pruebas de integración. Las pruebas **borran y recrean**
+     su esquema `KomainOS` en cada corrida (DEC-22).
+2. Crear el esquema y los datos del sistema en `DBKomainOS` (solo si la base está vacía):
+   ```bash
+   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/01_esquema.sql
+   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/02_datos_sistema.sql
+   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/03_datos_prueba.sql   # opcional
+   ```
+3. Copiar `.env.example` a `.env` y completar la clave de la base, el secreto JWT
    (`openssl rand -base64 32`) y la contraseña del administrador inicial. El archivo
    `.env` está ignorado por git: ningún secreto se versiona (RNF03).
-3. Arrancar:
+4. Arrancar:
    ```bash
    mvn spring-boot:run -Dspring-boot.run.profiles=dev
    ```
 
-Flyway aplica las migraciones al arrancar (`V1` es el esquema vigente del
-modelo relacional; `V2`, los datos iniciales del sistema). Si el esquema y las
-entidades no coinciden, la aplicación no arranca: es intencional
-(`spring.jpa.hibernate.ddl-auto: validate`).
+Al arrancar, Hibernate comprueba que las entidades coinciden con las tablas
+(`spring.jpa.hibernate.ddl-auto: validate`). Si no coinciden, la aplicación no
+arranca: es intencional, para detectar de inmediato una base desactualizada.
 
 - API: http://localhost:8081/api
 - Documentación navegable: http://localhost:8081/swagger-ui.html
@@ -28,12 +37,17 @@ entidades no coinciden, la aplicación no arranca: es intencional
 El puerto 8081 evita el 8080, ocupado en la máquina de desarrollo (DEC-29);
 se cambia con `KOMAINOS_PUERTO`.
 
-### Scripts de desarrollo
+### Scripts de base de datos (`scripts/bd/`)
 
 | Script | Uso |
 |---|---|
-| `scripts/cargar_datos_ejemplo.py` | Carga usuarios, catálogos, servidores y grupos de ejemplo a través de la API. Idempotente. |
-| `scripts/limpiar_datos_desarrollo.sql` | Vacía los datos de negocio de `DBKomainOS` conservando el esquema. Solo para desarrollo. |
+| `01_esquema.sql` | Crea el esquema `KomainOS` completo (48 tablas, 30 enumerados). Es el esquema real de `DBKomainOS`; `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
+| `02_datos_sistema.sql` | Datos sin los cuales el sistema no opera: factores de ciclo y parámetros globales. Idempotente. |
+| `03_datos_prueba.sql` | Datos de demostración: un usuario por rol (contraseña `Cambiar.2026`), catálogos, 8 servidores con ventanas y configuración, un grupo, órdenes en distintos estados y una baja. Las fechas de las órdenes se calculan al ejecutarlo. Solo sobre una base sin datos de negocio. |
+| `limpiar_datos_desarrollo.sql` | Vacía los datos de negocio conservando el esquema y los datos del sistema, para volver a cargar `03`. Solo para desarrollo. |
+
+`scripts/cargar_datos_ejemplo.py` es una alternativa anterior que carga un
+conjunto parecido a través de la API REST, con el backend corriendo.
 
 ## Ciclo de verificación
 
@@ -42,9 +56,11 @@ mvn test                      # unitarias + slices web. Sin base de datos.
 mvn verify -Pintegracion      # + integración (*IT) contra dbkomainos_test
 ```
 
-`mvn test` es la señal de cada cambio. Las pruebas `*IT` levantan el contexto
-completo: que arranquen ya prueba que Flyway migró y que las entidades
-coinciden con las tablas.
+`mvn test` es la señal de cada cambio: incluye las reglas de arquitectura
+(`ArquitecturaTest`). Las pruebas `*IT` recrean el esquema de `dbkomainos_test`
+con `01_esquema.sql` y `02_datos_sistema.sql` y levantan el contexto completo:
+que arranquen ya prueba que los scripts crean una base válida y que las
+entidades coinciden con las tablas.
 
 ## Estructura
 

@@ -13,7 +13,7 @@ cada decisión tomada ante un vacío o una contradicción de la documentación, 
 ## Estructura
 
 ```
-Backend/      API REST — Java 21, Spring Boot 3, PostgreSQL, Flyway
+Backend/      API REST — Java 21, Spring Boot 3, PostgreSQL (scripts de base de datos en Backend/scripts/bd)
 Frontend/     Panel web — React 19, Vite, TypeScript, Tailwind CSS 4
 Documentos/
 ├── Docs/         especificación (fuente de verdad): requisitos, arquitectura, diseño, modelo relacional
@@ -26,7 +26,9 @@ UI_preliminar/    pantallas preliminares de referencia
 Requisitos: Java 21, Maven 3.9, Node.js 20 o superior y PostgreSQL 18.
 
 1. **Bases de datos.** Crear `DBKomainOS` (desarrollo) y, para las pruebas de integración, `dbkomainos_test`.
-   Flyway crea el esquema `KomainOS` al arrancar; sobre una base existente toma el esquema vigente como línea base.
+   En una `DBKomainOS` vacía, ejecutar `Backend/scripts/bd/01_esquema.sql`, `02_datos_sistema.sql` y, si se
+   quieren datos de demostración, `03_datos_prueba.sql` (usuarios con contraseña `Cambiar.2026`).
+   El backend se conecta a la base existente y no modifica su estructura.
 2. **Backend.** Copiar `Backend/.env.example` a `Backend/.env`, completar las claves y ejecutar:
    ```bash
    cd Backend
@@ -39,6 +41,5 @@ Requisitos: Java 21, Maven 3.9, Node.js 20 o superior y PostgreSQL 18.
    npm run dev                                            # http://localhost:5180
    ```
    Vite reenvía `/api` al backend, así que no hace falta configurar CORS en desarrollo.
-4. **Datos de ejemplo (opcional).** Con el backend corriendo: `python Backend/scripts/cargar_datos_ejemplo.py`.
 
 El detalle de cada parte está en [`Backend/README.md`](Backend/README.md) y [`Frontend/README.md`](Frontend/README.md).
