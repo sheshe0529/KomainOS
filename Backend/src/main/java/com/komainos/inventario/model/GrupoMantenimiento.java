@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -22,10 +23,11 @@ import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Grupo de servidores que se mantienen de forma coordinada (RF20), tabla
@@ -64,8 +66,15 @@ public class GrupoMantenimiento {
     @Column(name = "fecha_actualizacion", nullable = false)
     private Instant fechaActualizacion;
 
+    /**
+     * Conjunto y no lista: la ficha y la planificacion cargan los integrantes
+     * junto con la ventana de cada servidor, y esa consulta repite al
+     * integrante una vez por intervalo de ventana. En una lista aparecerian
+     * duplicados; en un conjunto, cada integrante una sola vez.
+     */
     @OneToMany(mappedBy = "grupo", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<GrupoServidor> integrantes = new ArrayList<>();
+    @OrderBy("fechaIncorporacion ASC, id ASC")
+    private Set<GrupoServidor> integrantes = new LinkedHashSet<>();
 
     public static GrupoMantenimiento nuevo(String nombre, String descripcion) {
         GrupoMantenimiento grupo = new GrupoMantenimiento();

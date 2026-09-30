@@ -59,7 +59,7 @@ public final class DatosPrueba {
         Servidor s = Servidor.nuevo();
         s.setId(id);
         s.setHostname(hostname);
-        s.setDireccionIp("10.0.0." + id);
+        s.reemplazarDirecciones("10.0.0." + id, List.of());
         s.setResponsable(responsable);
         s.setEntorno(entorno(1, "Producción"));
         s.setNivelCriticidad(criticidad(1, "Alta", 1));

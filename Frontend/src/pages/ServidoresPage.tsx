@@ -45,6 +45,12 @@ interface ColumnaServidor extends DefinicionColumna {
 
 const texto = (valor?: string) => <span className="text-ink-soft">{valor ?? '—'}</span>
 
+const recurso = (valor?: number, unidad?: string) => (
+  <span className="whitespace-nowrap font-mono text-xs tabular-nums text-ink-soft">
+    {valor === undefined || valor === null ? '—' : `${valor.toLocaleString('es-PE')}${unidad ? ` ${unidad}` : ''}`}
+  </span>
+)
+
 /**
  * Columnas del inventario (RF11, DEC-32). Las ocultas por defecto se agregan
  * desde el botón «Columnas»; servidor y acciones siempre se muestran.
@@ -60,7 +66,17 @@ const COLUMNAS: ColumnaServidor[] = [
         <Link to={`/servidores/${s.id}`} className="font-mono text-sm font-medium text-ink hover:text-accent">
           {s.hostname}
         </Link>
-        <p className="font-mono text-xs text-ink-faint">{s.direccionIp}</p>
+        <p className="font-mono text-xs text-ink-faint">
+          {s.direccionIp}
+          {(s.cantidadDireccionesIp ?? 1) > 1 && (
+            <span
+              className="ml-1.5 rounded bg-panel-muted px-1 font-sans text-[10px] text-ink-soft"
+              title={`${(s.cantidadDireccionesIp ?? 1) - 1} dirección(es) IP adicional(es); ver la ficha`}
+            >
+              +{(s.cantidadDireccionesIp ?? 1) - 1}
+            </span>
+          )}
+        </p>
       </>
     ),
   },
@@ -78,12 +94,12 @@ const COLUMNAS: ColumnaServidor[] = [
       ),
   },
   {
-    id: 'datacenter',
-    etiqueta: 'Datacenter',
-    orden: 'datacenter',
+    id: 'vdc',
+    etiqueta: 'VDC',
+    orden: 'vdc',
     celda: (s, { ve }) => (
       <>
-        <p className="text-ink">{s.datacenter ?? '—'}</p>
+        <p className="text-ink">{s.vdc ?? '—'}</p>
         {/* Si el servidor físico no tiene columna propia, se muestra aquí. */}
         {!ve('servidorFisico') && <p className="text-xs text-ink-faint">{s.servidorFisico ?? ''}</p>}
       </>
@@ -101,6 +117,9 @@ const COLUMNAS: ColumnaServidor[] = [
   },
   { id: 'plataforma', etiqueta: 'Plataforma', ocultaPorDefecto: true, orden: 'plataforma', celda: (s) => texto(s.plataforma) },
   { id: 'sistemaOperativo', etiqueta: 'Sistema operativo', celda: (s) => texto(s.versionSistemaOperativo?.nombre) },
+  { id: 'cpu', etiqueta: 'CPU', ocultaPorDefecto: true, orden: 'cantidadCpu', celda: (s) => recurso(s.cantidadCpu) },
+  { id: 'ram', etiqueta: 'RAM', ocultaPorDefecto: true, orden: 'ramGb', celda: (s) => recurso(s.ramGb, 'GB') },
+  { id: 'disco', etiqueta: 'Disco', ocultaPorDefecto: true, orden: 'hdVirtualGb', celda: (s) => recurso(s.hdVirtualGb, 'GB') },
   { id: 'entorno', etiqueta: 'Entorno', orden: 'entorno.nombre', celda: (s) => texto(s.entorno?.nombre) },
   {
     id: 'criticidad',
@@ -248,7 +267,7 @@ export function ServidoresPage() {
               type="search"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por host, IP, DNS, datacenter o responsable"
+              placeholder="Buscar por host, IP, DNS, VDC o responsable"
               aria-label="Buscar servidores"
               className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
             />

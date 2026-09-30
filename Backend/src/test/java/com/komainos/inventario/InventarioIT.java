@@ -83,7 +83,7 @@ class InventarioIT extends PruebaIntegracion {
 
     private Servidor crearServidor(String hostname, String ip, Integer idCriticidad, Usuario dueno) {
         return servidores.crear(new DatosServidor(hostname, ip, "DC-Norte", "esx-01", "VLAN 220", "cl-app", null,
-                idVersion, "VMware", idEntorno, idCriticidad, dueno.getId(), null), Actor.usuario(admin.getId()));
+                idVersion, "VMware", idEntorno, idCriticidad, dueno.getId(), null, List.of(), null, null, null), Actor.usuario(admin.getId()));
     }
 
     private static IntervaloSemanal ventana(com.komainos.inventario.model.DiaSemana di, String hi,
@@ -120,13 +120,16 @@ class InventarioIT extends PruebaIntegracion {
     }
 
     @Test
-    @DisplayName("RF21/RF76: el grupo toma la mayor criticidad y la intersección de ventanas")
+    @DisplayName("RF21/RF76: el grupo toma la mayor criticidad y la intersección de ventanas; cada integrante una vez")
     void grupoDerivaCriticidadYVentana() {
         AlcanceUsuario alcanceAdmin = new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR);
         Servidor a = crearServidor("srv-db-01", "10.20.2.10", idMedia, responsable);
         Servidor b = crearServidor("srv-db-02", "10.20.2.11", idAlta, responsable);
-        servidores.reemplazarVentanas(a.getId(), List.of(ventana(SABADO, "00:00", SABADO, "06:00")), alcanceAdmin);
-        servidores.reemplazarVentanas(b.getId(), List.of(ventana(SABADO, "02:00", SABADO, "08:00")), alcanceAdmin);
+        // Varios intervalos por servidor: la consulta de la ficha repite cada integrante una vez por intervalo.
+        servidores.reemplazarVentanas(a.getId(), List.of(ventana(SABADO, "00:00", SABADO, "06:00"),
+                ventana(DOMINGO, "01:00", DOMINGO, "03:00"), ventana(DOMINGO, "10:00", DOMINGO, "11:00")), alcanceAdmin);
+        servidores.reemplazarVentanas(b.getId(), List.of(ventana(SABADO, "02:00", SABADO, "08:00"),
+                ventana(DOMINGO, "00:00", DOMINGO, "04:00")), alcanceAdmin);
         Integer idGrupo = grupos.crear("Grupo DB IT", null, alcanceAdmin.actor()).getId();
         grupos.reemplazarIntegrantes(idGrupo, List.of(a.getId(), b.getId()), alcanceAdmin.actor());
         grupos.configurar(idGrupo, new ServicioGrupo.DatosConfiguracionGrupo(null, null,
@@ -137,7 +140,9 @@ class InventarioIT extends PruebaIntegracion {
         var ficha = grupos.ficha(idGrupo, alcanceAdmin);
 
         assertThat(ficha.criticidadEfectiva()).get().satisfies(n -> assertThat(n.getId()).isEqualTo(idAlta));
-        assertThat(ficha.ventanaEfectiva()).containsExactly(ventana(SABADO, "02:00", SABADO, "06:00"));
+        assertThat(ficha.ventanaEfectiva()).containsExactly(ventana(SABADO, "02:00", SABADO, "06:00"),
+                ventana(DOMINGO, "01:00", DOMINGO, "03:00"));
+        assertThat(ficha.grupo().servidores()).extracting(Servidor::getHostname).containsExactly("srv-db-01", "srv-db-02");
         assertThat(ficha.configuracion()).get()
                 .satisfies(c -> assertThat(c.getFrecuenciaMantenimientoDias()).isEqualTo(30));
     }
@@ -192,6 +197,61 @@ class InventarioIT extends PruebaIntegracion {
         });
         assertThat(ficha.reactivaciones()).singleElement()
                 .satisfies(r -> assertThat(r.usuario().getCodigo()).isEqualTo("admin.it"));
+    }
+
+    @Test
+    @DisplayName("DEC-37: varias IP por servidor con una principal; se busca por cualquiera y ninguna se comparte")
+    void variasDireccionesIp() throws Exception {
+        UsuarioAutenticado comoAdmin = new UsuarioAutenticado(admin);
+        String cuerpo = """
+                {"hostname":"srv-multi-01","direccionIp":"10.60.0.1","direccionesIpAdicionales":["10.60.1.1","FE80::A"],
+                 "vdc":"VDC-Norte","cantidadCpu":8,"ramGb":32.5,"hdVirtualGb":500,
+                 "idVersionSistemaOperativo":%d,"idEntorno":%d,"idNivelCriticidad":%d,"idResponsable":%d}
+                """.formatted(idVersion, idEntorno, idMedia, responsable.getId());
+        mockMvc.perform(post("/api/servidores").with(user(comoAdmin))
+                        .contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.direccionIp").value("10.60.0.1"))
+                .andExpect(jsonPath("$.direccionesIp.length()").value(3))
+                .andExpect(jsonPath("$.direccionesIp[0].direccion").value("10.60.0.1"))
+                .andExpect(jsonPath("$.direccionesIp[0].principal").value(true))
+                .andExpect(jsonPath("$.vdc").value("VDC-Norte"))
+                .andExpect(jsonPath("$.cantidadCpu").value(8))
+                .andExpect(jsonPath("$.ramGb").value(32.5));
+        em.flush();
+        Integer id = jdbc.queryForObject("select id_servidor from servidor where hostname = 'srv-multi-01'", Integer.class);
+        // Las IPv6 se guardan en minúsculas.
+        assertThat(jdbc.queryForList("select direccion from direccion_ip where id_servidor = ? and not principal",
+                String.class, id)).containsExactlyInAnyOrder("10.60.1.1", "fe80::a");
+
+        // La búsqueda encuentra el servidor por una IP adicional; el listado muestra la principal.
+        mockMvc.perform(get("/api/servidores").param("texto", "10.60.1").with(user(comoAdmin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElementos").value(1))
+                .andExpect(jsonPath("$.contenido[0].direccionIp").value("10.60.0.1"))
+                .andExpect(jsonPath("$.contenido[0].cantidadDireccionesIp").value(3));
+
+        // Una IP, un servidor: ni como principal ni como adicional de otro.
+        String otro = cuerpo.replace("srv-multi-01", "srv-multi-02").replace("\"10.60.0.1\"", "\"10.60.1.1\"")
+                .replace("[\"10.60.1.1\",\"FE80::A\"]", "[]");
+        mockMvc.perform(post("/api/servidores").with(user(comoAdmin))
+                        .contentType(MediaType.APPLICATION_JSON).content(otro))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("srv-multi-01")));
+
+        // Cambiar la principal conserva la dirección como registro (no se borra y vuelve a crear).
+        Integer idAdicional = jdbc.queryForObject(
+                "select id_direccion_ip from direccion_ip where direccion = '10.60.1.1'", Integer.class);
+        String edicion = cuerpo.replace("\"direccionIp\":\"10.60.0.1\"", "\"direccionIp\":\"10.60.1.1\"")
+                .replace("[\"10.60.1.1\",\"FE80::A\"]", "[\"10.60.0.1\"]");
+        mockMvc.perform(put("/api/servidores/" + id).with(user(comoAdmin))
+                        .contentType(MediaType.APPLICATION_JSON).content(edicion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.direccionIp").value("10.60.1.1"))
+                .andExpect(jsonPath("$.direccionesIp.length()").value(2));
+        em.flush();
+        assertThat(jdbc.queryForObject("select id_direccion_ip from direccion_ip where principal and id_servidor = ?",
+                Integer.class, id)).isEqualTo(idAdicional);
     }
 
     @Test

@@ -5,12 +5,14 @@ import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.inventario.event.ConfiguracionMantenimientoActualizada;
 import com.komainos.inventario.model.ConfiguracionServidor;
 import com.komainos.inventario.model.DatosServidor;
+import com.komainos.inventario.model.DireccionIp;
 import com.komainos.inventario.model.EstadoServidor;
 import com.komainos.inventario.model.EstadoSolicitudBaja;
 import com.komainos.inventario.model.GrupoMantenimiento;
 import com.komainos.inventario.model.ModalidadPlanificacion;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
+import com.komainos.inventario.repository.DireccionIpRepositorio;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
 import com.komainos.inventario.repository.SolicitudBajaRepositorio;
@@ -32,6 +34,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -54,6 +57,7 @@ import static org.mockito.Mockito.when;
 class ServicioServidorTest {
 
     @Mock ServidorRepositorio servidores;
+    @Mock DireccionIpRepositorio direccionesIp;
     @Mock ConfiguracionServidorRepositorio configuraciones;
     @Mock SolicitudBajaRepositorio solicitudesBaja;
     @Mock GrupoMantenimientoRepositorio grupos;
@@ -70,7 +74,7 @@ class ServicioServidorTest {
     @BeforeEach
     void preparar() {
         Clock reloj = Clock.fixed(Instant.parse("2026-09-27T12:00:00Z"), ZoneOffset.UTC);
-        servicio = new ServicioServidor(servidores, configuraciones, solicitudesBaja, grupos, usuarios, catalogos,
+        servicio = new ServicioServidor(servidores, direccionesIp, configuraciones, solicitudesBaja, grupos, usuarios, catalogos,
                 mantenimientos, auditoria, eventos, reloj);
         lenient().when(catalogos.obtenerVersion(1)).thenReturn(DatosPrueba.version(1, "Ubuntu", "22.04"));
         lenient().when(catalogos.obtenerEntorno(1)).thenReturn(DatosPrueba.entorno(1, "Producción"));
@@ -79,7 +83,12 @@ class ServicioServidorTest {
     }
 
     private static DatosServidor datos(String hostname, String ip, int idResponsable) {
-        return new DatosServidor(hostname, ip, "DC-Norte", null, null, null, null, 1, null, 1, 1, idResponsable, null);
+        return datos(hostname, ip, List.of(), idResponsable);
+    }
+
+    private static DatosServidor datos(String hostname, String ip, List<String> adicionales, int idResponsable) {
+        return new DatosServidor(hostname, ip, "VDC-Norte", null, null, null, null, 1, null, 1, 1, idResponsable, null,
+                adicionales, 4, new BigDecimal("16"), new BigDecimal("120.5"));
     }
 
     @Nested
@@ -97,12 +106,40 @@ class ServicioServidorTest {
         }
 
         @Test
-        @DisplayName("rechaza una dirección IP ya registrada")
-        void rechazaIpDuplicada() {
-            when(servidores.existsByDireccionIp("10.20.1.11")).thenReturn(true);
-            assertThatThrownBy(() -> servicio.crear(datos("srv-app-02", "10.20.1.11", 5), admin))
+        @DisplayName("DEC-37: rechaza una dirección IP que ya pertenece a otro servidor, aunque sea adicional")
+        void rechazaIpDeOtroServidor() {
+            Servidor otro = DatosPrueba.servidor(7, "srv-otro-01", responsable);
+            otro.reemplazarDirecciones("10.20.1.99", List.of("10.20.1.11"));
+            DireccionIp usada = otro.getDirecciones().stream()
+                    .filter(d -> d.getDireccion().equals("10.20.1.11")).findFirst().orElseThrow();
+            when(direccionesIp.findByDireccionIn(any())).thenReturn(List.of(usada));
+
+            assertThatThrownBy(() -> servicio.crear(datos("srv-app-02", "10.20.1.50", List.of("10.20.1.11"), 5), admin))
                     .isInstanceOf(ConflictoException.class)
-                    .hasMessageContaining("10.20.1.11");
+                    .hasMessageContaining("10.20.1.11")
+                    .hasMessageContaining("srv-otro-01");
+            verify(servidores, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("DEC-37: rechaza una dirección IP repetida en el mismo servidor")
+        void rechazaIpRepetida() {
+            assertThatThrownBy(() -> servicio.crear(datos("srv-app-02", "10.20.1.50", List.of("10.20.1.50"), 5), admin))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessageContaining("10.20.1.50 está repetida");
+        }
+
+        @Test
+        @DisplayName("DEC-37: registra la IP principal, las adicionales, el VDC y los recursos")
+        void registraDireccionesYRecursos() {
+            Servidor creado = servicio.crear(datos("srv-app-02", "10.20.1.50", List.of("10.99.0.50", "FE80::1"), 5), admin);
+
+            assertThat(creado.getDireccionIp()).isEqualTo("10.20.1.50");
+            assertThat(creado.direccionesAdicionales()).containsExactly("10.99.0.50", "fe80::1");
+            assertThat(creado.getCantidadDirecciones()).isEqualTo(3);
+            assertThat(creado.getVdc()).isEqualTo("VDC-Norte");
+            assertThat(creado.getCantidadCpu()).isEqualTo(4);
+            assertThat(creado.getRamGb()).isEqualByComparingTo("16");
         }
 
         @Test

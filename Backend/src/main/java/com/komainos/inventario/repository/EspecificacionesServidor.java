@@ -1,9 +1,12 @@
 package com.komainos.inventario.repository;
 
+import com.komainos.inventario.model.DireccionIp;
 import com.komainos.inventario.model.FiltroServidores;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
@@ -31,11 +34,17 @@ public final class EspecificacionesServidor {
 
             if (filtro.texto() != null && !filtro.texto().isBlank()) {
                 String patron = "%" + filtro.texto().trim().toLowerCase() + "%";
+                // Cualquiera de sus direcciones IP, no solo la principal (DEC-37).
+                Subquery<Integer> porIp = consulta.subquery(Integer.class);
+                Root<DireccionIp> direccion = porIp.from(DireccionIp.class);
+                porIp.select(cb.literal(1)).where(
+                        cb.equal(direccion.get("servidor"), raiz),
+                        cb.like(cb.lower(direccion.get("direccion")), patron));
                 condiciones.add(cb.or(
                         cb.like(cb.lower(raiz.get("hostname")), patron),
-                        cb.like(cb.lower(raiz.get("direccionIp")), patron),
+                        cb.exists(porIp),
                         cb.like(cb.lower(cb.coalesce(raiz.get("dns"), "")), patron),
-                        cb.like(cb.lower(cb.coalesce(raiz.get("datacenter"), "")), patron),
+                        cb.like(cb.lower(cb.coalesce(raiz.get("vdc"), "")), patron),
                         cb.like(cb.lower(raiz.get("responsable").get("nombreCompleto")), patron)));
             }
             if (filtro.estado() != null) {
@@ -55,8 +64,8 @@ public final class EspecificacionesServidor {
             if (filtro.idResponsable() != null) {
                 condiciones.add(cb.equal(raiz.get("responsable").get("id"), filtro.idResponsable()));
             }
-            if (filtro.datacenter() != null && !filtro.datacenter().isBlank()) {
-                condiciones.add(cb.equal(cb.lower(raiz.get("datacenter")), filtro.datacenter().trim().toLowerCase()));
+            if (filtro.vdc() != null && !filtro.vdc().isBlank()) {
+                condiciones.add(cb.equal(cb.lower(raiz.get("vdc")), filtro.vdc().trim().toLowerCase()));
             }
             return cb.and(condiciones.toArray(Predicate[]::new));
         };

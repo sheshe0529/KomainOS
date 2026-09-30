@@ -81,11 +81,11 @@ class IntercambioInventarioIT extends PruebaIntegracion {
 
         Actor actorAdmin = Actor.usuario(admin.getId());
         idExistente = servidores.crear(new DatosServidor("srv-exist-01", "10.30.0.1", "DC-Norte", null, null, null, null,
-                idVersion, null, idEntorno, idMedia, responsable.getId(), "Registrado"), actorAdmin).getId();
+                idVersion, null, idEntorno, idMedia, responsable.getId(), "Registrado", List.of(), null, null, null), actorAdmin).getId();
         servidores.crear(new DatosServidor("srv-otro-01", "10.30.0.9", null, null, null, null, null,
-                idVersion, null, idEntorno, idMedia, otro.getId(), null), actorAdmin);
+                idVersion, null, idEntorno, idMedia, otro.getId(), null, List.of(), null, null, null), actorAdmin);
         servidores.crear(new DatosServidor("srv-tercero-01", "10.30.0.5", null, null, null, null, null,
-                idVersion, null, idEntorno, idMedia, responsable.getId(), null), actorAdmin);
+                idVersion, null, idEntorno, idMedia, responsable.getId(), null, List.of(), null, null, null), actorAdmin);
     }
 
     @AfterEach
@@ -146,7 +146,7 @@ class IntercambioInventarioIT extends PruebaIntegracion {
         assertThat(duplicado.get("sobrescribible").asBoolean()).isTrue();
         assertThat(duplicado.get("servidorExistente").get("id").asInt()).isEqualTo(idExistente);
         // Los nombres se reconocen sin distinguir mayúsculas; solo cambian criticidad y descripción:
-        // el datacenter no viene en el archivo, así que se conserva.
+        // el VDC no viene en el archivo, así que se conserva.
         assertThat(textos(duplicado.get("camposModificados"))).containsExactly("Criticidad", "Descripción");
 
         JsonNode repetido = filaDe(analisis, 4);
@@ -203,7 +203,7 @@ class IntercambioInventarioIT extends PruebaIntegracion {
         assertThat(jdbc.queryForObject("select n.nombre || ' / ' || s.descripcion from servidor s join nivel_criticidad n "
                 + "on n.id_nivel_criticidad = s.id_nivel_criticidad where s.id_servidor = ?", String.class, idExistente))
                 .isEqualTo("Alta / Cambia criticidad");
-        assertThat(jdbc.queryForObject("select datacenter from servidor where id_servidor = ?", String.class, idExistente))
+        assertThat(jdbc.queryForObject("select vdc from servidor where id_servidor = ?", String.class, idExistente))
                 .isEqualTo("DC-Norte");
         assertThat(jdbc.queryForObject("select count(*) from auditoria where operacion = 'IMPORTAR_INVENTARIO'",
                 Integer.class)).isEqualTo(2);
@@ -257,6 +257,40 @@ class IntercambioInventarioIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$.filas[0].motivos[1]").value("Sus datos coinciden con los registrados"))
                 .andExpect(jsonPath("$.columnasIgnoradas").value(hasItems(
                         "Estado", "Nombre del responsable", "Fecha de alta", "Fecha de actualización")));
+    }
+
+    @Test
+    @DisplayName("DEC-37: importa IP adicionales, VDC y recursos; una IP adicional ya usada marca el duplicado")
+    void importaVariasDirecciones() throws Exception {
+        String csv = "Hostname;Dirección IP;IPs adicionales;VDC;CPU;RAM (GB);Disco virtual (GB);Sistema operativo;"
+                + "Versión;Entorno;Criticidad;Responsable\n"
+                + "srv-multi-01;10.30.7.1;10.30.7.2, 10.30.7.3;VDC-Sur;4;16,5;250;Ubuntu;22.04;Producción;Alta;resp.imp\n"
+                + "srv-multi-02;10.30.8.1;10.30.0.9;VDC-Sur;;;;Ubuntu;22.04;Producción;Alta;resp.imp\n"
+                + "srv-multi-03;10.30.9.1;10.30.7.3;;;;;Ubuntu;22.04;Producción;Alta;resp.imp\n"
+                + "srv-multi-04;10.30.9.9;;;0;dieciseis;;Ubuntu;22.04;Producción;Alta;resp.imp\n";
+
+        String cuerpo = mockMvc.perform(analisis(archivo("inventario.csv", csv)).with(user(comoAdmin)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        JsonNode analisis = json.readTree(cuerpo);
+        assertThat(filaDe(analisis, 2).get("estado").asText()).isEqualTo("NUEVA");
+        // 10.30.0.9 es la IP de srv-otro-01: el registro es un duplicado de ese servidor.
+        assertThat(textos(filaDe(analisis, 3).get("motivos")).getFirst()).contains("srv-otro-01");
+        // 10.30.7.3 ya aparece en la fila 2 del mismo archivo.
+        assertThat(textos(filaDe(analisis, 4).get("motivos")).getFirst()).contains("10.30.7.3").contains("fila 2");
+        assertThat(String.join(" | ", textos(filaDe(analisis, 5).get("motivos"))))
+                .contains("«CPU» debe ser un número entero entre 1")
+                .contains("«RAM (GB)» debe ser un número");
+
+        mockMvc.perform(multipart("/api/servidores/importacion").file(archivo("inventario.csv", csv))
+                        .with(user(comoAdmin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.creados").value(1));
+        assertThat(jdbc.queryForList("select d.direccion || ':' || d.principal from direccion_ip d join servidor s "
+                + "using (id_servidor) where s.hostname = 'srv-multi-01' order by d.direccion", String.class))
+                .containsExactly("10.30.7.1:true", "10.30.7.2:false", "10.30.7.3:false");
+        assertThat(jdbc.queryForObject("select vdc || ' ' || cantidad_cpu || ' ' || ram_gb || ' ' || hd_virtual_gb "
+                + "from servidor where hostname = 'srv-multi-01'", String.class)).isEqualTo("VDC-Sur 4 16.50 250.00");
     }
 
     @Test

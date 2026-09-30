@@ -2,6 +2,7 @@ package com.komainos.inventario.mapper;
 
 import com.komainos.inventario.dto.ConfiguracionRespuesta;
 import com.komainos.inventario.dto.FichaGrupoRespuesta;
+import com.komainos.inventario.dto.DireccionIpRespuesta;
 import com.komainos.inventario.dto.FichaServidorRespuesta;
 import com.komainos.inventario.dto.GrupoResumenRespuesta;
 import com.komainos.inventario.dto.ReactivacionRespuesta;
@@ -41,8 +42,9 @@ public final class InventarioMapeador {
     public static ServidorResumenRespuesta resumen(Servidor s) {
         VersionSistemaOperativo version = s.getVersionSistemaOperativo();
         return new ServidorResumenRespuesta(
-                s.getId(), s.getHostname(), s.getDireccionIp(), s.getDatacenter(), s.getServidorFisico(),
-                s.getVlan(), s.getCluster(), s.getDns(), s.getPlataforma(), s.getDescripcion(),
+                s.getId(), s.getHostname(), s.getDireccionIp(), s.getCantidadDirecciones(), s.getVdc(),
+                s.getServidorFisico(), s.getVlan(), s.getCluster(), s.getDns(), s.getPlataforma(), s.getDescripcion(),
+                s.getCantidadCpu(), s.getRamGb(), s.getHdVirtualGb(),
                 new ReferenciaSimple(version.getSistemaOperativo().getId(), version.getSistemaOperativo().getNombre()),
                 new ReferenciaSimple(version.getId(), version.descripcionCompleta()),
                 version.getSistemaOperativo().getFamilia(),
@@ -58,8 +60,12 @@ public final class InventarioMapeador {
         Servidor s = ficha.servidor();
         VersionSistemaOperativo version = s.getVersionSistemaOperativo();
         return new FichaServidorRespuesta(
-                s.getId(), s.getHostname(), s.getDireccionIp(), s.getDatacenter(), s.getServidorFisico(),
-                s.getVlan(), s.getCluster(), s.getDns(), s.getPlataforma(), s.getDescripcion(),
+                s.getId(), s.getHostname(), s.getDireccionIp(),
+                s.direccionesOrdenadas().stream()
+                        .map(d -> new DireccionIpRespuesta(d.getId(), d.getDireccion(), d.isPrincipal()))
+                        .toList(),
+                s.getVdc(), s.getServidorFisico(), s.getVlan(), s.getCluster(), s.getDns(), s.getPlataforma(),
+                s.getDescripcion(), s.getCantidadCpu(), s.getRamGb(), s.getHdVirtualGb(),
                 new ReferenciaSimple(version.getId(), version.getVersion()),
                 new ReferenciaSimple(version.getSistemaOperativo().getId(), version.getSistemaOperativo().getNombre()),
                 version.getSistemaOperativo().getFamilia(),

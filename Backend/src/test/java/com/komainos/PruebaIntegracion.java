@@ -57,7 +57,7 @@ public abstract class PruebaIntegracion {
                     programacion_orden, orden, umbral_tarea, tarea, script_parametro, script_version,
                     script_implementacion, script, umbral, metrica, configuracion_grupo, configuracion_servidor,
                     configuracion_mantenimiento, grupo_servidor, grupo_mantenimiento, solicitud_baja,
-                    ventana_mantenimiento, credencial_documental, servidor, version_sistema_operativo,
+                    ventana_mantenimiento, credencial_documental, direccion_ip, servidor, version_sistema_operativo,
                     sistema_operativo, nivel_criticidad, entorno, usuario
                 RESTART IDENTITY""");
         jdbc.update("""

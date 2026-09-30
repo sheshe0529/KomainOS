@@ -97,6 +97,12 @@ export interface Detalle {
   fechaRealFin?: string
 }
 
+export interface DireccionIpRespuesta {
+  id?: number
+  direccion?: string
+  principal?: boolean
+}
+
 export interface EntornoPeticion {
   nombre: string
   descripcion?: string
@@ -143,13 +149,17 @@ export interface FichaServidorRespuesta {
   id?: number
   hostname?: string
   direccionIp?: string
-  datacenter?: string
+  direccionesIp?: DireccionIpRespuesta[]
+  vdc?: string
   servidorFisico?: string
   vlan?: string
   cluster?: string
   dns?: string
   plataforma?: string
   descripcion?: string
+  cantidadCpu?: number
+  ramGb?: number
+  hdVirtualGb?: number
   versionSistemaOperativo?: ReferenciaSimple
   sistemaOperativo?: ReferenciaSimple
   familiaSistemaOperativo?: 'LINUX' | 'WINDOWS'
@@ -393,7 +403,8 @@ export interface ResumenPlanificacionRespuesta {
 export interface ServidorPeticion {
   hostname: string
   direccionIp: string
-  datacenter?: string
+  direccionesIpAdicionales?: string[]
+  vdc?: string
   servidorFisico?: string
   vlan?: string
   cluster?: string
@@ -404,19 +415,26 @@ export interface ServidorPeticion {
   idNivelCriticidad: number
   idResponsable: number
   descripcion?: string
+  cantidadCpu?: number
+  ramGb?: number
+  hdVirtualGb?: number
 }
 
 export interface ServidorResumenRespuesta {
   id?: number
   hostname?: string
   direccionIp?: string
-  datacenter?: string
+  cantidadDireccionesIp?: number
+  vdc?: string
   servidorFisico?: string
   vlan?: string
   cluster?: string
   dns?: string
   plataforma?: string
   descripcion?: string
+  cantidadCpu?: number
+  ramGb?: number
+  hdVirtualGb?: number
   sistemaOperativo?: ReferenciaSimple
   versionSistemaOperativo?: ReferenciaSimple
   familiaSistemaOperativo?: 'LINUX' | 'WINDOWS'

@@ -140,7 +140,7 @@ def main() -> None:
             ids[host] = existentes[host]
             continue
         ficha = api.exigir("POST", "/servidores", {
-            "hostname": host, "direccionIp": ip, "datacenter": dc, "servidorFisico": fisico,
+            "hostname": host, "direccionIp": ip, "vdc": dc, "servidorFisico": fisico,
             "idVersionSistemaOperativo": versiones[so], "plataforma": "VMware", "dns": f"{host}.komainos.local",
             "idEntorno": entornos[entorno], "idNivelCriticidad": criticidades[criticidad],
             "idResponsable": usuarios[responsable], "descripcion": f"Servidor de ejemplo {host}"})

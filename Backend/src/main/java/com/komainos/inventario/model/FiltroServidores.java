@@ -3,7 +3,7 @@ package com.komainos.inventario.model;
 /**
  * Criterios de busqueda del inventario (RF11, HU07). Cada campo es opcional.
  *
- * @param texto coincidencia parcial contra hostname, IP, DNS, datacenter o
+ * @param texto coincidencia parcial contra hostname, cualquiera de sus IP, DNS, VDC o
  *              nombre del responsable (HU07 CA3 y pantalla preliminar)
  */
 public record FiltroServidores(
@@ -13,7 +13,7 @@ public record FiltroServidores(
         Integer idNivelCriticidad,
         Integer idSistemaOperativo,
         Integer idResponsable,
-        String datacenter) {
+        String vdc) {
 
     public static FiltroServidores vacio() {
         return new FiltroServidores(null, null, null, null, null, null, null);

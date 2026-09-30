@@ -108,7 +108,7 @@ class PlanificacionIT extends PruebaIntegracion {
 
     private Integer servidor(String hostname, String ip, Integer idCriticidad, Usuario dueno) {
         return servidores.crear(new DatosServidor(hostname, ip, "DC-Norte", null, null, null, null, idVersion, null,
-                idEntorno, idCriticidad, dueno.getId(), null), actorAdmin).getId();
+                idEntorno, idCriticidad, dueno.getId(), null, List.of(), null, null, null), actorAdmin).getId();
     }
 
     private void ventanas(Integer idServidor, IntervaloSemanal... intervalos) {
@@ -239,7 +239,8 @@ class PlanificacionIT extends PruebaIntegracion {
         Integer a = servidor("srv-grupo-a", "10.0.0.6", idMedia, responsable);
         Integer b = servidor("srv-grupo-b", "10.0.0.7", idMedia, responsable);
         for (Integer id : List.of(a, b)) {
-            ventanas(id, ventana(SABADO, "00:00", SABADO, "23:00"));
+            // Dos intervalos: la orden grupal debe incluir a cada integrante una sola vez.
+            ventanas(id, ventana(SABADO, "00:00", SABADO, "23:00"), ventana(DOMINGO, "00:00", DOMINGO, "05:00"));
             configurar(id, ModalidadPlanificacion.BAJO_DEMANDA);
         }
         Integer grupo = grupos.crear("Grupo", null, actorAdmin).getId();

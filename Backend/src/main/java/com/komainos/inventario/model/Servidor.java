@@ -23,10 +23,17 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.Hibernate;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Formula;
 import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -74,12 +81,33 @@ public class Servidor {
     @Column(name = "hostname", nullable = false, length = 255)
     private String hostname;
 
-    /** IPv4 o IPv6; unica (uq_servidor_direccion_ip). */
-    @Column(name = "direccion_ip", nullable = false, length = 45)
-    private String direccionIp;
+    /**
+     * Direcciones IP (DEC-37): una o varias, exactamente una principal. Se
+     * reemplazan como conjunto con {@link #reemplazarDirecciones}.
+     */
+    @OneToMany(mappedBy = "servidor", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
+    @Setter(AccessLevel.NONE)
+    private Set<DireccionIp> direcciones = new LinkedHashSet<>();
 
-    @Column(name = "datacenter", length = 255)
-    private String datacenter;
+    /**
+     * IP principal leida en la misma consulta que el servidor: listados,
+     * ordenes e integrantes de grupos la muestran sin cargar todas las
+     * direcciones. Usar {@link #getDireccionIp()}.
+     */
+    @Formula("(select d.direccion from direccion_ip d where d.id_servidor = id_servidor and d.principal)")
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private String direccionPrincipal;
+
+    @Formula("(select count(*) from direccion_ip d where d.id_servidor = id_servidor)")
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private int cantidadDireccionesRegistradas;
+
+    /** Virtual DataCenter que aloja el servidor (DEC-37, antes datacenter). */
+    @Column(name = "vdc", length = 255)
+    private String vdc;
 
     @Column(name = "servidor_fisico", length = 255)
     private String servidorFisico;
@@ -98,6 +126,16 @@ public class Servidor {
 
     @Column(name = "descripcion", length = 500)
     private String descripcion;
+
+    /** Recursos de la maquina virtual (DEC-37); opcionales y mayores que cero. */
+    @Column(name = "cantidad_cpu")
+    private Integer cantidadCpu;
+
+    @Column(name = "ram_gb", precision = 7, scale = 2)
+    private BigDecimal ramGb;
+
+    @Column(name = "hd_virtual_gb", precision = 10, scale = 2)
+    private BigDecimal hdVirtualGb;
 
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType.class)
@@ -167,6 +205,57 @@ public class Servidor {
     /** Alcance del responsable (RF11, HU10 CA6). */
     public boolean esVisiblePara(Integer usuarioId) {
         return responsable != null && responsable.getId().equals(usuarioId);
+    }
+
+    /**
+     * IP principal. Si las direcciones ya estan cargadas (por ejemplo, recien
+     * modificadas en esta transaccion) se lee de ellas; si no, del valor
+     * consultado junto con el servidor.
+     */
+    public String getDireccionIp() {
+        if (Hibernate.isInitialized(direcciones) && !direcciones.isEmpty()) {
+            return direcciones.stream().filter(DireccionIp::isPrincipal).map(DireccionIp::getDireccion)
+                    .findFirst().orElse(null);
+        }
+        return direccionPrincipal;
+    }
+
+    public int getCantidadDirecciones() {
+        return Hibernate.isInitialized(direcciones) && !direcciones.isEmpty()
+                ? direcciones.size() : cantidadDireccionesRegistradas;
+    }
+
+    /** La principal primero y luego las demas en orden alfabetico. */
+    public List<DireccionIp> direccionesOrdenadas() {
+        return direcciones.stream()
+                .sorted(Comparator.comparing((DireccionIp d) -> !d.isPrincipal()).thenComparing(DireccionIp::getDireccion))
+                .toList();
+    }
+
+    /** Direcciones que no son la principal, en orden alfabetico. */
+    public List<String> direccionesAdicionales() {
+        return direccionesOrdenadas().stream().filter(d -> !d.isPrincipal()).map(DireccionIp::getDireccion).toList();
+    }
+
+    /**
+     * Reemplaza las direcciones IP (DEC-37). Conserva las que siguen, de modo
+     * que una IP que solo cambia de principal a adicional no se borra y se
+     * vuelve a crear. Quien llama ya valido el formato, que no se repitan y
+     * que ninguna pertenezca a otro servidor.
+     */
+    public void reemplazarDirecciones(String principal, List<String> adicionales) {
+        List<String> todas = new ArrayList<>();
+        todas.add(principal);
+        todas.addAll(adicionales);
+        direcciones.removeIf(d -> !todas.contains(d.getDireccion()));
+        Set<String> actuales = new HashSet<>();
+        direcciones.forEach(d -> actuales.add(d.getDireccion()));
+        for (String direccion : todas) {
+            if (!actuales.contains(direccion)) {
+                direcciones.add(new DireccionIp(this, direccion, false));
+            }
+        }
+        direcciones.forEach(d -> d.marcarPrincipal(d.getDireccion().equals(principal)));
     }
 
     public void reemplazarVentanas(List<VentanaMantenimiento> nuevas) {

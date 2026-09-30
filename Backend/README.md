@@ -41,10 +41,11 @@ se cambia con `KOMAINOS_PUERTO`.
 
 | Script | Uso |
 |---|---|
-| `01_esquema.sql` | Crea el esquema `KomainOS` completo (48 tablas, 30 enumerados). Es el esquema real de `DBKomainOS`; `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
+| `01_esquema.sql` | Crea el esquema `KomainOS` completo (49 tablas, 30 enumerados). Es el esquema real de `DBKomainOS`; `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
 | `02_datos_sistema.sql` | Datos sin los cuales el sistema no opera: factores de ciclo y parámetros globales. Idempotente. |
 | `03_datos_prueba.sql` | Datos de demostración: un usuario por rol (contraseña `Cambiar.2026`), catálogos, 8 servidores con ventanas y configuración, un grupo, órdenes en distintos estados y una baja. Las fechas de las órdenes se calculan al ejecutarlo. Solo sobre una base sin datos de negocio. |
 | `limpiar_datos_desarrollo.sql` | Vacía los datos de negocio conservando el esquema y los datos del sistema, para volver a cargar `03`. Solo para desarrollo. |
+| `cambios/AAAA-MM-DD_*.sql` | Cambios de estructura para una base creada antes de esa fecha (por ejemplo, `DBKomainOS`). Se aplican una vez, en orden de fecha, y conservan los datos; una base nueva no los necesita porque `01_esquema.sql` ya los incluye. |
 
 `scripts/cargar_datos_ejemplo.py` es una alternativa anterior que carga un
 conjunto parecido a través de la API REST, con el backend corriendo.

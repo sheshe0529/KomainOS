@@ -1,5 +1,9 @@
 package com.komainos.inventario.model;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Datos de alta o edicion de un servidor (RF10), en terminos de dominio.
  *
@@ -9,8 +13,10 @@ package com.komainos.inventario.model;
  */
 public record DatosServidor(
         String hostname,
+        /** IP principal (DEC-37). */
         String direccionIp,
-        String datacenter,
+        /** Virtual DataCenter (DEC-37, antes datacenter). */
+        String vdc,
         String servidorFisico,
         String vlan,
         String cluster,
@@ -20,5 +26,22 @@ public record DatosServidor(
         Integer idEntorno,
         Integer idNivelCriticidad,
         Integer idResponsable,
-        String descripcion) {
+        String descripcion,
+        /** IP que no son la principal; vacia si solo tiene una. */
+        List<String> direccionesIpAdicionales,
+        Integer cantidadCpu,
+        BigDecimal ramGb,
+        BigDecimal hdVirtualGb) {
+
+    public DatosServidor {
+        direccionesIpAdicionales = direccionesIpAdicionales == null ? List.of() : List.copyOf(direccionesIpAdicionales);
+    }
+
+    /** La principal seguida de las adicionales. */
+    public List<String> todasLasDirecciones() {
+        List<String> todas = new ArrayList<>();
+        todas.add(direccionIp);
+        todas.addAll(direccionesIpAdicionales);
+        return todas;
+    }
 }

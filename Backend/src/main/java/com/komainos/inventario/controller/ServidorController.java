@@ -60,11 +60,11 @@ public class ServidorController {
             @RequestParam(required = false) Integer idNivelCriticidad,
             @RequestParam(required = false) Integer idSistemaOperativo,
             @RequestParam(required = false) Integer idResponsable,
-            @RequestParam(required = false) String datacenter,
+            @RequestParam(required = false) String vdc,
             @PageableDefault(size = 20, sort = "hostname", direction = Sort.Direction.ASC) Pageable paginacion,
             @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         var filtro = new FiltroServidores(texto, estado, idEntorno, idNivelCriticidad, idSistemaOperativo,
-                idResponsable, datacenter);
+                idResponsable, vdc);
         return PaginaRespuesta.de(servicio.listar(filtro, AlcanceUsuario.de(solicitante), paginacion),
                 InventarioMapeador::resumen);
     }

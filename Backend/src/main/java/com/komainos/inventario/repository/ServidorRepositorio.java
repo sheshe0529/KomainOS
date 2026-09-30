@@ -32,7 +32,7 @@ public interface ServidorRepositorio extends JpaRepository<Servidor, Integer>, J
     List<Servidor> findAll(Specification<Servidor> especificacion, Sort orden);
 
     @EntityGraph(attributePaths = {"versionSistemaOperativo.sistemaOperativo", "entorno", "nivelCriticidad",
-            "responsable", "ventanas"})
+            "responsable", "ventanas", "direcciones"})
     Optional<Servidor> findConDetalleById(Integer id);
 
     @EntityGraph(attributePaths = {"versionSistemaOperativo.sistemaOperativo", "entorno", "nivelCriticidad",
@@ -44,11 +44,14 @@ public interface ServidorRepositorio extends JpaRepository<Servidor, Integer>, J
 
     /**
      * Importacion (RF12): servidores que ya usan alguno de los hostnames (en
-     * minusculas) o IP del archivo, para clasificar los duplicados en una sola
+     * minusculas) o alguna de las IP del archivo, para clasificar los duplicados en una sola
      * consulta.
      */
     @EntityGraph(attributePaths = {"versionSistemaOperativo.sistemaOperativo", "entorno", "nivelCriticidad", "responsable"})
-    @Query("select s from Servidor s where lower(s.hostname) in :hostnames or s.direccionIp in :direcciones")
+    @Query("""
+            select s from Servidor s
+            where lower(s.hostname) in :hostnames
+               or exists (select 1 from DireccionIp d where d.servidor = s and d.direccion in :direcciones)""")
     List<Servidor> findCoincidentes(@Param("hostnames") Collection<String> hostnames,
                                     @Param("direcciones") Collection<String> direcciones);
 
@@ -56,9 +59,6 @@ public interface ServidorRepositorio extends JpaRepository<Servidor, Integer>, J
 
     boolean existsByHostnameIgnoreCaseAndIdNot(String hostname, Integer id);
 
-    boolean existsByDireccionIp(String direccionIp);
-
-    boolean existsByDireccionIpAndIdNot(String direccionIp, Integer id);
 
     long countByEstado(EstadoServidor estado);
 

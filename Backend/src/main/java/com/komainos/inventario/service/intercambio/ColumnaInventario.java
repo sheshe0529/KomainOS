@@ -4,6 +4,7 @@ import com.komainos.inventario.model.Servidor;
 import com.komainos.shared.util.archivo.ClaveColumna;
 import com.komainos.shared.util.archivo.ColumnaArchivo;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
@@ -23,9 +24,13 @@ import java.util.function.Function;
 public enum ColumnaInventario {
 
     HOSTNAME("Hostname", Uso.OBLIGATORIA, Servidor::getHostname),
+    /** IP principal (DEC-37). */
     DIRECCION_IP("Dirección IP", Uso.OBLIGATORIA, Servidor::getDireccionIp),
+    /** Las demás IP del servidor, separadas por «;». */
+    IPS_ADICIONALES("IPs adicionales", Uso.OPCIONAL,
+            s -> s.direccionesAdicionales().isEmpty() ? null : String.join("; ", s.direccionesAdicionales())),
     ESTADO("Estado", Uso.SOLO_EXPORTACION, s -> s.getEstado().name()),
-    DATACENTER("Datacenter", Uso.OPCIONAL, Servidor::getDatacenter),
+    VDC("VDC", Uso.OPCIONAL, Servidor::getVdc),
     SERVIDOR_FISICO("Servidor físico", Uso.OPCIONAL, Servidor::getServidorFisico),
     VLAN("VLAN", Uso.OPCIONAL, Servidor::getVlan),
     CLUSTER("Clúster", Uso.OPCIONAL, Servidor::getCluster),
@@ -34,6 +39,9 @@ public enum ColumnaInventario {
             s -> s.getVersionSistemaOperativo().getSistemaOperativo().getNombre()),
     VERSION("Versión", Uso.OBLIGATORIA, s -> s.getVersionSistemaOperativo().getVersion()),
     PLATAFORMA("Plataforma", Uso.OPCIONAL, Servidor::getPlataforma),
+    CPU("CPU", Uso.OPCIONAL, Servidor::getCantidadCpu),
+    RAM_GB("RAM (GB)", Uso.OPCIONAL, s -> numero(s.getRamGb())),
+    DISCO_VIRTUAL_GB("Disco virtual (GB)", Uso.OPCIONAL, s -> numero(s.getHdVirtualGb())),
     ENTORNO("Entorno", Uso.OBLIGATORIA, s -> s.getEntorno().getNombre()),
     CRITICIDAD("Criticidad", Uso.OBLIGATORIA, s -> s.getNivelCriticidad().getNombre()),
     RESPONSABLE("Responsable", Uso.OBLIGATORIA, s -> s.getResponsable().getCodigo()),
@@ -87,6 +95,11 @@ public enum ColumnaInventario {
 
     public Object valorDe(Servidor servidor) {
         return extractor.apply(servidor);
+    }
+
+    /** 16 y no 16.00: el valor se exporta como texto y se vuelve a importar igual. */
+    private static String numero(BigDecimal valor) {
+        return valor == null ? null : valor.stripTrailingZeros().toPlainString();
     }
 
     public ColumnaArchivo comoColumnaArchivo() {

@@ -8,6 +8,7 @@ import com.komainos.inventario.event.VentanasServidorActualizadas;
 import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
 import com.komainos.inventario.model.ConfiguracionServidor;
 import com.komainos.inventario.model.DatosServidor;
+import com.komainos.inventario.model.DireccionIp;
 import com.komainos.inventario.model.Entorno;
 import com.komainos.inventario.model.EstadoServidor;
 import com.komainos.inventario.model.EstadoSolicitudBaja;
@@ -20,6 +21,7 @@ import com.komainos.inventario.model.SolicitudBaja;
 import com.komainos.inventario.model.VentanaMantenimiento;
 import com.komainos.inventario.model.VersionSistemaOperativo;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
+import com.komainos.inventario.repository.DireccionIpRepositorio;
 import com.komainos.inventario.repository.EspecificacionesServidor;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
@@ -44,10 +46,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Casos de uso del inventario de servidores (RF09-RF11, RF14, RF17-RF19,
@@ -62,6 +67,7 @@ import java.util.Optional;
 public class ServicioServidor implements PuertoServidoresACargo {
 
     private final ServidorRepositorio servidores;
+    private final DireccionIpRepositorio direccionesIp;
     private final ConfiguracionServidorRepositorio configuraciones;
     private final SolicitudBajaRepositorio solicitudesBaja;
     private final GrupoMantenimientoRepositorio grupos;
@@ -131,8 +137,8 @@ public class ServicioServidor implements PuertoServidoresACargo {
     // ------------------------------------------------------------ alta y edicion
 
     /**
-     * RF09 / HU06: alta con deteccion de duplicados por hostname e IP. Nace
-     * pendiente de configuracion (HU06 CA3).
+     * RF09 / HU06: alta con deteccion de duplicados por hostname y por
+     * cualquiera de sus IP (DEC-37). Nace pendiente de configuracion (HU06 CA3).
      */
     @Transactional
     public Servidor crear(DatosServidor datos, Actor actor) {
@@ -140,9 +146,7 @@ public class ServicioServidor implements PuertoServidoresACargo {
         if (servidores.existsByHostnameIgnoreCase(limpio.hostname())) {
             throw new ConflictoException("Ya existe un servidor con el hostname %s".formatted(limpio.hostname()));
         }
-        if (servidores.existsByDireccionIp(limpio.direccionIp())) {
-            throw new ConflictoException("Ya existe un servidor con la dirección IP %s".formatted(limpio.direccionIp()));
-        }
+        exigirDireccionesDisponibles(limpio, null);
         Servidor servidor = Servidor.nuevo();
         aplicar(limpio, servidor, true);
         servidores.save(servidor);
@@ -160,9 +164,7 @@ public class ServicioServidor implements PuertoServidoresACargo {
         if (servidores.existsByHostnameIgnoreCaseAndIdNot(limpio.hostname(), id)) {
             throw new ConflictoException("Ya existe otro servidor con el hostname %s".formatted(limpio.hostname()));
         }
-        if (servidores.existsByDireccionIpAndIdNot(limpio.direccionIp(), id)) {
-            throw new ConflictoException("Ya existe otro servidor con la dirección IP %s".formatted(limpio.direccionIp()));
-        }
+        exigirDireccionesDisponibles(limpio, id);
         exigirCoherenciaConGrupos(servidor, limpio);
 
         Map<String, Object> anterior = instantanea(servidor);
@@ -338,8 +340,11 @@ public class ServicioServidor implements PuertoServidoresACargo {
         }
 
         s.setHostname(d.hostname());
-        s.setDireccionIp(d.direccionIp());
-        s.setDatacenter(d.datacenter());
+        s.reemplazarDirecciones(d.direccionIp(), d.direccionesIpAdicionales());
+        s.setVdc(d.vdc());
+        s.setCantidadCpu(d.cantidadCpu());
+        s.setRamGb(d.ramGb());
+        s.setHdVirtualGb(d.hdVirtualGb());
         s.setServidorFisico(d.servidorFisico());
         s.setVlan(d.vlan());
         s.setCluster(d.cluster());
@@ -424,11 +429,37 @@ public class ServicioServidor implements PuertoServidoresACargo {
     }
 
     private static DatosServidor normalizar(DatosServidor d) {
-        return new DatosServidor(recortar(d.hostname()), recortar(d.direccionIp()).toLowerCase(),
-                vacioANulo(d.datacenter()), vacioANulo(d.servidorFisico()), vacioANulo(d.vlan()),
+        return new DatosServidor(recortar(d.hostname()), normalizarIp(d.direccionIp()),
+                vacioANulo(d.vdc()), vacioANulo(d.servidorFisico()), vacioANulo(d.vlan()),
                 vacioANulo(d.cluster()), vacioANulo(d.dns()), d.idVersionSistemaOperativo(),
                 vacioANulo(d.plataforma()), d.idEntorno(), d.idNivelCriticidad(), d.idResponsable(),
-                vacioANulo(d.descripcion()));
+                vacioANulo(d.descripcion()),
+                d.direccionesIpAdicionales().stream().map(ServicioServidor::normalizarIp).toList(),
+                d.cantidadCpu(), d.ramGb(), d.hdVirtualGb());
+    }
+
+    /** Las IPv6 se comparan sin distinguir mayúsculas: se guardan en minúsculas. */
+    private static String normalizarIp(String ip) {
+        return ip == null ? null : ip.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * DEC-37: las IP del servidor no se repiten entre sí ni pertenecen a otro
+     * servidor, lo que mantiene la detección de duplicados por IP (RF09).
+     */
+    private void exigirDireccionesDisponibles(DatosServidor d, Integer idPropio) {
+        Set<String> vistas = new HashSet<>();
+        for (String ip : d.todasLasDirecciones()) {
+            if (!vistas.add(ip)) {
+                throw new ReglaNegocioException("La dirección IP %s está repetida".formatted(ip));
+            }
+        }
+        for (DireccionIp usada : direccionesIp.findByDireccionIn(vistas)) {
+            if (!usada.getServidor().getId().equals(idPropio)) {
+                throw new ConflictoException("La dirección IP %s ya pertenece al servidor %s"
+                        .formatted(usada.getDireccion(), usada.getServidor().getHostname()));
+            }
+        }
     }
 
     private static String recortar(String valor) {
@@ -443,13 +474,17 @@ public class ServicioServidor implements PuertoServidoresACargo {
         Map<String, Object> v = new HashMap<>();
         v.put("hostname", s.getHostname());
         v.put("direccionIp", s.getDireccionIp());
-        v.put("datacenter", s.getDatacenter());
+        v.put("direccionesIpAdicionales", s.direccionesAdicionales());
+        v.put("vdc", s.getVdc());
         v.put("servidorFisico", s.getServidorFisico());
         v.put("vlan", s.getVlan());
         v.put("cluster", s.getCluster());
         v.put("dns", s.getDns());
         v.put("plataforma", s.getPlataforma());
         v.put("descripcion", s.getDescripcion());
+        v.put("cantidadCpu", s.getCantidadCpu());
+        v.put("ramGb", s.getRamGb());
+        v.put("hdVirtualGb", s.getHdVirtualGb());
         v.put("idVersionSistemaOperativo", s.getVersionSistemaOperativo().getId());
         v.put("idEntorno", s.getEntorno().getId());
         v.put("idNivelCriticidad", s.getNivelCriticidad().getId());

@@ -1,8 +1,8 @@
 -- =============================================================================
 -- 03 - Datos de prueba de KomainOS (solo desarrollo y demostración)
 --
--- Carga usuarios, catálogos, servidores con su ventana permisiva y su
--- configuración, un grupo de mantenimiento, órdenes en distintos estados y un
+-- Carga usuarios, catálogos, servidores con sus direcciones IP, recursos,
+-- ventana permisiva y configuración, un grupo de mantenimiento, órdenes en distintos estados y un
 -- servidor dado de baja. Se ejecuta sobre una base con 01_esquema.sql y
 -- 02_datos_sistema.sql y sin datos de negocio.
 --
@@ -75,29 +75,51 @@ JOIN sistema_operativo so ON so.nombre = d.sistema;
 -- ACTIVO si tiene configuración de mantenimiento (DEC-14); srv-batch-01 queda
 -- pendiente de configuración y srv-legacy-01 dado de baja.
 INSERT INTO servidor (id_version_sistema_operativo, id_entorno, id_nivel_criticidad, id_usuario_responsable,
-                      hostname, direccion_ip, datacenter, servidor_fisico, vlan, cluster, dns, plataforma,
-                      descripcion, estado, fecha_alta, fecha_actualizacion)
+                      hostname, vdc, servidor_fisico, vlan, cluster, dns, plataforma,
+                      descripcion, estado, cantidad_cpu, ram_gb, hd_virtual_gb, fecha_alta, fecha_actualizacion)
 SELECT v.id_version_sistema_operativo, e.id_entorno, n.id_nivel_criticidad, u.id_usuario,
-       d.hostname, d.ip, d.datacenter, d.fisico, d.vlan, d.cluster, d.hostname || '.komainos.local', d.plataforma,
-       d.descripcion, d.estado::enum_estado_servidor,
+       d.hostname, d.vdc, d.fisico, d.vlan, d.cluster, d.hostname || '.komainos.local', d.plataforma,
+       d.descripcion, d.estado::enum_estado_servidor, d.cpu, d.ram, d.disco,
        date_trunc('second', now() AT TIME ZONE 'UTC') - make_interval(days => d.dias_alta),
        date_trunc('second', now() AT TIME ZONE 'UTC') - make_interval(days => d.dias_alta)
 FROM (VALUES
-    ('srv-app-01',    '10.20.1.11', 'DC-Norte', 'esx-blade-04', 'VLAN 120', 'cl-app-norte', 'Ubuntu', '22.04', 'Producción', 'Media', 'm.herrera', 'VMware',  'ACTIVO',                     120, 'Aplicación del portal de clientes (nodo 1)'),
-    ('srv-app-02',    '10.20.1.12', 'DC-Norte', 'esx-blade-04', 'VLAN 120', 'cl-app-norte', 'Ubuntu', '22.04', 'Producción', 'Media', 'm.herrera', 'VMware',  'ACTIVO',                     120, 'Aplicación del portal de clientes (nodo 2)'),
-    ('srv-db-01',     '10.20.2.10', 'DC-Norte', 'esx-blade-02', 'VLAN 210', 'cl-db-norte',  'RHEL',   '9',     'Producción', 'Alta',  'j.paredes', 'VMware',  'ACTIVO',                     200, 'Base de datos transaccional, primaria'),
-    ('srv-db-02',     '10.20.2.11', 'DC-Norte', 'esx-blade-02', 'VLAN 210', 'cl-db-norte',  'RHEL',   '9',     'Producción', 'Alta',  'j.paredes', 'VMware',  'ACTIVO',                     200, 'Base de datos transaccional, réplica'),
-    ('srv-cache-01',  '10.20.3.10', 'DC-Sur',   'esx-blade-09', 'VLAN 130', 'cl-app-sur',   'Ubuntu', '22.04', 'Producción', 'Alta',  'm.herrera', 'VMware',  'ACTIVO',                      90, 'Caché distribuida de sesiones'),
-    ('srv-web-01',    '10.30.1.20', 'DC-Sur',   'esx-blade-11', 'VLAN 300', 'cl-web-sur',   'Windows Server', '2022', 'Staging', 'Media', 'c.rojas', 'Hyper-V', 'ACTIVO',                  60, 'Servidor web de preproducción'),
-    ('srv-batch-01',  '10.40.1.15', 'DC-Norte', 'esx-blade-06', 'VLAN 400', 'cl-qa',        'Ubuntu', '24.04', 'QA',         'Baja',  'c.rojas',   'VMware',  'PENDIENTE_DE_CONFIGURACION',  10, 'Procesos batch de pruebas'),
-    ('srv-legacy-01', '10.20.9.5',  'DC-Norte', 'esx-blade-01', 'VLAN 120', 'cl-app-norte', 'Ubuntu', '20.04', 'Producción', 'Baja',  'm.herrera', 'VMware',  'DADO_DE_BAJA',               400, 'Antiguo servidor de aplicaciones')
-) AS d(hostname, ip, datacenter, fisico, vlan, cluster, sistema, version, entorno, criticidad, responsable,
-       plataforma, estado, dias_alta, descripcion)
+    ('srv-app-01',    'VDC-Norte', 'esx-blade-04', 'VLAN 120', 'cl-app-norte', 'Ubuntu', '22.04', 'Producción', 'Media', 'm.herrera', 'VMware',  'ACTIVO',                     120,  4,   16.00,  120.00, 'Aplicación del portal de clientes (nodo 1)'),
+    ('srv-app-02',    'VDC-Norte', 'esx-blade-04', 'VLAN 120', 'cl-app-norte', 'Ubuntu', '22.04', 'Producción', 'Media', 'm.herrera', 'VMware',  'ACTIVO',                     120,  4,   16.00,  120.00, 'Aplicación del portal de clientes (nodo 2)'),
+    ('srv-db-01',     'VDC-Norte', 'esx-blade-02', 'VLAN 210', 'cl-db-norte',  'RHEL',   '9',     'Producción', 'Alta',  'j.paredes', 'VMware',  'ACTIVO',                     200, 16,   64.00, 1024.00, 'Base de datos transaccional, primaria'),
+    ('srv-db-02',     'VDC-Norte', 'esx-blade-02', 'VLAN 210', 'cl-db-norte',  'RHEL',   '9',     'Producción', 'Alta',  'j.paredes', 'VMware',  'ACTIVO',                     200, 16,   64.00, 1024.00, 'Base de datos transaccional, réplica'),
+    ('srv-cache-01',  'VDC-Sur',   'esx-blade-09', 'VLAN 130', 'cl-app-sur',   'Ubuntu', '22.04', 'Producción', 'Alta',  'm.herrera', 'VMware',  'ACTIVO',                      90,  2,    8.00,   60.00, 'Caché distribuida de sesiones'),
+    ('srv-web-01',    'VDC-Sur',   'esx-blade-11', 'VLAN 300', 'cl-web-sur',   'Windows Server', '2022', 'Staging', 'Media', 'c.rojas', 'Hyper-V', 'ACTIVO',                  60,  4,   12.50,  200.00, 'Servidor web de preproducción'),
+    ('srv-batch-01',  'VDC-Norte', 'esx-blade-06', 'VLAN 400', 'cl-qa',        'Ubuntu', '24.04', 'QA',         'Baja',  'c.rojas',   'VMware',  'PENDIENTE_DE_CONFIGURACION',  10, NULL,  NULL,    NULL, 'Procesos batch de pruebas'),
+    ('srv-legacy-01', 'VDC-Norte', 'esx-blade-01', 'VLAN 120', 'cl-app-norte', 'Ubuntu', '20.04', 'Producción', 'Baja',  'm.herrera', 'VMware',  'DADO_DE_BAJA',               400,  2,    4.00,   40.00, 'Antiguo servidor de aplicaciones')
+) AS d(hostname, vdc, fisico, vlan, cluster, sistema, version, entorno, criticidad, responsable,
+       plataforma, estado, dias_alta, cpu, ram, disco, descripcion)
 JOIN sistema_operativo so ON so.nombre = d.sistema
 JOIN version_sistema_operativo v ON v.id_sistema_operativo = so.id_sistema_operativo AND v.version = d.version
 JOIN entorno e ON e.nombre = d.entorno
 JOIN nivel_criticidad n ON n.nombre = d.criticidad
 JOIN usuario u ON u.codigo = d.responsable;
+
+-- Direcciones IP (DEC-37): una principal por servidor; algunos tienen además
+-- una red de respaldo o de replicación. Ninguna IP se repite entre servidores.
+INSERT INTO direccion_ip (id_servidor, direccion, principal)
+SELECT s.id_servidor, d.direccion, d.principal
+FROM (VALUES
+    ('srv-app-01',    '10.20.1.11', true),
+    ('srv-app-01',    '10.90.1.11', false),
+    ('srv-app-02',    '10.20.1.12', true),
+    ('srv-app-02',    '10.90.1.12', false),
+    ('srv-db-01',     '10.20.2.10', true),
+    ('srv-db-01',     '10.21.2.10', false),
+    ('srv-db-01',     '10.90.2.10', false),
+    ('srv-db-02',     '10.20.2.11', true),
+    ('srv-db-02',     '10.21.2.11', false),
+    ('srv-cache-01',  '10.20.3.10', true),
+    ('srv-web-01',    '10.30.1.20', true),
+    ('srv-web-01',    'fd00:30::20', false),
+    ('srv-batch-01',  '10.40.1.15', true),
+    ('srv-legacy-01', '10.20.9.5',  true)
+) AS d(hostname, direccion, principal)
+JOIN servidor s ON s.hostname = d.hostname;
 
 -- Ventana permisiva (RF18), en hora de Lima (DEC-06). Un intervalo que cruza
 -- la medianoche termina al día siguiente.

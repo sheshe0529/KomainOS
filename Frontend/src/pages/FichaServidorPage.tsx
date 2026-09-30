@@ -7,6 +7,7 @@ import { useSesion } from '@/auth/sesion-context'
 import { Dato, Tarjeta } from '@/components/common/Tarjeta'
 import { BajaModal } from '@/components/inventario/BajaModal'
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
+import { RecursosServidor } from '@/components/inventario/RecursosServidor'
 import { ServidorFormulario } from '@/components/inventario/ServidorFormulario'
 import { VentanasModal } from '@/components/inventario/VentanasModal'
 import { VistaSemanalVentanas } from '@/components/inventario/VistaSemanalVentanas'
@@ -170,8 +171,22 @@ export function FichaServidorPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Tarjeta titulo="Datos generales" className="lg:col-span-2">
           <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
-            <Dato etiqueta="IP" valor={s.direccionIp} mono />
-            <Dato etiqueta="Datacenter" valor={s.datacenter} />
+            <Dato
+              etiqueta={(s.direccionesIp?.length ?? 1) > 1 ? 'Direcciones IP' : 'Dirección IP'}
+              valor={
+                <span className="flex flex-col gap-0.5 font-mono">
+                  {(s.direccionesIp?.length ? s.direccionesIp : [{ direccion: s.direccionIp, principal: true }]).map((d) => (
+                    <span key={d.direccion} className="flex items-center gap-1.5">
+                      {d.direccion}
+                      {d.principal && (s.direccionesIp?.length ?? 1) > 1 && (
+                        <span className="rounded bg-accent-soft px-1 font-sans text-[10px] font-medium text-accent">principal</span>
+                      )}
+                    </span>
+                  ))}
+                </span>
+              }
+            />
+            <Dato etiqueta="VDC" valor={s.vdc} />
             <Dato etiqueta="Servidor físico" valor={s.servidorFisico} />
             <Dato etiqueta="VLAN" valor={s.vlan} />
             <Dato etiqueta="Clúster" valor={s.cluster} />
@@ -205,21 +220,27 @@ export function FichaServidorPage() {
           )}
         </Tarjeta>
 
-        <Tarjeta titulo="Configuración de mantenimiento">
-          {s.configuracion ? (
-            <dl className="grid gap-4">
-              <Dato etiqueta="Frecuencia de revisión" valor={`Cada ${s.configuracion.frecuenciaRevisionDias} días`} />
-              <Dato etiqueta="Frecuencia de mantenimiento" valor={`Cada ${s.configuracion.frecuenciaMantenimientoDias} días`} />
-              <Dato
-                etiqueta="Modalidad de planificación"
-                valor={s.configuracion.modalidadPlanificacion ? ETIQUETA_MODALIDAD[s.configuracion.modalidadPlanificacion] : undefined}
-              />
-              <Dato etiqueta="Cuenta de servicio" valor={s.configuracion.usaCuentaPredeterminada ? 'Predeterminada del sistema' : `#${s.configuracion.idCuentaServicio}`} />
-            </dl>
-          ) : (
-            <p className="text-sm text-ink-soft">Sin configuración de mantenimiento.</p>
-          )}
-        </Tarjeta>
+        <div className="flex flex-col gap-6">
+          <Tarjeta titulo="Recursos">
+            <RecursosServidor cantidadCpu={s.cantidadCpu} ramGb={s.ramGb} hdVirtualGb={s.hdVirtualGb} />
+          </Tarjeta>
+
+          <Tarjeta titulo="Configuración de mantenimiento">
+            {s.configuracion ? (
+              <dl className="grid gap-4">
+                <Dato etiqueta="Frecuencia de revisión" valor={`Cada ${s.configuracion.frecuenciaRevisionDias} días`} />
+                <Dato etiqueta="Frecuencia de mantenimiento" valor={`Cada ${s.configuracion.frecuenciaMantenimientoDias} días`} />
+                <Dato
+                  etiqueta="Modalidad de planificación"
+                  valor={s.configuracion.modalidadPlanificacion ? ETIQUETA_MODALIDAD[s.configuracion.modalidadPlanificacion] : undefined}
+                />
+                <Dato etiqueta="Cuenta de servicio" valor={s.configuracion.usaCuentaPredeterminada ? 'Predeterminada del sistema' : `#${s.configuracion.idCuentaServicio}`} />
+              </dl>
+            ) : (
+              <p className="text-sm text-ink-soft">Sin configuración de mantenimiento.</p>
+            )}
+          </Tarjeta>
+        </div>
       </div>
 
       <Tarjeta

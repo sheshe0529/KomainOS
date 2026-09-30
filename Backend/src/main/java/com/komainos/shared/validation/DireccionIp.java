@@ -9,10 +9,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Direccion IPv4 o IPv6 escrita de forma literal (R2.4: servidor.direccion_ip). */
+/**
+ * Direccion IPv4 o IPv6 escrita de forma literal (R2.4; DEC-37: tabla direccion_ip).
+ * Admite TYPE_USE para validar cada elemento de una lista de direcciones.
+ */
 @Documented
 @Constraint(validatedBy = ValidadorDireccionIp.class)
-@Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.RECORD_COMPONENT})
+@Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.RECORD_COMPONENT, ElementType.TYPE_USE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface DireccionIp {
 

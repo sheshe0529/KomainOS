@@ -5,6 +5,7 @@ import com.komainos.inventario.model.EstadoServidor;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.shared.dto.ReferenciaSimple;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -16,14 +17,20 @@ import java.util.List;
 public record FichaServidorRespuesta(
         Integer id,
         String hostname,
+        /** IP principal. */
         String direccionIp,
-        String datacenter,
+        /** Todas las IP, la principal primero (DEC-37). */
+        List<DireccionIpRespuesta> direccionesIp,
+        String vdc,
         String servidorFisico,
         String vlan,
         String cluster,
         String dns,
         String plataforma,
         String descripcion,
+        Integer cantidadCpu,
+        BigDecimal ramGb,
+        BigDecimal hdVirtualGb,
         ReferenciaSimple versionSistemaOperativo,
         ReferenciaSimple sistemaOperativo,
         FamiliaSistemaOperativo familiaSistemaOperativo,

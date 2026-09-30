@@ -70,10 +70,10 @@ public class IntercambioInventarioController {
             @RequestParam(required = false) Integer idNivelCriticidad,
             @RequestParam(required = false) Integer idSistemaOperativo,
             @RequestParam(required = false) Integer idResponsable,
-            @RequestParam(required = false) String datacenter,
+            @RequestParam(required = false) String vdc,
             @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         var filtro = new FiltroServidores(texto, estado, idEntorno, idNivelCriticidad, idSistemaOperativo,
-                idResponsable, datacenter);
+                idResponsable, vdc);
         List<ColumnaInventario> elegidas = columnas == null ? List.of() : columnas.stream()
                 .map(IntercambioInventarioController::columnaDe)
                 .toList();

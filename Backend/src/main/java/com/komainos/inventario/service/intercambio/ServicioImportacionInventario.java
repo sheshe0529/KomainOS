@@ -36,6 +36,10 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
+import java.util.TreeSet;
+import java.util.LinkedHashSet;
+import java.util.Arrays;
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -52,8 +56,12 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.komainos.inventario.service.intercambio.ColumnaInventario.CLUSTER;
+import static com.komainos.inventario.service.intercambio.ColumnaInventario.CPU;
+import static com.komainos.inventario.service.intercambio.ColumnaInventario.DISCO_VIRTUAL_GB;
+import static com.komainos.inventario.service.intercambio.ColumnaInventario.IPS_ADICIONALES;
+import static com.komainos.inventario.service.intercambio.ColumnaInventario.RAM_GB;
+import static com.komainos.inventario.service.intercambio.ColumnaInventario.VDC;
 import static com.komainos.inventario.service.intercambio.ColumnaInventario.CRITICIDAD;
-import static com.komainos.inventario.service.intercambio.ColumnaInventario.DATACENTER;
 import static com.komainos.inventario.service.intercambio.ColumnaInventario.DESCRIPCION;
 import static com.komainos.inventario.service.intercambio.ColumnaInventario.DIRECCION_IP;
 import static com.komainos.inventario.service.intercambio.ColumnaInventario.DNS;
@@ -86,6 +94,8 @@ import static com.komainos.inventario.service.intercambio.ColumnaInventario.VLAN
 public class ServicioImportacionInventario {
 
     /** La misma regla que el alta individual ({@code ServidorPeticion}). */
+    private static final Pattern SEPARADOR_DIRECCIONES = Pattern.compile("[;,\\s]+");
+
     private static final Pattern PATRON_HOSTNAME = Pattern.compile("^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$");
 
     private final LectorTabular lector;
@@ -160,6 +170,7 @@ public class ServicioImportacionInventario {
         List<String> errores = new ArrayList<>(fila.problemas());
         String hostname = fila.valor(HOSTNAME.clave());
         String ip = minusculas(fila.valor(DIRECCION_IP.clave()));
+        List<String> adicionales = separarDirecciones(fila.valor(IPS_ADICIONALES.clave()));
 
         for (ColumnaInventario columna : ColumnaInventario.importables()) {
             if (columna.obligatoria() && fila.valor(columna.clave()) == null) {
@@ -174,19 +185,31 @@ public class ServicioImportacionInventario {
             }
         }
         if (ip != null) {
-            if (ip.length() > 45) {
-                errores.add("La dirección IP no puede superar los 45 caracteres");
-            } else if (!ValidadorDireccionIp.esValida(ip)) {
-                errores.add("La dirección IP %s no es válida".formatted(ip));
-            }
+            validarIp(ip, "La dirección IP", errores);
         }
-        exigirLongitud(fila, DATACENTER, 255, errores);
+        adicionales.forEach(adicional -> validarIp(adicional, "La dirección IP adicional", errores));
+        if (adicionales.size() > 20) {
+            errores.add("Un servidor puede tener hasta 20 direcciones IP adicionales");
+        }
+        // DEC-37: las IP del registro no se repiten entre sí.
+        List<String> todas = new ArrayList<>();
+        if (ip != null) {
+            todas.add(ip);
+        }
+        todas.addAll(adicionales);
+        Set<String> unicas = new HashSet<>();
+        todas.stream().filter(d -> !unicas.add(d)).distinct()
+                .forEach(d -> errores.add("La dirección IP %s está repetida en el registro".formatted(d)));
+        exigirLongitud(fila, VDC, 255, errores);
         exigirLongitud(fila, SERVIDOR_FISICO, 255, errores);
         exigirLongitud(fila, VLAN, 100, errores);
         exigirLongitud(fila, CLUSTER, 255, errores);
         exigirLongitud(fila, DNS, 255, errores);
         exigirLongitud(fila, PLATAFORMA, 255, errores);
         exigirLongitud(fila, DESCRIPCION, 500, errores);
+        Integer cpu = entero(fila, CPU, 4096, errores);
+        BigDecimal ram = decimal(fila, RAM_GB, 5, errores);
+        BigDecimal disco = decimal(fila, DISCO_VIRTUAL_GB, 8, errores);
 
         VersionSistemaOperativo version = ref.version(fila.valor(SISTEMA_OPERATIVO.clave()),
                 fila.valor(VERSION.clave()), errores);
@@ -200,25 +223,36 @@ public class ServicioImportacionInventario {
                     List.copyOf(errores), null, false, List.of(), null);
         }
 
-        DatosServidor datos = new DatosServidor(hostname, ip, fila.valor(DATACENTER.clave()),
+        DatosServidor datos = new DatosServidor(hostname, ip, fila.valor(VDC.clave()),
                 fila.valor(SERVIDOR_FISICO.clave()), fila.valor(VLAN.clave()), fila.valor(CLUSTER.clave()),
                 fila.valor(DNS.clave()), version.getId(), fila.valor(PLATAFORMA.clave()), entorno.getId(),
-                criticidad.getId(), responsable.getId(), fila.valor(DESCRIPCION.clave()));
+                criticidad.getId(), responsable.getId(), fila.valor(DESCRIPCION.clave()),
+                adicionales, cpu, ram, disco);
 
-        // Repetido dentro del mismo archivo: solo cuenta la primera aparición.
-        Integer filaHostname = hostnamesVistos.putIfAbsent(minusculas(hostname), fila.numero());
-        Integer filaIp = direccionesVistas.putIfAbsent(ip, fila.numero());
-        if (filaHostname != null || filaIp != null) {
+        // Repetido dentro del mismo archivo, por hostname o por cualquiera de sus IP:
+        // solo cuenta la primera aparición.
+        Integer filaHostname = hostnamesVistos.get(minusculas(hostname));
+        String ipRepetida = todas.stream().filter(direccionesVistas::containsKey).findFirst().orElse(null);
+        if (filaHostname != null || ipRepetida != null) {
             String motivo = filaHostname != null
                     ? "Repite el hostname de la fila %d del archivo".formatted(filaHostname)
-                    : "Repite la dirección IP de la fila %d del archivo".formatted(filaIp);
+                    : "Repite la dirección IP %s de la fila %d del archivo"
+                            .formatted(ipRepetida, direccionesVistas.get(ipRepetida));
             return new AnalisisImportacion.Fila(fila.numero(), EstadoFila.DUPLICADA, hostname, ip,
                     List.of(motivo), null, false, List.of(), datos);
         }
+        hostnamesVistos.put(minusculas(hostname), fila.numero());
+        todas.forEach(d -> direccionesVistas.put(d, fila.numero()));
 
         Servidor porHostname = ref.porHostname.get(minusculas(hostname));
-        Servidor porIp = ref.porIp.get(ip);
-        if (porHostname == null && porIp == null) {
+        Set<Servidor> porIp = new LinkedHashSet<>();
+        todas.stream().map(ref.porIp::get).filter(Objects::nonNull).forEach(porIp::add);
+        Set<Servidor> coincidentes = new LinkedHashSet<>();
+        if (porHostname != null) {
+            coincidentes.add(porHostname);
+        }
+        coincidentes.addAll(porIp);
+        if (coincidentes.isEmpty()) {
             List<String> inactivos = referenciasInactivas(null, version, entorno, criticidad, responsable);
             return inactivos.isEmpty()
                     ? new AnalisisImportacion.Fila(fila.numero(), EstadoFila.NUEVA, hostname, ip,
@@ -226,14 +260,14 @@ public class ServicioImportacionInventario {
                     : new AnalisisImportacion.Fila(fila.numero(), EstadoFila.ERRONEA, hostname, ip,
                             inactivos, null, false, List.of(), null);
         }
-        if (porHostname != null && porIp != null && !porHostname.getId().equals(porIp.getId())) {
+        if (coincidentes.size() > 1) {
             return new AnalisisImportacion.Fila(fila.numero(), EstadoFila.DUPLICADA, hostname, ip,
-                    List.of("El hostname corresponde al servidor %s y la dirección IP al servidor %s"
-                            .formatted(porHostname.getHostname(), porIp.getHostname())),
+                    List.of("El hostname y las direcciones IP del registro pertenecen a servidores distintos: %s"
+                            .formatted(coincidentes.stream().map(Servidor::getHostname).collect(Collectors.joining(", ")))),
                     null, false, List.of(), datos);
         }
-        Servidor existente = porHostname != null ? porHostname : porIp;
-        return duplicadoDeRegistrado(fila.numero(), existente, porHostname != null, porIp != null,
+        Servidor existente = coincidentes.iterator().next();
+        return duplicadoDeRegistrado(fila.numero(), existente, porHostname != null, !porIp.isEmpty(),
                 conservarAusentes(datos, existente, presentes), version, entorno, criticidad, responsable);
     }
 
@@ -244,7 +278,7 @@ public class ServicioImportacionInventario {
      */
     private static DatosServidor conservarAusentes(DatosServidor d, Servidor s, Set<ColumnaInventario> presentes) {
         return new DatosServidor(d.hostname(), d.direccionIp(),
-                presentes.contains(DATACENTER) ? d.datacenter() : s.getDatacenter(),
+                presentes.contains(VDC) ? d.vdc() : s.getVdc(),
                 presentes.contains(SERVIDOR_FISICO) ? d.servidorFisico() : s.getServidorFisico(),
                 presentes.contains(VLAN) ? d.vlan() : s.getVlan(),
                 presentes.contains(CLUSTER) ? d.cluster() : s.getCluster(),
@@ -252,7 +286,14 @@ public class ServicioImportacionInventario {
                 d.idVersionSistemaOperativo(),
                 presentes.contains(PLATAFORMA) ? d.plataforma() : s.getPlataforma(),
                 d.idEntorno(), d.idNivelCriticidad(), d.idResponsable(),
-                presentes.contains(DESCRIPCION) ? d.descripcion() : s.getDescripcion());
+                presentes.contains(DESCRIPCION) ? d.descripcion() : s.getDescripcion(),
+                // Sin la columna se conservan las IP adicionales registradas, salvo la
+                // que el archivo pasa a indicar como principal.
+                presentes.contains(IPS_ADICIONALES) ? d.direccionesIpAdicionales()
+                        : s.direccionesAdicionales().stream().filter(ip -> !ip.equals(d.direccionIp())).toList(),
+                presentes.contains(CPU) ? d.cantidadCpu() : s.getCantidadCpu(),
+                presentes.contains(RAM_GB) ? d.ramGb() : s.getRamGb(),
+                presentes.contains(DISCO_VIRTUAL_GB) ? d.hdVirtualGb() : s.getHdVirtualGb());
     }
 
     /**
@@ -318,7 +359,9 @@ public class ServicioImportacionInventario {
         List<String> cambios = new ArrayList<>();
         comparar(cambios, HOSTNAME, s.getHostname(), d.hostname());
         comparar(cambios, DIRECCION_IP, s.getDireccionIp(), d.direccionIp());
-        comparar(cambios, DATACENTER, s.getDatacenter(), d.datacenter());
+        comparar(cambios, IPS_ADICIONALES, new TreeSet<>(s.direccionesAdicionales()),
+                new TreeSet<>(d.direccionesIpAdicionales()));
+        comparar(cambios, VDC, s.getVdc(), d.vdc());
         comparar(cambios, SERVIDOR_FISICO, s.getServidorFisico(), d.servidorFisico());
         comparar(cambios, VLAN, s.getVlan(), d.vlan());
         comparar(cambios, CLUSTER, s.getCluster(), d.cluster());
@@ -331,12 +374,85 @@ public class ServicioImportacionInventario {
         comparar(cambios, CRITICIDAD, s.getNivelCriticidad().getId(), d.idNivelCriticidad());
         comparar(cambios, RESPONSABLE, s.getResponsable().getId(), d.idResponsable());
         comparar(cambios, DESCRIPCION, s.getDescripcion(), d.descripcion());
+        comparar(cambios, CPU, s.getCantidadCpu(), d.cantidadCpu());
+        compararNumero(cambios, RAM_GB, s.getRamGb(), d.ramGb());
+        compararNumero(cambios, DISCO_VIRTUAL_GB, s.getHdVirtualGb(), d.hdVirtualGb());
         return cambios;
     }
 
     private static void comparar(List<String> cambios, ColumnaInventario columna, Object actual, Object nuevo) {
         if (!Objects.equals(actual, nuevo)) {
             cambios.add(columna.etiqueta());
+        }
+    }
+
+    /** 16 y 16.00 son el mismo valor: BigDecimal.equals distingue la escala. */
+    private static void compararNumero(List<String> cambios, ColumnaInventario columna, BigDecimal actual,
+                                       BigDecimal nuevo) {
+        boolean iguales = actual == null ? nuevo == null : nuevo != null && actual.compareTo(nuevo) == 0;
+        if (!iguales) {
+            cambios.add(columna.etiqueta());
+        }
+    }
+
+    /** IP separadas por punto y coma, coma o espacios, en minúsculas. */
+    private static List<String> separarDirecciones(String valor) {
+        if (valor == null) {
+            return List.of();
+        }
+        return Arrays.stream(SEPARADOR_DIRECCIONES.split(valor))
+                .map(String::trim)
+                .filter(texto -> !texto.isEmpty())
+                .map(texto -> texto.toLowerCase(Locale.ROOT))
+                .toList();
+    }
+
+    private static void validarIp(String ip, String descripcion, List<String> errores) {
+        if (ip.length() > 45) {
+            errores.add("%s %s no puede superar los 45 caracteres".formatted(descripcion, ip));
+        } else if (!ValidadorDireccionIp.esValida(ip)) {
+            errores.add("%s %s no es válida".formatted(descripcion, ip));
+        }
+    }
+
+    private static Integer entero(FilaArchivo fila, ColumnaInventario columna, int maximo, List<String> errores) {
+        String valor = fila.valor(columna.clave());
+        if (valor == null) {
+            return null;
+        }
+        try {
+            int numero = Integer.parseInt(valor.trim());
+            if (numero <= 0 || numero > maximo) {
+                errores.add("«%s» debe ser un número entero entre 1 y %d".formatted(columna.etiqueta(), maximo));
+            }
+            return numero;
+        } catch (NumberFormatException ex) {
+            errores.add("«%s» debe ser un número entero".formatted(columna.etiqueta()));
+            return null;
+        }
+    }
+
+    /** Acepta coma o punto decimal: una hoja en español suele escribir 16,5. */
+    private static BigDecimal decimal(FilaArchivo fila, ColumnaInventario columna, int enteros, List<String> errores) {
+        String valor = fila.valor(columna.clave());
+        if (valor == null) {
+            return null;
+        }
+        String texto = valor.trim();
+        if (texto.contains(",") && !texto.contains(".")) {
+            texto = texto.replace(',', '.');
+        }
+        try {
+            BigDecimal numero = new BigDecimal(texto);
+            BigDecimal sinCeros = numero.stripTrailingZeros();
+            if (numero.signum() <= 0 || sinCeros.scale() > 2 || sinCeros.precision() - sinCeros.scale() > enteros) {
+                errores.add("«%s» debe ser un número mayor que 0, con hasta %d enteros y 2 decimales"
+                        .formatted(columna.etiqueta(), enteros));
+            }
+            return numero;
+        } catch (NumberFormatException ex) {
+            errores.add("«%s» debe ser un número".formatted(columna.etiqueta()));
+            return null;
         }
     }
 
@@ -430,12 +546,13 @@ public class ServicioImportacionInventario {
             if (ip != null) {
                 direcciones.add(minusculas(ip));
             }
+            direcciones.addAll(separarDirecciones(fila.valor(IPS_ADICIONALES.clave())));
         }
         Map<String, Servidor> porHostname = new HashMap<>();
         Map<String, Servidor> porIp = new HashMap<>();
         for (Servidor s : servidores.findCoincidentes(hostnames, direcciones)) {
             porHostname.put(minusculas(s.getHostname()), s);
-            porIp.put(s.getDireccionIp(), s);
+            s.getDirecciones().forEach(d -> porIp.put(d.getDireccion(), s));
         }
         return new Referencias(
                 indice(catalogos.listarSistemasOperativos(), SistemaOperativo::getNombre),

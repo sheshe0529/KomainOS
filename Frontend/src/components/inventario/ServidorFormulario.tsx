@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Save } from 'lucide-react'
+import { Plus, Save, Trash2 } from 'lucide-react'
 import { servidoresApi } from '@/api/inventario'
 import type { FichaServidorRespuesta, ServidorPeticion } from '@/api/types'
-import { Boton } from '@/components/ui/Boton'
+import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { AreaTexto, Campo, Entrada, Selector } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import type { Catalogos } from '@/hooks/useCatalogos'
 import type { UsuarioRespuesta } from '@/api/types'
+import { ErrorApi } from '@/api/cliente'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
 
 interface ServidorFormularioProps {
@@ -21,13 +22,17 @@ interface ServidorFormularioProps {
   servidor?: FichaServidorRespuesta
 }
 
-type Formulario = Record<keyof ServidorPeticion, string>
+/** Campos de texto del formulario; las direcciones IP se editan como lista aparte. */
+type CampoTexto = Exclude<keyof ServidorPeticion, 'direccionIp' | 'direccionesIpAdicionales'>
+type Formulario = Record<CampoTexto, string>
+
+/** Máximo de direcciones por servidor: la principal y hasta 20 adicionales. */
+const MAXIMO_DIRECCIONES = 21
 
 function inicial(s?: FichaServidorRespuesta): Formulario {
   return {
     hostname: s?.hostname ?? '',
-    direccionIp: s?.direccionIp ?? '',
-    datacenter: s?.datacenter ?? '',
+    vdc: s?.vdc ?? '',
     servidorFisico: s?.servidorFisico ?? '',
     vlan: s?.vlan ?? '',
     cluster: s?.cluster ?? '',
@@ -38,21 +43,46 @@ function inicial(s?: FichaServidorRespuesta): Formulario {
     idNivelCriticidad: s?.criticidad?.id?.toString() ?? '',
     idResponsable: s?.responsable?.id?.toString() ?? '',
     descripcion: s?.descripcion ?? '',
+    cantidadCpu: s?.cantidadCpu?.toString() ?? '',
+    ramGb: s?.ramGb?.toString() ?? '',
+    hdVirtualGb: s?.hdVirtualGb?.toString() ?? '',
   }
+}
+
+/** Mensaje del backend sobre cualquiera de las direcciones (principal o adicionales). */
+function errorDeDirecciones(error: unknown): string | undefined {
+  if (!(error instanceof ErrorApi)) return undefined
+  return error.errores?.find((e) => e.campo?.startsWith('direccionIp') || e.campo?.startsWith('direccionesIp'))?.mensaje
 }
 
 /**
  * Alta y edición de un servidor (RF09, RF10, HU06). El backend detecta los
  * duplicados de hostname e IP y valida cada campo; sus mensajes se muestran
- * junto al campo correspondiente.
+ * junto al campo correspondiente. Un servidor tiene una o varias IP, una de
+ * ellas principal, y ninguna puede pertenecer a otro servidor (DEC-37).
  */
 export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, responsables, servidor }: ServidorFormularioProps) {
   const [f, setF] = useState<Formulario>(() => inicial(servidor))
+  // La principal va primero (así la devuelve el backend).
+  const [ips, setIps] = useState<string[]>(() =>
+    servidor?.direccionesIp?.length ? servidor.direccionesIp.map((d) => d.direccion ?? '') : [servidor?.direccionIp ?? ''],
+  )
+  const [principal, setPrincipal] = useState(0)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
   const esEdicion = servidor?.id !== undefined
 
-  const cambiar = (campo: keyof Formulario) => (valor: string) => setF((prev) => ({ ...prev, [campo]: valor }))
+  const cambiar = (campo: CampoTexto) => (valor: string) => setF((prev) => ({ ...prev, [campo]: valor }))
+
+  function cambiarIp(indice: number, valor: string) {
+    setIps((actuales) => actuales.map((ip, i) => (i === indice ? valor : ip)))
+  }
+
+  function quitarIp(indice: number) {
+    setIps((actuales) => actuales.filter((_, i) => i !== indice))
+    // La principal sigue apuntando a la misma dirección; si se quita, pasa a la primera.
+    setPrincipal((p) => (indice === p ? 0 : indice < p ? p - 1 : p))
+  }
 
   // Al editar se muestran también las referencias actuales aunque estén
   // inactivas; al crear, solo las activas.
@@ -72,10 +102,14 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
     evento.preventDefault()
     setGuardando(true)
     setError(undefined)
+    const direcciones = ips.map((ip) => ip.trim())
+    const numero = (valor: string) => (valor.trim() ? Number(valor) : undefined)
     const peticion: ServidorPeticion = {
       hostname: f.hostname.trim(),
-      direccionIp: f.direccionIp.trim(),
-      datacenter: f.datacenter || undefined,
+      direccionIp: direcciones[principal],
+      // Las filas vacías se ignoran; la principal es obligatoria en el propio campo.
+      direccionesIpAdicionales: direcciones.filter((ip, i) => i !== principal && ip !== ''),
+      vdc: f.vdc || undefined,
       servidorFisico: f.servidorFisico || undefined,
       vlan: f.vlan || undefined,
       cluster: f.cluster || undefined,
@@ -86,6 +120,9 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
       idNivelCriticidad: Number(f.idNivelCriticidad),
       idResponsable: Number(f.idResponsable),
       descripcion: f.descripcion || undefined,
+      cantidadCpu: numero(f.cantidadCpu),
+      ramGb: numero(f.ramGb),
+      hdVirtualGb: numero(f.hdVirtualGb),
     }
     try {
       const guardado = esEdicion
@@ -99,11 +136,26 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
     }
   }
 
-  const texto = (campo: keyof Formulario, etiqueta: string, obligatorio = false, ayuda?: string) => (
+  const texto = (campo: CampoTexto, etiqueta: string, obligatorio = false, ayuda?: string) => (
     <Campo etiqueta={etiqueta} obligatorio={obligatorio} error={errorDeCampo(error, campo)} ayuda={ayuda}>
       <Entrada value={f[campo]} onChange={(e) => cambiar(campo)(e.target.value)} required={obligatorio} />
     </Campo>
   )
+
+  const numero = (campo: CampoTexto, etiqueta: string, paso: string, ayuda?: string) => (
+    <Campo etiqueta={etiqueta} error={errorDeCampo(error, campo)} ayuda={ayuda}>
+      <Entrada
+        type="number"
+        min={paso}
+        step={paso}
+        inputMode={paso === '1' ? 'numeric' : 'decimal'}
+        value={f[campo]}
+        onChange={(e) => cambiar(campo)(e.target.value)}
+      />
+    </Campo>
+  )
+
+  const errorIps = errorDeDirecciones(error)
 
   return (
     <Modal
@@ -125,11 +177,58 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
         </>
       }
     >
-      <form id="form-servidor" onSubmit={guardar} className="flex flex-col gap-4">
+      <form id="form-servidor" onSubmit={guardar} className="flex flex-col gap-5">
         {!tieneErroresDeCampo(error) && <MensajeError error={error} />}
         <div className="grid gap-4 sm:grid-cols-2">
           {texto('hostname', 'Hostname', true)}
-          {texto('direccionIp', 'Dirección IP', true, 'IPv4 o IPv6')}
+          {texto('dns', 'DNS')}
+        </div>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-sm font-medium text-ink">
+            Direcciones IP<span className="ml-0.5 text-danger">*</span>
+          </legend>
+          <p className="text-xs text-ink-faint">
+            Marque la principal: es la que identifica al servidor y la que usa el sistema para conectarse. Una IP no puede
+            pertenecer a dos servidores.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {ips.map((ip, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-ink-soft" title="Dirección principal">
+                  <input
+                    type="radio"
+                    name="ip-principal"
+                    checked={principal === i}
+                    onChange={() => setPrincipal(i)}
+                    className="accent-[var(--color-accent)]"
+                    aria-label={`Marcar ${ip || 'esta dirección'} como principal`}
+                  />
+                  <span className={`w-16 ${principal === i ? 'font-medium text-accent' : ''}`}>
+                    {principal === i ? 'Principal' : 'Adicional'}
+                  </span>
+                </label>
+                <Entrada
+                  value={ip}
+                  onChange={(e) => cambiarIp(i, e.target.value)}
+                  placeholder="IPv4 o IPv6"
+                  aria-label={principal === i ? 'Dirección IP principal' : `Dirección IP adicional ${i + 1}`}
+                  required={principal === i}
+                  className="font-mono"
+                />
+                <BotonIcono icono={Trash2} etiqueta="Quitar dirección" onClick={() => quitarIp(i)} disabled={ips.length === 1} />
+              </li>
+            ))}
+          </ul>
+          {errorIps && <span className="text-xs text-danger">{errorIps}</span>}
+          {ips.length < MAXIMO_DIRECCIONES && (
+            <Boton icono={Plus} variante="fantasma" className="self-start" onClick={() => setIps((a) => [...a, ''])}>
+              Agregar IP
+            </Boton>
+          )}
+        </fieldset>
+
+        <div className="grid gap-4 sm:grid-cols-2">
           <Campo etiqueta="Sistema operativo y versión" obligatorio error={errorDeCampo(error, 'idVersionSistemaOperativo')}>
             <Selector value={f.idVersionSistemaOperativo} onChange={(e) => cambiar('idVersionSistemaOperativo')(e.target.value)} required>
               <option value="">Seleccione…</option>
@@ -171,12 +270,21 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
               ))}
             </Selector>
           </Campo>
-          {texto('datacenter', 'Datacenter')}
+          {texto('vdc', 'VDC', false, 'Virtual DataCenter')}
           {texto('servidorFisico', 'Servidor físico')}
           {texto('cluster', 'Clúster')}
           {texto('vlan', 'VLAN')}
-          {texto('dns', 'DNS')}
         </div>
+
+        <fieldset>
+          <legend className="mb-2 text-sm font-medium text-ink">Recursos</legend>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {numero('cantidadCpu', 'CPU', '1', 'Cantidad de vCPU')}
+            {numero('ramGb', 'RAM (GB)', '0.01')}
+            {numero('hdVirtualGb', 'Disco virtual (GB)', '0.01', 'Capacidad total')}
+          </div>
+        </fieldset>
+
         <Campo etiqueta="Descripción" error={errorDeCampo(error, 'descripcion')}>
           <AreaTexto value={f.descripcion} onChange={(e) => cambiar('descripcion')(e.target.value)} />
         </Campo>
