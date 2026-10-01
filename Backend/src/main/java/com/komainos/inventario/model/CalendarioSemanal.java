@@ -35,7 +35,6 @@ public final class CalendarioSemanal {
     public static final int MINUTOS_DIA = 24 * 60;
     public static final int MINUTOS_SEMANA = 7 * MINUTOS_DIA;
 
-    /** Ordenados, sin solapes ni contiguos, dentro de [0, MINUTOS_SEMANA]. */
     private final List<Tramo> tramos;
 
     private CalendarioSemanal(List<Tramo> tramos) {

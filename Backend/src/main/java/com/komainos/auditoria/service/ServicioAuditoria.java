@@ -51,9 +51,7 @@ public class ServicioAuditoria {
     }
 
     /**
-     * Operaciones de un tipo registradas sobre un servidor, la mas reciente
-     * primero. La bitacora es la unica fuente de algunos hechos, como las
-     * reactivaciones (RF73), que no tienen tabla propia.
+     * Operaciones de un tipo registradas sobre un servidor, la mas reciente primero.
      */
     @Transactional(readOnly = true)
     public List<RegistroAuditoria> consultarSobreServidor(Integer idServidor, String operacion) {

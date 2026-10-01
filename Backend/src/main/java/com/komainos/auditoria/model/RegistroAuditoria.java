@@ -15,14 +15,6 @@ import org.hibernate.annotations.Immutable;
 
 import java.time.Instant;
 
-/**
- * Registro de la bitacora de operaciones (RNF06), tabla {@code auditoria}.
- *
- * <p>Solo se inserta: R2.4 establece que no se modifican ni eliminan registros,
- * por eso la entidad es inmutable y no expone setters. Las referencias a
- * servidor, grupo y orden se guardan como identificadores simples para que un
- * registro de auditoria nunca cargue ni bloquee la entidad afectada.
- */
 @Entity
 @Table(name = "auditoria")
 @Immutable
@@ -59,7 +51,7 @@ public class RegistroAuditoria {
     @Column(name = "id_entidad")
     private Integer idEntidad;
 
-    /** Valores previos, serializados en JSON y sin secretos (RNF11). */
+    /** Valores previos serializados en JSON y sin secretos */
     @Column(name = "valor_anterior", columnDefinition = "text")
     private String valorAnterior;
 

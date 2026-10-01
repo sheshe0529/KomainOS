@@ -12,12 +12,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Entorno que clasifica los servidores (RF74), tabla {@code entorno}.
- *
- * <p>Se desactiva, no se borra: las ordenes historicas y la politica de
- * gestion del cambio lo referencian.
- */
 @Entity
 @Table(name = "entorno")
 @Getter

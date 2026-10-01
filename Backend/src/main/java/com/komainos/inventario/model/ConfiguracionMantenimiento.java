@@ -23,14 +23,9 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 import java.time.Instant;
 
 /**
- * Superclase de la generalizacion de configuraciones (RF17, RF70), tabla
- * {@code configuracion_mantenimiento}. Las especializaciones
- * {@link ConfiguracionServidor} y {@link ConfiguracionGrupo} comparten su
- * identificador, tal como lo modela R2.4.
- *
- * <p>Su ausencia representa un registro pendiente de configuracion (DEC-14).
- * Los cambios afectan solo a las ordenes nuevas (HU13 CA7): cada orden guarda
- * los valores que aplico al generarse.
+ * Superclase de la generalizacion de configuraciones
+ * Su ausencia representa un registro pendiente de configuracion
+ * Los cambios afectan solo a las ordenes nuevas
  */
 @Entity
 @Table(name = "configuracion_mantenimiento")
@@ -45,11 +40,6 @@ public abstract class ConfiguracionMantenimiento {
     @Column(name = "id_configuracion_mantenimiento")
     private Integer id;
 
-    /**
-     * Cuenta de servicio propia. Nula significa usar la predeterminada del
-     * sistema (R2.4). Se gestiona con el modulo de credenciales (DEC-16), por
-     * eso se mapea como identificador y no como asociacion.
-     */
     @Column(name = "id_cuenta_servicio")
     private Integer idCuentaServicio;
 
