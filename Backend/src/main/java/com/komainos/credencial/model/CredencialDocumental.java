@@ -1,6 +1,7 @@
 package com.komainos.credencial.model;
 
 import com.komainos.inventario.model.Servidor;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -25,11 +26,25 @@ public class CredencialDocumental extends Credencial {
     @JoinColumn(name = "id_servidor", nullable = false, updatable = false)
     private Servidor servidor;
 
+    /** La que viaja en la exportación e importación del inventario, una por servidor (ex_credencial_documental_principal) */
+    @Column(name = "principal", nullable = false)
+    private boolean principal;
+
     public static CredencialDocumental nueva(Servidor servidor, String nombre, String usuarioAcceso,
-                                             String descripcion, Instant ahora) {
+                                             String descripcion, boolean principal, Instant ahora) {
         CredencialDocumental credencial = new CredencialDocumental();
         credencial.servidor = servidor;
+        credencial.principal = principal;
         credencial.registrar(nombre, usuarioAcceso, descripcion, ahora);
         return credencial;
+    }
+
+    public void marcarPrincipal() {
+        exigirVigente("marcarla como principal");
+        principal = true;
+    }
+
+    public void quitarPrincipal() {
+        principal = false;
     }
 }

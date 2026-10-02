@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { Download } from 'lucide-react'
 import { FORMATOS, intercambioApi, type FormatoArchivo } from '@/api/intercambio'
 import type { FiltroServidores } from '@/api/inventario'
+import { useSesion } from '@/auth/sesion-context'
+import { CampoReautenticacion } from '@/components/credenciales/CampoReautenticacion'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { useConsulta } from '@/hooks/useConsulta'
+import { errorDeCampo } from '@/utils/errores'
 
 interface ExportarModalProps {
   abierto: boolean
@@ -19,7 +23,11 @@ interface ExportarModalProps {
 
 export function ExportarModal({ abierto, filtro, total, onCerrar }: ExportarModalProps) {
   const { avisar } = useAvisos()
+  const { tieneRol } = useSesion()
+  const esAdmin = tieneRol('ADMINISTRADOR')
   const columnas = useConsulta(() => intercambioApi.columnas(), [])
+  const [conCredencial, setConCredencial] = useState(false)
+  const [contrasena, setContrasena] = useState('')
   const [formato, setFormato] = useState<FormatoArchivo>('XLSX')
   const [elegidas, setElegidas] = useState<string[]>([])
   const [descargando, setDescargando] = useState(false)
@@ -34,14 +42,17 @@ export function ExportarModal({ abierto, filtro, total, onCerrar }: ExportarModa
     setElegidas((actual) => (actual.includes(clave) ? actual.filter((c) => c !== clave) : [...actual, clave]))
   }
 
-  async function exportar() {
+  async function exportar(evento: FormEvent) {
+    evento.preventDefault()
     setDescargando(true)
     setError(undefined)
     try {
       // Se envían en el orden del catálogo, no en el orden en que se marcaron
       const orden = (columnas.datos ?? []).map((c) => c.clave!).filter((c) => elegidas.includes(c))
-      const nombre = await intercambioApi.exportar(formato, orden, filtro)
-      avisar(`Se descargó ${nombre}.`)
+      const nombre = conCredencial
+        ? await intercambioApi.exportarConCredencial(formato, orden, filtro, contrasena)
+        : await intercambioApi.exportar(formato, orden, filtro)
+      avisar(conCredencial ? `Se descargó ${nombre}. Contiene contraseñas en claro: guárdelo en un lugar seguro.` : `Se descargó ${nombre}.`)
       onCerrar()
     } catch (e) {
       setError(e)
@@ -62,14 +73,21 @@ export function ExportarModal({ abierto, filtro, total, onCerrar }: ExportarModa
       pie={
         <>
           <Boton onClick={onCerrar}>Cancelar</Boton>
-          <Boton variante="primario" icono={Download} cargando={descargando} disabled={elegidas.length === 0 || total === 0} onClick={exportar}>
+          <Boton
+            type="submit"
+            form="form-exportar"
+            variante="primario"
+            icono={Download}
+            cargando={descargando}
+            disabled={elegidas.length === 0 || total === 0 || (conCredencial && !contrasena)}
+          >
             Descargar
           </Boton>
         </>
       }
     >
-      <div className="flex flex-col gap-5">
-        <MensajeError error={error ?? columnas.error} />
+      <form id="form-exportar" onSubmit={exportar} className="flex flex-col gap-5">
+        {!errorDeCampo(error, 'contrasena') && <MensajeError error={error ?? columnas.error} />}
 
         <fieldset>
           <legend className="mb-2 text-sm font-medium text-ink">Formato</legend>
@@ -128,12 +146,32 @@ export function ExportarModal({ abierto, filtro, total, onCerrar }: ExportarModa
               ))}
             </div>
           )}
-          <p className="mt-2 text-xs text-ink-faint">
-            Las credenciales de los servidores no se incluyen en la exportación. Un archivo exportado puede volver a
-            importarse sin cambios.
-          </p>
+          <p className="mt-2 text-xs text-ink-faint">Un archivo exportado puede volver a importarse sin cambios.</p>
         </fieldset>
-      </div>
+
+        {esAdmin && (
+          <fieldset className="flex flex-col gap-3 rounded-lg border border-line p-3">
+            <label className="flex cursor-pointer items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={conCredencial}
+                onChange={(e) => setConCredencial(e.target.checked)}
+                className="mt-0.5 accent-[var(--color-accent)]"
+              />
+              <span>
+                <span className="font-medium text-ink">Incluir la credencial principal</span>
+                <span className="block text-xs text-ink-soft">
+                  Agrega al final mecanismo, tipo de usuario, usuario, contraseña o llave y contraseña su de cada servidor, en
+                  claro. Requiere confirmar su contraseña y queda registrado en la auditoría.
+                </span>
+              </span>
+            </label>
+            {conCredencial && (
+              <CampoReautenticacion valor={contrasena} onCambiar={setContrasena} error={errorDeCampo(error, 'contrasena')} autoFocus />
+            )}
+          </fieldset>
+        )}
+      </form>
     </Modal>
   )
 }

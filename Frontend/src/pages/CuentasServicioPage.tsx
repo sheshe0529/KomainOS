@@ -148,6 +148,7 @@ export function CuentasServicioPage() {
           abierto
           titulo="Nueva cuenta de servicio"
           descripcion="Para SSH admite contraseña o llave privada, para WinRM solo usuario y contraseña."
+          clase="cuenta"
           ayudaNombre="Nombre único con el que se elige en las configuraciones."
           onCerrar={() => setDialogo(null)}
           onGuardar={async (datos) => {
@@ -161,6 +162,7 @@ export function CuentasServicioPage() {
           abierto
           titulo={`Editar ${dialogo.cuenta.nombre}`}
           descripcion="Para cambiar la contraseña o la llave use «Nuevo secreto»."
+          clase="cuenta"
           credencial={dialogo.cuenta}
           onCerrar={() => setDialogo(null)}
           onGuardar={async ({ nombre, usuarioAcceso, descripcion }) => {

@@ -13,6 +13,22 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Librerías aparte del código del panel: cambian poco y el navegador las conserva en caché entre versiones
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/ },
+            {
+              name: 'graficos',
+              test: /node_modules[\\/](recharts|victory-vendor|d3-[a-z-]+|internmap|@reduxjs|react-redux|redux|redux-thunk|immer|reselect|es-toolkit|decimal\.js-light|eventemitter3|tiny-invariant)[\\/]/,
+            },
+          ],
+        },
+      },
+    },
+  },
   server: {
     // Puerto estricto: si está ocupado Vite falla en vez de moverse en silencio a otro
     port: 5180,

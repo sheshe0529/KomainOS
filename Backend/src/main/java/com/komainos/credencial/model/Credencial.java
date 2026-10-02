@@ -75,10 +75,15 @@ public abstract class Credencial {
         aplicarDatos(nombre, usuarioAcceso, descripcion);
     }
 
-    public CredencialVersion agregarVersion(TipoAutenticacion tipo, SecretoCifrado secreto, Instant ahora) {
+    /** La contraseña su acompaña solo al usuario Genérico, igual que exige ck_credencial_version_su */
+    public CredencialVersion agregarVersion(TipoAutenticacion tipo, TipoUsuario tipoUsuario, SecretoCifrado secreto,
+                                            SecretoCifrado su, Instant ahora) {
         exigirVigente("actualizar su secreto");
+        if ((tipoUsuario == TipoUsuario.GENERICO) != (su != null)) {
+            throw new ReglaNegocioException("La contraseña su corresponde solo a un usuario Genérico");
+        }
         int numero = versionVigente().map(CredencialVersion::getNumeroVersion).orElse(0) + 1;
-        CredencialVersion version = CredencialVersion.nueva(this, numero, tipo, secreto, ahora);
+        CredencialVersion version = CredencialVersion.nueva(this, numero, tipo, tipoUsuario, secreto, su, ahora);
         versiones.add(version);
         return version;
     }

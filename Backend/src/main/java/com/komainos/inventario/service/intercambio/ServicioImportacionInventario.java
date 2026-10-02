@@ -5,11 +5,14 @@ import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.inventario.model.DatosServidor;
 import com.komainos.inventario.model.Entorno;
 import com.komainos.inventario.model.EstadoServidor;
+import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.NivelCriticidad;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.model.SistemaOperativo;
 import com.komainos.inventario.model.VersionSistemaOperativo;
 import com.komainos.inventario.repository.ServidorRepositorio;
+import com.komainos.inventario.service.CredencialArchivo;
+import com.komainos.inventario.service.PuertoCredencialesInventario;
 import com.komainos.inventario.service.ServicioCatalogos;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.inventario.service.intercambio.AnalisisImportacion.EstadoFila;
@@ -21,6 +24,7 @@ import com.komainos.shared.exception.RecursoNoEncontradoException;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.model.Actor;
 import com.komainos.shared.util.archivo.ArchivoGenerado;
+import com.komainos.shared.util.archivo.ColumnaArchivo;
 import com.komainos.shared.util.archivo.EscritorTabular;
 import com.komainos.shared.util.archivo.FilaArchivo;
 import com.komainos.shared.util.archivo.FormatoArchivo;
@@ -91,14 +95,17 @@ public class ServicioImportacionInventario {
     private final UsuarioRepositorio usuarios;
     private final ServicioCatalogos catalogos;
     private final ServicioServidor servicioServidor;
+    private final PuertoCredencialesInventario credenciales;
     private final ServicioAuditoria auditoria;
     private final PlatformTransactionManager transacciones;
 
+    /** Las columnas de la credencial principal van al final y son opcionales (DEC-39) */
     public ArchivoGenerado plantilla(FormatoArchivo formato) {
-        List<ColumnaInventario> columnas = ColumnaInventario.importables();
+        List<ColumnaArchivo> columnas = new ArrayList<>(ColumnaInventario.importables().stream()
+                .map(ColumnaInventario::comoColumnaArchivo).toList());
+        Arrays.stream(ColumnaCredencial.values()).map(ColumnaCredencial::comoColumnaArchivo).forEach(columnas::add);
         Map<String, Object> vacio = new HashMap<>();
-        byte[] contenido = escritor.escribir(formato,
-                columnas.stream().map(ColumnaInventario::comoColumnaArchivo).toList(), List.of(vacio), "Servidores");
+        byte[] contenido = escritor.escribir(formato, columnas, List.of(vacio), "Servidores");
         return new ArchivoGenerado("plantilla_inventario_servidores." + formato.extension(), formato, contenido);
     }
 
@@ -112,11 +119,15 @@ public class ServicioImportacionInventario {
 
     private AnalisisImportacion clasificar(FormatoArchivo formato, TablaArchivo tabla) {
         List<ColumnaInventario> reconocidas = new ArrayList<>();
+        List<ColumnaCredencial> deCredencial = new ArrayList<>();
         List<String> ignoradas = new ArrayList<>();
         for (String clave : tabla.columnas()) {
             ColumnaInventario columna = ColumnaInventario.deClave(clave);
+            ColumnaCredencial credencial = ColumnaCredencial.deClave(clave);
             if (columna != null && columna.importable()) {
                 reconocidas.add(columna);
+            } else if (credencial != null) {
+                deCredencial.add(credencial);
             } else {
                 ignoradas.add(columna != null ? columna.etiqueta() : clave);
             }
@@ -139,15 +150,18 @@ public class ServicioImportacionInventario {
             if (fila.valores().isEmpty() && fila.problemas().isEmpty()) {
                 continue; // registro vacío, como una fila en blanco de la hoja
             }
-            filas.add(clasificarFila(fila, presentes, referencias, hostnamesVistos, direccionesVistas));
+            filas.add(clasificarFila(fila, presentes, !deCredencial.isEmpty(), referencias, hostnamesVistos,
+                    direccionesVistas));
         }
         if (filas.isEmpty()) {
             throw new ReglaNegocioException("El archivo no contiene registros con datos");
         }
-        return new AnalisisImportacion(formato, List.copyOf(reconocidas), List.copyOf(ignoradas), filas);
+        return new AnalisisImportacion(formato, List.copyOf(reconocidas), List.copyOf(deCredencial),
+                List.copyOf(ignoradas), filas);
     }
 
-    private AnalisisImportacion.Fila clasificarFila(FilaArchivo fila, Set<ColumnaInventario> presentes, Referencias ref,
+    private AnalisisImportacion.Fila clasificarFila(FilaArchivo fila, Set<ColumnaInventario> presentes,
+                                                    boolean conCredencial, Referencias ref,
                                                     Map<String, Integer> hostnamesVistos,
                                                     Map<String, Integer> direccionesVistas) {
         List<String> errores = new ArrayList<>(fila.problemas());
@@ -199,10 +213,14 @@ public class ServicioImportacionInventario {
         NivelCriticidad criticidad = ref.buscar(ref.criticidades, fila.valor(CRITICIDAD.clave()),
                 "el nivel de criticidad", errores);
         Usuario responsable = ref.buscar(ref.usuarios, fila.valor(RESPONSABLE.clave()), "el usuario", errores, false);
+        CredencialArchivo credencial = conCredencial ? ColumnaCredencial.leer(fila) : null;
+        if (credencial != null && version != null) {
+            errores.addAll(credenciales.validar(credencial, version.getSistemaOperativo().getFamilia()));
+        }
 
         if (!errores.isEmpty()) {
             return new AnalisisImportacion.Fila(fila.numero(), EstadoFila.ERRONEA, hostname, ip,
-                    List.copyOf(errores), null, false, List.of(), null);
+                    List.copyOf(errores), null, false, List.of(), null, null);
         }
 
         DatosServidor datos = new DatosServidor(hostname, ip, fila.valor(VDC.clave()),
@@ -220,7 +238,7 @@ public class ServicioImportacionInventario {
                     : "Repite la dirección IP %s de la fila %d del archivo"
                             .formatted(ipRepetida, direccionesVistas.get(ipRepetida));
             return new AnalisisImportacion.Fila(fila.numero(), EstadoFila.DUPLICADA, hostname, ip,
-                    List.of(motivo), null, false, List.of(), datos);
+                    List.of(motivo), null, false, List.of(), datos, null);
         }
         hostnamesVistos.put(minusculas(hostname), fila.numero());
         todas.forEach(d -> direccionesVistas.put(d, fila.numero()));
@@ -237,19 +255,19 @@ public class ServicioImportacionInventario {
             List<String> inactivos = referenciasInactivas(null, version, entorno, criticidad, responsable);
             return inactivos.isEmpty()
                     ? new AnalisisImportacion.Fila(fila.numero(), EstadoFila.NUEVA, hostname, ip,
-                            List.of(), null, false, List.of(), datos)
+                            List.of(), null, false, List.of(), datos, credencial)
                     : new AnalisisImportacion.Fila(fila.numero(), EstadoFila.ERRONEA, hostname, ip,
-                            inactivos, null, false, List.of(), null);
+                            inactivos, null, false, List.of(), null, null);
         }
         if (coincidentes.size() > 1) {
             return new AnalisisImportacion.Fila(fila.numero(), EstadoFila.DUPLICADA, hostname, ip,
                     List.of("El hostname y las direcciones IP del registro pertenecen a servidores distintos: %s"
                             .formatted(coincidentes.stream().map(Servidor::getHostname).collect(Collectors.joining(", ")))),
-                    null, false, List.of(), datos);
+                    null, false, List.of(), datos, null);
         }
         Servidor existente = coincidentes.iterator().next();
         return duplicadoDeRegistrado(fila.numero(), existente, porHostname != null, !porIp.isEmpty(),
-                conservarAusentes(datos, existente, presentes), version, entorno, criticidad, responsable);
+                conservarAusentes(datos, existente, presentes), version, entorno, criticidad, responsable, credencial);
     }
 
     /** Columna ausente conserva el dato registrado, columna vacía lo borra (DEC-31) */
@@ -276,7 +294,8 @@ public class ServicioImportacionInventario {
     private AnalisisImportacion.Fila duplicadoDeRegistrado(int numero, Servidor existente, boolean mismoHostname,
                                                            boolean mismaIp, DatosServidor datos,
                                                            VersionSistemaOperativo version, Entorno entorno,
-                                                           NivelCriticidad criticidad, Usuario responsable) {
+                                                           NivelCriticidad criticidad, Usuario responsable,
+                                                           CredencialArchivo credencial) {
         List<String> motivos = new ArrayList<>();
         motivos.add(mismoHostname && mismaIp
                 ? "Ya existe el servidor %s con el mismo hostname y dirección IP".formatted(existente.getHostname())
@@ -284,6 +303,11 @@ public class ServicioImportacionInventario {
                 ? "Ya existe el servidor %s con el mismo hostname".formatted(existente.getHostname())
                 : "Ya existe el servidor %s con la misma dirección IP".formatted(existente.getHostname()));
         List<String> cambios = camposModificados(existente, datos, version);
+        FamiliaSistemaOperativo familia = version.getSistemaOperativo().getFamilia();
+        if (credencial != null && existente.getEstado() != EstadoServidor.DADO_DE_BAJA
+                && credenciales.cambiaPrincipal(existente.getId(), familia, credencial)) {
+            cambios.add(ColumnaCredencial.CAMBIO);
+        }
         boolean sobrescribible = false;
         if (existente.getEstado() == EstadoServidor.DADO_DE_BAJA) {
             motivos.add("Está dado de baja: no se puede sobrescribir");
@@ -296,7 +320,7 @@ public class ServicioImportacionInventario {
             sobrescribible = bloqueos.isEmpty();
         }
         return new AnalisisImportacion.Fila(numero, EstadoFila.DUPLICADA, datos.hostname(), datos.direccionIp(),
-                List.copyOf(motivos), existente, sobrescribible, cambios, datos);
+                List.copyOf(motivos), existente, sobrescribible, cambios, datos, credencial);
     }
 
     /** Al sobrescribir solo se exige activo lo que cambia, como en la edición individual */
@@ -446,11 +470,22 @@ public class ServicioImportacionInventario {
         for (AnalisisImportacion.Fila fila : analisis.filas()) {
             filas.add(switch (fila.estado()) {
                 case ERRONEA -> resultado(fila, Resultado.RECHAZADO, null, String.join(". ", fila.motivos()));
-                case NUEVA -> aplicar(porFila, fila, Resultado.CREADO,
-                        () -> servicioServidor.crear(fila.datos(), actor).getId());
+                case NUEVA -> aplicar(porFila, fila, Resultado.CREADO, () -> {
+                    Servidor creado = servicioServidor.crear(fila.datos(), actor);
+                    aplicarCredencial(fila, creado.getId(), actor);
+                    return creado.getId();
+                });
                 case DUPLICADA -> fila.sobrescribible() && confirmadas.contains(fila.numero())
-                        ? aplicar(porFila, fila, Resultado.ACTUALIZADO,
-                                () -> servicioServidor.actualizar(fila.existente().getId(), fila.datos(), actor).getId())
+                        ? aplicar(porFila, fila, Resultado.ACTUALIZADO, () -> {
+                            Integer id = fila.existente().getId();
+                            if (fila.cambiaServidor()) {
+                                servicioServidor.actualizar(id, fila.datos(), actor);
+                            }
+                            if (fila.cambiaCredencial()) {
+                                aplicarCredencial(fila, id, actor);
+                            }
+                            return id;
+                        })
                         : resultado(fila, Resultado.OMITIDO, fila.existente() == null ? null : fila.existente().getId(),
                                 fila.sobrescribible()
                                         ? "No se confirmó sobrescribir el servidor existente"
@@ -468,6 +503,14 @@ public class ServicioImportacionInventario {
         porFila.executeWithoutResult(estado -> auditoria.registrar(actor,
                 Operacion.de("IMPORTAR_INVENTARIO", "servidor", null).valores(null, resumen)));
         return resultado;
+    }
+
+    /** En la misma transacción que el servidor: si la credencial falla, la fila completa se rechaza */
+    private void aplicarCredencial(AnalisisImportacion.Fila fila, Integer idServidor, Actor actor) {
+        if (fila.credencial() != null) {
+            credenciales.aplicarPrincipal(idServidor, servicioServidor.obtenerSinAlcance(idServidor).familia(),
+                    fila.credencial(), actor);
+        }
     }
 
     private ResultadoImportacion.Fila aplicar(TransactionTemplate porFila, AnalisisImportacion.Fila fila,

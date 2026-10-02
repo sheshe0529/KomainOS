@@ -89,6 +89,12 @@ public class ServicioServidor implements PuertoServidoresACargo {
         return servidor;
     }
 
+    /** Sin filtro de alcance: solo para procesos que ya verificaron la autorización, como la importación */
+    @Transactional(readOnly = true)
+    public Servidor obtenerSinAlcance(Integer id) {
+        return buscar(id);
+    }
+
     @Transactional(readOnly = true)
     @Override
     public long contarACargoDe(Integer idUsuario) {

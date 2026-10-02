@@ -51,6 +51,15 @@ class CifradorCredencialesTest {
     }
 
     @Test
+    @DisplayName("DEC-39: la contraseña su no se puede intercambiar con el secreto principal")
+    void suLigadaASuParte() {
+        SecretoCifrado su = cifrador.cifrarSu("root-pass", 1);
+
+        assertThat(cifrador.descifrarSu(su, 1)).isEqualTo("root-pass");
+        assertThatThrownBy(() -> cifrador.descifrar(su, 1)).isInstanceOf(ReglaNegocioException.class);
+    }
+
+    @Test
     @DisplayName("detecta un dato alterado en la base")
     void detectaAlteracion() {
         SecretoCifrado cifrado = cifrador.cifrar("clave", 1);

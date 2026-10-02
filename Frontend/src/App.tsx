@@ -1,31 +1,38 @@
+import { Suspense } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { SesionProvider } from '@/auth/SesionProvider'
 import { RutaProtegida } from '@/auth/RutaProtegida'
 import { AvisosProvider } from '@/components/ui/AvisosProvider'
+import { Cargando } from '@/components/ui/Cargando'
 import { MainLayout } from '@/components/layout/MainLayout'
-import { LoginPage } from '@/pages/LoginPage'
-import { ServidoresPage } from '@/pages/ServidoresPage'
-import { FichaServidorPage } from '@/pages/FichaServidorPage'
-import { GruposPage } from '@/pages/GruposPage'
-import { FichaGrupoPage } from '@/pages/FichaGrupoPage'
-import { CatalogosPage } from '@/pages/CatalogosPage'
-import { ParametrosPage } from '@/pages/ParametrosPage'
-import { UsuariosPage } from '@/pages/UsuariosPage'
-import { CuentasServicioPage } from '@/pages/CuentasServicioPage'
-import { PreferenciasPage } from '@/pages/PreferenciasPage'
-import { NoEncontradoPage } from '@/pages/NoEncontradoPage'
-import { CronogramaPage } from '@/pages/CronogramaPage'
-import { CronogramaDiaPage } from '@/pages/CronogramaDiaPage'
-import { OrdenesPage } from '@/pages/OrdenesPage'
-import { OrdenDetallePage } from '@/pages/OrdenDetallePage'
-import { MiCuentaPage } from '@/pages/MiCuentaPage'
+import {
+  CatalogosPage,
+  CronogramaDiaPage,
+  CronogramaPage,
+  CuentasServicioPage,
+  FichaGrupoPage,
+  FichaServidorPage,
+  GruposPage,
+  LoginPage,
+  MiCuentaPage,
+  NoEncontradoPage,
+  OrdenDetallePage,
+  OrdenesPage,
+  ParametrosPage,
+  PreferenciasPage,
+  ServidoresPage,
+  UsuariosPage,
+} from '@/pages'
 
+/** El menú y la barra superior se quedan mientras se descarga la pantalla */
 function DisposicionAutenticada() {
   return (
     <RutaProtegida>
       <MainLayout>
-        <Outlet />
+        <Suspense fallback={<Cargando />}>
+          <Outlet />
+        </Suspense>
       </MainLayout>
     </RutaProtegida>
   )
@@ -38,7 +45,14 @@ function App() {
       <SesionProvider>
         <AvisosProvider>
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/login"
+              element={
+                <Suspense fallback={<Cargando pantallaCompleta />}>
+                  <LoginPage />
+                </Suspense>
+              }
+            />
             <Route element={<DisposicionAutenticada />}>
               <Route path="/" element={<Navigate to="/cronograma" replace />} />
               <Route path="/cronograma" element={<CronogramaPage />} />

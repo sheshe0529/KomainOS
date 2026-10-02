@@ -7,10 +7,13 @@ import com.komainos.inventario.dto.FilaImportacionRespuesta;
 import com.komainos.inventario.dto.ResultadoImportacionRespuesta;
 import com.komainos.inventario.service.intercambio.AnalisisImportacion.EstadoFila;
 import com.komainos.inventario.service.intercambio.AnalisisImportacion;
+import com.komainos.inventario.service.intercambio.ColumnaCredencial;
 import com.komainos.inventario.service.intercambio.ColumnaInventario;
 import com.komainos.inventario.service.intercambio.ResultadoImportacion.Resultado;
 import com.komainos.inventario.service.intercambio.ResultadoImportacion;
 import com.komainos.shared.dto.ReferenciaSimple;
+
+import java.util.stream.Stream;
 
 public final class IntercambioMapeador {
 
@@ -25,7 +28,8 @@ public final class IntercambioMapeador {
         return new AnalisisImportacionRespuesta(a.formato().name(), a.filas().size(),
                 a.contar(EstadoFila.NUEVA), a.contar(EstadoFila.DUPLICADA), a.contar(EstadoFila.ERRONEA),
                 a.sobrescribibles(),
-                a.columnasReconocidas().stream().map(ColumnaInventario::etiqueta).toList(),
+                Stream.concat(a.columnasReconocidas().stream().map(ColumnaInventario::etiqueta),
+                        a.columnasCredencial().stream().map(ColumnaCredencial::etiqueta)).toList(),
                 a.columnasIgnoradas(),
                 a.filas().stream().map(IntercambioMapeador::fila).toList());
     }

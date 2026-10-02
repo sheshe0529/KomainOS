@@ -1,19 +1,21 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Save } from 'lucide-react'
-import type { FamiliaSistemaOperativo, TipoAutenticacion } from '@/api/dominio'
+import type { FamiliaSistemaOperativo, TipoAutenticacion, TipoUsuario } from '@/api/dominio'
 import type { CredencialPeticion, CredencialRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
 import { AreaTexto, Campo, Entrada } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
-import { CampoSecreto, SelectorMecanismo } from './CampoSecreto'
+import { CampoContrasena, CampoSecreto, SelectorMecanismo, SelectorTipoUsuario } from './CampoSecreto'
 
 interface CredencialFormularioProps {
   abierto: boolean
   titulo: string
   descripcion?: string
+  /** documental: Linux pide tipo de usuario y, si es Genérico, la contraseña su. Windows solo usuario y contraseña (DEC-39) */
+  clase?: 'documental' | 'cuenta'
   /** Si se indica, edita sus datos identificativos: el secreto se cambia con una versión nueva */
   credencial?: CredencialRespuesta
   familia?: FamiliaSistemaOperativo
@@ -26,6 +28,7 @@ export function CredencialFormulario({
   abierto,
   titulo,
   descripcion,
+  clase = 'cuenta',
   credencial,
   familia,
   ayudaNombre,
@@ -36,9 +39,15 @@ export function CredencialFormulario({
   const [usuario, setUsuario] = useState(credencial?.usuarioAcceso ?? '')
   const [detalle, setDetalle] = useState(credencial?.descripcion ?? '')
   const [tipo, setTipo] = useState<TipoAutenticacion>('PASSWORD')
+  const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>('ADMINISTRADOR')
   const [secreto, setSecreto] = useState('')
+  const [su, setSu] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
+
+  const windows = clase === 'documental' && familia === 'WINDOWS'
+  const conTipoUsuario = clase === 'documental' && !windows
+  const conSu = conTipoUsuario && tipoUsuario === 'GENERICO'
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault()
@@ -49,8 +58,10 @@ export function CredencialFormulario({
         nombre: nombre.trim(),
         usuarioAcceso: usuario.trim(),
         descripcion: detalle.trim() || undefined,
-        tipoAutenticacion: tipo,
+        tipoAutenticacion: windows ? 'PASSWORD' : tipo,
+        tipoUsuario: conTipoUsuario ? tipoUsuario : undefined,
         secreto,
+        secretoSu: conSu ? su : undefined,
       })
     } catch (e) {
       setError(e)
@@ -96,8 +107,24 @@ export function CredencialFormulario({
         </Campo>
         {!credencial && (
           <>
-            <SelectorMecanismo valor={tipo} onCambiar={setTipo} familia={familia} />
-            <CampoSecreto tipo={tipo} valor={secreto} onCambiar={setSecreto} error={errorDeCampo(error, 'secreto')} />
+            {windows ? (
+              <p className="rounded-lg bg-panel-muted px-3 py-2 text-xs text-ink-soft">
+                Servidor Windows: se registra solo usuario y contraseña (WinRM).
+              </p>
+            ) : (
+              <SelectorMecanismo valor={tipo} onCambiar={setTipo} familia={clase === 'documental' ? familia : undefined} />
+            )}
+            {conTipoUsuario && <SelectorTipoUsuario valor={tipoUsuario} onCambiar={setTipoUsuario} />}
+            <CampoSecreto tipo={windows ? 'PASSWORD' : tipo} valor={secreto} onCambiar={setSecreto} error={errorDeCampo(error, 'secreto')} />
+            {conSu && (
+              <CampoContrasena
+                etiqueta="Contraseña su (root)"
+                valor={su}
+                onCambiar={setSu}
+                error={errorDeCampo(error, 'secretoSu')}
+                ayuda="La que pide su para subir a root."
+              />
+            )}
           </>
         )}
       </form>

@@ -1,35 +1,40 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArchiveX, ArrowLeft, CalendarClock, CalendarPlus, Pencil, RotateCcw, Wrench } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { servidoresApi } from '@/api/inventario'
 import type { FichaServidorRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
-import { Dato, Tarjeta } from '@/components/common/Tarjeta'
+import { Tarjeta } from '@/components/common/Tarjeta'
 import { CredencialesDocumentales } from '@/components/credenciales/CredencialesDocumentales'
+import { AvisosServidor } from '@/components/inventario/AvisosServidor'
 import { BajaModal } from '@/components/inventario/BajaModal'
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
+import { ConfiguracionServidorTarjeta } from '@/components/inventario/ConfiguracionServidorTarjeta'
+import { DatosGeneralesServidor } from '@/components/inventario/DatosGeneralesServidor'
+import { EncabezadoFichaServidor, type DialogoFichaServidor } from '@/components/inventario/EncabezadoFichaServidor'
+import { HistorialBajasServidor } from '@/components/inventario/HistorialBajasServidor'
 import { RecursosServidor } from '@/components/inventario/RecursosServidor'
 import { ServidorFormulario } from '@/components/inventario/ServidorFormulario'
+import { VentanaPermisivaTarjeta } from '@/components/inventario/VentanaPermisivaTarjeta'
 import { VentanasModal } from '@/components/inventario/VentanasModal'
-import { VistaSemanalVentanas } from '@/components/inventario/VistaSemanalVentanas'
 import { OrdenesDelObjetivo } from '@/components/planificacion/OrdenesDelObjetivo'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
 import { useAvisos } from '@/components/ui/avisos-context'
-import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
-import { StatusPill } from '@/components/ui/StatusPill'
 import { useCatalogos, useResponsables } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
-import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
-import { ESTADO_SERVIDOR, ETIQUETA_FAMILIA, ETIQUETA_MODALIDAD, textoVentana } from '@/utils/etiquetas'
-import { formatearDuracion, formatearFechaHora } from '@/utils/formato'
 import { textoDeError } from '@/utils/errores'
 
-type Dialogo = 'editar' | 'configurar' | 'ventanas' | 'baja' | 'programar' | null
+function VolverAlInventario() {
+  return (
+    <Link to="/servidores" className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al inventario
+    </Link>
+  )
+}
 
 export function FichaServidorPage() {
-  const tonoCriticidad = useTonoCriticidad()
   const { id } = useParams()
   const idServidor = Number(id)
   const { tieneRol } = useSesion()
@@ -37,14 +42,13 @@ export function FichaServidorPage() {
   // Si el responsable ve la ficha, el servidor es suyo: el backend responde 404 si no (RF19)
   const puedeEditarVentana = tieneRol('ADMINISTRADOR', 'RESPONSABLE')
   const { avisar } = useAvisos()
-  const [dialogo, setDialogo] = useState<Dialogo>(null)
+  const [dialogo, setDialogo] = useState<DialogoFichaServidor | null>(null)
   const [reactivando, setReactivando] = useState(false)
   const [versionOrdenes, setVersionOrdenes] = useState(0)
 
   const ficha = useConsulta(() => servidoresApi.ficha(idServidor), [idServidor])
   const catalogos = useCatalogos()
   const responsables = useResponsables(esAdmin)
-
   const s = ficha.datos
 
   function actualizar(nueva: FichaServidorRespuesta, mensaje: string) {
@@ -52,6 +56,9 @@ export function FichaServidorPage() {
     setDialogo(null)
     avisar(mensaje)
   }
+
+  /** Programar, configurar, cambiar la ventana o dar de baja cambian las órdenes del servidor */
+  const recargarOrdenes = () => setVersionOrdenes((v) => v + 1)
 
   async function reactivar() {
     setReactivando(true)
@@ -68,253 +75,49 @@ export function FichaServidorPage() {
   if (ficha.error && !s) {
     return (
       <div className="flex flex-col gap-4">
-        <Link to="/servidores" className="inline-flex items-center gap-1 text-sm text-ink-soft hover:text-ink">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al inventario
-        </Link>
+        <VolverAlInventario />
         <MensajeError error={ficha.error} onReintentar={ficha.recargar} />
       </div>
     )
   }
   if (!s) return null
 
-  const estado = s.estado ? ESTADO_SERVIDOR[s.estado] : undefined
   const dadoDeBaja = s.estado === 'DADO_DE_BAJA'
   const criticidad = catalogos.datos?.criticidades.find((c) => c.id === s.criticidad?.id)
-  const ultimaBaja = s.historialBajas?.find((b) => b.estado === 'APLICADA')
-  const eventosBaja = [
-    ...(s.historialBajas ?? []).map((b) => ({ tipo: 'baja' as const, fecha: b.fechaSolicitud ?? '', baja: b })),
-    ...(s.reactivaciones ?? []).map((r) => ({ tipo: 'reactivacion' as const, fecha: r.fecha ?? '', usuario: r.usuario?.nombre })),
-  ].sort((a, b) => b.fecha.localeCompare(a.fecha))
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to="/servidores" className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al inventario
-      </Link>
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="font-mono text-2xl font-semibold text-ink">{s.hostname}</h2>
-          <p className="mt-1 text-sm text-ink-soft">{s.dns ?? s.direccionIp}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
-            <StatusPill tone={tonoCriticidad(s.criticidad?.prioridad)} label={`Criticidad ${s.criticidad?.nombre ?? ''}`} />
-            <StatusPill tone="neutral" label={s.entorno?.nombre ?? ''} />
-            {s.configuracion?.modalidadPlanificacion && (
-              <StatusPill tone="neutral" label={`Modalidad: ${ETIQUETA_MODALIDAD[s.configuracion.modalidadPlanificacion]}`} />
-            )}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {esAdmin && !dadoDeBaja && (
-            <>
-              <Boton icono={Pencil} onClick={() => setDialogo('editar')} disabled={!catalogos.datos}>
-                Editar
-              </Boton>
-              <Boton icono={Wrench} variante="primario" onClick={() => setDialogo('configurar')}>
-                {s.configuracion ? 'Configuración' : 'Configurar mantenimiento'}
-              </Boton>
-            </>
-          )}
-          {puedeEditarVentana && !dadoDeBaja && (
-            <Boton icono={CalendarClock} onClick={() => setDialogo('ventanas')}>
-              Ventana permisiva
-            </Boton>
-          )}
-          {esAdmin && s.estado === 'ACTIVO' && (
-            <Boton icono={CalendarPlus} onClick={() => setDialogo('programar')}>
-              Programar
-            </Boton>
-          )}
-          {esAdmin && !dadoDeBaja && !s.bajaPendiente && (
-            <Boton icono={ArchiveX} variante="fantasma" onClick={() => setDialogo('baja')}>
-              Dar de baja
-            </Boton>
-          )}
-          {esAdmin && dadoDeBaja && (
-            <Boton icono={RotateCcw} variante="primario" onClick={reactivar} cargando={reactivando}>
-              Reactivar
-            </Boton>
-          )}
-        </div>
-      </div>
-
-      {s.bajaPendiente && (
-        <div className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm">
-          <p className="font-medium text-warning">
-            Baja solicitada el {formatearFechaHora(s.bajaPendiente.fechaSolicitud)}
-            {s.bajaPendiente.solicitante?.nombre && ` por ${s.bajaPendiente.solicitante.nombre}`}: se aplicará al finalizar el
-            mantenimiento en curso.
-          </p>
-          <p className="mt-1 text-ink">Motivo: {s.bajaPendiente.motivo}</p>
-        </div>
-      )}
-      {dadoDeBaja && ultimaBaja && (
-        <div className="rounded-lg border border-line bg-panel-muted px-4 py-3 text-sm">
-          <p className="font-medium text-ink">
-            Dado de baja el {formatearFechaHora(ultimaBaja.fechaAplicacion ?? ultimaBaja.fechaSolicitud)}
-            {ultimaBaja.solicitante?.nombre && ` por ${ultimaBaja.solicitante.nombre}`}. No admite mantenimientos nuevos y conserva
-            su historial.
-          </p>
-          <p className="mt-1 text-ink-soft">
-            <span className="font-medium text-ink">Motivo:</span> {ultimaBaja.motivo}
-          </p>
-        </div>
-      )}
-      {s.estado === 'PENDIENTE_DE_CONFIGURACION' && (
-        <p className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
-          El servidor está pendiente de configuración y no genera mantenimientos hasta definir su configuración de mantenimiento.
-        </p>
-      )}
+      <VolverAlInventario />
+      <EncabezadoFichaServidor
+        servidor={s}
+        esAdmin={esAdmin}
+        puedeEditarVentana={puedeEditarVentana}
+        catalogosListos={!!catalogos.datos}
+        reactivando={reactivando}
+        onAbrir={setDialogo}
+        onReactivar={reactivar}
+      />
+      <AvisosServidor servidor={s} />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Tarjeta titulo="Datos generales" className="lg:col-span-2">
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
-            <Dato
-              etiqueta={(s.direccionesIp?.length ?? 1) > 1 ? 'Direcciones IP' : 'Dirección IP'}
-              valor={
-                <span className="flex flex-col gap-0.5 font-mono">
-                  {(s.direccionesIp?.length ? s.direccionesIp : [{ direccion: s.direccionIp, principal: true }]).map((d) => (
-                    <span key={d.direccion} className="flex items-center gap-1.5">
-                      {d.direccion}
-                      {d.principal && (s.direccionesIp?.length ?? 1) > 1 && (
-                        <span className="rounded bg-accent-soft px-1 font-sans text-[10px] font-medium text-accent">principal</span>
-                      )}
-                    </span>
-                  ))}
-                </span>
-              }
-            />
-            <Dato etiqueta="VDC" valor={s.vdc} />
-            <Dato etiqueta="Servidor físico" valor={s.servidorFisico} />
-            <Dato etiqueta="VLAN" valor={s.vlan} />
-            <Dato etiqueta="Clúster" valor={s.cluster} />
-            <Dato etiqueta="Plataforma" valor={s.plataforma} />
-            <Dato etiqueta="Sistema operativo" valor={`${s.sistemaOperativo?.nombre ?? ''} ${s.versionSistemaOperativo?.nombre ?? ''}`} />
-            <Dato etiqueta="Canal remoto" valor={s.familiaSistemaOperativo ? ETIQUETA_FAMILIA[s.familiaSistemaOperativo] : undefined} />
-            <Dato etiqueta="Responsable" valor={s.responsable?.nombre} />
-            <Dato
-              etiqueta="Grupos"
-              valor={
-                s.grupos && s.grupos.length > 0 ? (
-                  <span className="flex flex-wrap gap-x-2">
-                    {s.grupos.map((g) => (
-                      <Link key={g.id} to={`/grupos/${g.id}`} className="text-accent hover:underline">
-                        {g.nombre}
-                      </Link>
-                    ))}
-                  </span>
-                ) : (
-                  'Sin grupos'
-                )
-              }
-            />
-            <Dato etiqueta="Alta en inventario" valor={formatearFechaHora(s.fechaAlta)} />
-            <Dato etiqueta="Última actualización" valor={formatearFechaHora(s.fechaActualizacion)} />
-          </dl>
-          {s.descripcion && (
-            <div className="mt-4 border-t border-line pt-4">
-              <Dato etiqueta="Descripción" valor={s.descripcion} />
-            </div>
-          )}
-        </Tarjeta>
-
+        <DatosGeneralesServidor servidor={s} className="lg:col-span-2" />
         <div className="flex flex-col gap-6">
           <Tarjeta titulo="Recursos">
             <RecursosServidor cantidadCpu={s.cantidadCpu} ramGb={s.ramGb} hdVirtualGb={s.hdVirtualGb} />
           </Tarjeta>
-
-          <Tarjeta titulo="Configuración de mantenimiento">
-            {s.configuracion ? (
-              <dl className="grid gap-4">
-                <Dato etiqueta="Frecuencia de revisión" valor={`Cada ${s.configuracion.frecuenciaRevisionDias} días`} />
-                <Dato etiqueta="Frecuencia de mantenimiento" valor={`Cada ${s.configuracion.frecuenciaMantenimientoDias} días`} />
-                <Dato
-                  etiqueta="Modalidad de planificación"
-                  valor={s.configuracion.modalidadPlanificacion ? ETIQUETA_MODALIDAD[s.configuracion.modalidadPlanificacion] : undefined}
-                />
-                <Dato
-                  etiqueta="Cuenta de servicio"
-                  valor={
-                    s.configuracion.cuentaServicio ? (
-                      <span>
-                        {s.configuracion.cuentaServicio.nombre}
-                        {s.configuracion.usaCuentaPredeterminada && <span className="text-ink-faint"> · predeterminada del sistema</span>}
-                      </span>
-                    ) : (
-                      <span className="text-warning">Sin cuenta: no hay una predeterminada definida</span>
-                    )
-                  }
-                />
-              </dl>
-            ) : (
-              <p className="text-sm text-ink-soft">Sin configuración de mantenimiento.</p>
-            )}
-          </Tarjeta>
+          <ConfiguracionServidorTarjeta configuracion={s.configuracion} />
         </div>
       </div>
 
-      <Tarjeta
-        titulo="Ventana permisiva"
-        acciones={
-          puedeEditarVentana &&
-          !dadoDeBaja && (
-            <Boton icono={CalendarClock} variante="fantasma" onClick={() => setDialogo('ventanas')}>
-              Editar
-            </Boton>
-          )
-        }
-      >
-        <VistaSemanalVentanas ventanas={s.ventanas ?? []} vacio="Sin ventana definida: el servidor no puede planificarse." />
-        {s.ventanas && s.ventanas.length > 0 && (
-          <ul className="mt-4 flex flex-wrap gap-2">
-            {s.ventanas.map((v, i) => (
-              <li key={i} className="flex items-center gap-2 rounded-lg bg-panel-muted px-3 py-1.5 text-sm">
-                <span className="text-ink">{textoVentana(v)}</span>
-                <span className="font-mono text-xs text-ink-faint">{formatearDuracion(v.duracionMinutos)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Tarjeta>
-
-      {eventosBaja.length > 0 && (
-        <Tarjeta titulo="Historial de bajas y reactivaciones">
-          <ol className="flex flex-col gap-3">
-            {eventosBaja.map((e, i) =>
-              e.tipo === 'baja' ? (
-                <li key={i} className="flex flex-col gap-0.5 border-l-2 border-danger/60 pl-3 text-sm">
-                  <span className="font-medium text-ink">
-                    Baja {e.baja.estado === 'APLICADA' ? 'aplicada' : 'pendiente'}
-                    {e.baja.fechaAplicacion && ` el ${formatearFechaHora(e.baja.fechaAplicacion)}`}
-                  </span>
-                  <span className="text-xs text-ink-faint">
-                    Solicitada el {formatearFechaHora(e.baja.fechaSolicitud)} · {e.baja.solicitante?.nombre ?? 'Sistema'}
-                  </span>
-                  <span className="text-ink-soft">Motivo: {e.baja.motivo}</span>
-                </li>
-              ) : (
-                <li key={i} className="flex flex-col gap-0.5 border-l-2 border-success/60 pl-3 text-sm">
-                  <span className="font-medium text-ink">Reactivado</span>
-                  <span className="text-xs text-ink-faint">
-                    {formatearFechaHora(e.fecha)} · {e.usuario ?? 'Sistema'}
-                  </span>
-                </li>
-              ),
-            )}
-          </ol>
-        </Tarjeta>
-      )}
-
+      <VentanaPermisivaTarjeta
+        ventanas={s.ventanas ?? []}
+        vacio="Sin ventana definida: el servidor no puede planificarse."
+        onEditar={puedeEditarVentana && !dadoDeBaja ? () => setDialogo('ventanas') : undefined}
+      />
+      <HistorialBajasServidor servidor={s} />
       {esAdmin && (
-        <CredencialesDocumentales
-          idServidor={idServidor}
-          hostname={s.hostname ?? ''}
-          familia={s.familiaSistemaOperativo}
-          editable={!dadoDeBaja}
-        />
+        <CredencialesDocumentales idServidor={idServidor} hostname={s.hostname ?? ''} familia={s.familiaSistemaOperativo} editable={!dadoDeBaja} />
       )}
-
       <OrdenesDelObjetivo idServidor={idServidor} version={versionOrdenes} />
 
       {dialogo === 'programar' && (
@@ -324,7 +127,7 @@ export function FichaServidorPage() {
           onCerrar={() => setDialogo(null)}
           onGuardado={(orden) => {
             setDialogo(null)
-            setVersionOrdenes((v) => v + 1)
+            recargarOrdenes()
             avisar(`Orden ${orden.resumen?.codigo} programada.`)
           }}
         />
@@ -358,7 +161,7 @@ export function FichaServidorPage() {
               'Configuración de mantenimiento guardada.',
             )
             // En modalidad automática el backend genera el primer ciclo antes de responder (RF27): basta con recargar el historial
-            setVersionOrdenes((v) => v + 1)
+            recargarOrdenes()
           }}
         />
       )}
@@ -368,12 +171,10 @@ export function FichaServidorPage() {
           hostname={s.hostname ?? ''}
           actuales={s.ventanas ?? []}
           onCerrar={() => setDialogo(null)}
-          onGuardar={async (ventanas) =>
-            {
-              actualizar(await servidoresApi.reemplazarVentanas(idServidor, ventanas), 'Ventana permisiva actualizada.')
-              setVersionOrdenes((v) => v + 1)
-            }
-          }
+          onGuardar={async (ventanas) => {
+            actualizar(await servidoresApi.reemplazarVentanas(idServidor, ventanas), 'Ventana permisiva actualizada.')
+            recargarOrdenes()
+          }}
         />
       )}
       {dialogo === 'baja' && (
@@ -385,7 +186,7 @@ export function FichaServidorPage() {
             const resultado = await servidoresApi.darDeBaja(idServidor, { motivo })
             if (resultado.servidor) ficha.reemplazar(resultado.servidor)
             setDialogo(null)
-            setVersionOrdenes((v) => v + 1)
+            recargarOrdenes()
             avisar(resultado.mensaje ?? 'Solicitud de baja registrada.', resultado.aplicada ? 'exito' : 'info')
           }}
         />

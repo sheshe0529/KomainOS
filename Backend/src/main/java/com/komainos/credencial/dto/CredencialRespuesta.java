@@ -2,6 +2,7 @@ package com.komainos.credencial.dto;
 
 import com.komainos.credencial.model.EstadoCredencial;
 import com.komainos.credencial.model.TipoAutenticacion;
+import com.komainos.credencial.model.TipoUsuario;
 
 import java.time.Instant;
 
@@ -13,6 +14,11 @@ public record CredencialRespuesta(
         String descripcion,
         EstadoCredencial estado,
         TipoAutenticacion tipoAutenticacion,
+        TipoUsuario tipoUsuario,
+        /** Si la versión vigente guarda contraseña su */
+        boolean conSu,
+        /** Solo en credenciales documentales: la que viaja en el inventario */
+        Boolean principal,
         Integer numeroVersion,
         Instant fechaRegistro,
         /** Fecha de la versión vigente del secreto */

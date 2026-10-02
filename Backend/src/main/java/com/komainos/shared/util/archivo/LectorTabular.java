@@ -156,13 +156,15 @@ public class LectorTabular {
         while (it.hasNext()) {
             FilaCeldas fila = it.next();
             Map<String, String> valores = new HashMap<>();
+            Map<String, String> literales = new HashMap<>();
             for (int c = 0; c < Math.min(encabezado.size(), fila.celdas().size()); c++) {
                 String valor = limpiar(fila.celdas().get(c));
                 if (!encabezado.get(c).isEmpty() && valor != null) {
                     valores.put(encabezado.get(c), valor);
+                    literales.put(encabezado.get(c), literal(fila.celdas().get(c)));
                 }
             }
-            registros.add(new FilaArchivo(fila.numero(), valores, List.of()));
+            registros.add(new FilaArchivo(fila.numero(), valores, literales, List.of()));
         }
         if (registros.isEmpty()) {
             throw new ReglaNegocioException("El archivo solo contiene el encabezado, sin registros");
@@ -206,6 +208,7 @@ public class LectorTabular {
                 continue;
             }
             Map<String, String> valores = new LinkedHashMap<>();
+            Map<String, String> literales = new LinkedHashMap<>();
             List<String> problemas = new ArrayList<>();
             var campos = nodo.fields();
             while (campos.hasNext()) {
@@ -222,10 +225,11 @@ public class LectorTabular {
                     String texto = limpiar(valor.asText());
                     if (texto != null) {
                         valores.put(clave, texto);
+                        literales.put(clave, literal(valor.asText()));
                     }
                 }
             }
-            registros.add(new FilaArchivo(numero, valores, List.copyOf(problemas)));
+            registros.add(new FilaArchivo(numero, valores, literales, List.copyOf(problemas)));
         }
         return new TablaArchivo(List.copyOf(columnas), registros);
     }
@@ -240,6 +244,14 @@ public class LectorTabular {
             texto = texto.substring(1);
         }
         return texto.isEmpty() ? null : texto;
+    }
+
+    /** Como limpiar pero sin recortar: solo retira el apóstrofo que neutraliza una fórmula */
+    static String literal(String valor) {
+        if (valor.length() > 1 && valor.charAt(0) == '\'' && EscritorTabular.iniciaComoFormula(valor.substring(1))) {
+            return valor.substring(1);
+        }
+        return valor;
     }
 
     private static void exigirTope(int registros) {

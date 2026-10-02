@@ -14,23 +14,32 @@ export const FORMATOS: { valor: FormatoArchivo; etiqueta: string; descripcion: s
 /** Tamaño máximo aceptado por el backend (spring.servlet.multipart.max-file-size) */
 export const TAMANO_MAXIMO_BYTES = 5 * 1024 * 1024
 
+function parametrosExportacion(formato: FormatoArchivo, columnas: string[], f: FiltroServidores & { texto?: string }) {
+  return consulta({
+    formato,
+    columnas,
+    texto: f.texto,
+    estado: f.estado,
+    idEntorno: f.idEntorno,
+    idNivelCriticidad: f.idNivelCriticidad,
+    idSistemaOperativo: f.idSistemaOperativo,
+    idResponsable: f.idResponsable,
+  })
+}
+
 export const intercambioApi = {
   columnas: () => http.get<ColumnaInventarioRespuesta[]>('/servidores/exportacion/columnas'),
 
   /** Exporta con los mismos filtros del listado y devuelve el nombre del archivo descargado */
   exportar: (formato: FormatoArchivo, columnas: string[], f: FiltroServidores & { texto?: string }) =>
+    descargar(`/servidores/exportacion${parametrosExportacion(formato, columnas, f)}`, `inventario_servidores.${formato.toLowerCase()}`),
+
+  /** RF13: agrega al final la credencial principal de cada servidor, previa reautenticación (HU05 CA3) */
+  exportarConCredencial: (formato: FormatoArchivo, columnas: string[], f: FiltroServidores & { texto?: string }, contrasena: string) =>
     descargar(
-      `/servidores/exportacion${consulta({
-        formato,
-        columnas,
-        texto: f.texto,
-        estado: f.estado,
-        idEntorno: f.idEntorno,
-        idNivelCriticidad: f.idNivelCriticidad,
-        idSistemaOperativo: f.idSistemaOperativo,
-        idResponsable: f.idResponsable,
-      })}`,
+      `/servidores/exportacion/con-credencial${parametrosExportacion(formato, columnas, f)}`,
       `inventario_servidores.${formato.toLowerCase()}`,
+      { method: 'POST', body: JSON.stringify({ contrasena }) },
     ),
 
   plantilla: (formato: FormatoArchivo) =>

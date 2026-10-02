@@ -1,4 +1,5 @@
-import { http } from './cliente'
+import { consulta, descargar, http } from './cliente'
+import type { FormatoArchivo } from './intercambio'
 import type {
   CredencialPeticion,
   CredencialRespuesta,
@@ -20,6 +21,13 @@ export const credencialesApi = {
   revocar: (id: number, motivo?: string) => http.post<CredencialRespuesta>(`/credenciales/${id}/revocacion`, { motivo }),
   revelar: (id: number, contrasena: string) =>
     http.post<SecretoReveladoRespuesta>(`/credenciales/${id}/revelado`, { contrasena }),
+  marcarPrincipal: (id: number) => http.post<CredencialRespuesta>(`/credenciales/${id}/principal`),
+  /** Exportación adicional: todas las credenciales documentales vigentes de todos los servidores */
+  exportarTodas: (formato: FormatoArchivo, contrasena: string) =>
+    descargar(`/credenciales/exportacion${consulta({ formato })}`, `credenciales_servidores.${formato.toLowerCase()}`, {
+      method: 'POST',
+      body: JSON.stringify({ contrasena }),
+    }),
 }
 
 export const cuentasServicioApi = {

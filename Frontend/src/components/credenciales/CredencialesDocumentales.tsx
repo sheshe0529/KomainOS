@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Ban, Eye, KeyRound, Pencil, Plus } from 'lucide-react'
+import { Ban, Eye, KeyRound, Pencil, Plus, Star } from 'lucide-react'
 import { credencialesApi } from '@/api/credenciales'
 import type { FamiliaSistemaOperativo } from '@/api/dominio'
 import type { CredencialRespuesta } from '@/api/types'
@@ -10,7 +10,8 @@ import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
-import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION } from '@/utils/etiquetas'
+import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION, ETIQUETA_TIPO_USUARIO } from '@/utils/etiquetas'
+import { textoDeError } from '@/utils/errores'
 import { formatearFecha, formatearFechaHora } from '@/utils/formato'
 import { CredencialFormulario } from './CredencialFormulario'
 import { RevelarSecretoModal } from './RevelarSecretoModal'
@@ -42,6 +43,16 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
     avisar(mensaje)
   }
 
+  async function marcarPrincipal(c: CredencialRespuesta) {
+    try {
+      await credencialesApi.marcarPrincipal(c.id!)
+      credenciales.recargar()
+      avisar(`${c.nombre} es ahora la credencial principal: es la que viaja en la exportación del inventario.`)
+    } catch (e) {
+      avisar(textoDeError(e), 'error')
+    }
+  }
+
   const lista = credenciales.datos ?? []
 
   return (
@@ -57,7 +68,7 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
     >
       <p className="mb-4 text-xs text-ink-faint">
         Accesos al servidor registrados con fines informativos. Los secretos se guardan cifrados y solo se muestran unos
-        segundos tras confirmar su contraseña.
+        segundos tras confirmar su contraseña. La principal es la que viaja al exportar e importar el inventario.
       </p>
       <MensajeError error={credenciales.error} onReintentar={credenciales.recargar} />
       {credenciales.cargando && !credenciales.datos ? (
@@ -73,7 +84,7 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
               <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
                 <th className="py-2 pr-4 font-medium">Credencial</th>
                 <th className="py-2 pr-4 font-medium">Usuario</th>
-                <th className="py-2 pr-4 font-medium">Mecanismo</th>
+                <th className="py-2 pr-4 font-medium">Acceso</th>
                 <th className="py-2 pr-4 font-medium">Secreto</th>
                 <th className="py-2 pr-4 font-medium">Estado</th>
                 <th className="py-2 text-right font-medium">Acciones</th>
@@ -86,11 +97,26 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
                 return (
                   <tr key={c.id} className={vigente ? '' : 'text-ink-soft'}>
                     <td className="py-3 pr-4">
-                      <p className={`font-medium ${vigente ? 'text-ink' : ''}`}>{c.nombre}</p>
+                      <p className={`flex items-center gap-2 font-medium ${vigente ? 'text-ink' : ''}`}>
+                        {c.nombre}
+                        {c.principal && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
+                            <Star className="h-3 w-3 fill-current" aria-hidden="true" /> Principal
+                          </span>
+                        )}
+                      </p>
                       {c.descripcion && <p className="line-clamp-2 max-w-xs text-xs text-ink-faint">{c.descripcion}</p>}
                     </td>
                     <td className="py-3 pr-4 font-mono">{c.usuarioAcceso}</td>
-                    <td className="py-3 pr-4">{c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}</td>
+                    <td className="py-3 pr-4">
+                      <p>{c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}</p>
+                      {c.tipoUsuario && (
+                        <p className="flex items-center gap-1.5 text-xs text-ink-soft">
+                          {ETIQUETA_TIPO_USUARIO[c.tipoUsuario]}
+                          {c.conSu && <span className="rounded bg-panel-muted px-1 font-mono text-[10px] text-ink">su</span>}
+                        </p>
+                      )}
+                    </td>
                     <td className="py-3 pr-4 text-xs text-ink-soft">
                       <span className="font-mono text-ink">v{c.numeroVersion}</span> · {formatearFecha(c.fechaSecreto)}
                     </td>
@@ -106,6 +132,7 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
                           <BotonIcono icono={Eye} etiqueta="Ver secreto" onClick={() => setDialogo({ tipo: 'revelar', credencial: c })} />
                           {editable && (
                             <>
+                              {!c.principal && <BotonIcono icono={Star} etiqueta="Marcar como principal" onClick={() => marcarPrincipal(c)} />}
                               <BotonIcono icono={Pencil} etiqueta="Editar datos" onClick={() => setDialogo({ tipo: 'datos', credencial: c })} />
                               <BotonIcono icono={KeyRound} etiqueta="Nuevo secreto" onClick={() => setDialogo({ tipo: 'secreto', credencial: c })} />
                               <BotonIcono icono={Ban} etiqueta="Revocar" onClick={() => setDialogo({ tipo: 'revocar', credencial: c })} />
@@ -127,6 +154,7 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
           abierto
           titulo={`Nueva credencial de ${hostname}`}
           descripcion="Documenta un acceso al servidor. No la usa la ejecución de mantenimientos: para eso están las cuentas de servicio."
+          clase="documental"
           familia={familia}
           ayudaNombre="Por ejemplo: Administrador local, Acceso root, Consola de aplicación."
           onCerrar={() => setDialogo(null)}
@@ -140,7 +168,8 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
         <CredencialFormulario
           abierto
           titulo={`Editar ${dialogo.credencial.nombre}`}
-          descripcion="Para cambiar la contraseña o la llave use «Nuevo secreto»."
+          descripcion="Para cambiar la contraseña, la llave, el tipo de usuario o la contraseña su use «Nuevo secreto»."
+          clase="documental"
           credencial={dialogo.credencial}
           onCerrar={() => setDialogo(null)}
           onGuardar={async ({ nombre, usuarioAcceso, descripcion }) => {
@@ -153,6 +182,7 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
         <SecretoModal
           abierto
           credencial={dialogo.credencial}
+          clase="documental"
           familia={familia}
           onCerrar={() => setDialogo(null)}
           onGuardar={async (datos) => {

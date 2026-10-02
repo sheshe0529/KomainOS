@@ -44,7 +44,7 @@ se cambia con `KOMAINOS_PUERTO`.
 
 | Script | Uso |
 |---|---|
-| `01_esquema.sql` | Crea el esquema `KomainOS` completo (49 tablas, 30 enumerados). Es el esquema real de `DBKomainOS`; `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
+| `01_esquema.sql` | Crea el esquema `KomainOS` completo (49 tablas, 31 enumerados). Es el esquema real de `DBKomainOS`; `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
 | `02_datos_sistema.sql` | Datos sin los cuales el sistema no opera: factores de ciclo y parámetros globales. Idempotente. |
 | `03_datos_prueba.sql` | Datos de demostración: un usuario por rol (contraseña `Cambiar.2026`), catálogos, 8 servidores con ventanas y configuración, un grupo, órdenes en distintos estados y una baja. Las fechas de las órdenes se calculan al ejecutarlo. Solo sobre una base sin datos de negocio. |
 | `limpiar_datos_desarrollo.sql` | Vacía los datos de negocio conservando el esquema y los datos del sistema, para volver a cargar `03`. Solo para desarrollo. |

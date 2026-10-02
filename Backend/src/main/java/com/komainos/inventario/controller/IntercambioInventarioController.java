@@ -9,6 +9,7 @@ import com.komainos.inventario.model.FiltroServidores;
 import com.komainos.inventario.service.intercambio.ColumnaInventario;
 import com.komainos.inventario.service.intercambio.ServicioExportacionInventario;
 import com.komainos.inventario.service.intercambio.ServicioImportacionInventario;
+import com.komainos.seguridad.dto.ReautenticacionPeticion;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.UsuarioAutenticado;
 import com.komainos.shared.exception.ReglaNegocioException;
@@ -16,7 +17,9 @@ import com.komainos.shared.util.archivo.ArchivoGenerado;
 import com.komainos.shared.util.archivo.FormatoArchivo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -25,6 +28,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -72,6 +76,31 @@ public class IntercambioInventarioController {
                 .map(IntercambioInventarioController::columnaDe)
                 .toList();
         return descarga(exportacion.exportar(filtro, elegidas, formato, AlcanceUsuario.de(solicitante)));
+    }
+
+    /** POST y no GET: la contraseña viaja en el cuerpo y el archivo no debe quedar en ninguna caché */
+    @PostMapping("/exportacion/con-credencial")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Exporta el inventario con la credencial principal de cada servidor, previa reautenticación (RF13, HU05)")
+    public ResponseEntity<byte[]> exportarConCredencial(
+            @RequestParam FormatoArchivo formato,
+            @RequestParam(required = false) List<String> columnas,
+            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) EstadoServidor estado,
+            @RequestParam(required = false) Integer idEntorno,
+            @RequestParam(required = false) Integer idNivelCriticidad,
+            @RequestParam(required = false) Integer idSistemaOperativo,
+            @RequestParam(required = false) Integer idResponsable,
+            @RequestParam(required = false) String vdc,
+            @Valid @RequestBody ReautenticacionPeticion peticion,
+            @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        var filtro = new FiltroServidores(texto, estado, idEntorno, idNivelCriticidad, idSistemaOperativo,
+                idResponsable, vdc);
+        List<ColumnaInventario> elegidas = columnas == null ? List.of() : columnas.stream()
+                .map(IntercambioInventarioController::columnaDe)
+                .toList();
+        return sinCache(descarga(exportacion.exportarConCredencial(filtro, elegidas, formato,
+                AlcanceUsuario.de(solicitante), peticion.contrasena())));
     }
 
     @GetMapping("/importacion/plantilla")
@@ -122,6 +151,13 @@ public class IntercambioInventarioController {
         } catch (IOException ex) {
             throw new UncheckedIOException("No se pudo leer el archivo recibido", ex);
         }
+    }
+
+    private static ResponseEntity<byte[]> sinCache(ResponseEntity<byte[]> respuesta) {
+        return ResponseEntity.status(respuesta.getStatusCode())
+                .headers(respuesta.getHeaders())
+                .cacheControl(CacheControl.noStore())
+                .body(respuesta.getBody());
     }
 
     private static ResponseEntity<byte[]> descarga(ArchivoGenerado archivo) {

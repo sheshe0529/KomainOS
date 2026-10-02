@@ -8,7 +8,8 @@ import { Dato, Tarjeta } from '@/components/common/Tarjeta'
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
 import { GrupoFormulario } from '@/components/inventario/GrupoFormulario'
 import { IntegrantesModal } from '@/components/inventario/IntegrantesModal'
-import { VistaSemanalVentanas } from '@/components/inventario/VistaSemanalVentanas'
+import { DatoCuentaServicio } from '@/components/inventario/DatoCuentaServicio'
+import { VentanaPermisivaTarjeta } from '@/components/inventario/VentanaPermisivaTarjeta'
 import { OrdenesDelObjetivo } from '@/components/planificacion/OrdenesDelObjetivo'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
 import { useAvisos } from '@/components/ui/avisos-context'
@@ -19,8 +20,7 @@ import { StatusPill } from '@/components/ui/StatusPill'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
-import { ESTADO_GRUPO, ESTADO_SERVIDOR, ETIQUETA_MODALIDAD, ETIQUETA_MODO, textoVentana } from '@/utils/etiquetas'
-import { formatearDuracion } from '@/utils/formato'
+import { ESTADO_GRUPO, ESTADO_SERVIDOR, ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
 import { textoDeError } from '@/utils/errores'
 
 type Dialogo = 'editar' | 'integrantes' | 'configurar' | 'programar' | null
@@ -137,41 +137,16 @@ export function FichaGrupoPage() {
                   : 'Sin configuración'
               }
             />
-            {g.configuracion && (
-              <Dato
-                etiqueta="Cuenta de servicio"
-                valor={
-                  g.configuracion.cuentaServicio ? (
-                    <span>
-                      {g.configuracion.cuentaServicio.nombre}
-                      {g.configuracion.usaCuentaPredeterminada && <span className="text-ink-faint"> · predeterminada del sistema</span>}
-                    </span>
-                  ) : (
-                    <span className="text-warning">Sin cuenta: no hay una predeterminada definida</span>
-                  )
-                }
-              />
-            )}
+            {g.configuracion && <DatoCuentaServicio configuracion={g.configuracion} />}
           </dl>
         </Tarjeta>
 
-        <Tarjeta titulo="Ventana permisiva del grupo">
-          <p className="mb-3 text-xs text-ink-soft">Intersección de las ventanas de todos sus integrantes.</p>
-          <VistaSemanalVentanas
-            ventanas={g.ventanaEfectiva ?? []}
-            vacio={g.integrantes?.length ? 'Los integrantes no comparten ningún intervalo: el grupo no puede planificarse.' : 'Sin integrantes.'}
-          />
-          {g.ventanaEfectiva && g.ventanaEfectiva.length > 0 && (
-            <ul className="mt-4 flex flex-wrap gap-2">
-              {g.ventanaEfectiva.map((v, i) => (
-                <li key={i} className="flex items-center gap-2 rounded-lg bg-panel-muted px-3 py-1.5 text-sm">
-                  <span className="text-ink">{textoVentana(v)}</span>
-                  <span className="font-mono text-xs text-ink-faint">{formatearDuracion(v.duracionMinutos)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Tarjeta>
+        <VentanaPermisivaTarjeta
+          titulo="Ventana permisiva del grupo"
+          descripcion="Intersección de las ventanas de todos sus integrantes."
+          ventanas={g.ventanaEfectiva ?? []}
+          vacio={g.integrantes?.length ? 'Los integrantes no comparten ningún intervalo: el grupo no puede planificarse.' : 'Sin integrantes.'}
+        />
       </div>
 
       <Tarjeta titulo={`Integrantes (${g.integrantes?.length ?? 0})`}>

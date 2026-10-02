@@ -140,7 +140,7 @@ export function VentanasModal({ abierto, hostname, actuales, onCerrar, onGuardar
 
         <div className="mt-1 border-t border-line pt-4">
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Vista de la semana</h4>
-          <VistaSemanalVentanas ventanas={filas.filter((f) => !mismoDiaInvalido(f))} vacio="Sin intervalos." altoHora={14} />
+          <VistaSemanalVentanas ventanas={filas.filter((f) => !mismoDiaInvalido(f))} vacio="Sin intervalos." altoFila={22} />
         </div>
       </form>
     </Modal>

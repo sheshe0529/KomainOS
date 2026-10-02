@@ -12,6 +12,7 @@ import type {
   ModoEjecucion,
   Rol,
   TipoAutenticacion,
+  TipoUsuario,
 } from '@/api/dominio'
 import type { StatusTone } from '@/components/ui/StatusPill'
 
@@ -51,6 +52,11 @@ export const ETIQUETA_FAMILIA: Record<FamiliaSistemaOperativo, string> = {
 export const ETIQUETA_AUTENTICACION: Record<TipoAutenticacion, string> = {
   PASSWORD: 'Contraseña',
   LLAVE_SSH: 'Llave privada SSH',
+}
+
+export const ETIQUETA_TIPO_USUARIO: Record<TipoUsuario, string> = {
+  ADMINISTRADOR: 'Administrador',
+  GENERICO: 'Genérico',
 }
 
 export const ESTADO_CREDENCIAL: Record<EstadoCredencial, { etiqueta: string; tono: StatusTone }> = {

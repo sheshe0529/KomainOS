@@ -113,8 +113,8 @@ function nombreDeArchivo(cabecera: string | null, porDefecto: string): string {
 }
 
 /** Con fetch y no con un enlace directo porque la petición necesita el token (RF13) */
-export async function descargar(ruta: string, porDefecto = 'archivo'): Promise<string> {
-  const respuesta = await solicitar(ruta)
+export async function descargar(ruta: string, porDefecto = 'archivo', opciones: RequestInit = {}): Promise<string> {
+  const respuesta = await solicitar(ruta, opciones)
   const nombre = nombreDeArchivo(respuesta.headers.get('Content-Disposition'), porDefecto)
   const url = URL.createObjectURL(await respuesta.blob())
   const enlace = document.createElement('a')

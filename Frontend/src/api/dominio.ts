@@ -26,6 +26,7 @@ export type EtapaOrden = NonNullable<OrdenResumenRespuesta['etapa']>
 export type OrigenOrden = NonNullable<OrdenResumenRespuesta['origen']>
 export type EstadoDetalleOrden = NonNullable<Detalle['estado']>
 export type TipoAutenticacion = SecretoPeticion['tipoAutenticacion']
+export type TipoUsuario = NonNullable<SecretoPeticion['tipoUsuario']>
 export type EstadoCredencial = NonNullable<CredencialRespuesta['estado']>
 
 export const DIAS_SEMANA: DiaSemana[] = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']

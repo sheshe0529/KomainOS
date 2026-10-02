@@ -90,7 +90,9 @@ export interface CredencialPeticion {
   usuarioAcceso: string
   descripcion?: string
   tipoAutenticacion: 'PASSWORD' | 'LLAVE_SSH'
+  tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
   secreto: string
+  secretoSu?: string
 }
 
 export interface CredencialRespuesta {
@@ -100,6 +102,9 @@ export interface CredencialRespuesta {
   descripcion?: string
   estado?: 'VIGENTE' | 'REVOCADA'
   tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
+  tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
+  conSu?: boolean
+  principal?: boolean
   numeroVersion?: number
   fechaRegistro?: string
   fechaSecreto?: string
@@ -423,6 +428,10 @@ export interface ReactivacionRespuesta {
   usuario?: ReferenciaSimple
 }
 
+export interface ReautenticacionPeticion {
+  contrasena: string
+}
+
 export interface ReferenciaSimple {
   id?: number
   nombre?: string
@@ -460,17 +469,15 @@ export interface ResumenPlanificacionRespuesta {
   sinIntervalo?: string[]
 }
 
-export interface ReveladoPeticion {
-  contrasena: string
-}
-
 export interface RevocacionPeticion {
   motivo?: string
 }
 
 export interface SecretoPeticion {
   tipoAutenticacion: 'PASSWORD' | 'LLAVE_SSH'
-  secreto: string
+  tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
+  secreto?: string
+  secretoSu?: string
 }
 
 export interface SecretoReveladoRespuesta {
@@ -478,8 +485,10 @@ export interface SecretoReveladoRespuesta {
   nombre?: string
   usuarioAcceso?: string
   tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
+  tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
   numeroVersion?: number
   secreto?: string
+  secretoSu?: string
   segundosVisible?: number
 }
 

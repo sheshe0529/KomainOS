@@ -49,12 +49,29 @@ public class CifradorCredenciales {
 
     /** El id de la credencial va como dato asociado: un secreto copiado a otra fila no se puede descifrar */
     public SecretoCifrado cifrar(String secreto, Integer idCredencial) {
+        return cifrar(secreto, contexto(idCredencial));
+    }
+
+    /** Otro dato asociado que el secreto principal: la contraseña su no se puede intercambiar con él */
+    public SecretoCifrado cifrarSu(String secreto, Integer idCredencial) {
+        return cifrar(secreto, contexto(idCredencial) + ":su");
+    }
+
+    public String descifrar(SecretoCifrado secreto, Integer idCredencial) {
+        return descifrar(secreto, contexto(idCredencial));
+    }
+
+    public String descifrarSu(SecretoCifrado secreto, Integer idCredencial) {
+        return descifrar(secreto, contexto(idCredencial) + ":su");
+    }
+
+    private SecretoCifrado cifrar(String secreto, String contexto) {
         byte[] iv = new byte[BYTES_IV];
         aleatorio.nextBytes(iv);
         try {
             Cipher cifrador = Cipher.getInstance(TRANSFORMACION);
             cifrador.init(Cipher.ENCRYPT_MODE, llave, new GCMParameterSpec(BITS_TAG, iv));
-            cifrador.updateAAD(contexto(idCredencial));
+            cifrador.updateAAD(contexto.getBytes(StandardCharsets.UTF_8));
             byte[] salida = cifrador.doFinal(secreto.getBytes(StandardCharsets.UTF_8));
             int corte = salida.length - BITS_TAG / 8;
             return new SecretoCifrado(Arrays.copyOfRange(salida, 0, corte), iv,
@@ -64,7 +81,7 @@ public class CifradorCredenciales {
         }
     }
 
-    public String descifrar(SecretoCifrado secreto, Integer idCredencial) {
+    private String descifrar(SecretoCifrado secreto, String contexto) {
         if (!ALGORITMO.equals(secreto.algoritmo())) {
             throw new IllegalStateException("Algoritmo de cifrado no soportado: " + secreto.algoritmo());
         }
@@ -74,7 +91,7 @@ public class CifradorCredenciales {
         try {
             Cipher cifrador = Cipher.getInstance(TRANSFORMACION);
             cifrador.init(Cipher.DECRYPT_MODE, llave, new GCMParameterSpec(BITS_TAG, secreto.iv()));
-            cifrador.updateAAD(contexto(idCredencial));
+            cifrador.updateAAD(contexto.getBytes(StandardCharsets.UTF_8));
             return new String(cifrador.doFinal(entrada), StandardCharsets.UTF_8);
         } catch (AEADBadTagException ex) {
             throw new ReglaNegocioException("No se pudo descifrar el secreto: la llave maestra no es la que se usó "
@@ -84,8 +101,8 @@ public class CifradorCredenciales {
         }
     }
 
-    private static byte[] contexto(Integer idCredencial) {
-        return ("komainos:credencial:" + idCredencial).getBytes(StandardCharsets.UTF_8);
+    private static String contexto(Integer idCredencial) {
+        return "komainos:credencial:" + idCredencial;
     }
 
     private static IllegalStateException llaveInvalida() {
