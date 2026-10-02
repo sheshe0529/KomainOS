@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Save } from 'lucide-react'
-import type { ModalidadPlanificacion, ModoEjecucion } from '@/api/dominio'
+import { cuentasServicioApi } from '@/api/credenciales'
+import type { FamiliaSistemaOperativo, ModalidadPlanificacion, ModoEjecucion } from '@/api/dominio'
 import type { ConfiguracionRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
-import { Campo, Entrada } from '@/components/ui/Campo'
+import { Campo, Entrada, Selector } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
-import { ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
+import { useConsulta } from '@/hooks/useConsulta'
+import { ETIQUETA_AUTENTICACION, ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
 
 export interface DatosConfiguracion {
@@ -15,36 +17,44 @@ export interface DatosConfiguracion {
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion: ModalidadPlanificacion
   modoEjecucion?: ModoEjecucion
+  /** Nula: usa la cuenta predeterminada del sistema (RF06) */
+  idCuentaServicio?: number
 }
 
 interface ConfiguracionModalProps {
   abierto: boolean
   titulo: string
   actual?: ConfiguracionRespuesta
-  /** Frecuencias recomendadas por la criticidad, que se copian si se dejan vacías (HU11 CA2). */
+  /** Frecuencias de la criticidad, que se copian si se dejan vacías (HU11 CA2) */
   recomendadas?: { revision?: number; mantenimiento?: number }
-  /** Solo para grupos: pide el modo de ejecución (RF17). */
+  /** Solo para grupos: pide el modo de ejecución (RF17) */
   conModoEjecucion?: boolean
+  /** WinRM no admite cuentas con llave SSH (HU04 CA3) */
+  familia?: FamiliaSistemaOperativo
   onCerrar: () => void
   onGuardar: (datos: DatosConfiguracion) => Promise<void>
 }
 
-/** Configuración de mantenimiento de un servidor o grupo (RF17, RF70, HU13). */
 export function ConfiguracionModal({
   abierto,
   titulo,
   actual,
   recomendadas,
   conModoEjecucion,
+  familia,
   onCerrar,
   onGuardar,
 }: ConfiguracionModalProps) {
+  const cuentas = useConsulta(() => cuentasServicioApi.listar(), [])
   const [revision, setRevision] = useState(actual?.frecuenciaRevisionDias?.toString() ?? '')
   const [mantenimiento, setMantenimiento] = useState(actual?.frecuenciaMantenimientoDias?.toString() ?? '')
   const [modalidad, setModalidad] = useState<ModalidadPlanificacion>(actual?.modalidadPlanificacion ?? 'AUTOMATICA')
   const [modo, setModo] = useState<ModoEjecucion>(actual?.modoEjecucion ?? 'SECUENCIAL')
+  const [cuenta, setCuenta] = useState(actual?.idCuentaServicio?.toString() ?? '')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
+
+  const predeterminada = cuentas.datos?.find((c) => c.predeterminada)
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault()
@@ -56,6 +66,7 @@ export function ConfiguracionModal({
         frecuenciaMantenimientoDias: mantenimiento ? Number(mantenimiento) : undefined,
         modalidadPlanificacion: modalidad,
         modoEjecucion: conModoEjecucion ? modo : undefined,
+        idCuentaServicio: cuenta ? Number(cuenta) : undefined,
       })
     } catch (e) {
       setError(e)
@@ -139,10 +150,33 @@ export function ConfiguracionModal({
           </fieldset>
         )}
 
-        <p className="rounded-lg bg-panel-muted px-3 py-2 text-xs text-ink-soft">
-          Cuenta de servicio: se usará la cuenta predeterminada del sistema. La asignación de cuentas propias se habilita con la
-          gestión de credenciales.
-        </p>
+        <Campo
+          etiqueta="Cuenta de servicio"
+          error={errorDeCampo(error, 'idCuentaServicio')}
+          ayuda={
+            familia === 'WINDOWS'
+              ? 'Servidores Windows: solo cuentas con contraseña (WinRM).'
+              : 'Con la que se conectarán los mantenimientos. Se gestionan en Configuración › Cuentas de servicio.'
+          }
+        >
+          <Selector value={cuenta} onChange={(e) => setCuenta(e.target.value)} disabled={cuentas.cargando}>
+            <option value="">
+              {predeterminada ? `Predeterminada del sistema (${predeterminada.nombre})` : 'Predeterminada del sistema (sin definir)'}
+            </option>
+            {(cuentas.datos ?? [])
+              .filter((c) => c.estado === 'VIGENTE' || String(c.id) === cuenta)
+              .map((c) => (
+                <option
+                  key={c.id}
+                  value={String(c.id)}
+                  disabled={c.estado !== 'VIGENTE' || (familia === 'WINDOWS' && c.tipoAutenticacion === 'LLAVE_SSH')}
+                >
+                  {`${c.nombre} · ${c.usuarioAcceso} · ${c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : ''}`}
+                </option>
+              ))}
+          </Selector>
+        </Campo>
+        {cuentas.error ? <MensajeError error={cuentas.error} /> : null}
       </form>
     </Modal>
   )

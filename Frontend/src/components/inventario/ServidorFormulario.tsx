@@ -18,15 +18,15 @@ interface ServidorFormularioProps {
   onGuardado: (servidor: FichaServidorRespuesta) => void
   catalogos: Catalogos
   responsables: UsuarioRespuesta[]
-  /** Si se indica, el formulario edita ese servidor (RF10); si no, registra uno nuevo (RF09). */
+  /** Si se indica edita ese servidor (RF10), si no registra uno nuevo (RF09) */
   servidor?: FichaServidorRespuesta
 }
 
-/** Campos de texto del formulario; las direcciones IP se editan como lista aparte. */
+/** Las direcciones IP se editan como lista aparte */
 type CampoTexto = Exclude<keyof ServidorPeticion, 'direccionIp' | 'direccionesIpAdicionales'>
 type Formulario = Record<CampoTexto, string>
 
-/** Máximo de direcciones por servidor: la principal y hasta 20 adicionales. */
+/** La principal y hasta 20 adicionales */
 const MAXIMO_DIRECCIONES = 21
 
 function inicial(s?: FichaServidorRespuesta): Formulario {
@@ -49,21 +49,15 @@ function inicial(s?: FichaServidorRespuesta): Formulario {
   }
 }
 
-/** Mensaje del backend sobre cualquiera de las direcciones (principal o adicionales). */
 function errorDeDirecciones(error: unknown): string | undefined {
   if (!(error instanceof ErrorApi)) return undefined
   return error.errores?.find((e) => e.campo?.startsWith('direccionIp') || e.campo?.startsWith('direccionesIp'))?.mensaje
 }
 
-/**
- * Alta y edición de un servidor (RF09, RF10, HU06). El backend detecta los
- * duplicados de hostname e IP y valida cada campo; sus mensajes se muestran
- * junto al campo correspondiente. Un servidor tiene una o varias IP, una de
- * ellas principal, y ninguna puede pertenecer a otro servidor (DEC-37).
- */
+/** Una o varias IP, una de ellas principal y ninguna de otro servidor (DEC-37) */
 export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, responsables, servidor }: ServidorFormularioProps) {
   const [f, setF] = useState<Formulario>(() => inicial(servidor))
-  // La principal va primero (así la devuelve el backend).
+  // La principal va primero (así la devuelve el backend)
   const [ips, setIps] = useState<string[]>(() =>
     servidor?.direccionesIp?.length ? servidor.direccionesIp.map((d) => d.direccion ?? '') : [servidor?.direccionIp ?? ''],
   )
@@ -80,12 +74,11 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
 
   function quitarIp(indice: number) {
     setIps((actuales) => actuales.filter((_, i) => i !== indice))
-    // La principal sigue apuntando a la misma dirección; si se quita, pasa a la primera.
+    // La principal sigue apuntando a la misma dirección, si se quita pasa a la primera
     setPrincipal((p) => (indice === p ? 0 : indice < p ? p - 1 : p))
   }
 
-  // Al editar se muestran también las referencias actuales aunque estén
-  // inactivas; al crear, solo las activas.
+  // Al editar se muestran también las referencias actuales aunque estén inactivas
   const entornos = catalogos.entornos.filter((e) => e.activo || e.id === servidor?.entorno?.id)
   const criticidades = catalogos.criticidades.filter((c) => c.activo || c.id === servidor?.criticidad?.id)
   const versiones = catalogos.sistemasOperativos.flatMap((so) =>
@@ -107,7 +100,7 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
     const peticion: ServidorPeticion = {
       hostname: f.hostname.trim(),
       direccionIp: direcciones[principal],
-      // Las filas vacías se ignoran; la principal es obligatoria en el propio campo.
+      // Las filas vacías se ignoran, la principal es obligatoria en su propio campo
       direccionesIpAdicionales: direcciones.filter((ip, i) => i !== principal && ip !== ''),
       vdc: f.vdc || undefined,
       servidorFisico: f.servidorFisico || undefined,

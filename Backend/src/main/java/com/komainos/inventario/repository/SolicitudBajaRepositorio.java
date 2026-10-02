@@ -13,7 +13,6 @@ public interface SolicitudBajaRepositorio extends JpaRepository<SolicitudBaja, I
     @EntityGraph(attributePaths = "solicitante")
     Optional<SolicitudBaja> findFirstByServidorIdAndEstado(Integer idServidor, EstadoSolicitudBaja estado);
 
-    /** Historial de bajas del servidor, la mas reciente primero (RF72, RF73). */
     @EntityGraph(attributePaths = "solicitante")
     List<SolicitudBaja> findByServidorIdOrderByFechaSolicitudDesc(Integer idServidor);
 }

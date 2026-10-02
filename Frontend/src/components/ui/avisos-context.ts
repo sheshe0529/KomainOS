@@ -14,7 +14,6 @@ export interface AvisosContextValue {
 
 export const AvisosContext = createContext<AvisosContextValue | null>(null)
 
-/** Retroalimentación breve tras una acción del usuario. */
 export function useAvisos() {
   const ctx = useContext(AvisosContext)
   if (!ctx) throw new Error('useAvisos debe usarse dentro de <AvisosProvider>')

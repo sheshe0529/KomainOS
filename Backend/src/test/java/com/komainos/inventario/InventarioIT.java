@@ -108,13 +108,13 @@ class InventarioIT extends PruebaIntegracion {
         assertThat(ficha.configuracion()).get()
                 .satisfies(c -> assertThat(c.getFrecuenciaMantenimientoDias()).isEqualTo(30));
         assertThat(ficha.servidor().getVentanas()).hasSize(1);
-        // Con open-in-view desactivado, la ficha debe salir con sus asociaciones cargadas.
+        // Con open-in-view desactivado, la ficha debe salir con sus asociaciones cargadas
         assertThat(Hibernate.isInitialized(ficha.servidor().getVentanas())).isTrue();
         assertThat(Hibernate.isInitialized(ficha.servidor().getVersionSistemaOperativo().getSistemaOperativo())).isTrue();
-        // El enumerado se guarda con el tipo nativo de PostgreSQL.
+        // El enumerado se guarda con el tipo nativo de PostgreSQL
         assertThat(jdbc.queryForObject("select estado::text from servidor where id_servidor = ?", String.class,
                 s.getId())).isEqualTo("ACTIVO");
-        // La hora de la ventana se guarda tal cual, sin desplazamiento de zona (DEC-06).
+        // La hora de la ventana se guarda tal cual, sin desplazamiento de zona (DEC-06)
         assertThat(jdbc.queryForObject("select hora_inicio::text || '-' || hora_fin::text from ventana_mantenimiento "
                 + "where id_servidor = ?", String.class, s.getId())).isEqualTo("22:00:00-02:00:00");
     }
@@ -125,7 +125,7 @@ class InventarioIT extends PruebaIntegracion {
         AlcanceUsuario alcanceAdmin = new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR);
         Servidor a = crearServidor("srv-db-01", "10.20.2.10", idMedia, responsable);
         Servidor b = crearServidor("srv-db-02", "10.20.2.11", idAlta, responsable);
-        // Varios intervalos por servidor: la consulta de la ficha repite cada integrante una vez por intervalo.
+        // Varios intervalos por servidor: la consulta de la ficha repite cada integrante una vez por intervalo
         servidores.reemplazarVentanas(a.getId(), List.of(ventana(SABADO, "00:00", SABADO, "06:00"),
                 ventana(DOMINGO, "01:00", DOMINGO, "03:00"), ventana(DOMINGO, "10:00", DOMINGO, "11:00")), alcanceAdmin);
         servidores.reemplazarVentanas(b.getId(), List.of(ventana(SABADO, "02:00", SABADO, "08:00"),
@@ -188,7 +188,7 @@ class InventarioIT extends PruebaIntegracion {
         assertThat(jdbc.queryForObject("select estado::text from servidor where id_servidor = ?", String.class,
                 s.getId())).isEqualTo("PENDIENTE_DE_CONFIGURACION");
 
-        // La ficha conserva el motivo, quién pidió la baja y quién reactivó el servidor.
+        // La ficha conserva el motivo, quién pidió la baja y quién reactivó el servidor
         var ficha = servidores.ficha(s.getId(), new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR));
         assertThat(ficha.bajas()).singleElement().satisfies(b -> {
             assertThat(b.getMotivo()).isEqualTo("Fin de vida útil");
@@ -220,18 +220,18 @@ class InventarioIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$.ramGb").value(32.5));
         em.flush();
         Integer id = jdbc.queryForObject("select id_servidor from servidor where hostname = 'srv-multi-01'", Integer.class);
-        // Las IPv6 se guardan en minúsculas.
+        // Las IPv6 se guardan en minúsculas
         assertThat(jdbc.queryForList("select direccion from direccion_ip where id_servidor = ? and not principal",
                 String.class, id)).containsExactlyInAnyOrder("10.60.1.1", "fe80::a");
 
-        // La búsqueda encuentra el servidor por una IP adicional; el listado muestra la principal.
+        // La búsqueda encuentra el servidor por una IP adicional y el listado muestra la principal
         mockMvc.perform(get("/api/servidores").param("texto", "10.60.1").with(user(comoAdmin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElementos").value(1))
                 .andExpect(jsonPath("$.contenido[0].direccionIp").value("10.60.0.1"))
                 .andExpect(jsonPath("$.contenido[0].cantidadDireccionesIp").value(3));
 
-        // Una IP, un servidor: ni como principal ni como adicional de otro.
+        // Una IP, un servidor: ni como principal ni como adicional de otro
         String otro = cuerpo.replace("srv-multi-01", "srv-multi-02").replace("\"10.60.0.1\"", "\"10.60.1.1\"")
                 .replace("[\"10.60.1.1\",\"FE80::A\"]", "[]");
         mockMvc.perform(post("/api/servidores").with(user(comoAdmin))
@@ -239,7 +239,7 @@ class InventarioIT extends PruebaIntegracion {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("srv-multi-01")));
 
-        // Cambiar la principal conserva la dirección como registro (no se borra y vuelve a crear).
+        // Cambiar la principal conserva la dirección como registro (no se borra y vuelve a crear)
         Integer idAdicional = jdbc.queryForObject(
                 "select id_direccion_ip from direccion_ip where direccion = '10.60.1.1'", Integer.class);
         String edicion = cuerpo.replace("\"direccionIp\":\"10.60.0.1\"", "\"direccionIp\":\"10.60.1.1\"")
@@ -267,8 +267,7 @@ class InventarioIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$.totalElementos").value(1))
                 .andExpect(jsonPath("$.contenido[0].hostname").value("srv-propio-01"));
 
-        // Cuerpo valido a proposito: la validacion del cuerpo ocurre antes que
-        // @PreAuthorize, y con un cuerpo invalido se obtendria 400 en vez de 403.
+        // Cuerpo válido a propósito: la validación ocurre antes que @PreAuthorize y daría 400 en vez de 403
         String cuerpoValido = """
                 {"hostname":"srv-nuevo-01","direccionIp":"10.50.0.9","idVersionSistemaOperativo":%d,
                  "idEntorno":%d,"idNivelCriticidad":%d,"idResponsable":%d}

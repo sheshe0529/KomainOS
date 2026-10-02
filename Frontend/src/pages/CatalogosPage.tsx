@@ -12,10 +12,6 @@ const PESTANAS = [
 
 type Pestana = (typeof PESTANAS)[number]['id']
 
-/**
- * Catálogos que rigen el inventario y la planificación (RF15, RF74). Los de
- * umbrales, tareas y scripts se incorporan con el componente de automatización.
- */
 export function CatalogosPage() {
   const [pestana, setPestana] = useState<Pestana>('criticidad')
 

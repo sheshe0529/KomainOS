@@ -1,5 +1,6 @@
 import type {
   DiaSemana,
+  EstadoCredencial,
   EstadoDetalleOrden,
   EstadoGrupo,
   EstadoOrden,
@@ -10,10 +11,10 @@ import type {
   ModalidadPlanificacion,
   ModoEjecucion,
   Rol,
+  TipoAutenticacion,
 } from '@/api/dominio'
 import type { StatusTone } from '@/components/ui/StatusPill'
 
-/** Textos de interfaz en español para cada valor del dominio (RNF05). */
 export const ETIQUETA_ROL: Record<Rol, string> = {
   ADMINISTRADOR: 'Administrador',
   OPERADOR: 'Operador',
@@ -47,6 +48,16 @@ export const ETIQUETA_FAMILIA: Record<FamiliaSistemaOperativo, string> = {
   WINDOWS: 'Windows (WinRM)',
 }
 
+export const ETIQUETA_AUTENTICACION: Record<TipoAutenticacion, string> = {
+  PASSWORD: 'Contraseña',
+  LLAVE_SSH: 'Llave privada SSH',
+}
+
+export const ESTADO_CREDENCIAL: Record<EstadoCredencial, { etiqueta: string; tono: StatusTone }> = {
+  VIGENTE: { etiqueta: 'Vigente', tono: 'success' },
+  REVOCADA: { etiqueta: 'Revocada', tono: 'neutral' },
+}
+
 export const ETIQUETA_DIA: Record<DiaSemana, string> = {
   LUNES: 'Lunes',
   MARTES: 'Martes',
@@ -57,7 +68,7 @@ export const ETIQUETA_DIA: Record<DiaSemana, string> = {
   DOMINGO: 'Domingo',
 }
 
-/** "Sábado 22:00 – Domingo 02:00" o "Sábado 01:00 – 05:00" si es el mismo día. */
+/** "Sábado 22:00 – Domingo 02:00" o "Sábado 01:00 – 05:00" si es el mismo día */
 export function textoVentana(v: { diaInicio?: DiaSemana; horaInicio?: string; diaFin?: DiaSemana; horaFin?: string }): string {
   const hi = (v.horaInicio ?? '').slice(0, 5)
   const hf = (v.horaFin ?? '').slice(0, 5)
@@ -66,7 +77,7 @@ export function textoVentana(v: { diaInicio?: DiaSemana; horaInicio?: string; di
   return `${ETIQUETA_DIA[v.diaInicio]} ${hi} – ${ETIQUETA_DIA[v.diaFin]} ${hf}`
 }
 
-/** Estados del ciclo de la orden (R2.1, tabla 6). */
+/** Estados del ciclo de la orden (R2.1, tabla 6) */
 export const ESTADO_ORDEN: Record<EstadoOrden, { etiqueta: string; tono: StatusTone }> = {
   PROGRAMADA: { etiqueta: 'Programada', tono: 'neutral' },
   EN_EVALUACION: { etiqueta: 'En evaluación', tono: 'warning' },
@@ -85,7 +96,7 @@ export const ESTADO_ORDEN: Record<EstadoOrden, { etiqueta: string; tono: StatusT
   CERRADA: { etiqueta: 'Cerrada', tono: 'success' },
 }
 
-/** Estados del detalle de orden (R2.1, tabla 7). */
+/** Estados del detalle de orden (R2.1, tabla 7) */
 export const ESTADO_DETALLE: Record<EstadoDetalleOrden, { etiqueta: string; tono: StatusTone }> = {
   PENDIENTE: { etiqueta: 'Pendiente', tono: 'neutral' },
   EN_COLA: { etiqueta: 'En cola', tono: 'warning' },
@@ -112,10 +123,7 @@ export const ETIQUETA_ORIGEN: Record<OrigenOrden, string> = {
   CONDICION_CRITICA: 'Condición crítica',
 }
 
-/**
- * Agrupación de la leyenda del cronograma (pantalla preliminar): programado,
- * en curso o completado, según la etapa del ciclo.
- */
+/** Agrupación de la leyenda del cronograma según la etapa del ciclo */
 export function grupoCronograma(etapa?: EtapaOrden): 'programado' | 'en-curso' | 'completado' | 'incidencia' {
   if (etapa === 'PLANIFICACION' || etapa === undefined) return 'programado'
   if (etapa === 'CIERRE') return 'completado'
@@ -123,7 +131,6 @@ export function grupoCronograma(etapa?: EtapaOrden): 'programado' | 'en-curso' |
   return 'en-curso'
 }
 
-/** Colores de la leyenda del cronograma, con los tokens de estado del tema. */
 export const PUNTO_GRUPO = {
   completado: { clase: 'bg-success', etiqueta: 'Completado' },
   'en-curso': { clase: 'bg-warning', etiqueta: 'En curso' },
@@ -131,14 +138,12 @@ export const PUNTO_GRUPO = {
   programado: { clase: 'bg-ink-faint', etiqueta: 'Programado' },
 } as const
 
-/** Clasificación de un registro en la vista previa de la importación (HU08 CA2). */
 export const ESTADO_FILA_IMPORTACION: Record<'NUEVA' | 'DUPLICADA' | 'ERRONEA', { etiqueta: string; tono: StatusTone }> = {
   NUEVA: { etiqueta: 'Nuevo', tono: 'success' },
   DUPLICADA: { etiqueta: 'Duplicado', tono: 'warning' },
   ERRONEA: { etiqueta: 'Erróneo', tono: 'danger' },
 }
 
-/** Resultado de cada registro al confirmar la importación (HU08 CA3). */
 export const RESULTADO_IMPORTACION: Record<
   'CREADO' | 'ACTUALIZADO' | 'OMITIDO' | 'RECHAZADO',
   { etiqueta: string; tono: StatusTone }

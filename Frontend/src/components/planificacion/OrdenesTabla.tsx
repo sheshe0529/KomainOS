@@ -7,12 +7,11 @@ import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
 
 interface OrdenesTablaProps {
   ordenes: OrdenResumenRespuesta[]
-  /** Oculta la columna del objetivo (por ejemplo, en la ficha de un servidor). */
+  /** Oculta la columna del objetivo (por ejemplo, en la ficha de un servidor) */
   sinObjetivo?: boolean
   vacio?: string
 }
 
-/** Tabla de órdenes reutilizada en la consulta (RF36) y en las fichas (HU10 CA4). */
 export function OrdenesTabla({ ordenes, sinObjetivo, vacio = 'No hay órdenes para mostrar.' }: OrdenesTablaProps) {
   const tonoCriticidad = useTonoCriticidad()
   return (

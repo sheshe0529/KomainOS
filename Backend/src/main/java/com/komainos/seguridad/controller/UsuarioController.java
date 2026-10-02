@@ -29,9 +29,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Usuarios y roles (RF03). Solo el administrador gestiona cuentas.
- */
 @RestController
 @RequestMapping("/api/usuarios")
 @RequiredArgsConstructor

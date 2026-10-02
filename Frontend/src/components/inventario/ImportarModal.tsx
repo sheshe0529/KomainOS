@@ -15,7 +15,7 @@ import { ESTADO_FILA_IMPORTACION, RESULTADO_IMPORTACION } from '@/utils/etiqueta
 interface ImportarModalProps {
   abierto: boolean
   onCerrar: () => void
-  /** Se llama al cerrar después de una importación, para recargar el listado. */
+  /** Se llama al cerrar después de una importación, para recargar el listado */
   onImportado: () => void
 }
 
@@ -28,12 +28,7 @@ function tamanoLegible(bytes: number): string {
   return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-/**
- * Importación del inventario (RF12, HU08) en tres pasos: elegir el archivo,
- * revisar la vista previa con los registros nuevos, duplicados y erróneos
- * (CA2) y confirmar. Un duplicado solo se sobrescribe si el usuario lo marca
- * (CA4); el resultado informa cada fila rechazada con su motivo (CA3).
- */
+/** Un duplicado solo se sobrescribe si el usuario lo marca (HU08 CA4) */
 export function ImportarModal({ abierto, onCerrar, onImportado }: ImportarModalProps) {
   const columnas = useConsulta(() => intercambioApi.columnas(), [])
   const [paso, setPaso] = useState<Paso>('archivo')
@@ -344,7 +339,7 @@ const BORDE_TONO: Record<StatusTone, string> = {
   neutral: 'bg-ink-faint',
 }
 
-/** Total de una clasificación; si recibe onClick, filtra la tabla. */
+/** Si recibe onClick, filtra la tabla */
 function Contador({
   etiqueta,
   valor,

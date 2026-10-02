@@ -4,7 +4,7 @@ import type { StatusTone } from '@/components/ui/StatusPill'
 
 let prioridadesActivas: Promise<number[]> | null = null
 
-/** Prioridades de los niveles activos, cargadas una vez y compartidas por todas las vistas. */
+/** Prioridades de los niveles activos, cargadas una vez y compartidas por todas las vistas */
 function cargarPrioridades(): Promise<number[]> {
   if (!prioridadesActivas) {
     prioridadesActivas = catalogosApi
@@ -23,17 +23,12 @@ function cargarPrioridades(): Promise<number[]> {
   return prioridadesActivas
 }
 
-/** Descarta el catálogo en memoria; se llama al crear o editar niveles. */
+/** Se llama al crear o editar niveles */
 export function invalidarCriticidades(): void {
   prioridadesActivas = null
 }
 
-/**
- * Tono de una criticidad según su posición entre los niveles activos (menor
- * prioridad = más crítica, DEC-13): el más crítico en rojo, el segundo en
- * ámbar y el resto neutro. Depende del orden y no del valor, así que funciona
- * aunque se agreguen niveles o las prioridades no sean consecutivas.
- */
+/** Depende del orden y no del valor: el más crítico en rojo, el segundo en ámbar y el resto neutro (DEC-13) */
 export function tonoSegunCatalogo(prioridad: number | undefined, prioridadesActivas: number[]): StatusTone {
   if (prioridad === undefined || prioridadesActivas.length === 0) return 'neutral'
   const masCriticos = prioridadesActivas.filter((p) => p < prioridad).length
@@ -42,7 +37,7 @@ export function tonoSegunCatalogo(prioridad: number | undefined, prioridadesActi
   return 'neutral'
 }
 
-/** {@link tonoSegunCatalogo} con el catálogo vigente, cargado una sola vez por sesión. */
+/** Con el catálogo vigente, cargado una sola vez por sesión */
 export function useTonoCriticidad(): (prioridad?: number) => StatusTone {
   const [orden, setOrden] = useState<number[]>([])
 
@@ -53,7 +48,7 @@ export function useTonoCriticidad(): (prioridad?: number) => StatusTone {
         if (vigente) setOrden(p)
       })
       .catch(() => {
-        // Sin catálogo se muestra en tono neutro; la etiqueta sigue visible.
+        // Sin catálogo se muestra en tono neutro, la etiqueta sigue visible
       })
     return () => {
       vigente = false

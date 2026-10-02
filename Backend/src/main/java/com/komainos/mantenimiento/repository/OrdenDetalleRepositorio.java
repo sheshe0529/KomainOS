@@ -13,11 +13,7 @@ import java.util.List;
 
 public interface OrdenDetalleRepositorio extends JpaRepository<OrdenDetalle, Integer> {
 
-    /**
-     * Reservas vigentes que se solapan con [desde, hasta): detalles de ordenes
-     * que ocupan el cronograma (especificacion del algoritmo, seccion 3). Los
-     * enumerados van como parametro (DEC-26).
-     */
+    /** Los enumerados van como parámetro (DEC-26) */
     @Query("""
             select new com.komainos.mantenimiento.repository.FilaReserva(
                 d.servidor.id, d.fechaPrevistaInicio, d.fechaPrevistaFin, o.id, o.codigo)

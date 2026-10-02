@@ -4,7 +4,6 @@ import com.komainos.shared.exception.ReglaNegocioException;
 
 import java.util.Locale;
 
-/** Formatos de intercambio del inventario (RF12, RF13). */
 public enum FormatoArchivo {
 
     XLSX("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
@@ -28,11 +27,7 @@ public enum FormatoArchivo {
         return tipoContenido;
     }
 
-    /**
-     * Deduce el formato por la extension del archivo recibido. Se decide por
-     * la extension y no por el tipo MIME que envia el navegador, que para CSV
-     * y YAML varia segun el sistema operativo.
-     */
+    /** Por extensión y no por tipo MIME: el que envía el navegador para CSV y YAML varía según el sistema operativo */
     public static FormatoArchivo deNombreArchivo(String nombre) {
         String minusculas = nombre == null ? "" : nombre.trim().toLowerCase(Locale.ROOT);
         int punto = minusculas.lastIndexOf('.');

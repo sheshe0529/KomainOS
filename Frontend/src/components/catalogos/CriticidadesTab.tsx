@@ -25,7 +25,6 @@ const VACIO: Formulario = {
   plazoValidacionHoras: '',
 }
 
-/** Catálogo de niveles de criticidad (RF15, HU11). */
 export function CriticidadesTab() {
   const { avisar } = useAvisos()
   const niveles = useConsulta(() => catalogosApi.criticidades(), [])

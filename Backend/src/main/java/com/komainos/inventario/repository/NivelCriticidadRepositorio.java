@@ -19,12 +19,7 @@ public interface NivelCriticidadRepositorio extends JpaRepository<NivelCriticida
 
     boolean existsByPrioridadAndIdNot(Integer prioridad, Integer id);
 
-    /**
-     * HU11 CA3: un nivel asignado a servidores no se elimina. Tambien lo
-     * referencian las ordenes (criticidad aplicada al generarse), cuya clave
-     * foranea es RESTRICT: se consulta aqui para dar un mensaje claro en vez
-     * de un error de integridad.
-     */
+    /** Las órdenes también lo referencian con RESTRICT: se consulta para dar un mensaje claro (HU11 CA3) */
     @Query(value = """
             select exists (select 1 from servidor where id_nivel_criticidad = :id)
                 or exists (select 1 from orden where id_nivel_criticidad = :id)

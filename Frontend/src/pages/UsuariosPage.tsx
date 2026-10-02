@@ -20,7 +20,6 @@ import { errorDeCampo, textoDeError, tieneErroresDeCampo } from '@/utils/errores
 
 const ROLES: Rol[] = ['ADMINISTRADOR', 'OPERADOR', 'RESPONSABLE']
 
-/** Usuarios y roles (RF03, HU02). */
 export function UsuariosPage() {
   const { usuario: sesion } = useSesion()
   const { avisar } = useAvisos()

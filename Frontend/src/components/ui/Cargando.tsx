@@ -5,7 +5,6 @@ interface CargandoProps {
   pantallaCompleta?: boolean
 }
 
-/** Indicador de carga con texto opcional. */
 export function Cargando({ texto = 'Cargando…', pantallaCompleta = false }: CargandoProps) {
   return (
     <div

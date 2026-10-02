@@ -37,16 +37,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Importación y exportación del inventario contra PostgreSQL (RF12, RF13).
- *
- * <p>No es @Transactional: la importación registra cada fila en su propia
- * transacción, y sus efectos solo son visibles si se confirman.
- */
+/** No es @Transactional: la importación registra cada fila en su propia transacción */
 @DisplayName("Importación y exportación del inventario (RF12, RF13, HU08, HU09)")
 class IntercambioInventarioIT extends PruebaIntegracion {
 
-    /** Encabezado con etiquetas legibles, en otro orden y con una columna que no se importa. */
+    /** Encabezado con etiquetas legibles, en otro orden y con una columna que no se importa */
     private static final String ENCABEZADO =
             "Hostname,Dirección IP,Sistema operativo,Versión,Entorno,Criticidad,Responsable,Descripción,Estado\n";
 
@@ -145,8 +140,7 @@ class IntercambioInventarioIT extends PruebaIntegracion {
         assertThat(duplicado.get("estado").asText()).isEqualTo("DUPLICADA");
         assertThat(duplicado.get("sobrescribible").asBoolean()).isTrue();
         assertThat(duplicado.get("servidorExistente").get("id").asInt()).isEqualTo(idExistente);
-        // Los nombres se reconocen sin distinguir mayúsculas; solo cambian criticidad y descripción:
-        // el VDC no viene en el archivo, así que se conserva.
+        // Solo cambian criticidad y descripción: el VDC no viene en el archivo y se conserva
         assertThat(textos(duplicado.get("camposModificados"))).containsExactly("Criticidad", "Descripción");
 
         JsonNode repetido = filaDe(analisis, 4);
@@ -166,7 +160,7 @@ class IntercambioInventarioIT extends PruebaIntegracion {
         assertThat(textos(conflicto.get("motivos"))).singleElement().asString()
                 .contains("srv-otro-01").contains("srv-tercero-01");
 
-        // Nada se escribió.
+        // Nada se escribió
         assertThat(jdbc.queryForObject("select count(*) from servidor", Integer.class)).isEqualTo(3);
     }
 
@@ -183,14 +177,14 @@ class IntercambioInventarioIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$.filas[?(@.fila == 3)].detalle")
                         .value("No se confirmó sobrescribir el servidor existente"));
 
-        // Sin confirmación, el existente no cambió; el nuevo nace pendiente de configuración (HU06 CA3).
+        // Sin confirmación el existente no cambió y el nuevo nace pendiente de configuración (HU06 CA3)
         assertThat(jdbc.queryForObject("select n.nombre from servidor s join nivel_criticidad n "
                 + "on n.id_nivel_criticidad = s.id_nivel_criticidad where s.id_servidor = ?", String.class, idExistente))
                 .isEqualTo("Media");
         assertThat(jdbc.queryForObject("select estado::text from servidor where hostname = 'srv-nuevo-01'",
                 String.class)).isEqualTo("PENDIENTE_DE_CONFIGURACION");
 
-        // Segunda pasada confirmando la fila 3: el nuevo ya existe y coincide, así que se omite.
+        // Segunda pasada confirmando la fila 3: el nuevo ya existe y coincide, así que se omite
         mockMvc.perform(multipart("/api/servidores/importacion").file(archivo("inventario.csv", ARCHIVO_MIXTO))
                         .param("sobrescribir", "3")
                         .with(user(comoAdmin)))
@@ -222,7 +216,7 @@ class IntercambioInventarioIT extends PruebaIntegracion {
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         JsonNode registros = json.readTree(cuerpo);
 
-        // El responsable solo ve los suyos (R2.1, tabla 3).
+        // El responsable solo ve los suyos (R2.1, tabla 3)
         assertThat(registros).hasSize(2);
         assertThat(registros.get(0).get("hostname").asText()).isEqualTo("srv-exist-01");
         List<String> claves = new ArrayList<>();
@@ -274,9 +268,9 @@ class IntercambioInventarioIT extends PruebaIntegracion {
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         JsonNode analisis = json.readTree(cuerpo);
         assertThat(filaDe(analisis, 2).get("estado").asText()).isEqualTo("NUEVA");
-        // 10.30.0.9 es la IP de srv-otro-01: el registro es un duplicado de ese servidor.
+        // 10.30.0.9 es la IP de srv-otro-01: el registro es un duplicado de ese servidor
         assertThat(textos(filaDe(analisis, 3).get("motivos")).getFirst()).contains("srv-otro-01");
-        // 10.30.7.3 ya aparece en la fila 2 del mismo archivo.
+        // 10.30.7.3 ya aparece en la fila 2 del mismo archivo
         assertThat(textos(filaDe(analisis, 4).get("motivos")).getFirst()).contains("10.30.7.3").contains("fila 2");
         assertThat(String.join(" | ", textos(filaDe(analisis, 5).get("motivos"))))
                 .contains("«CPU» debe ser un número entero entre 1")

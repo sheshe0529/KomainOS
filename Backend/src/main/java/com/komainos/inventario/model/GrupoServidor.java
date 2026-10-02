@@ -15,7 +15,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
-/** Pertenencia de un servidor a un grupo (tabla {@code grupo_servidor}). */
 @Entity
 @Table(name = "grupo_servidor")
 @Getter

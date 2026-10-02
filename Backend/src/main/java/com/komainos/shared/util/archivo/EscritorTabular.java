@@ -22,19 +22,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Escribe tablas en los formatos de intercambio (RF13). Todos los valores se
- * escriben como texto: el archivo sirve para trabajar fuera del sistema y para
- * volver a importarlo, y un número de VLAN o una versión como {@code 22.04}
- * no deben reinterpretarse.
- *
- * <p>XLSX y CSV llevan como encabezado la etiqueta legible de cada columna;
- * JSON y YAML, su clave. Las dos formas se reconocen al importar.
- */
+/** Todo como texto: una VLAN o una versión como 22.04 no deben reinterpretarse (RF13) */
 @Component
 public class EscritorTabular {
 
-    /** Ancho maximo de columna en XLSX, en caracteres. */
+    /** En caracteres */
     private static final int ANCHO_MAXIMO = 60;
 
     private final ObjectMapper json;
@@ -46,9 +38,6 @@ public class EscritorTabular {
         this.json = json;
     }
 
-    /**
-     * @param filas valores por clave de columna; {@code null} deja la celda vacia
-     */
     public byte[] escribir(FormatoArchivo formato, List<ColumnaArchivo> columnas,
                            List<Map<String, ?>> filas, String titulo) {
         try {
@@ -63,11 +52,7 @@ public class EscritorTabular {
         }
     }
 
-    /**
-     * Excel y otras hojas de calculo ejecutan como formula una celda de CSV que
-     * empieza por estos caracteres (inyeccion de formulas, OWASP). Al exportar
-     * se antepone un apostrofo; al importar se retira.
-     */
+    /** Inyección de fórmulas (OWASP): al exportar se antepone un apóstrofo y al importar se retira */
     static boolean iniciaComoFormula(String valor) {
         return !valor.isEmpty() && "=+-@\t\r".indexOf(valor.charAt(0)) >= 0;
     }
@@ -99,13 +84,13 @@ public class EscritorTabular {
             registros.add(celdas);
         }
         String contenido = csv.writer(esquema.build()).writeValueAsString(registros);
-        // El BOM hace que Excel reconozca UTF-8 y muestre bien las tildes.
+        // El BOM hace que Excel reconozca UTF-8 y muestre bien las tildes
         return ("\uFEFF" + contenido).getBytes(StandardCharsets.UTF_8);
     }
 
     private static byte[] xlsx(List<ColumnaArchivo> columnas, List<Map<String, ?>> filas, String titulo)
             throws IOException {
-        // SXSSF escribe por bloques: el consumo de memoria no crece con el inventario.
+        // SXSSF escribe por bloques: la memoria no crece con el inventario
         try (SXSSFWorkbook libro = new SXSSFWorkbook(200)) {
             Sheet hoja = libro.createSheet(titulo);
             Font negrita = libro.createFont();
@@ -127,7 +112,7 @@ public class EscritorTabular {
                 for (int c = 0; c < columnas.size(); c++) {
                     String valor = texto(fila.get(columnas.get(c).clave()));
                     if (valor != null) {
-                        // Como texto: nunca se interpreta como formula.
+                        // Como texto: nunca se interpreta como fórmula
                         registro.createCell(c).setCellValue(valor);
                         anchos[c] = Math.max(anchos[c], valor.length());
                     }

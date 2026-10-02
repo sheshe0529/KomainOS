@@ -7,10 +7,6 @@ import com.komainos.shared.dto.ReferenciaSimple;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Detalle del grupo (HU15): integrantes, configuracion, criticidad efectiva
- * (RF76) y ventana permisiva calculada como interseccion (RF21).
- */
 public record FichaGrupoRespuesta(
         Integer id,
         String nombre,

@@ -5,7 +5,6 @@ import com.komainos.planificacion.service.algoritmo.ResultadoPlanificacion;
 import java.time.Instant;
 import java.util.List;
 
-/** Primer intervalo disponible propuesto por el algoritmo, sin crear la orden. */
 public record PropuestaRespuesta(Instant fechaObjetivo, Instant inicio, Instant fin, Instant fechaEvaluacion,
                                  Instant inicioVentana, Instant finVentana, List<Tramo> tramos) {
 

@@ -16,10 +16,7 @@ import com.komainos.seguridad.model.UsuarioAutenticado;
 import java.time.LocalTime;
 import java.util.List;
 
-/**
- * Constructores centralizados de entidades para las pruebas. Cuando el modelo
- * gana un atributo obligatorio se toca un solo archivo.
- */
+/** Cuando el modelo gana un atributo obligatorio se toca un solo archivo */
 public final class DatosPrueba {
 
     private DatosPrueba() {

@@ -36,12 +36,6 @@ import java.io.UncheckedIOException;
 import java.util.HashSet;
 import java.util.List;
 
-/**
- * Importación (RF12, HU08) y exportación (RF13, HU09) del inventario.
- *
- * <p>Exportar está permitido a todos los roles, dentro de su alcance; importar,
- * solo al administrador, que es quien registra servidores (RF09).
- */
 @RestController
 @RequestMapping("/api/servidores")
 @RequiredArgsConstructor
@@ -115,7 +109,7 @@ public class IntercambioInventarioController {
         return columna;
     }
 
-    /** Solo el nombre, sin la ruta que algunos navegadores incluyen. */
+    /** Solo el nombre: algunos navegadores envían la ruta completa del archivo */
     private static String nombreDe(MultipartFile archivo) {
         String nombre = archivo.getOriginalFilename() == null ? "" : archivo.getOriginalFilename();
         nombre = nombre.substring(Math.max(nombre.lastIndexOf('/'), nombre.lastIndexOf('\\')) + 1);
@@ -133,7 +127,7 @@ public class IntercambioInventarioController {
     private static ResponseEntity<byte[]> descarga(ArchivoGenerado archivo) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(archivo.formato().tipoContenido()))
-                // Los nombres generados son ASCII: basta el filename simple, que todo cliente entiende.
+                // Los nombres generados son ASCII: basta el filename simple
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(archivo.nombre())
                         .build()

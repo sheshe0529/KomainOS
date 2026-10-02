@@ -24,11 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Catalogos de referencia del inventario: entornos (RF74), niveles de
- * criticidad (RF15) y sistemas operativos con sus versiones (dependencia de
- * RF10). Son catalogos acotados, por eso sus listados no se paginan.
- */
 @Service
 @RequiredArgsConstructor
 public class ServicioCatalogos {
@@ -38,8 +33,6 @@ public class ServicioCatalogos {
     private final SistemaOperativoRepositorio sistemas;
     private final VersionSistemaOperativoRepositorio versiones;
     private final ServicioAuditoria auditoria;
-
-    // ---------------------------------------------------------------- entornos
 
     @Transactional(readOnly = true)
     public List<Entorno> listarEntornos() {
@@ -78,7 +71,7 @@ public class ServicioCatalogos {
         return entorno;
     }
 
-    /** RF74: se desactiva para conservar sus referencias historicas. */
+    /** Se desactiva y no se borra para conservar sus referencias históricas (RF74) */
     @Transactional
     public Entorno cambiarEstadoEntorno(Integer id, boolean activar, Actor actor) {
         Entorno entorno = obtenerEntorno(id);
@@ -90,8 +83,6 @@ public class ServicioCatalogos {
         auditoria.registrar(actor, Operacion.de(activar ? "ACTIVAR_ENTORNO" : "DESACTIVAR_ENTORNO", "entorno", id));
         return entorno;
     }
-
-    // ------------------------------------------------------ niveles de criticidad
 
     @Transactional(readOnly = true)
     public List<NivelCriticidad> listarCriticidades() {
@@ -119,10 +110,7 @@ public class ServicioCatalogos {
         return nivel;
     }
 
-    /**
-     * HU11 CA2: el cambio no se propaga a las configuraciones de mantenimiento
-     * ya creadas, que conservan los valores copiados al crearse.
-     */
+    /** No se propaga a las configuraciones ya creadas (HU11 CA2) */
     @Transactional
     public NivelCriticidad actualizarCriticidad(Integer id, DatosNivelCriticidad datos, Actor actor) {
         NivelCriticidad nivel = obtenerCriticidad(id);
@@ -153,7 +141,6 @@ public class ServicioCatalogos {
         return nivel;
     }
 
-    /** HU11 CA3: impide eliminar un nivel asignado a uno o mas servidores. */
     @Transactional
     public void eliminarCriticidad(Integer id, Actor actor) {
         NivelCriticidad nivel = obtenerCriticidad(id);
@@ -167,8 +154,6 @@ public class ServicioCatalogos {
         auditoria.registrar(actor, Operacion.de("ELIMINAR_NIVEL_CRITICIDAD", "nivel_criticidad", id)
                 .valores(anterior, null));
     }
-
-    // ---------------------------------------------------- sistemas operativos
 
     @Transactional(readOnly = true)
     public List<SistemaOperativo> listarSistemasOperativos() {
@@ -247,8 +232,6 @@ public class ServicioCatalogos {
         return versiones.findConSistemaById(id)
                 .orElseThrow(() -> RecursoNoEncontradoException.de("la versión de sistema operativo", id));
     }
-
-    // ------------------------------------------------------------- utilidades
 
     private static DatosNivelCriticidad normalizar(DatosNivelCriticidad d) {
         return new DatosNivelCriticidad(d.nombre().trim(), d.prioridad(), d.frecuenciaRevisionDias(),

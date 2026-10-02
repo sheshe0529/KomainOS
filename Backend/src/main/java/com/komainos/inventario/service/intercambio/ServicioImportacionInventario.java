@@ -74,28 +74,15 @@ import static com.komainos.inventario.service.intercambio.ColumnaInventario.SIST
 import static com.komainos.inventario.service.intercambio.ColumnaInventario.VERSION;
 import static com.komainos.inventario.service.intercambio.ColumnaInventario.VLAN;
 
-/**
- * Importación masiva del inventario (RF12, HU08).
- *
- * <p>Se hace en dos pasos sin estado en el servidor: {@link #analizar} clasifica
- * cada registro en nuevo, duplicado o erróneo sin escribir nada (CA2), y
- * {@link #importar} recibe el mismo archivo junto con las filas duplicadas que
- * el usuario aceptó sobrescribir (CA4), vuelve a analizarlo con los datos del
- * momento y registra lo válido (CA3). Volver a analizar evita confiar en una
- * vista previa que pudo quedar desactualizada mientras el usuario la revisaba.
- *
- * <p>Cada registro se da de alta o se actualiza con los mismos casos de uso del
- * registro individual ({@link ServicioServidor}), en su propia transacción: un
- * registro rechazado no impide importar los demás.
- */
+/** Analizar no escribe nada, importar vuelve a analizar con los datos del momento y registra cada fila en su propia transacción */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ServicioImportacionInventario {
 
-    /** La misma regla que el alta individual ({@code ServidorPeticion}). */
     private static final Pattern SEPARADOR_DIRECCIONES = Pattern.compile("[;,\\s]+");
 
+    /** La misma regla que el alta individual (ServidorPeticion) */
     private static final Pattern PATRON_HOSTNAME = Pattern.compile("^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$");
 
     private final LectorTabular lector;
@@ -107,7 +94,6 @@ public class ServicioImportacionInventario {
     private final ServicioAuditoria auditoria;
     private final PlatformTransactionManager transacciones;
 
-    /** Archivo con las columnas importables y un registro vacío que muestra su forma. */
     public ArchivoGenerado plantilla(FormatoArchivo formato) {
         List<ColumnaInventario> columnas = ColumnaInventario.importables();
         Map<String, Object> vacio = new HashMap<>();
@@ -116,9 +102,6 @@ public class ServicioImportacionInventario {
         return new ArchivoGenerado("plantilla_inventario_servidores." + formato.extension(), formato, contenido);
     }
 
-    // ------------------------------------------------------------ vista previa
-
-    /** HU08 CA2: clasifica los registros sin modificar el inventario. */
     public AnalisisImportacion analizar(String nombreArchivo, byte[] contenido) {
         FormatoArchivo formato = FormatoArchivo.deNombreArchivo(nombreArchivo);
         TablaArchivo tabla = lector.leer(formato, contenido);
@@ -191,7 +174,6 @@ public class ServicioImportacionInventario {
         if (adicionales.size() > 20) {
             errores.add("Un servidor puede tener hasta 20 direcciones IP adicionales");
         }
-        // DEC-37: las IP del registro no se repiten entre sí.
         List<String> todas = new ArrayList<>();
         if (ip != null) {
             todas.add(ip);
@@ -229,8 +211,7 @@ public class ServicioImportacionInventario {
                 criticidad.getId(), responsable.getId(), fila.valor(DESCRIPCION.clave()),
                 adicionales, cpu, ram, disco);
 
-        // Repetido dentro del mismo archivo, por hostname o por cualquiera de sus IP:
-        // solo cuenta la primera aparición.
+        // Repetido en el archivo por hostname o por cualquiera de sus IP: solo cuenta la primera aparición
         Integer filaHostname = hostnamesVistos.get(minusculas(hostname));
         String ipRepetida = todas.stream().filter(direccionesVistas::containsKey).findFirst().orElse(null);
         if (filaHostname != null || ipRepetida != null) {
@@ -271,11 +252,7 @@ public class ServicioImportacionInventario {
                 conservarAusentes(datos, existente, presentes), version, entorno, criticidad, responsable);
     }
 
-    /**
-     * Al sobrescribir, una columna opcional que no viene en el archivo conserva
-     * el dato registrado; si viene vacía, lo borra. Así un archivo con solo
-     * algunas columnas actualiza esas columnas y nada más (DEC-31).
-     */
+    /** Columna ausente conserva el dato registrado, columna vacía lo borra (DEC-31) */
     private static DatosServidor conservarAusentes(DatosServidor d, Servidor s, Set<ColumnaInventario> presentes) {
         return new DatosServidor(d.hostname(), d.direccionIp(),
                 presentes.contains(VDC) ? d.vdc() : s.getVdc(),
@@ -287,8 +264,7 @@ public class ServicioImportacionInventario {
                 presentes.contains(PLATAFORMA) ? d.plataforma() : s.getPlataforma(),
                 d.idEntorno(), d.idNivelCriticidad(), d.idResponsable(),
                 presentes.contains(DESCRIPCION) ? d.descripcion() : s.getDescripcion(),
-                // Sin la columna se conservan las IP adicionales registradas, salvo la
-                // que el archivo pasa a indicar como principal.
+                // Sin la columna se conservan las IP adicionales, salvo la que pasa a ser principal
                 presentes.contains(IPS_ADICIONALES) ? d.direccionesIpAdicionales()
                         : s.direccionesAdicionales().stream().filter(ip -> !ip.equals(d.direccionIp())).toList(),
                 presentes.contains(CPU) ? d.cantidadCpu() : s.getCantidadCpu(),
@@ -296,10 +272,7 @@ public class ServicioImportacionInventario {
                 presentes.contains(DISCO_VIRTUAL_GB) ? d.hdVirtualGb() : s.getHdVirtualGb());
     }
 
-    /**
-     * Coincide con un servidor registrado. Se puede sobrescribir si el usuario
-     * lo confirma (HU08 CA4), siempre que la edición individual lo permitiría.
-     */
+    /** Se puede sobrescribir solo si la edición individual lo permitiría (HU08 CA4) */
     private AnalisisImportacion.Fila duplicadoDeRegistrado(int numero, Servidor existente, boolean mismoHostname,
                                                            boolean mismaIp, DatosServidor datos,
                                                            VersionSistemaOperativo version, Entorno entorno,
@@ -326,10 +299,7 @@ public class ServicioImportacionInventario {
                 List.copyOf(motivos), existente, sobrescribible, cambios, datos);
     }
 
-    /**
-     * Lo que se asigna debe estar activo; al sobrescribir, solo lo que cambia
-     * (la misma regla que la edición individual).
-     */
+    /** Al sobrescribir solo se exige activo lo que cambia, como en la edición individual */
     private static List<String> referenciasInactivas(Servidor existente, VersionSistemaOperativo version,
                                                      Entorno entorno, NivelCriticidad criticidad,
                                                      Usuario responsable) {
@@ -354,7 +324,6 @@ public class ServicioImportacionInventario {
         return existente == null || !Objects.equals(actual.apply(existente), nuevo);
     }
 
-    /** Etiquetas de los datos del servidor registrado que el archivo reemplazaría. */
     private static List<String> camposModificados(Servidor s, DatosServidor d, VersionSistemaOperativo version) {
         List<String> cambios = new ArrayList<>();
         comparar(cambios, HOSTNAME, s.getHostname(), d.hostname());
@@ -386,7 +355,7 @@ public class ServicioImportacionInventario {
         }
     }
 
-    /** 16 y 16.00 son el mismo valor: BigDecimal.equals distingue la escala. */
+    /** 16 y 16.00 son el mismo valor: BigDecimal.equals distingue la escala */
     private static void compararNumero(List<String> cambios, ColumnaInventario columna, BigDecimal actual,
                                        BigDecimal nuevo) {
         boolean iguales = actual == null ? nuevo == null : nuevo != null && actual.compareTo(nuevo) == 0;
@@ -395,7 +364,6 @@ public class ServicioImportacionInventario {
         }
     }
 
-    /** IP separadas por punto y coma, coma o espacios, en minúsculas. */
     private static List<String> separarDirecciones(String valor) {
         if (valor == null) {
             return List.of();
@@ -432,7 +400,7 @@ public class ServicioImportacionInventario {
         }
     }
 
-    /** Acepta coma o punto decimal: una hoja en español suele escribir 16,5. */
+    /** Acepta coma o punto decimal: una hoja en español suele escribir 16,5 */
     private static BigDecimal decimal(FilaArchivo fila, ColumnaInventario columna, int enteros, List<String> errores) {
         String valor = fila.valor(columna.clave());
         if (valor == null) {
@@ -467,14 +435,6 @@ public class ServicioImportacionInventario {
         return valor == null ? null : valor.toLowerCase(Locale.ROOT);
     }
 
-    // ---------------------------------------------------------------- confirmar
-
-    /**
-     * HU08 CA3 y CA4: registra los nuevos, sobrescribe solo los duplicados que
-     * el usuario confirmó y reporta el resultado de cada fila.
-     *
-     * @param sobrescribir números de fila duplicados cuya sobrescritura se confirmó
-     */
     public ResultadoImportacion importar(String nombreArchivo, byte[] contenido, Set<Integer> sobrescribir,
                                          Actor actor) {
         AnalisisImportacion analisis = analizar(nombreArchivo, contenido);
@@ -531,9 +491,6 @@ public class ServicioImportacionInventario {
         return new ResultadoImportacion.Fila(fila.numero(), fila.hostname(), resultado, idServidor, detalle);
     }
 
-    // ------------------------------------------------------------- referencias
-
-    /** Catálogos, usuarios y servidores coincidentes, cargados una vez por archivo. */
     private Referencias cargarReferencias(TablaArchivo tabla) {
         Set<String> hostnames = new HashSet<>(Set.of(""));
         Set<String> direcciones = new HashSet<>(Set.of(""));
@@ -579,15 +536,11 @@ public class ServicioImportacionInventario {
                                Map<String, Servidor> porHostname,
                                Map<String, Servidor> porIp) {
 
-        /**
-         * Busca por nombre sin distinguir mayúsculas. Si no existe, el motivo
-         * lista los valores registrados para que el usuario corrija el archivo.
-         */
         <T> T buscar(Map<String, T> indice, String nombre, String descripcion, List<String> errores) {
             return buscar(indice, nombre, descripcion, errores, true);
         }
 
-        /** @param listar si el motivo enumera los valores registrados (no se hace con usuarios) */
+        /** Con usuarios no se enumeran los códigos registrados */
         <T> T buscar(Map<String, T> indice, String nombre, String descripcion, List<String> errores, boolean listar) {
             if (nombre == null) {
                 return null;

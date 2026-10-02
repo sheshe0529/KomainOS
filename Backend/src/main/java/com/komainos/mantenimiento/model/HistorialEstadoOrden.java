@@ -21,10 +21,6 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.time.Instant;
 
-/**
- * Transicion de estado de una orden (tabla {@code historial_estado_orden}).
- * El usuario es nulo cuando la transicion la realizo el Sistema.
- */
 @Entity
 @Table(name = "historial_estado_orden")
 @Immutable
@@ -45,7 +41,6 @@ public class HistorialEstadoOrden {
     @JoinColumn(name = "id_usuario")
     private Usuario usuario;
 
-    /** Nulo en el registro de creacion. */
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType.class)
     @Column(name = "estado_anterior", columnDefinition = "enum_estado_orden")

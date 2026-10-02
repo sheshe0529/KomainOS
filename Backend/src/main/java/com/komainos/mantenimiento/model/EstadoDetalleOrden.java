@@ -4,10 +4,6 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Estado de ejecucion de un detalle de orden (R2.1, tabla 7;
- * {@code enum_estado_detalle_orden}). Es independiente del estado de la orden.
- */
 public enum EstadoDetalleOrden {
     PENDIENTE,
     EN_COLA,
@@ -28,7 +24,7 @@ public enum EstadoDetalleOrden {
         return TRANSICIONES.get(this).contains(destino);
     }
 
-    /** Un detalle no iniciado ya no ocupa su servidor en el cronograma. */
+    /** Un detalle no iniciado ya no ocupa su servidor en el cronograma */
     public boolean ocupaServidor() {
         return this != NO_INICIADO;
     }

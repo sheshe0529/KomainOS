@@ -24,6 +24,10 @@ export interface AnalisisImportacionRespuesta {
   filas?: FilaAnalisisRespuesta[]
 }
 
+export interface AsignacionServidoresPeticion {
+  idsServidores: number[]
+}
+
 export interface BajaPeticion {
   motivo: string
 }
@@ -52,12 +56,14 @@ export interface ConfiguracionGrupoPeticion {
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
   modoEjecucion: 'SECUENCIAL' | 'PARALELO'
+  idCuentaServicio?: number
 }
 
 export interface ConfiguracionPeticion {
   frecuenciaRevisionDias?: number
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
+  idCuentaServicio?: number
 }
 
 export interface ConfiguracionRespuesta {
@@ -67,6 +73,7 @@ export interface ConfiguracionRespuesta {
   modoEjecucion?: 'SECUENCIAL' | 'PARALELO'
   idCuentaServicio?: number
   usaCuentaPredeterminada?: boolean
+  cuentaServicio?: ReferenciaSimple
   fechaCreacion?: string
   fechaActualizacion?: string
 }
@@ -78,10 +85,57 @@ export interface CrearUsuarioPeticion {
   rol: 'ADMINISTRADOR' | 'OPERADOR' | 'RESPONSABLE'
 }
 
+export interface CredencialPeticion {
+  nombre: string
+  usuarioAcceso: string
+  descripcion?: string
+  tipoAutenticacion: 'PASSWORD' | 'LLAVE_SSH'
+  secreto: string
+}
+
+export interface CredencialRespuesta {
+  id?: number
+  nombre?: string
+  usuarioAcceso?: string
+  descripcion?: string
+  estado?: 'VIGENTE' | 'REVOCADA'
+  tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
+  numeroVersion?: number
+  fechaRegistro?: string
+  fechaSecreto?: string
+  fechaRevocacion?: string
+}
+
 export interface CriticidadResumen {
   id?: number
   nombre?: string
   prioridad?: number
+}
+
+export interface CuentaPredeterminadaPeticion {
+  idCuentaServicio?: number
+}
+
+export interface CuentaServicioRespuesta {
+  id?: number
+  nombre?: string
+  usuarioAcceso?: string
+  descripcion?: string
+  estado?: 'VIGENTE' | 'REVOCADA'
+  tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
+  numeroVersion?: number
+  fechaRegistro?: string
+  fechaSecreto?: string
+  fechaRevocacion?: string
+  servidores?: number
+  grupos?: number
+  predeterminada?: boolean
+}
+
+export interface DatosCredencialPeticion {
+  nombre: string
+  usuarioAcceso: string
+  descripcion?: string
 }
 
 export interface Detalle {
@@ -248,7 +302,7 @@ export interface OrdenDetalleRespuesta {
   resumen?: OrdenResumenRespuesta
   solicitante?: ReferenciaSimple
   modoEjecucionAplicado?: 'SECUENCIAL' | 'PARALELO'
-  usaCuentaPredeterminada?: boolean
+  cuentaServicio?: ReferenciaSimple
   inicioVentanaAplicada?: string
   finVentanaAplicada?: string
   detalles?: Detalle[]
@@ -319,6 +373,7 @@ export interface ParametrosSistemaRespuesta {
   minCiclosRachaEstable?: number
   minutosExpiracionToken?: number
   fechaActualizacion?: string
+  cuentaServicioPredeterminada?: ReferenciaSimple
 }
 
 export interface PerfilRespuesta {
@@ -378,6 +433,11 @@ export interface ReprogramarOrdenPeticion {
   motivo: string
 }
 
+export interface ResultadoAsignacionRespuesta {
+  asignados?: number
+  mensaje?: string
+}
+
 export interface ResultadoBajaRespuesta {
   aplicada?: boolean
   ordenesRetiradas?: number
@@ -398,6 +458,37 @@ export interface ResumenPlanificacionRespuesta {
   objetivosEvaluados?: number
   ordenesGeneradas?: string[]
   sinIntervalo?: string[]
+}
+
+export interface ReveladoPeticion {
+  contrasena: string
+}
+
+export interface RevocacionPeticion {
+  motivo?: string
+}
+
+export interface SecretoPeticion {
+  tipoAutenticacion: 'PASSWORD' | 'LLAVE_SSH'
+  secreto: string
+}
+
+export interface SecretoReveladoRespuesta {
+  id?: number
+  nombre?: string
+  usuarioAcceso?: string
+  tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
+  numeroVersion?: number
+  secreto?: string
+  segundosVisible?: number
+}
+
+export interface ServidorAsignableRespuesta {
+  idServidor?: number
+  hostname?: string
+  direccionIp?: string
+  familia?: 'LINUX' | 'WINDOWS'
+  idCuentaServicio?: number
 }
 
 export interface ServidorPeticion {

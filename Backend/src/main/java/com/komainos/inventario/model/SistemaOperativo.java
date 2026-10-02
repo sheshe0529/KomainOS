@@ -20,11 +20,6 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Catalogo de sistemas operativos (tabla {@code sistema_operativo}). No tiene
- * requisito propio: es una dependencia de RF10, porque todo servidor referencia
- * una version de sistema operativo, y de RF20 (grupos del mismo SO).
- */
 @Entity
 @Table(name = "sistema_operativo")
 @Getter

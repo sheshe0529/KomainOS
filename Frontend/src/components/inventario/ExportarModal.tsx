@@ -11,13 +11,12 @@ import { useConsulta } from '@/hooks/useConsulta'
 
 interface ExportarModalProps {
   abierto: boolean
-  /** Filtros vigentes del listado: se exporta lo mismo que se está viendo. */
+  /** Filtros vigentes del listado: se exporta lo mismo que se está viendo */
   filtro: FiltroServidores & { texto?: string }
   total: number
   onCerrar: () => void
 }
 
-/** Exportación del inventario (RF13, HU09): formato y columnas autorizadas. */
 export function ExportarModal({ abierto, filtro, total, onCerrar }: ExportarModalProps) {
   const { avisar } = useAvisos()
   const columnas = useConsulta(() => intercambioApi.columnas(), [])
@@ -26,7 +25,7 @@ export function ExportarModal({ abierto, filtro, total, onCerrar }: ExportarModa
   const [descargando, setDescargando] = useState(false)
   const [error, setError] = useState<unknown>()
 
-  // Todas marcadas al inicio (HU09 CA1: el usuario desmarca lo que no necesita).
+  // Todas marcadas al inicio: el usuario desmarca lo que no necesita (HU09 CA1)
   useEffect(() => {
     if (columnas.datos) setElegidas(columnas.datos.map((c) => c.clave!))
   }, [columnas.datos])
@@ -39,7 +38,7 @@ export function ExportarModal({ abierto, filtro, total, onCerrar }: ExportarModa
     setDescargando(true)
     setError(undefined)
     try {
-      // Se envían en el orden del catálogo, no en el orden en que se marcaron.
+      // Se envían en el orden del catálogo, no en el orden en que se marcaron
       const orden = (columnas.datos ?? []).map((c) => c.clave!).filter((c) => elegidas.includes(c))
       const nombre = await intercambioApi.exportar(formato, orden, filtro)
       avisar(`Se descargó ${nombre}.`)

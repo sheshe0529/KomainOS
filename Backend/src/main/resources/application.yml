@@ -2,12 +2,11 @@ spring:
   application:
     name: komainos-backend
 
-  # Las variables de entorno pueden venir de un archivo .env local (ignorado por
-  # git). Ningun secreto del sistema se versiona (RNF03).
+  # Las variables de entorno pueden venir de un .env local ignorado por git (RNF03)
   config:
     import: optional:file:.env[.properties]
 
-  # Importacion del inventario (RF12): un archivo de hasta 5 MB por solicitud.
+  # Importación del inventario (RF12): hasta 5 MB por archivo
   servlet:
     multipart:
       max-file-size: 5MB
@@ -18,26 +17,19 @@ spring:
     username: ${KOMAINOS_DB_USUARIO:postgres}
     password: ${KOMAINOS_DB_CLAVE}
     hikari:
-      # El esquema tiene mayusculas: sin comillas PostgreSQL lo buscaria como
-      # "komainos". Fijarlo en cada conexion hace que las consultas nativas y
-      # los tipos enumerados se resuelvan en el esquema correcto.
+      # El esquema tiene mayúsculas: sin comillas PostgreSQL lo buscaría como "komainos"
       connection-init-sql: SET search_path TO "KomainOS"
 
   jpa:
-    # validate: Hibernate comprueba al arrancar que las entidades coinciden con
-    # las tablas y nunca modifica la base. El esquema se crea con
-    # scripts/bd/01_esquema.sql (DEC-34); si una entidad y su tabla dejan de
-    # coincidir, la aplicacion no arranca.
+    # validate: Hibernate comprueba las entidades contra las tablas y nunca modifica la base (DEC-34)
     hibernate:
       ddl-auto: validate
-    # Cerrar la sesion JPA al salir del servicio obliga a armar los DTO dentro
-    # de la transaccion y evita consultas ocultas durante la serializacion.
+    # Obliga a armar los DTO dentro de la transacción y evita consultas ocultas al serializar
     open-in-view: false
     properties:
       hibernate:
         default_schema: '"KomainOS"'
-        # Las columnas son TIMESTAMP(0) sin zona con valores UTC (DEC-06): los
-        # Instant se guardan como hora UTC sin desplazamiento.
+        # Columnas TIMESTAMP(0) sin zona con valores UTC (DEC-06)
         jdbc.time_zone: UTC
         type.preferred_instant_jdbc_type: TIMESTAMP
 
@@ -61,25 +53,28 @@ management:
 komainos:
   seguridad:
     jwt:
-      # Sin valor por defecto a proposito: si falta la variable la aplicacion
-      # no arranca en vez de firmar tokens con un secreto conocido (RNF03).
+      # Sin valor por defecto: si falta la variable la aplicación no arranca (RNF03)
       secreto: ${KOMAINOS_JWT_SECRETO}
-      # Respaldo si configuracion_sistema aun no tiene fila; el valor vigente
-      # es configuracion_sistema.minutos_expiracion_token (RF02).
+      # Respaldo si configuracion_sistema aún no tiene fila (RF02)
       expiracion-minutos: ${KOMAINOS_JWT_EXPIRACION_MINUTOS:60}
     cors:
       origenes: ${KOMAINOS_CORS_ORIGENES:http://localhost:5180}
-    # Solo se usa si no existe ningun administrador (DEC-21).
+    # Solo se usa si no existe ningún administrador (DEC-21)
     administrador-inicial:
       codigo: ${KOMAINOS_ADMIN_CODIGO:admin}
       nombre: ${KOMAINOS_ADMIN_NOMBRE:Administrador del sistema}
       clave: ${KOMAINOS_ADMIN_CLAVE_INICIAL:}
+  credenciales:
+    # Llave AES-256 en base64 sin valor por defecto: si falta la aplicación no arranca (RNF02, RNF03)
+    llave-maestra: ${KOMAINOS_CREDENCIALES_LLAVE}
+    # Tiempo durante el que el panel muestra un secreto revelado (RF08)
+    segundos-revelado: 30
   planificacion:
-    # Zona en la que se interpretan las ventanas permisivas (DEC-06).
+    # Zona en la que se interpretan las ventanas permisivas (DEC-06)
     zona-horaria: ${KOMAINOS_ZONA_HORARIA:America/Lima}
-    # Horizonte maximo de busqueda del algoritmo voraz (DEC-12).
+    # Horizonte máximo de búsqueda del algoritmo voraz (DEC-12)
     horizonte-dias: 365
-    # Frecuencia del proceso que genera las ordenes automaticas (RF27, RF29).
+    # Frecuencia del proceso que genera las órdenes automáticas (RF27, RF29)
     proceso-automatico:
       habilitado: true
       intervalo: PT15M

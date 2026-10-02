@@ -72,14 +72,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * Componente de Planificacion (R2.2): genera y gestiona las ordenes del
- * cronograma aplicando el algoritmo voraz (RF27-RF30, RF38, RF46, RF51, RF64).
- *
- * <p>Arma las entradas del algoritmo desde el inventario y las ordenes
- * existentes, lo ejecuta y persiste su resultado en {@code orden},
- * {@code orden_detalle} y {@code programacion_orden}.
- */
 @Service
 @Slf4j
 public class ServicioPlanificacion {
@@ -128,13 +120,7 @@ public class ServicioPlanificacion {
         this.transaccionNueva.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    // =================================================== programacion manual (RF30)
-
-    /**
-     * Programa una orden para un servidor o grupo a solicitud del
-     * administrador. Con fecha, la verifica; sin fecha, toma el primer
-     * intervalo disponible (RF28).
-     */
+    /** Con fecha la verifica, sin fecha toma el primer intervalo disponible (RF28, RF30) */
     @Transactional
     public Orden programar(Integer idServidor, Integer idGrupo, Instant inicio, String motivo, Actor actor) {
         Objetivo objetivo = objetivo(idServidor, idGrupo);
@@ -156,7 +142,7 @@ public class ServicioPlanificacion {
         return orden;
     }
 
-    /** Propone el primer intervalo disponible sin crear la orden (ayuda del panel al programar). */
+    /** Propone el primer intervalo disponible sin crear la orden */
     @Transactional(readOnly = true)
     public ResultadoPlanificacion proponer(Integer idServidor, Integer idGrupo, Instant desde) {
         Objetivo objetivo = objetivo(idServidor, idGrupo);
@@ -165,10 +151,7 @@ public class ServicioPlanificacion {
         return planificador.planificar(solicitud(objetivo, fechaObjetivo, ahora), reservas(ahora, fechaObjetivo, null));
     }
 
-    /**
-     * RF30: nueva fecha con motivo, conservando la programacion anterior.
-     * Sin fecha, el algoritmo busca desde la fecha objetivo original.
-     */
+    /** Conserva la programación anterior, sin fecha busca desde la fecha objetivo original (RF30) */
     @Transactional
     public Orden reprogramar(Integer idOrden, Instant inicio, String motivo, Actor actor) {
         Orden orden = buscarOrden(idOrden);
@@ -180,7 +163,6 @@ public class ServicioPlanificacion {
         return orden;
     }
 
-    /** RF30: cancelacion con motivo (DEC-19). */
     @Transactional
     public Orden cancelar(Integer idOrden, String motivo, Actor actor) {
         Orden orden = buscarOrden(idOrden);
@@ -189,15 +171,7 @@ public class ServicioPlanificacion {
         return orden;
     }
 
-    // ================================================ ciclos automaticos (RF27, RF29)
-
-    /**
-     * Genera la orden de cada servidor y grupo en modalidad automatica que la
-     * necesite (EA01). Los objetivos se planifican de mayor a menor
-     * criticidad y luego por fecha objetivo, de modo que la criticidad decide
-     * quien toma primero un intervalo disputado (RF28). Cada objetivo va en
-     * su propia transaccion: un fallo no deshace lo ya planificado.
-     */
+    /** De mayor a menor criticidad y cada objetivo en su propia transacción: un fallo no deshace lo ya planificado (RF28) */
     public ResumenPlanificacion planificarCiclosAutomaticos() {
         List<Candidato> candidatos = new ArrayList<>(Objects.requireNonNull(
                 transaccionNueva.execute(estado -> buscarCandidatos(null, null))));
@@ -214,7 +188,7 @@ public class ServicioPlanificacion {
                     creadas.add(orden.getCodigo());
                 }
             } catch (ReglaNegocioException ex) {
-                // Se reintenta en la siguiente corrida (DEC-12); no bloquea al resto.
+                // Se reintenta en la siguiente corrida (DEC-12) sin bloquear al resto
                 log.warn("No se pudo planificar {}: {}", candidato.descripcion(), ex.getMessage());
                 omitidas.add(candidato.descripcion() + ": " + ex.getMessage());
             }
@@ -226,12 +200,7 @@ public class ServicioPlanificacion {
         return new ResumenPlanificacion(candidatos.size(), creadas, omitidas);
     }
 
-    /**
-     * Al guardar la configuracion de un servidor o grupo en modalidad
-     * automatica se planifica su ciclo de inmediato (RF27), despues de que la
-     * configuracion quedo confirmada. Si no hay intervalo, lo reintenta el
-     * proceso programado.
-     */
+    /** Se planifica tras confirmar la configuración, si no hay intervalo lo reintenta el proceso programado (RF27) */
     @TransactionalEventListener
     public void alActualizarConfiguracion(ConfiguracionMantenimientoActualizada evento) {
         try {
@@ -243,20 +212,12 @@ public class ServicioPlanificacion {
         } catch (ReglaNegocioException ex) {
             log.warn("Planificación inmediata pendiente tras configurar ({}): {}", evento, ex.getMessage());
         } catch (RuntimeException ex) {
-            // La configuracion ya quedo confirmada; el proceso programado reintenta.
+            // La configuración ya quedó confirmada: el proceso programado reintenta
             log.error("Error al planificar tras configurar ({})", evento, ex);
         }
     }
 
-    /**
-     * DEC-18: al cambiar la ventana de un servidor, las ordenes programadas
-     * que ya no caben en la nueva ventana se reprograman en la misma
-     * transaccion. Si no hay intervalo, la orden se conserva y queda registrado.
-     *
-     * <p>Se ejecuta dentro de la transaccion de quien publica. Todo el trabajo
-     * pasa por metodos privados: una excepcion capturada aqui no atraviesa un
-     * proxy transaccional, asi que no marca la transaccion para deshacerse.
-     */
+    /** Corre en la transacción de quien publica: todo va por métodos privados para que una excepción capturada no la marque para deshacerse (DEC-18) */
     @EventListener
     public void alCambiarVentanas(VentanasServidorActualizadas evento) {
         Usuario autor = evento.actor().esSistema() ? null : usuarios.findById(evento.actor().usuarioId()).orElse(null);
@@ -280,9 +241,7 @@ public class ServicioPlanificacion {
         }
     }
 
-    // ============================================================ internos
-
-    /** Objetivos en modalidad automatica que necesitan su siguiente orden. */
+    /** Objetivos en modalidad automática que necesitan su siguiente orden */
     private List<Candidato> buscarCandidatos(Integer soloServidor, Integer soloGrupo) {
         List<Candidato> candidatos = new ArrayList<>();
         BigDecimal factorNormal = factor(ResultadoCiclo.ESTADO_NORMAL);
@@ -322,11 +281,7 @@ public class ServicioPlanificacion {
         return candidatos;
     }
 
-    /**
-     * RF64: primer ciclo desde la configuracion (DEC-09) o, si hubo un cierre
-     * sin orden siguiente, desde ese cierre con su periodicidad y factor.
-     * Si hay ordenes pero ninguna cerrada, el ciclo continua en curso.
-     */
+    /** Primer ciclo desde la configuración (DEC-09), si no desde el cierre sin orden siguiente (RF64) */
     private Optional<FechaYCierre> siguienteFechaObjetivo(ConfiguracionMantenimiento config, boolean sinOrdenes,
                                                           Optional<CierreOrden> cierre, BigDecimal factorNormal) {
         if (cierre.isPresent()) {
@@ -343,8 +298,7 @@ public class ServicioPlanificacion {
 
     private Orden generarCiclo(Candidato candidato) {
         Instant ahora = Tiempo.ahora(reloj);
-        // Se vuelve a comprobar dentro de la transaccion: otra corrida pudo
-        // haber generado la orden mientras tanto.
+        // Se vuelve a comprobar dentro de la transacción: otra corrida pudo generar la orden mientras tanto
         boolean yaTieneOrden = candidato.idServidor() != null
                 ? ordenes.existsByServidorIdAndEstadoIn(candidato.idServidor(), OCUPAN)
                 : ordenes.existsByGrupoIdAndEstadoIn(candidato.idGrupo(), OCUPAN);
@@ -387,7 +341,6 @@ public class ServicioPlanificacion {
         return resultado;
     }
 
-    /** Verdadero si la programacion vigente sigue completamente dentro de la ventana actual. */
     private boolean sigueDentroDeSuVentana(Orden orden) {
         Optional<ProgramacionOrden> vigente = orden.programacionVigente();
         if (vigente.isEmpty()) {
@@ -407,7 +360,7 @@ public class ServicioPlanificacion {
         return idServidor != null ? objetivoDeServidor(idServidor) : objetivoDeGrupo(idGrupo);
     }
 
-    /** HU06 CA3 / HU13 CA3: solo servidores activos con configuracion generan mantenimientos. */
+    /** Solo servidores activos con configuración generan mantenimientos (HU06 CA3) */
     private Objetivo objetivoDeServidor(Integer id) {
         Servidor s = servidores.findConDetalleById(id).orElseThrow(() -> RecursoNoEncontradoException.de("el servidor", id));
         if (s.getEstado() != EstadoServidor.ACTIVO) {
@@ -442,12 +395,7 @@ public class ServicioPlanificacion {
                 ServicioGrupo.ventanaEfectiva(g), config);
     }
 
-    /**
-     * Para reprogramar se usan los valores con que se genero la orden
-     * (criticidad, modo, integrantes; RF20, HU13 CA8) y la ventana vigente de
-     * esos servidores, porque los cambios de ventana aplican a los proximos
-     * mantenimientos (HU14 CA3).
-     */
+    /** Usa los valores con que se generó la orden y la ventana vigente: los cambios de ventana aplican a los próximos mantenimientos (HU14 CA3) */
     private Objetivo objetivoDeOrden(Orden orden) {
         List<Integer> ids = orden.getDetalles().stream()
                 .filter(d -> d.getEstado().ocupaServidor())
@@ -481,7 +429,7 @@ public class ServicioPlanificacion {
                 propiedades.horizonte());
     }
 
-    /** Reservas de las ordenes que ocupan el cronograma, sin las de la orden que se replanifica. */
+    /** Reservas que ocupan el cronograma, sin las de la orden que se replanifica */
     private List<Reserva> reservas(Instant ahora, Instant fechaObjetivo, Integer excluirOrden) {
         Instant desde = (fechaObjetivo.isBefore(ahora) ? fechaObjetivo : ahora).minus(Duration.ofDays(1));
         Instant hasta = (fechaObjetivo.isAfter(ahora) ? fechaObjetivo : ahora)
@@ -536,9 +484,6 @@ public class ServicioPlanificacion {
                 "fin", r.fin().toString(), "fechaEvaluacion", r.fechaEvaluacion().toString());
     }
 
-    // ============================================================ tipos
-
-    /** Objetivo de una orden con los valores que alimentan el algoritmo. */
     private record Objetivo(Servidor servidor, GrupoMantenimiento grupo, List<Servidor> integrantes,
                             NivelCriticidad criticidad, ModoEjecucion modo, CalendarioSemanal ventana,
                             ConfiguracionMantenimiento configuracion) {
@@ -551,7 +496,6 @@ public class ServicioPlanificacion {
     private record FechaYCierre(Instant fechaObjetivo, Integer idCierre) {
     }
 
-    /** Resultado de una corrida de la planificacion automatica. */
     public record ResumenPlanificacion(int evaluados, List<String> ordenesGeneradas, List<String> sinIntervalo) {
     }
 }

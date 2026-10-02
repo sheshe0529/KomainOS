@@ -33,12 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Contrato HTTP del inventario: forma del JSON, codigos de estado y mensajes.
- *
- * <p>@WebMvcTest no evalua @PreAuthorize: aqui no se prueba la autorizacion
- * por rol, que se verifica en las pruebas de integracion.
- */
+/** @WebMvcTest no evalúa @PreAuthorize: la autorización por rol se prueba en integración */
 @WebMvcTest(ServidorController.class)
 @Import(ServidorControllerTest.ConfiguracionSeguridadPrueba.class)
 @DisplayName("API del inventario de servidores")
@@ -77,7 +72,7 @@ class ServidorControllerTest {
                 .andExpect(jsonPath("$.contenido[0].criticidad.nombre").value("Alta"))
                 .andExpect(jsonPath("$.contenido[0].responsable.nombre").value("Usuario m.herrera"))
                 .andExpect(jsonPath("$.contenido[0].estado").value("PENDIENTE_DE_CONFIGURACION"))
-                // El hash de la contrasena del responsable nunca debe viajar (RNF11).
+                // El hash de la contraseña del responsable nunca debe viajar (RNF11)
                 .andExpect(jsonPath("$..hashContrasena").doesNotExist());
     }
 

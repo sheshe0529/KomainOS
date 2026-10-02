@@ -9,17 +9,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Ficha del servidor (RF14, HU10). Las ordenes del servidor se consultan en
- * {@code /api/ordenes?idServidor=}; metricas, incidencias y cuentas de
- * servicio pertenecen a iteraciones posteriores.
- */
 public record FichaServidorRespuesta(
         Integer id,
         String hostname,
-        /** IP principal. */
+        /** IP principal */
         String direccionIp,
-        /** Todas las IP, la principal primero (DEC-37). */
         List<DireccionIpRespuesta> direccionesIp,
         String vdc,
         String servidorFisico,

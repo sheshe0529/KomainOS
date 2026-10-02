@@ -5,10 +5,7 @@ import com.komainos.inventario.model.ModoEjecucion;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
-/**
- * RF17 para grupos: agrega el modo de ejecucion de los integrantes. Las
- * frecuencias omitidas se toman de la criticidad efectiva del grupo.
- */
+/** Las frecuencias omitidas se toman de la criticidad efectiva del grupo */
 public record ConfiguracionGrupoPeticion(
         @Min(value = 1, message = "La frecuencia de revisión debe ser de al menos 1 día")
         Integer frecuenciaRevisionDias,
@@ -20,5 +17,8 @@ public record ConfiguracionGrupoPeticion(
         ModalidadPlanificacion modalidadPlanificacion,
 
         @NotNull(message = "El modo de ejecución es obligatorio para un grupo")
-        ModoEjecucion modoEjecucion) {
+        ModoEjecucion modoEjecucion,
+
+        /** Nula: usa la cuenta predeterminada del sistema (RF05, RF06) */
+        Integer idCuentaServicio) {
 }

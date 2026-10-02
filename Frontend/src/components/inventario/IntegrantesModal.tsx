@@ -16,11 +16,7 @@ interface IntegrantesModalProps {
   onGuardar: (ids: number[]) => Promise<void>
 }
 
-/**
- * Motivo por el que un servidor no puede sumarse a la selección actual
- * (RF20: mismo responsable, entorno y sistema operativo). Es solo una ayuda
- * visual; el backend vuelve a verificarlo.
- */
+/** Solo ayuda visual, el backend vuelve a verificarlo (RF20) */
 function incompatibilidad(candidato: ServidorResumenRespuesta, referencia?: ServidorResumenRespuesta): string | null {
   if (!referencia) return null
   if (candidato.responsable?.id !== referencia.responsable?.id) return 'Otro responsable'
@@ -35,7 +31,7 @@ export function IntegrantesModal({ abierto, nombreGrupo, actuales, onCerrar, onG
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
 
-  // Servidores que pueden integrar grupos: todos menos los dados de baja.
+  // Pueden integrar grupos todos menos los dados de baja
   const servidores = useConsulta(async () => {
     const pagina = await servidoresApi.listar({ tamano: 500, orden: 'hostname,asc' })
     return (pagina.contenido ?? []).filter((s) => s.estado !== 'DADO_DE_BAJA')

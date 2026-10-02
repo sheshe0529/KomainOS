@@ -34,12 +34,6 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Planificacion y gestion del cronograma (RF27-RF30, RF32).
- *
- * <p>Programar, reprogramar y cancelar es exclusivo del administrador (RF30);
- * el cronograma lo consultan todos los roles dentro de su alcance (RF32).
- */
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -70,7 +64,7 @@ public class PlanificacionController {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         Integer id = planificacion.programar(peticion.idServidor(), peticion.idGrupo(),
                 peticion.inicio() == null ? null : peticion.inicio().toInstant(), peticion.motivo(), alcance.actor()).getId();
-        return OrdenMapeador.detalle(consultaOrdenes.obtener(id, alcance));
+        return OrdenMapeador.detalle(consultaOrdenes.detalle(id, alcance));
     }
 
     @PostMapping("/ordenes/{id}/reprogramacion")
@@ -81,7 +75,7 @@ public class PlanificacionController {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         planificacion.reprogramar(id, peticion.inicio() == null ? null : peticion.inicio().toInstant(),
                 peticion.motivo().trim(), alcance.actor());
-        return OrdenMapeador.detalle(consultaOrdenes.obtener(id, alcance));
+        return OrdenMapeador.detalle(consultaOrdenes.detalle(id, alcance));
     }
 
     @PostMapping("/ordenes/{id}/cancelacion")
@@ -91,7 +85,7 @@ public class PlanificacionController {
                                           @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         planificacion.cancelar(id, peticion.motivo().trim(), alcance.actor());
-        return OrdenMapeador.detalle(consultaOrdenes.obtener(id, alcance));
+        return OrdenMapeador.detalle(consultaOrdenes.detalle(id, alcance));
     }
 
     @GetMapping("/planificacion/propuesta")

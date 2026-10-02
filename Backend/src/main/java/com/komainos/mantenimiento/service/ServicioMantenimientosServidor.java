@@ -18,18 +18,10 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Implementa lo que el inventario necesita del ciclo de mantenimiento para dar
- * de baja un servidor (RF72).
- */
 @Service
 @RequiredArgsConstructor
 public class ServicioMantenimientosServidor implements PuertoMantenimientos {
 
-    /**
-     * Estados desde los que la tabla 6 permite pasar a CANCELADA: son los
-     * mantenimientos pendientes que la baja retira.
-     */
     private static final Set<EstadoOrden> CANCELABLES = EnumSet.of(
             EstadoOrden.PROGRAMADA, EstadoOrden.AUTORIZADA, EstadoOrden.EN_COLA);
 
@@ -49,7 +41,7 @@ public class ServicioMantenimientosServidor implements PuertoMantenimientos {
         Actor actor = autor == null ? Actor.sistema("BAJA_SERVIDOR") : Actor.usuario(autor.getId());
         for (Orden orden : pendientes) {
             if (orden.esGrupal()) {
-                // La orden grupal sigue para los demas integrantes (RF20).
+                // La orden grupal sigue para los demás integrantes (RF20)
                 orden.retirarServidor(idServidor);
                 auditoria.registrar(actor, Operacion.de("RETIRAR_SERVIDOR_DE_ORDEN", "orden", orden.getId())
                         .sobreOrden(orden.getId()).sobreServidor(idServidor).motivo(motivo));

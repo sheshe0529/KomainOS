@@ -25,7 +25,6 @@ import { textoDeError } from '@/utils/errores'
 
 type Dialogo = 'editar' | 'integrantes' | 'configurar' | 'programar' | null
 
-/** Detalle de un grupo de mantenimiento (HU15, RF21, RF76). */
 export function FichaGrupoPage() {
   const tonoCriticidad = useTonoCriticidad()
   const { id } = useParams()
@@ -138,6 +137,21 @@ export function FichaGrupoPage() {
                   : 'Sin configuración'
               }
             />
+            {g.configuracion && (
+              <Dato
+                etiqueta="Cuenta de servicio"
+                valor={
+                  g.configuracion.cuentaServicio ? (
+                    <span>
+                      {g.configuracion.cuentaServicio.nombre}
+                      {g.configuracion.usaCuentaPredeterminada && <span className="text-ink-faint"> · predeterminada del sistema</span>}
+                    </span>
+                  ) : (
+                    <span className="text-warning">Sin cuenta: no hay una predeterminada definida</span>
+                  )
+                }
+              />
+            )}
           </dl>
         </Tarjeta>
 
@@ -236,6 +250,7 @@ export function FichaGrupoPage() {
           titulo={`Configuración de mantenimiento de ${g.nombre}`}
           actual={g.configuracion}
           recomendadas={{ revision: criticidad?.frecuenciaRevisionDias, mantenimiento: criticidad?.frecuenciaMantenimientoDias }}
+          familia={g.integrantes?.[0]?.familiaSistemaOperativo}
           onCerrar={() => setDialogo(null)}
           onGuardar={async (datos) => {
             actualizar(
@@ -244,6 +259,7 @@ export function FichaGrupoPage() {
                 frecuenciaMantenimientoDias: datos.frecuenciaMantenimientoDias,
                 modalidadPlanificacion: datos.modalidadPlanificacion,
                 modoEjecucion: datos.modoEjecucion ?? 'SECUENCIAL',
+                idCuentaServicio: datos.idCuentaServicio,
               }),
               'Configuración del grupo guardada.',
             )

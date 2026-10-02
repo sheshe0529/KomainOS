@@ -21,7 +21,6 @@ function fechaDesdeClave(clave?: string): Date {
   return new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
 }
 
-/** Órdenes de un día y su distribución horaria (RF32, HU20 CA3-CA4). */
 export function CronogramaDiaPage() {
   const tonoCriticidad = useTonoCriticidad()
   const { fecha } = useParams()
@@ -34,8 +33,7 @@ export function CronogramaDiaPage() {
 
   const delDia = ordenes.datos ?? []
 
-  // Las que empiezan este día; las que vienen cruzando desde el anterior se
-  // listan pero no suman a la distribución por hora de inicio.
+  // Las que vienen cruzando desde el día anterior se listan pero no suman a la distribución por hora de inicio
   const { inicianHoy, distribucion } = useMemo(() => {
     const propias = (ordenes.datos ?? []).filter(
       (o) => o.inicioProgramado && claveDia(new Date(o.inicioProgramado)) === clave,

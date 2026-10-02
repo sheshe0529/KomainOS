@@ -9,13 +9,7 @@ import com.komainos.shared.dto.ReferenciaSimple;
 
 import java.time.Instant;
 
-/**
- * Orden en la consulta y en el cronograma (RF32, RF36). Prioridad y etapa son
- * atributos derivados que no se persisten.
- *
- * @param tipoObjetivo INDIVIDUAL o GRUPAL
- * @param objetivo     servidor (hostname) o grupo (nombre) de la orden
- */
+/** Prioridad y etapa son derivadas, no se persisten */
 public record OrdenResumenRespuesta(
         Integer id,
         String codigo,

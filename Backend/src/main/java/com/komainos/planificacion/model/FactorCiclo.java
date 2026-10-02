@@ -14,10 +14,7 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.math.BigDecimal;
 
-/**
- * Factor que ajusta la periodicidad base segun el resultado del ciclo (RF64),
- * tabla {@code factor_ciclo}. Se siembra en V2 con 0,50 / 0,75 / 1,00 / 1,25.
- */
+/** Ajusta la periodicidad base según el resultado del ciclo (RF64) */
 @Entity
 @Table(name = "factor_ciclo")
 @Getter

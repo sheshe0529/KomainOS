@@ -38,16 +38,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Servidor virtual del inventario (RF09, RF10), tabla {@code servidor}.
- *
- * <p>Todas las asociaciones son LAZY. Con {@code open-in-view} en false,
- * leer una asociacion fuera de la transaccion falla de inmediato en vez de
- * disparar una consulta oculta por fila.
- *
- * <p>Las transiciones de estado viven aqui y no en el servicio: son
- * invariantes del activo que no dependen de quien las pida.
- */
+/** Las transiciones de estado viven aquí y no en el servicio */
 @Entity
 @Table(name = "servidor")
 @Getter
@@ -72,29 +63,19 @@ public class Servidor {
     @JoinColumn(name = "id_nivel_criticidad", nullable = false)
     private NivelCriticidad nivelCriticidad;
 
-    /** Quien autoriza y valida los mantenimientos de este servidor. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_usuario_responsable", nullable = false)
     private Usuario responsable;
 
-    /** Identidad de negocio del activo; unica (uq_servidor_hostname). */
     @Column(name = "hostname", nullable = false, length = 255)
     private String hostname;
 
-    /**
-     * Direcciones IP (DEC-37): una o varias, exactamente una principal. Se
-     * reemplazan como conjunto con {@link #reemplazarDirecciones}.
-     */
     @OneToMany(mappedBy = "servidor", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 50)
     @Setter(AccessLevel.NONE)
     private Set<DireccionIp> direcciones = new LinkedHashSet<>();
 
-    /**
-     * IP principal leida en la misma consulta que el servidor: listados,
-     * ordenes e integrantes de grupos la muestran sin cargar todas las
-     * direcciones. Usar {@link #getDireccionIp()}.
-     */
+    /** IP principal leída en la misma consulta: listados y órdenes no cargan todas las direcciones */
     @Formula("(select d.direccion from direccion_ip d where d.id_servidor = id_servidor and d.principal)")
     @Getter(AccessLevel.NONE)
     @Setter(AccessLevel.NONE)
@@ -105,7 +86,7 @@ public class Servidor {
     @Setter(AccessLevel.NONE)
     private int cantidadDireccionesRegistradas;
 
-    /** Virtual DataCenter que aloja el servidor (DEC-37, antes datacenter). */
+    /** Virtual DataCenter (antes datacenter) */
     @Column(name = "vdc", length = 255)
     private String vdc;
 
@@ -127,7 +108,7 @@ public class Servidor {
     @Column(name = "descripcion", length = 500)
     private String descripcion;
 
-    /** Recursos de la maquina virtual (DEC-37); opcionales y mayores que cero. */
+    /** Opcionales y mayores que cero (ck_servidor_recursos) */
     @Column(name = "cantidad_cpu")
     private Integer cantidadCpu;
 
@@ -148,12 +129,10 @@ public class Servidor {
     @Column(name = "fecha_actualizacion", nullable = false)
     private Instant fechaActualizacion;
 
-    /** Ventanas permisivas (RF18, RF19). Se reemplazan como conjunto. */
     @OneToMany(mappedBy = "servidor", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("diaInicio ASC, horaInicio ASC")
     private Set<VentanaMantenimiento> ventanas = new LinkedHashSet<>();
 
-    /** Alta de un servidor: nace pendiente de configuracion (HU06 CA3). */
     public static Servidor nuevo() {
         Servidor servidor = new Servidor();
         servidor.estado = EstadoServidor.PENDIENTE_DE_CONFIGURACION;
@@ -164,7 +143,6 @@ public class Servidor {
         return estado == EstadoServidor.DADO_DE_BAJA;
     }
 
-    /** Un servidor dado de baja conserva su historial y no se modifica (RF72). */
     public void exigirNoDadoDeBaja(String accion) {
         if (estaDadoDeBaja()) {
             throw new ReglaNegocioException(
@@ -172,16 +150,12 @@ public class Servidor {
         }
     }
 
-    /** Guardar su configuracion de mantenimiento lo habilita (DEC-14). */
     public void activarPorConfiguracion() {
         exigirNoDadoDeBaja("configurarlo");
         estado = EstadoServidor.ACTIVO;
     }
 
-    /**
-     * Aplica la baja (RF72). Quien llama ya comprobo que no hay un
-     * mantenimiento en curso y retiro los pendientes.
-     */
+    /** Quien llama ya comprobó que no hay mantenimiento en curso y retiró los pendientes */
     public void aplicarBaja() {
         if (estaDadoDeBaja()) {
             throw new ReglaNegocioException("El servidor %s ya se encuentra dado de baja".formatted(hostname));
@@ -189,10 +163,7 @@ public class Servidor {
         estado = EstadoServidor.DADO_DE_BAJA;
     }
 
-    /**
-     * Reactiva un servidor dado de baja (RF73). Vuelve a quedar pendiente de
-     * configuracion: no genera mantenimientos hasta completarla.
-     */
+    /** Vuelve a quedar pendiente de configuración: no genera mantenimientos hasta completarla */
     public void reactivar() {
         if (!estaDadoDeBaja()) {
             throw new ReglaNegocioException(
@@ -202,16 +173,16 @@ public class Servidor {
         estado = EstadoServidor.PENDIENTE_DE_CONFIGURACION;
     }
 
-    /** Alcance del responsable (RF11, HU10 CA6). */
     public boolean esVisiblePara(Integer usuarioId) {
         return responsable != null && responsable.getId().equals(usuarioId);
     }
 
-    /**
-     * IP principal. Si las direcciones ya estan cargadas (por ejemplo, recien
-     * modificadas en esta transaccion) se lee de ellas; si no, del valor
-     * consultado junto con el servidor.
-     */
+    /** Define el canal remoto y con él los mecanismos de autenticación admitidos */
+    public FamiliaSistemaOperativo familia() {
+        return versionSistemaOperativo.getSistemaOperativo().getFamilia();
+    }
+
+    /** Si las direcciones ya están cargadas (recién modificadas) se leen de ellas, si no, del valor consultado */
     public String getDireccionIp() {
         if (Hibernate.isInitialized(direcciones) && !direcciones.isEmpty()) {
             return direcciones.stream().filter(DireccionIp::isPrincipal).map(DireccionIp::getDireccion)
@@ -225,24 +196,17 @@ public class Servidor {
                 ? direcciones.size() : cantidadDireccionesRegistradas;
     }
 
-    /** La principal primero y luego las demas en orden alfabetico. */
     public List<DireccionIp> direccionesOrdenadas() {
         return direcciones.stream()
                 .sorted(Comparator.comparing((DireccionIp d) -> !d.isPrincipal()).thenComparing(DireccionIp::getDireccion))
                 .toList();
     }
 
-    /** Direcciones que no son la principal, en orden alfabetico. */
     public List<String> direccionesAdicionales() {
         return direccionesOrdenadas().stream().filter(d -> !d.isPrincipal()).map(DireccionIp::getDireccion).toList();
     }
 
-    /**
-     * Reemplaza las direcciones IP (DEC-37). Conserva las que siguen, de modo
-     * que una IP que solo cambia de principal a adicional no se borra y se
-     * vuelve a crear. Quien llama ya valido el formato, que no se repitan y
-     * que ninguna pertenezca a otro servidor.
-     */
+    /** Conserva las IP que siguen para no borrar y recrear una que solo cambia de principal a adicional */
     public void reemplazarDirecciones(String principal, List<String> adicionales) {
         List<String> todas = new ArrayList<>();
         todas.add(principal);

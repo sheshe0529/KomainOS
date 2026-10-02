@@ -7,7 +7,6 @@ interface PaginacionProps {
   onCambiar: (pagina: number) => void
 }
 
-/** Paginación de listados; el backend pagina siempre (RF11). */
 export function Paginacion({ pagina, totalPaginas, totalElementos, onCambiar }: PaginacionProps) {
   if (totalElementos === 0) return null
   return (

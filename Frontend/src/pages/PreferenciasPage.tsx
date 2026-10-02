@@ -13,7 +13,6 @@ const TEMAS: { id: PreferenciaTema; titulo: string; descripcion: string; icono: 
   },
 ]
 
-/** Preferencias de la interfaz para la cuenta en este equipo. */
 export function PreferenciasPage() {
   const { theme, preferencia, setPreferencia } = useTheme()
   return (

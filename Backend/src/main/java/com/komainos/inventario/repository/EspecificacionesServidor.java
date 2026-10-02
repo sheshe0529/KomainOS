@@ -12,13 +12,7 @@ import org.springframework.data.jpa.domain.Specification;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Traduce los filtros del inventario y el alcance del usuario a una consulta.
- *
- * <p>El alcance se aplica aqui, junto al resto de condiciones, y no filtrando
- * la lista ya cargada: si se filtrara despues, la paginacion devolveria paginas
- * incompletas al responsable y un total que no le corresponde (RF11).
- */
+/** El alcance va en la consulta y no después: si no, la paginación devolvería páginas incompletas (RF11) */
 public final class EspecificacionesServidor {
 
     private EspecificacionesServidor() {
@@ -34,7 +28,7 @@ public final class EspecificacionesServidor {
 
             if (filtro.texto() != null && !filtro.texto().isBlank()) {
                 String patron = "%" + filtro.texto().trim().toLowerCase() + "%";
-                // Cualquiera de sus direcciones IP, no solo la principal (DEC-37).
+                // Cualquiera de sus IP, no solo la principal
                 Subquery<Integer> porIp = consulta.subquery(Integer.class);
                 Root<DireccionIp> direccion = porIp.from(DireccionIp.class);
                 porIp.select(cb.literal(1)).where(

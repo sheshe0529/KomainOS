@@ -12,6 +12,7 @@ import com.komainos.inventario.model.DireccionIp;
 import com.komainos.inventario.model.Entorno;
 import com.komainos.inventario.model.EstadoServidor;
 import com.komainos.inventario.model.EstadoSolicitudBaja;
+import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.FiltroServidores;
 import com.komainos.inventario.model.GrupoMantenimiento;
 import com.komainos.inventario.model.ModalidadPlanificacion;
@@ -26,6 +27,7 @@ import com.komainos.inventario.repository.EspecificacionesServidor;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
 import com.komainos.inventario.repository.SolicitudBajaRepositorio;
+import com.komainos.inventario.service.ServicioAsignacionCuentas.CuentaEfectiva;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.Rol;
 import com.komainos.seguridad.model.Usuario;
@@ -54,14 +56,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * Casos de uso del inventario de servidores (RF09-RF11, RF14, RF17-RF19,
- * RF70, RF72, RF73).
- *
- * <p>Devuelve entidades con las asociaciones que la API necesita ya cargadas
- * ({@code open-in-view} esta desactivado); el mapeo a DTO ocurre en el
- * controlador, dentro de lo que esta clase dejo inicializado.
- */
+/** Devuelve entidades con lo que la API necesita ya cargado: open-in-view está desactivado */
 @Service
 @RequiredArgsConstructor
 public class ServicioServidor implements PuertoServidoresACargo {
@@ -74,22 +69,17 @@ public class ServicioServidor implements PuertoServidoresACargo {
     private final UsuarioRepositorio usuarios;
     private final ServicioCatalogos catalogos;
     private final PuertoMantenimientos mantenimientos;
+    private final ServicioAsignacionCuentas cuentasServicio;
     private final ServicioAuditoria auditoria;
     private final ApplicationEventPublisher eventos;
     private final Clock reloj;
 
-    // ----------------------------------------------------------------- consulta
-
-    /** RF11: busqueda, orden y filtros dentro del alcance del usuario. */
     @Transactional(readOnly = true)
     public Page<Servidor> listar(FiltroServidores filtro, AlcanceUsuario alcance, Pageable paginacion) {
         return servidores.findAll(EspecificacionesServidor.con(filtro, alcance), paginacion);
     }
 
-    /**
-     * Fuera de alcance responde "no encontrado" y no "acceso denegado": lo
-     * contrario le confirmaria al responsable que existe un servidor ajeno.
-     */
+    /** Fuera de alcance responde 404 y no 403 para no revelar que existe un servidor ajeno */
     @Transactional(readOnly = true)
     public Servidor obtener(Integer id, AlcanceUsuario alcance) {
         Servidor servidor = buscar(id);
@@ -99,31 +89,28 @@ public class ServicioServidor implements PuertoServidoresACargo {
         return servidor;
     }
 
-    /** Servidores vigentes (no dados de baja) de los que un usuario es responsable. */
     @Transactional(readOnly = true)
     @Override
     public long contarACargoDe(Integer idUsuario) {
         return servidores.countByResponsableIdAndEstadoNot(idUsuario, EstadoServidor.DADO_DE_BAJA);
     }
 
-    /** RF14 / HU10: informacion consolidada del servidor. */
     @Transactional(readOnly = true)
     public FichaServidor ficha(Integer id, AlcanceUsuario alcance) {
         Servidor servidor = obtener(id, alcance);
         List<SolicitudBaja> bajas = solicitudesBaja.findByServidorIdOrderByFechaSolicitudDesc(id);
+        Optional<ConfiguracionServidor> configuracion = configuraciones.findByServidorId(id);
         return new FichaServidor(
                 servidor,
-                configuraciones.findByServidorId(id),
+                configuracion,
+                configuracion.flatMap(cuentasServicio::efectiva),
                 grupos.findDelServidor(id),
                 bajas.stream().filter(b -> b.getEstado() == EstadoSolicitudBaja.PENDIENTE).findFirst(),
                 bajas,
                 reactivaciones(id));
     }
 
-    /**
-     * RF73: las reactivaciones no tienen tabla propia; quedan en la bitacora
-     * con quien las hizo (RNF06).
-     */
+    /** Las reactivaciones no tienen tabla propia: se leen de la auditoría (RF73) */
     private List<Reactivacion> reactivaciones(Integer idServidor) {
         List<RegistroAuditoria> registros = auditoria.consultarSobreServidor(idServidor, "REACTIVAR_SERVIDOR");
         Map<Integer, Usuario> autores = new HashMap<>();
@@ -134,12 +121,6 @@ public class ServicioServidor implements PuertoServidoresACargo {
                 .toList();
     }
 
-    // ------------------------------------------------------------ alta y edicion
-
-    /**
-     * RF09 / HU06: alta con deteccion de duplicados por hostname y por
-     * cualquiera de sus IP (DEC-37). Nace pendiente de configuracion (HU06 CA3).
-     */
     @Transactional
     public Servidor crear(DatosServidor datos, Actor actor) {
         DatosServidor limpio = normalizar(datos);
@@ -168,21 +149,18 @@ public class ServicioServidor implements PuertoServidoresACargo {
         exigirCoherenciaConGrupos(servidor, limpio);
 
         Map<String, Object> anterior = instantanea(servidor);
+        FamiliaSistemaOperativo familiaAnterior = servidor.familia();
         aplicar(limpio, servidor, false);
+        if (servidor.familia() != familiaAnterior) {
+            configuraciones.findByServidorId(id).ifPresent(c ->
+                    cuentasServicio.validarCambio(null, c.getIdCuentaServicio(), servidor.familia()));
+        }
         auditoria.registrar(actor, Operacion.de("ACTUALIZAR_SERVIDOR", "servidor", id)
                 .sobreServidor(id)
                 .valores(anterior, instantanea(servidor)));
         return servidor;
     }
 
-    // ----------------------------------------------------------- configuracion
-
-    /**
-     * RF17 / RF70 / HU13: crea o modifica la configuracion de mantenimiento.
-     * Las frecuencias que no se indiquen se copian del nivel de criticidad
-     * (HU11 CA2). Guardarla habilita el servidor (DEC-14). Los cambios afectan
-     * solo a las ordenes nuevas (HU13 CA7).
-     */
     @Transactional
     public ConfiguracionServidor configurar(Integer id, DatosConfiguracion datos, Actor actor) {
         Servidor servidor = buscar(id);
@@ -195,9 +173,12 @@ public class ServicioServidor implements PuertoServidoresACargo {
 
         Optional<ConfiguracionServidor> existente = configuraciones.findByServidorId(id);
         Map<String, Object> anterior = existente.map(ServicioServidor::instantanea).orElse(null);
+        cuentasServicio.validarCambio(existente.map(ConfiguracionServidor::getIdCuentaServicio).orElse(null),
+                datos.idCuentaServicio(), servidor.familia());
         ConfiguracionServidor configuracion = existente.orElseGet(() ->
                 ConfiguracionServidor.nueva(servidor, revision, mantenimiento, datos.modalidad()));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad());
+        configuracion.setIdCuentaServicio(datos.idCuentaServicio());
         configuraciones.save(configuracion);
         servidor.activarPorConfiguracion();
 
@@ -208,13 +189,6 @@ public class ServicioServidor implements PuertoServidoresACargo {
         return configuracion;
     }
 
-    // ----------------------------------------------------------------- ventanas
-
-    /**
-     * RF18 / RF19 / HU14: reemplaza la ventana permisiva. El administrador
-     * puede editar cualquier servidor; el responsable, solo los suyos. Los
-     * cambios se aplican a los proximos mantenimientos (DEC-18).
-     */
     @Transactional
     public Servidor reemplazarVentanas(Integer id, List<IntervaloSemanal> intervalos, AlcanceUsuario alcance) {
         Servidor servidor = obtener(id, alcance);
@@ -234,15 +208,7 @@ public class ServicioServidor implements PuertoServidoresACargo {
         return servidor;
     }
 
-    // -------------------------------------------------------- baja y reactivacion
-
-    /**
-     * RF72 / HU06 CA5-CA6: registra la solicitud de baja. Si hay un
-     * mantenimiento en curso la solicitud queda pendiente hasta que termine;
-     * si no, se aplica de inmediato: retira los mantenimientos pendientes y
-     * las pertenencias a grupos, elimina la configuracion vigente (HU13 CA9)
-     * y conserva todo el historial.
-     */
+    /** Con un mantenimiento en curso la baja queda pendiente, si no se aplica de inmediato (RF72) */
     @Transactional
     public ResultadoBaja solicitarBaja(Integer id, String motivo, Actor actor) {
         Servidor servidor = buscar(id);
@@ -267,7 +233,6 @@ public class ServicioServidor implements PuertoServidoresACargo {
         return new ResultadoBaja(servidor, solicitud, true, retiradas);
     }
 
-    /** RF73 / HU06 CA7: vuelve a pendiente de configuracion. */
     @Transactional
     public Servidor reactivar(Integer id, Actor actor) {
         Servidor servidor = buscar(id);
@@ -306,18 +271,12 @@ public class ServicioServidor implements PuertoServidoresACargo {
         return retiradas;
     }
 
-    // ------------------------------------------------------------- utilidades
-
     private Servidor buscar(Integer id) {
         return servidores.findConDetalleById(id)
                 .orElseThrow(() -> RecursoNoEncontradoException.de("el servidor", id));
     }
 
-    /**
-     * Resuelve las referencias y vuelca los datos. Al editar, una referencia
-     * que no cambio puede seguir apuntando a un elemento ya desactivado; solo
-     * se exige que este activo lo que se asigna de nuevo.
-     */
+    /** Al editar solo se exige activo lo que se asigna de nuevo, una referencia sin cambios puede estar desactivada */
     private void aplicar(DatosServidor d, Servidor s, boolean esAlta) {
         VersionSistemaOperativo version = catalogos.obtenerVersion(d.idVersionSistemaOperativo());
         if (cambia(esAlta, s.getVersionSistemaOperativo(), version.getId())
@@ -357,14 +316,12 @@ public class ServicioServidor implements PuertoServidoresACargo {
         s.setResponsable(responsable);
     }
 
-    /** El responsable autoriza y valida los mantenimientos de sus servidores (DEC-24). */
     private static void exigirResponsableValido(Usuario responsable) {
         motivoResponsableInvalido(responsable).ifPresent(motivo -> {
             throw new ReglaNegocioException(motivo);
         });
     }
 
-    /** Motivo por el que un usuario no puede ser responsable de servidores (DEC-24), o vacío. */
     public static Optional<String> motivoResponsableInvalido(Usuario responsable) {
         if (!responsable.isActivo()) {
             return Optional.of("El usuario %s no está activo".formatted(responsable.getCodigo()));
@@ -381,12 +338,7 @@ public class ServicioServidor implements PuertoServidoresACargo {
         });
     }
 
-    /**
-     * RF20: los integrantes de un grupo comparten responsable, entorno y
-     * sistema operativo. Si el servidor pertenece a grupos, esos atributos no
-     * pueden cambiar sin retirarlo antes. Devuelve el motivo del conflicto, o
-     * vacío; la importación (RF12) lo usa para anticiparlo en la vista previa.
-     */
+    /** Con grupos, responsable, entorno y SO no cambian sin retirar antes el servidor (RF20) */
     @Transactional(readOnly = true)
     public Optional<String> conflictoConGrupos(Servidor servidor, DatosServidor nuevos) {
         List<GrupoMantenimiento> suyos = grupos.findDelServidor(servidor.getId());
@@ -438,15 +390,11 @@ public class ServicioServidor implements PuertoServidoresACargo {
                 d.cantidadCpu(), d.ramGb(), d.hdVirtualGb());
     }
 
-    /** Las IPv6 se comparan sin distinguir mayúsculas: se guardan en minúsculas. */
+    /** Las IPv6 se comparan en minúsculas */
     private static String normalizarIp(String ip) {
         return ip == null ? null : ip.trim().toLowerCase(Locale.ROOT);
     }
 
-    /**
-     * DEC-37: las IP del servidor no se repiten entre sí ni pertenecen a otro
-     * servidor, lo que mantiene la detección de duplicados por IP (RF09).
-     */
     private void exigirDireccionesDisponibles(DatosServidor d, Integer idPropio) {
         Set<String> vistas = new HashSet<>();
         for (String ip : d.todasLasDirecciones()) {
@@ -507,29 +455,25 @@ public class ServicioServidor implements PuertoServidoresACargo {
                 "diaFin", w.getDiaFin().name(), "horaFin", w.getHoraFin().toString());
     }
 
-    /** Datos de la configuracion de mantenimiento de un servidor (RF17). */
+    /** idCuentaServicio nula: usa la cuenta predeterminada del sistema (RF06) */
     public record DatosConfiguracion(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
-                                     ModalidadPlanificacion modalidad) {
+                                     ModalidadPlanificacion modalidad, Integer idCuentaServicio) {
+
+        public DatosConfiguracion(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
+                                  ModalidadPlanificacion modalidad) {
+            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, null);
+        }
     }
 
-    /** Informacion consolidada de la ficha (RF14). */
-    /**
-     * @param bajas          solicitudes de baja, la más reciente primero (RF72)
-     * @param reactivaciones reactivaciones, la más reciente primero (RF73)
-     */
     public record FichaServidor(Servidor servidor, Optional<ConfiguracionServidor> configuracion,
+                                Optional<CuentaEfectiva> cuentaServicio,
                                 List<GrupoMantenimiento> grupos, Optional<SolicitudBaja> bajaPendiente,
                                 List<SolicitudBaja> bajas, List<Reactivacion> reactivaciones) {
     }
 
-    /** @param usuario quien reactivó; nulo si lo hizo un proceso del sistema */
     public record Reactivacion(Instant fecha, Usuario usuario) {
     }
 
-    /**
-     * Resultado de solicitar la baja: si se aplico de inmediato o quedo
-     * pendiente por un mantenimiento en curso, y cuantas ordenes se retiraron.
-     */
     public record ResultadoBaja(Servidor servidor, SolicitudBaja solicitud, boolean aplicada, int ordenesRetiradas) {
     }
 }

@@ -15,12 +15,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
-/**
- * Configuracion de mantenimiento de un grupo (RF17), tabla
- * {@code configuracion_grupo}. Agrega el modo de ejecucion de los integrantes.
- * Los mantenimientos grupales la usan sin reemplazar la configuracion
- * individual de cada miembro (RF46).
- */
+/** Las órdenes grupales la usan sin reemplazar la configuración individual de cada integrante (RF46) */
 @Entity
 @Table(name = "configuracion_grupo")
 @PrimaryKeyJoinColumn(name = "id_configuracion_mantenimiento")

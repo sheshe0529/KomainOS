@@ -1,20 +1,4 @@
--- =============================================================================
--- 01 - Esquema de KomainOS (49 tablas, 30 enumerados, 79 claves foraneas)
---
--- Reproduce el esquema "KomainOS" de la base DBKomainOS, extraido con
--- pg_dump --schema-only el 2026-09-26, con los cambios posteriores de
--- scripts/bd/cambios/ ya incorporados (DEC-37). Es el esquema con el que trabaja el
--- backend (DEC-02, DEC-34): coincide con el diccionario de datos R2.4, incluidas
--- las restricciones ck_configuracion_sistema_unico, ck_ventana_intervalo y
--- uq_regla_politica_cambio, y difiere de Documentos/Docs/DDL_KOMAINOS.sql, que
--- usa el esquema public y otros nombres de enumerados.
---
--- Uso, sobre una base vacia:
---   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/01_esquema.sql
---   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/02_datos_sistema.sql
---
--- Las pruebas de integracion lo ejecutan sobre dbkomainos_test en cada corrida.
--- =============================================================================
+-- 01 - Esquema de KomainOS (DEC-34): se ejecuta sobre una base vacía, antes de 02_datos_sistema.sql (ver README)
 
 CREATE SCHEMA IF NOT EXISTS "KomainOS";
 

@@ -64,6 +64,7 @@ class ServicioServidorTest {
     @Mock UsuarioRepositorio usuarios;
     @Mock ServicioCatalogos catalogos;
     @Mock PuertoMantenimientos mantenimientos;
+    @Mock ServicioAsignacionCuentas cuentasServicio;
     @Mock ServicioAuditoria auditoria;
     @Mock ApplicationEventPublisher eventos;
 
@@ -75,7 +76,7 @@ class ServicioServidorTest {
     void preparar() {
         Clock reloj = Clock.fixed(Instant.parse("2026-09-27T12:00:00Z"), ZoneOffset.UTC);
         servicio = new ServicioServidor(servidores, direccionesIp, configuraciones, solicitudesBaja, grupos, usuarios, catalogos,
-                mantenimientos, auditoria, eventos, reloj);
+                mantenimientos, cuentasServicio, auditoria, eventos, reloj);
         lenient().when(catalogos.obtenerVersion(1)).thenReturn(DatosPrueba.version(1, "Ubuntu", "22.04"));
         lenient().when(catalogos.obtenerEntorno(1)).thenReturn(DatosPrueba.entorno(1, "Producción"));
         lenient().when(catalogos.obtenerCriticidad(1)).thenReturn(DatosPrueba.criticidad(1, "Alta", 1));
@@ -263,7 +264,7 @@ class ServicioServidorTest {
         @Test
         @DisplayName("un servidor ajeno responde 'no encontrado' al responsable, no 'acceso denegado'")
         void servidorAjenoNoEncontrado() {
-            // 404 y no 403: un 403 confirmaria que existe un servidor ajeno con ese id.
+            // 404 y no 403: un 403 confirmaría que existe un servidor ajeno con ese id
             Servidor ajeno = DatosPrueba.servidor(3, "srv-db-01", responsable);
             when(servidores.findConDetalleById(3)).thenReturn(Optional.of(ajeno));
 

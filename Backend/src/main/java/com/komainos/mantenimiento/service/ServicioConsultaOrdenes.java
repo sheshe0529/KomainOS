@@ -1,5 +1,6 @@
 package com.komainos.mantenimiento.service;
 
+import com.komainos.inventario.service.PuertoCuentasServicio;
 import com.komainos.mantenimiento.model.FiltroOrdenes;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.repository.EspecificacionesOrden;
@@ -13,22 +14,19 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Consulta de ordenes y su detalle (RF33, RF36, HU23). Devuelve las entidades
- * con las colecciones que la API muestra ya inicializadas, porque la sesion
- * JPA se cierra al salir de aqui.
- */
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class ServicioConsultaOrdenes {
 
     private final OrdenRepositorio ordenes;
+    private final PuertoCuentasServicio cuentas;
 
     @Transactional(readOnly = true)
     public Page<Orden> listar(FiltroOrdenes filtro, AlcanceUsuario alcance, Pageable paginacion) {
         Page<Orden> pagina = ordenes.findAll(EspecificacionesOrden.con(filtro, alcance), paginacion);
-        // Con @BatchSize, estas inicializaciones cargan las colecciones de toda
-        // la pagina en pocas consultas.
+        // Con BatchSize estas inicializaciones cargan las colecciones de toda la página en pocas consultas
         pagina.forEach(o -> {
             Hibernate.initialize(o.getProgramaciones());
             Hibernate.initialize(o.getDetalles());
@@ -36,11 +34,6 @@ public class ServicioConsultaOrdenes {
         return pagina;
     }
 
-    /**
-     * RF33: informacion general y cada detalle con su servidor, estado,
-     * posicion y fechas previstas y reales, mas el historial de programacion y
-     * de estados. Fuera de alcance responde "no encontrado".
-     */
     @Transactional(readOnly = true)
     public Orden obtener(Integer id, AlcanceUsuario alcance) {
         Orden orden = ordenes.findConDetalleById(id).orElseThrow(() -> RecursoNoEncontradoException.de("la orden", id));
@@ -51,5 +44,17 @@ public class ServicioConsultaOrdenes {
         orden.getProgramaciones().forEach(p -> Hibernate.initialize(p.getUsuarioRegistro()));
         orden.getHistorial().forEach(h -> Hibernate.initialize(h.getUsuario()));
         return orden;
+    }
+
+    /** La cuenta es la que se resolvió al generar la orden: cambios posteriores de la configuración no la alteran */
+    @Transactional(readOnly = true)
+    public DetalleOrden detalle(Integer id, AlcanceUsuario alcance) {
+        Orden orden = obtener(id, alcance);
+        Optional<String> cuenta = orden.getIdCuentaServicio() == null
+                ? Optional.empty() : cuentas.nombre(orden.getIdCuentaServicio());
+        return new DetalleOrden(orden, cuenta);
+    }
+
+    public record DetalleOrden(Orden orden, Optional<String> cuentaServicio) {
     }
 }

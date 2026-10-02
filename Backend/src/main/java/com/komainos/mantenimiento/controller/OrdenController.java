@@ -25,11 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 
-/**
- * Consulta de ordenes y su detalle (RF33, RF36, HU23). Todos los roles
- * consultan dentro de su alcance: la ficha del servidor muestra su historial
- * de ordenes (HU10 CA4) y el cronograma permite abrir cada orden (HU20 CA4).
- */
 @RestController
 @RequestMapping("/api/ordenes")
 @RequiredArgsConstructor
@@ -60,6 +55,6 @@ public class OrdenController {
     @Operation(summary = "Detalle de una orden con sus servidores, programaciones e historial (RF33)")
     public OrdenDetalleRespuesta detalle(@PathVariable Integer id,
                                          @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        return OrdenMapeador.detalle(servicio.obtener(id, AlcanceUsuario.de(solicitante)));
+        return OrdenMapeador.detalle(servicio.detalle(id, AlcanceUsuario.de(solicitante)));
     }
 }

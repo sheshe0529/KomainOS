@@ -15,19 +15,14 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.LocalTime;
 
-/**
- * El contrato publicado en /v3/api-docs es la fuente desde la que se generan
- * los tipos TypeScript del panel. Mantenerlo fiel a lo que realmente viaja
- * evita que el frontend tipe formas que el backend no devuelve.
- */
+/** El contrato de /v3/api-docs genera los tipos TypeScript del panel: debe ser fiel a lo que viaja */
 @Configuration
 public class ConfiguracionOpenApi {
 
     private static final String ESQUEMA_JWT = "bearerAuth";
 
     static {
-        // Jackson serializa LocalTime como texto "HH:mm"; sin esto el contrato
-        // lo describiria como un objeto {hour, minute, ...}.
+        // Jackson serializa LocalTime como "HH:mm", sin esto el contrato lo describiría como objeto
         SpringDocUtils.getConfig().replaceWithSchema(LocalTime.class,
                 new StringSchema().format("time").example("22:00"));
     }
@@ -47,11 +42,7 @@ public class ConfiguracionOpenApi {
                                 .bearerFormat("JWT")));
     }
 
-    /**
-     * La forma comun de error no la referencia ningun endpoint de forma
-     * explicita (la produce el manejador global), pero el cliente del panel la
-     * necesita: se publica como esquema del contrato.
-     */
+    /** La forma común de error la produce el manejador global: se publica para que el panel la tipe */
     @Bean
     public OpenApiCustomizer esquemaDeErrores() {
         return openApi -> ModelConverters.getInstance().readAll(ErrorRespuesta.class)

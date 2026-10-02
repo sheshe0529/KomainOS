@@ -20,12 +20,6 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.time.Instant;
 
-/**
- * Participacion de un servidor en una orden (tabla {@code orden_detalle}).
- * Una orden individual tiene un detalle; una grupal, uno por integrante al
- * generarse (RF20). Sus fechas previstas son la reserva que respeta la
- * planificacion (RF28, RF51).
- */
 @Entity
 @Table(name = "orden_detalle")
 @Getter
@@ -48,7 +42,6 @@ public class OrdenDetalle {
     @Column(name = "posicion_ejecucion", nullable = false)
     private Integer posicionEjecucion;
 
-    /** Se define al generar las MOP (RF58, DEC-11). */
     @Column(name = "es_servidor_piloto", nullable = false)
     private boolean esServidorPiloto;
 

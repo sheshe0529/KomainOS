@@ -5,7 +5,7 @@ import com.komainos.seguridad.model.Usuario;
 
 import java.time.Instant;
 
-/** Cuenta de usuario sin el hash de su contrasena (RNF11). */
+/** Nunca incluye el hash de la contraseña (RNF11) */
 public record UsuarioRespuesta(Integer id, String codigo, String nombreCompleto, Rol rol,
                                boolean activo, Instant fechaCreacion) {
 

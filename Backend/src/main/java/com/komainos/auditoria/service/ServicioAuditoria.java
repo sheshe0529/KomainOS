@@ -14,16 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.util.List;
 
-/**
- * Registra operaciones de negocio en la bitacora (RNF06).
- *
- * <p>Se une a la transaccion del llamador ({@code MANDATORY}): el cambio y su
- * registro se aplican juntos o no se aplica ninguno. Si se separaran, habria un
- * instante en que el dato cambio sin dejar rastro.
- *
- * <p>Quien llama es responsable de no pasar secretos en los valores (RNF11);
- * en esta iteracion ninguna entidad auditada los contiene.
- */
+/** Se une a la transacción del llamador: el cambio y su registro de auditoría se aplican juntos o ninguno (RNF06) */
 @Service
 @RequiredArgsConstructor
 public class ServicioAuditoria {
@@ -50,9 +41,6 @@ public class ServicioAuditoria {
                 .build());
     }
 
-    /**
-     * Operaciones de un tipo registradas sobre un servidor, la mas reciente primero.
-     */
     @Transactional(readOnly = true)
     public List<RegistroAuditoria> consultarSobreServidor(Integer idServidor, String operacion) {
         return repositorio.findByIdServidorAndOperacionOrderByFechaHoraDescIdDesc(idServidor, operacion);
@@ -65,8 +53,7 @@ public class ServicioAuditoria {
         try {
             return mapeadorJson.writeValueAsString(valor);
         } catch (JsonProcessingException ex) {
-            // La bitacora no debe impedir la operacion por un valor que no se
-            // pudo serializar; se deja constancia del tipo en su lugar.
+            // Un valor que no se puede serializar no impide la operación: se registra su tipo
             return "{\"noSerializable\":\"" + valor.getClass().getSimpleName() + "\"}";
         }
     }
@@ -75,10 +62,6 @@ public class ServicioAuditoria {
         return motivo == null || motivo.length() <= 1000 ? motivo : motivo.substring(0, 1000);
     }
 
-    /**
-     * Descripcion de una operacion auditada. Se construye con los metodos
-     * {@code sobre...} para que cada llamador indique solo lo que le aplica.
-     */
     public record Operacion(String nombre, String entidad, Integer idEntidad,
                             Integer idServidor, Integer idGrupo, Integer idOrden,
                             Object valorAnterior, Object valorNuevo, String motivo) {

@@ -1,9 +1,8 @@
-/**
- * Nombres para los enumerados del contrato. Se derivan de los tipos
- * generados (types.ts), así que no pueden desalinearse del backend.
- */
+/** Se derivan de los tipos generados: no pueden desalinearse del backend */
 import type {
   ConfiguracionGrupoPeticion,
+  CredencialRespuesta,
+  SecretoPeticion,
   Detalle,
   OrdenResumenRespuesta,
   FichaGrupoRespuesta,
@@ -26,10 +25,11 @@ export type EstadoOrden = NonNullable<OrdenResumenRespuesta['estado']>
 export type EtapaOrden = NonNullable<OrdenResumenRespuesta['etapa']>
 export type OrigenOrden = NonNullable<OrdenResumenRespuesta['origen']>
 export type EstadoDetalleOrden = NonNullable<Detalle['estado']>
+export type TipoAutenticacion = SecretoPeticion['tipoAutenticacion']
+export type EstadoCredencial = NonNullable<CredencialRespuesta['estado']>
 
 export const DIAS_SEMANA: DiaSemana[] = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
 
-/** Página genérica con la forma de PaginaRespuesta del backend. */
 export interface Pagina<T> {
   contenido?: T[]
   pagina?: number

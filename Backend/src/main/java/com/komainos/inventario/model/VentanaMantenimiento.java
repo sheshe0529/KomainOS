@@ -22,15 +22,7 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 import java.time.Duration;
 import java.time.LocalTime;
 
-/**
- * Intervalo semanal en el que se permite el mantenimiento de un servidor
- * (RF18, RF19), tabla {@code ventana_mantenimiento}.
- *
- * <p>Si {@code diaFin} difiere de {@code diaInicio} el intervalo cruza la
- * medianoche (por ejemplo sabado 22:00 a domingo 02:00). Si coinciden, la hora
- * de fin debe ser posterior a la de inicio (ck_ventana_intervalo). Las horas se
- * interpretan en la zona horaria operativa (DEC-06).
- */
+/** Si diaFin difiere de diaInicio el intervalo cruza la medianoche (hora de la zona operativa, DEC-06) */
 @Entity
 @Table(name = "ventana_mantenimiento")
 @Getter
@@ -63,10 +55,7 @@ public class VentanaMantenimiento {
     @Column(name = "hora_fin", nullable = false)
     private LocalTime horaFin;
 
-    /**
-     * Crea una ventana validando la misma regla que ck_ventana_intervalo, para
-     * responder con un mensaje claro antes de llegar a la base.
-     */
+    /** Valida la regla de ck_ventana_intervalo para responder con un mensaje claro */
     public static VentanaMantenimiento nueva(DiaSemana diaInicio, LocalTime horaInicio,
                                              DiaSemana diaFin, LocalTime horaFin) {
         if (diaInicio == diaFin && !horaFin.isAfter(horaInicio)) {
@@ -82,7 +71,6 @@ public class VentanaMantenimiento {
         return ventana;
     }
 
-    /** Duracion del intervalo; cruza la medianoche cuando cambia el dia. */
     public Duration duracion() {
         long minutos = diaInicio.diasHasta(diaFin) * 24L * 60
                 + Duration.between(horaInicio, horaFin).toMinutes();

@@ -20,13 +20,7 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.time.Instant;
 
-/**
- * Solicitud de baja de un servidor (RF72), tabla {@code solicitud_baja}.
- *
- * <p>Queda PENDIENTE mientras exista un mantenimiento en curso y pasa a
- * APLICADA al ejecutarse la baja. Se conserva como historial aunque el
- * servidor se reactive despues.
- */
+/** Se conserva como historial aunque el servidor se reactive después */
 @Entity
 @Table(name = "solicitud_baja")
 @Getter
@@ -57,7 +51,6 @@ public class SolicitudBaja {
     @Column(name = "fecha_solicitud", nullable = false)
     private Instant fechaSolicitud;
 
-    /** Obligatoria solo cuando esta aplicada (ck_solicitud_baja_fecha). */
     @Column(name = "fecha_aplicacion")
     private Instant fechaAplicacion;
 

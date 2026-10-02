@@ -13,9 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
-/**
- * Parametros de ejecucion (RF68) y vigencia de la sesion (RF02).
- */
 @Service
 @RequiredArgsConstructor
 public class ServicioParametrosSistema implements PuertoParametrosSesion {
@@ -30,18 +27,13 @@ public class ServicioParametrosSistema implements PuertoParametrosSesion {
                         "No se encontraron los parámetros del sistema; verifique las migraciones de la base"));
     }
 
-    /** RF02: la duracion de la sesion la fija el administrador en los parametros. */
     @Override
     @Transactional(readOnly = true)
     public int minutosExpiracionToken() {
         return obtener().getMinutosExpiracionToken();
     }
 
-    /**
-     * Actualiza los parametros globales. RF22 exige que la duracion estimada
-     * de una tarea no supere la maxima por tarea, y una MOP contiene al menos
-     * una tarea: por eso la maxima por MOP no puede ser menor que la de tarea.
-     */
+    /** Una MOP tiene al menos una tarea: la máxima por MOP no puede ser menor que la de tarea (RF22) */
     @Transactional
     public ParametrosSistema actualizar(DatosParametros datos, Actor actor) {
         if (datos.maxDuracionMopMinutos() < datos.maxDuracionTareaMinutos()) {

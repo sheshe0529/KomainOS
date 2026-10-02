@@ -33,26 +33,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Lee archivos de intercambio (RF12) a una tabla de texto con claves
- * normalizadas. No interpreta el contenido: validar cada valor le corresponde
- * al caso de uso que lo importa.
- *
- * <ul>
- *   <li><b>XLSX</b>: primera hoja; la primera fila con datos es el encabezado.
- *       Las formulas se leen por su ultimo valor calculado, sin evaluarlas.</li>
- *   <li><b>CSV</b>: UTF-8 (con o sin BOM) o, si no lo es, Windows-1252, que es
- *       como lo guarda Excel en espanol; separador coma, punto y coma o
- *       tabulador, detectado en el encabezado.</li>
- *   <li><b>JSON / YAML</b>: una lista de objetos, o un objeto con una unica
- *       propiedad que sea esa lista (por ejemplo {@code servidores}).</li>
- * </ul>
- */
+/** CSV en UTF-8 o Windows-1252 (Excel en español), con el separador detectado en el encabezado */
 @Slf4j
 @Component
 public class LectorTabular {
 
-    /** Tope de registros por archivo: el inventario se carga por lotes razonables. */
     public static final int MAXIMO_REGISTROS = 5000;
 
     private static final Charset WINDOWS_1252 = Charset.forName("windows-1252");
@@ -79,23 +64,19 @@ public class LectorTabular {
         } catch (ReglaNegocioException ex) {
             throw ex;
         } catch (IOException | RuntimeException ex) {
-            // El detalle tecnico queda en el log; al usuario le basta saber que
-            // el contenido no corresponde al formato indicado.
+            // El detalle técnico queda en el log, al usuario le basta saber que el contenido no corresponde al formato
             log.info("Archivo {} ilegible: {}", formato, ex.toString());
             throw new ReglaNegocioException("No se pudo leer el archivo como %s. Verifique que el contenido corresponda al formato"
                     .formatted(formato.name()));
         }
     }
 
-    // ------------------------------------------------------------ XLSX y CSV
-
     private record FilaCeldas(int numero, List<String> celdas) {
     }
 
     private static List<FilaCeldas> leerHoja(byte[] contenido) throws IOException {
         List<FilaCeldas> filas = new ArrayList<>();
-        // POI rechaza por si mismo los archivos comprimidos con una tasa de
-        // compresion anomala (ZipSecureFile), el caso tipico de un XLSX malicioso.
+        // POI rechaza por sí mismo los archivos con una tasa de compresión anómala (ZipSecureFile)
         try (Workbook libro = WorkbookFactory.create(new ByteArrayInputStream(contenido))) {
             if (libro.getNumberOfSheets() == 0) {
                 return filas;
@@ -132,7 +113,7 @@ public class LectorTabular {
         return filas;
     }
 
-    /** UTF-8 estricto; si no lo es, el archivo viene de Excel con la codificacion regional. */
+    /** UTF-8 estricto, si no lo es viene de Excel con la codificación regional */
     private static String decodificar(byte[] contenido) {
         String texto;
         try {
@@ -147,7 +128,7 @@ public class LectorTabular {
         return texto.startsWith("\uFEFF") ? texto.substring(1) : texto;
     }
 
-    /** El separador mas frecuente en la primera linea; coma si no hay ninguno. */
+    /** El separador más frecuente en la primera línea, coma si no hay ninguno */
     private static char separadorDe(String texto) {
         int fin = texto.indexOf('\n');
         String encabezado = fin < 0 ? texto : texto.substring(0, fin);
@@ -202,8 +183,6 @@ public class LectorTabular {
         return celdas.stream().allMatch(c -> c == null || c.isBlank());
     }
 
-    // ------------------------------------------------------------ JSON y YAML
-
     private static TablaArchivo desdeArbol(JsonNode raiz) {
         JsonNode lista = raiz;
         if (raiz != null && raiz.isObject() && raiz.size() == 1 && raiz.elements().next().isArray()) {
@@ -251,13 +230,7 @@ public class LectorTabular {
         return new TablaArchivo(List.copyOf(columnas), registros);
     }
 
-    // ------------------------------------------------------------- utilidades
-
-    /**
-     * Recorta y descarta el apostrofo con que se neutraliza una formula al
-     * exportar (ver {@link EscritorTabular}), para que el archivo exportado se
-     * pueda volver a importar tal cual.
-     */
+    /** Descarta el apóstrofo que neutraliza una fórmula al exportar para reimportar el archivo tal cual */
     static String limpiar(String valor) {
         if (valor == null) {
             return null;

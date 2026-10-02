@@ -13,7 +13,6 @@ interface CancelarModalProps {
   onConfirmar: (motivo: string) => Promise<void>
 }
 
-/** Cancelación de una orden con motivo registrado (RF30, HU18 CA3). */
 export function CancelarModal({ abierto, codigo, onCerrar, onConfirmar }: CancelarModalProps) {
   const [motivo, setMotivo] = useState('')
   const [enviando, setEnviando] = useState(false)

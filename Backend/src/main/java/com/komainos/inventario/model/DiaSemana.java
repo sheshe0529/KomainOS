@@ -2,7 +2,6 @@ package com.komainos.inventario.model;
 
 import java.time.DayOfWeek;
 
-/** Dia de la semana de una ventana permisiva ({@code enum_dia_semana}). */
 public enum DiaSemana {
 
     LUNES(DayOfWeek.MONDAY),
@@ -23,7 +22,7 @@ public enum DiaSemana {
         return diaIso;
     }
 
-    /** Dias que hay que avanzar desde este dia para llegar al otro (0 a 6). */
+    /** Días que hay que avanzar desde este día hasta el otro (0 a 6) */
     public int diasHasta(DiaSemana otro) {
         return Math.floorMod(otro.ordinal() - ordinal(), 7);
     }

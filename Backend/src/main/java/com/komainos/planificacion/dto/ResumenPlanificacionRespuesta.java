@@ -4,7 +4,6 @@ import com.komainos.planificacion.service.ServicioPlanificacion.ResumenPlanifica
 
 import java.util.List;
 
-/** Resultado de ejecutar la planificacion automatica a demanda. */
 public record ResumenPlanificacionRespuesta(int objetivosEvaluados, List<String> ordenesGeneradas,
                                             List<String> sinIntervalo) {
 

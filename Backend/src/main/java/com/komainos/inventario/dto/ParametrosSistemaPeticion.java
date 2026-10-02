@@ -4,7 +4,6 @@ import com.komainos.inventario.service.ServicioParametrosSistema.DatosParametros
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
-/** RF68 (y RF02, RF65). Los minimos repiten ck_configuracion_sistema_valores. */
 public record ParametrosSistemaPeticion(
         @NotNull(message = "La concurrencia máxima es obligatoria")
         @Min(value = 1, message = "La concurrencia máxima debe ser de al menos 1 servidor")

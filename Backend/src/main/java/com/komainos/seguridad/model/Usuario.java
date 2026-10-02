@@ -21,13 +21,7 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.time.Instant;
 
-/**
- * Cuenta de usuario del sistema (RF03), tabla {@code usuario}.
- *
- * <p>Se usa {@code @Getter}/{@code @Setter} y no {@code @Data}: este ultimo
- * genera equals/hashCode sobre campos mutables y un toString que recorre
- * asociaciones lazy. En entidades JPA la identidad la da el id.
- */
+/** @Getter/@Setter y no @Data: equals/hashCode sobre campos mutables y un toString que recorre asociaciones lazy */
 @Entity
 @Table(name = "usuario")
 @Getter
@@ -40,14 +34,13 @@ public class Usuario {
     @Column(name = "id_usuario")
     private Integer id;
 
-    /** Codigo con el que la persona inicia sesion (HU01 CA1). Unico. */
     @Column(name = "codigo", nullable = false, length = 100)
     private String codigo;
 
     @Column(name = "nombre_completo", nullable = false, length = 255)
     private String nombreCompleto;
 
-    /** Solo el hash BCrypt; la contrasena en claro nunca se persiste. */
+    /** Solo el hash BCrypt: la contraseña en claro nunca se persiste */
     @Column(name = "hash_contrasena", nullable = false, length = 255)
     private String hashContrasena;
 
@@ -56,10 +49,7 @@ public class Usuario {
     @Column(name = "rol", nullable = false, columnDefinition = "enum_tipo_rol")
     private Rol rol;
 
-    /**
-     * La baja es logica: RF03 exige conservar el historial de las cuentas
-     * desactivadas, y ordenes y auditorias antiguas las referencian.
-     */
+    /** Baja lógica: se conserva el historial y las órdenes y auditorías antiguas la referencian (RF03) */
     @Column(name = "activo", nullable = false)
     private boolean activo;
 

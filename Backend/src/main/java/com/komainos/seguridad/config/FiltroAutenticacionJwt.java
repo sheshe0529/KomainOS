@@ -18,16 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * Lee el token de la cabecera Authorization y, si es valido, deja autenticada
- * la peticion.
- *
- * <p>No lleva {@code @Component} a proposito: se declara como bean en
- * {@link ConfiguracionSeguridad}. Si fuera un componente escaneado, Spring Boot
- * lo registraria ademas como filtro de servlet para todas las rutas, con lo que
- * correria dos veces por peticion; y los slices de prueba web intentarian
- * construirlo sin sus dependencias, que no pertenecen a esa capa.
- */
+/** Sin @Component a propósito: Spring Boot lo registraría también como filtro de servlet y correría dos veces por petición */
 @RequiredArgsConstructor
 public class FiltroAutenticacionJwt extends OncePerRequestFilter {
 
@@ -47,7 +38,7 @@ public class FiltroAutenticacionJwt extends OncePerRequestFilter {
             return;
         }
 
-        // Ya autenticada por otro mecanismo: no se sobreescribe el contexto.
+        // Ya autenticada por otro mecanismo: no se sobrescribe el contexto
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
             cadena.doFilter(peticion, respuesta);
             return;
@@ -62,9 +53,7 @@ public class FiltroAutenticacionJwt extends OncePerRequestFilter {
     private void autenticar(String codigo, HttpServletRequest peticion) {
         try {
             UserDetails usuario = detallesUsuario.loadUserByUsername(codigo);
-            // Se relee el usuario en cada peticion a proposito: si el
-            // administrador lo desactiva, el token firmado sigue siendo valido
-            // pero la cuenta ya no lo esta, y isEnabled() lo corta aqui (RNF01).
+            // Se relee el usuario en cada petición: si el administrador lo desactiva, el token sigue válido pero la cuenta no (RNF01)
             if (!usuario.isEnabled()) {
                 return;
             }

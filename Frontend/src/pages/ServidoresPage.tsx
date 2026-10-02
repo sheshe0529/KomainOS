@@ -38,7 +38,7 @@ interface Contexto {
 }
 
 interface ColumnaServidor extends DefinicionColumna {
-  /** Propiedad del backend para el parámetro sort; sin ella la columna no se ordena. */
+  /** Propiedad del backend para el parámetro sort, sin ella la columna no se ordena */
   orden?: string
   celda: (s: ServidorResumenRespuesta, ctx: Contexto) => ReactNode
 }
@@ -51,10 +51,7 @@ const recurso = (valor?: number, unidad?: string) => (
   </span>
 )
 
-/**
- * Columnas del inventario (RF11, DEC-32). Las ocultas por defecto se agregan
- * desde el botón «Columnas»; servidor y acciones siempre se muestran.
- */
+/** Las ocultas por defecto se agregan desde «Columnas», servidor y acciones siempre se muestran (DEC-32) */
 const COLUMNAS: ColumnaServidor[] = [
   {
     id: 'servidor',
@@ -85,7 +82,7 @@ const COLUMNAS: ColumnaServidor[] = [
     etiqueta: 'Descripción',
     celda: (s) =>
       s.descripcion ? (
-        // Se recorta a dos líneas; el texto completo se ve al pasar el cursor y en la ficha.
+        // Se recorta a dos líneas, el texto completo se ve al pasar el cursor y en la ficha
         <p className="line-clamp-2 max-w-xs text-ink-soft" title={s.descripcion}>
           {s.descripcion}
         </p>
@@ -100,7 +97,7 @@ const COLUMNAS: ColumnaServidor[] = [
     celda: (s, { ve }) => (
       <>
         <p className="text-ink">{s.vdc ?? '—'}</p>
-        {/* Si el servidor físico no tiene columna propia, se muestra aquí. */}
+        {/* Si el servidor físico no tiene columna propia, se muestra aquí */}
         {!ve('servidorFisico') && <p className="text-xs text-ink-faint">{s.servidorFisico ?? ''}</p>}
       </>
     ),
@@ -155,10 +152,9 @@ const COLUMNAS: ColumnaServidor[] = [
   },
 ]
 
-/** La columna de acciones es fija: se cuenta en el total, pero no se puede ocultar. */
+/** La columna de acciones es fija: se cuenta en el total, pero no se puede ocultar */
 const DEFINICIONES: DefinicionColumna[] = [...COLUMNAS, { id: 'acciones', etiqueta: 'Acciones', fija: true }]
 
-/** Inventario de servidores (RF11, HU07). */
 export function ServidoresPage() {
   const tonoCriticidad = useTonoCriticidad()
   const { tieneRol } = useSesion()
@@ -174,7 +170,7 @@ export function ServidoresPage() {
   const [formularioAbierto, setFormularioAbierto] = useState(false)
   const [dialogo, setDialogo] = useState<'importar' | 'exportar' | null>(null)
 
-  // La búsqueda se aplica al dejar de escribir, para no consultar por cada tecla.
+  // La búsqueda se aplica al dejar de escribir, para no consultar por cada tecla
   useEffect(() => {
     const t = window.setTimeout(() => {
       setTextoAplicado(busqueda)
@@ -316,7 +312,7 @@ export function ServidoresPage() {
           </div>
         </div>
 
-        {/* HU07 CA5: distingue activos, pendientes de configuración y dados de baja. */}
+        {/* HU07 CA5: distingue activos, pendientes de configuración y dados de baja */}
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por estado">
           {FILTROS_ESTADO.map((f) => (
             <button

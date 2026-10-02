@@ -27,17 +27,12 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
   const { usuario } = useSesion()
   const navigation = navegacionPara(usuario?.rol)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    // Todos los grupos inician desplegados, como en las pantallas preliminares.
+    // Todos los grupos inician desplegados, como en las pantallas preliminares
     () => new Set(navigation.filter(isNavGroup).map((g) => g.id)),
   )
   const [trackedPathname, setTrackedPathname] = useState(location.pathname)
 
-  // Si la ruta activa cambia hacia un hijo de un grupo colapsado (por
-  // ejemplo, un link desde otra página, o el botón "atrás" del navegador),
-  // lo despliega para que el usuario siempre vea en qué sección está
-  // parado. Se ajusta durante el render (patrón "adjusting state when a
-  // prop changes" de React) en vez de con un efecto, para no perder un
-  // frame mostrando el grupo todavía colapsado.
+  // Despliega el grupo de la ruta activa durante el render y no en un efecto, para no mostrar un frame colapsado
   if (location.pathname !== trackedPathname) {
     setTrackedPathname(location.pathname)
     const containing = groupsContainingPath(navigation, location.pathname)
@@ -64,7 +59,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
   }
 
   function leafClasses({ isActive }: { isActive: boolean }) {
-    // El cian del logo marca la sección activa como detalle; el fondo y el color del texto ya la distinguen.
+    // El cian del logo marca la sección activa como detalle, el fondo y el color del texto ya la distinguen
     return `relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
       isActive
         ? 'bg-accent-soft text-accent before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-detail'
@@ -143,8 +138,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
             collapsed ? 'lg:justify-center lg:px-0' : ''
           }`}
         >
-          {/* Con el menú colapsado no caben el logo y el botón lado a lado:
-              en escritorio el propio logo pasa a ser el botón de expandir. */}
+          {/* Con el menú colapsado no caben logo y botón: en escritorio el logo pasa a ser el botón de expandir */}
           <div className={`flex min-w-0 items-center gap-2 ${collapsed ? 'lg:hidden' : ''}`}>
             <Logo decorativo className="h-9 w-9 shrink-0" />
             <span className="truncate font-semibold text-ink">KomainOS</span>

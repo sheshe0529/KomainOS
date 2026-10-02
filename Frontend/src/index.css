@@ -1,14 +1,12 @@
 @import "tailwindcss";
 
-/* Habilita variantes dark: controladas por una clase .dark en <html>,
-   en vez del media query prefers-color-scheme por defecto de Tailwind v4. */
+/* Variantes dark: controladas por la clase .dark en <html> y no por prefers-color-scheme */
 @custom-variant dark (&:is(.dark *));
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* Paleta clara (valores por defecto de --color-*) */
   --color-canvas: #f6f6fa;
   --color-panel: #ffffff;
   --color-panel-muted: #f0f2f5;
@@ -17,15 +15,12 @@
   --color-ink-soft: #64748b;
   --color-ink-faint: #98a2b3;
 
-  /* Color institucional (logo): azul marino #063061. Texto y botones
-     principales; 13:1 sobre blanco. */
+  /* Azul marino institucional (logo): texto y botones principales, 13:1 sobre blanco */
   --color-accent: #063061;
   --color-accent-ink: #ffffff;
   --color-accent-soft: #e6ecf4;
 
-  /* Cian del logo: SOLO para detalles decorativos (indicadores, marcas,
-     líneas finas), nunca como color principal ni como texto sobre fondo
-     claro (1,6:1 sobre blanco). */
+  /* Cian del logo: SOLO para detalles decorativos, nunca como color principal ni como texto (1,6:1 sobre blanco) */
   --color-detail: #00dffb;
 
   --color-success: #12925a;
@@ -35,14 +30,11 @@
   --color-danger: #d92d20;
   --color-danger-soft: #fdeceb;
 
-  /* Serie unica de los graficos: el matiz del azul institucional con la
-     luminosidad que exige dataviz/validate_palette.js (sobre #ffffff). */
+  /* Serie única de los gráficos: matiz del azul institucional validado con dataviz/validate_palette.js */
   --color-serie-1: #1859a7;
 }
 
-/* Paleta oscura: mismos nombres de variable, valores distintos.
-   Como las utilidades de Tailwind referencian var(--color-x), el cambio
-   de clase .dark en <html> retematiza toda la interfaz sin tocar el JSX. */
+/* Paleta oscura: mismas variables, así la clase .dark retematiza la interfaz sin tocar el JSX */
 .dark {
   --color-canvas: #0b0f19;
   --color-panel: #131826;
@@ -52,8 +44,7 @@
   --color-ink-soft: #97a2b8;
   --color-ink-faint: #5d6780;
 
-  /* El #063061 no se distingue sobre fondo oscuro: mismo matiz, aclarado
-     (7,2:1 sobre el panel). */
+  /* #063061 no se distingue sobre fondo oscuro: mismo matiz aclarado (7,2:1 sobre el panel) */
   --color-accent: #74a9e7;
   --color-accent-ink: #0b0f19;
   --color-accent-soft: rgba(116, 169, 231, 0.16);
@@ -67,7 +58,7 @@
   --color-danger: #f0685f;
   --color-danger-soft: rgba(240, 104, 95, 0.12);
 
-  /* Validada con dataviz/validate_palette.js sobre el panel #131826. */
+  /* Validada con dataviz/validate_palette.js sobre el panel #131826 */
   --color-serie-1: #518ad6;
 }
 

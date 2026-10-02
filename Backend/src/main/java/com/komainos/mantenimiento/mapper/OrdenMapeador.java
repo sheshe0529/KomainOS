@@ -5,16 +5,14 @@ import com.komainos.mantenimiento.dto.OrdenDetalleRespuesta;
 import com.komainos.mantenimiento.dto.OrdenResumenRespuesta;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.ProgramacionOrden;
+import com.komainos.mantenimiento.service.ServicioConsultaOrdenes.DetalleOrden;
 import com.komainos.seguridad.model.Usuario;
 import com.komainos.shared.dto.ReferenciaSimple;
 
 import java.util.Comparator;
 import java.util.Optional;
 
-/**
- * Traduccion de ordenes al contrato HTTP. Espera las colecciones ya cargadas
- * por el servicio (open-in-view desactivado).
- */
+/** Espera las colecciones ya cargadas por el servicio: open-in-view está desactivado */
 public final class OrdenMapeador {
 
     private OrdenMapeador() {
@@ -24,7 +22,6 @@ public final class OrdenMapeador {
         return resumen(o, o.programacionVigente());
     }
 
-    /** Variante para el cronograma, que ya trae la programacion vigente. */
     public static OrdenResumenRespuesta resumen(Orden o, Optional<ProgramacionOrden> vigente) {
         ReferenciaSimple objetivo = o.esGrupal()
                 ? new ReferenciaSimple(o.getGrupo().getId(), o.getGrupo().getNombre())
@@ -42,13 +39,14 @@ public final class OrdenMapeador {
                 o.getFechaCreacion());
     }
 
-    public static OrdenDetalleRespuesta detalle(Orden o) {
+    public static OrdenDetalleRespuesta detalle(DetalleOrden detalle) {
+        Orden o = detalle.orden();
         Optional<ProgramacionOrden> vigente = o.programacionVigente();
         return new OrdenDetalleRespuesta(
                 resumen(o, vigente),
                 usuario(o.getUsuarioSolicitante()),
                 o.getModoEjecucionAplicado(),
-                o.getIdCuentaServicio() == null,
+                detalle.cuentaServicio().map(nombre -> new ReferenciaSimple(o.getIdCuentaServicio(), nombre)).orElse(null),
                 vigente.map(ProgramacionOrden::getInicioVentanaAplicada).orElse(null),
                 vigente.map(ProgramacionOrden::getFinVentanaAplicada).orElse(null),
                 o.getDetalles().stream()

@@ -6,18 +6,12 @@ import type { Rol } from '@/api/dominio'
 import type { UsuarioSesion } from '@/api/types'
 import { SesionContext } from './sesion-context'
 
-/**
- * Estado de la sesión del usuario (componente "Gestión de autenticación y
- * sesión" de R2.2). Concentrarlo aquí evita que cada vista resuelva por su
- * cuenta si el usuario está autenticado.
- */
 export function SesionProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<UsuarioSesion | null>(null)
   const [cargando, setCargando] = useState(() => leerToken() !== null)
   const [expirada, setExpirada] = useState(false)
 
-  // Al abrir el panel con un token guardado, se valida contra el backend: el
-  // token puede haber vencido o la cuenta pudo desactivarse (RNF01).
+  // El token guardado se valida contra el backend: pudo vencer o la cuenta pudo desactivarse (RNF01)
   useEffect(() => {
     if (!leerToken()) return
     let cancelado = false
@@ -37,7 +31,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Cualquier 401 del backend cierra la sesión en el panel (RF02).
+  // Cualquier 401 del backend cierra la sesión en el panel (RF02)
   useEffect(() => {
     function alExpirar() {
       setUsuario(null)

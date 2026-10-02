@@ -1,11 +1,6 @@
 import type { TooltipContentProps } from 'recharts'
 
-/**
- * Tooltip personalizado para los gráficos del dashboard: al pasar el
- * cursor sobre un punto o una barra, muestra el detalle de cada serie
- * (color, nombre y valor exacto) en vez del tooltip por defecto de
- * Recharts, y respeta los tokens de tema para verse bien en modo oscuro.
- */
+/** Tooltip propio: el de Recharts no respeta los tokens de tema */
 export function ChartTooltip({ active, payload, label }: TooltipContentProps) {
   if (!active || !payload || payload.length === 0) return null
 

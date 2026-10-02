@@ -5,15 +5,11 @@ export interface Consulta<T> {
   error: unknown
   cargando: boolean
   recargar: () => void
-  /** Reemplaza los datos sin volver a pedirlos (por ejemplo, con la respuesta de un guardado). */
+  /** Reemplaza los datos sin volver a pedirlos (por ejemplo, con la respuesta de un guardado) */
   reemplazar: (datos: T) => void
 }
 
-/**
- * Carga datos del backend con estado de carga, error y recarga. Descarta la
- * respuesta si los parámetros cambiaron mientras la petición estaba en curso,
- * para que una respuesta lenta no pise a una más reciente.
- */
+/** Descarta la respuesta si los parámetros cambiaron: una respuesta lenta no pisa a una más reciente */
 export function useConsulta<T>(cargar: () => Promise<T>, dependencias: readonly unknown[]): Consulta<T> {
   const [datos, setDatos] = useState<T>()
   const [error, setError] = useState<unknown>()

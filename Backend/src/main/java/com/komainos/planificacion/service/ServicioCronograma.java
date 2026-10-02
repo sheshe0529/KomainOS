@@ -14,11 +14,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Panel de supervision del cronograma (RF32, HU20): ordenes programadas en un
- * rango (la vista mensual y la distribucion horaria de un dia se arman con el
- * mismo dato), limitadas al alcance del usuario.
- */
 @Service
 @RequiredArgsConstructor
 public class ServicioCronograma {
@@ -37,8 +32,7 @@ public class ServicioCronograma {
         }
         List<ProgramacionOrden> resultado = programaciones.findCronograma(desde, hasta, EstadoOrden.CANCELADA,
                 alcance.veTodoElInventario(), alcance.usuarioId());
-        // Los detalles (cantidad de servidores) se cargan en lotes (@BatchSize)
-        // antes de cerrar la sesion.
+        // Los detalles se cargan en lotes (@BatchSize) antes de cerrar la sesión
         resultado.forEach(p -> Hibernate.initialize(p.getOrden().getDetalles()));
         return resultado;
     }

@@ -1,16 +1,4 @@
--- =============================================================================
--- Vacia los datos de negocio de la base de DESARROLLO de KomainOS.
---
--- Conserva el esquema y los datos del sistema de 02_datos_sistema.sql
--- (factor_ciclo y configuracion_sistema). Despues se puede cargar
--- 03_datos_prueba.sql, o arrancar el backend: si no queda ningun administrador,
--- lo crea con KOMAINOS_ADMIN_CLAVE_INICIAL (DEC-21).
---
--- NUNCA ejecutar en una base con datos reales: la auditoria es de solo
--- insercion por diseño (RNF06) y este script la vacia.
---
---   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/limpiar_datos_desarrollo.sql
--- =============================================================================
+-- Vacía los datos de negocio de la base de DESARROLLO: NUNCA en una base real, la auditoría es de solo inserción (RNF06)
 BEGIN;
 SET LOCAL search_path TO "KomainOS";
 
@@ -25,9 +13,7 @@ TRUNCATE TABLE
     direccion_ip, servidor, version_sistema_operativo, sistema_operativo, nivel_criticidad, entorno, usuario
 RESTART IDENTITY;
 
--- cuenta_servicio la referencia configuracion_sistema, que se conserva: por eso
--- las credenciales se borran con DELETE (cascada a sus especializaciones y
--- versiones) despues de soltar la cuenta predeterminada.
+-- configuracion_sistema referencia la cuenta predeterminada: se suelta antes de borrar las credenciales
 UPDATE configuracion_sistema SET id_cuenta_servicio_predeterminada = NULL;
 DELETE FROM credencial;
 COMMIT;

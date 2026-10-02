@@ -17,7 +17,6 @@ import { errorDeCampo, textoDeError, tieneErroresDeCampo } from '@/utils/errores
 
 type Dialogo = { tipo: 'so' } | { tipo: 'version'; sistema: SistemaOperativoRespuesta } | null
 
-/** Catálogo de sistemas operativos y versiones (dependencia de RF10). */
 export function SistemasOperativosTab() {
   const { avisar } = useAvisos()
   const sistemas = useConsulta(() => catalogosApi.sistemasOperativos(), [])

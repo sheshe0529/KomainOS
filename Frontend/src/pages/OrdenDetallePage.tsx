@@ -18,11 +18,10 @@ import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
 import { ESTADO_DETALLE, ESTADO_ORDEN, ETIQUETA_ETAPA, ETIQUETA_MODO, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
 import { formatearFechaHora } from '@/utils/formato'
 
-/** Estados desde los que la tabla 6 permite reprogramar y cancelar. */
+/** Estados desde los que la tabla 6 permite reprogramar y cancelar */
 const REPROGRAMABLES: EstadoOrden[] = ['PROGRAMADA', 'EN_COLA']
 const CANCELABLES: EstadoOrden[] = ['PROGRAMADA', 'AUTORIZADA', 'EN_COLA']
 
-/** Detalle de una orden (RF33, HU20 CA4, HU23 CA3). */
 export function OrdenDetallePage() {
   const tonoCriticidad = useTonoCriticidad()
   const { id } = useParams()
@@ -96,7 +95,7 @@ export function OrdenDetallePage() {
             <Dato etiqueta="Criticidad aplicada" valor={r.criticidad?.nombre} />
             <Dato etiqueta="Prioridad" valor={r.prioridad === 'ALTA' ? 'Alta' : 'Normal'} />
             {grupal && <Dato etiqueta="Modo de ejecución" valor={o.modoEjecucionAplicado ? ETIQUETA_MODO[o.modoEjecucionAplicado] : undefined} />}
-            <Dato etiqueta="Cuenta de servicio" valor={o.usaCuentaPredeterminada ? 'Predeterminada del sistema' : 'Propia de la configuración'} />
+            <Dato etiqueta="Cuenta de servicio" valor={o.cuentaServicio?.nombre ?? 'Sin cuenta asignada al generarse'} />
             <Dato etiqueta="Creada" valor={formatearFechaHora(r.fechaCreacion)} />
           </dl>
         </Tarjeta>

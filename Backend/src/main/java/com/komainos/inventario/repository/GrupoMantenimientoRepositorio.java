@@ -11,11 +11,6 @@ import java.util.Optional;
 
 public interface GrupoMantenimientoRepositorio extends JpaRepository<GrupoMantenimiento, Integer> {
 
-    /**
-     * Integrantes con los datos que la ficha del grupo y la planificacion
-     * necesitan: criticidad (RF76), ventanas (RF21) y SO/entorno/responsable
-     * para validar la pertenencia (RF20).
-     */
     @EntityGraph(attributePaths = {"integrantes.servidor.nivelCriticidad", "integrantes.servidor.ventanas",
             "integrantes.servidor.entorno", "integrantes.servidor.responsable",
             "integrantes.servidor.versionSistemaOperativo.sistemaOperativo"})
@@ -25,7 +20,6 @@ public interface GrupoMantenimientoRepositorio extends JpaRepository<GrupoManten
             "integrantes.servidor.responsable", "integrantes.servidor.versionSistemaOperativo.sistemaOperativo"})
     List<GrupoMantenimiento> findAllByOrderByNombreAsc();
 
-    /** Grupos a los que pertenece un servidor (RF14, HU10 CA1). */
     @Query("select distinct g from GrupoMantenimiento g join g.integrantes i where i.servidor.id = :idServidor order by g.nombre")
     List<GrupoMantenimiento> findDelServidor(@Param("idServidor") Integer idServidor);
 

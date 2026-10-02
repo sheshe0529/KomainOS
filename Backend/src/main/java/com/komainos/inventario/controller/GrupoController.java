@@ -28,7 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** Grupos de mantenimiento (RF20, RF21, RF76, HU15). */
 @RestController
 @RequestMapping("/api/grupos")
 @RequiredArgsConstructor
@@ -84,14 +83,14 @@ public class GrupoController {
 
     @PutMapping("/{id}/configuracion")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    @Operation(summary = "Crea o modifica la configuración de mantenimiento del grupo (RF17)")
+    @Operation(summary = "Crea o modifica la configuración de mantenimiento del grupo y su cuenta de servicio (RF05, RF17)")
     public FichaGrupoRespuesta configurar(@PathVariable Integer id,
                                           @Valid @RequestBody ConfiguracionGrupoPeticion peticion,
                                           @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         servicio.configurar(id, new DatosConfiguracionGrupo(peticion.frecuenciaRevisionDias(),
                 peticion.frecuenciaMantenimientoDias(), peticion.modalidadPlanificacion(),
-                peticion.modoEjecucion()), alcance.actor());
+                peticion.modoEjecucion(), peticion.idCuentaServicio()), alcance.actor());
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 

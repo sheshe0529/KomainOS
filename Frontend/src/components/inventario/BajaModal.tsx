@@ -14,7 +14,6 @@ interface BajaModalProps {
   onConfirmar: (motivo: string) => Promise<void>
 }
 
-/** Solicitud de baja de un servidor (RF72, HU06 CA5-CA6). */
 export function BajaModal({ abierto, hostname, onCerrar, onConfirmar }: BajaModalProps) {
   const [motivo, setMotivo] = useState('')
   const [enviando, setEnviando] = useState(false)

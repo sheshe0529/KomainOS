@@ -52,13 +52,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Planificacion contra PostgreSQL (RF27-RF30, RF32, RF46, RF51, RF72).
- *
- * <p>No es @Transactional a proposito: la planificacion automatica y la que se
- * dispara al confirmar una configuracion usan transacciones propias, y sus
- * efectos solo son visibles si se confirman. Cada prueba parte de datos limpios.
- */
+/** No es @Transactional: la planificación usa transacciones propias y sus efectos solo se ven si se confirman */
 @DisplayName("Planificación del mantenimiento contra PostgreSQL")
 class PlanificacionIT extends PruebaIntegracion {
 
@@ -134,7 +128,7 @@ class PlanificacionIT extends PruebaIntegracion {
         capacidad(1);
         Integer media = servidor("srv-media", "10.0.0.1", idMedia, responsable);
         Integer alta = servidor("srv-alta", "10.0.0.2", idAlta, responsable);
-        // Sin ventana todavia: configurarlos no genera ordenes (HU13 CA3).
+        // Sin ventana todavía: configurarlos no genera órdenes (HU13 CA3)
         configurar(media, ModalidadPlanificacion.AUTOMATICA);
         configurar(alta, ModalidadPlanificacion.AUTOMATICA);
         assertThat(ordenesDe(media)).isEmpty();
@@ -149,7 +143,7 @@ class PlanificacionIT extends PruebaIntegracion {
         Instant inicioAlta = deAlta.programacionVigente().orElseThrow().getFechaInicioProgramada();
         Instant inicioMedia = deMedia.programacionVigente().orElseThrow().getFechaInicioProgramada();
 
-        // La mas critica toma el primer intervalo; con capacidad 1 la otra va despues.
+        // La más crítica toma el primer intervalo, con capacidad 1 la otra va después
         assertThat(inicioAlta.atZone(LIMA).getDayOfWeek()).isEqualTo(DayOfWeek.SATURDAY);
         assertThat(inicioAlta.atZone(LIMA).toLocalTime()).isEqualTo(LocalTime.of(1, 0));
         assertThat(inicioMedia).isEqualTo(inicioAlta.plus(Duration.ofHours(4)));
@@ -157,13 +151,13 @@ class PlanificacionIT extends PruebaIntegracion {
         assertThat(deAlta.getCodigo()).matches("OM-\\d{4}-\\d{4}");
         assertThat(deAlta.getEstado()).isEqualTo(EstadoOrden.PROGRAMADA);
         assertThat(deAlta.getUsuarioSolicitante()).isNull();
-        // RF38: la evaluacion previa empieza el plazo de autorizacion (24 h) antes.
+        // RF38: la evaluación previa empieza el plazo de autorización (24 h) antes
         assertThat(deAlta.programacionVigente().orElseThrow().getFechaEvaluacionProgramada())
                 .isEqualTo(inicioAlta.minus(Duration.ofHours(24)));
         assertThat(jdbc.queryForObject("select count(*) from auditoria where operacion = 'GENERAR_ORDEN_AUTOMATICA' "
                 + "and proceso = 'PLANIFICACION_AUTOMATICA'", Integer.class)).isEqualTo(2);
 
-        // Una segunda corrida no duplica ciclos.
+        // Una segunda corrida no duplica ciclos
         assertThat(planificacion.planificarCiclosAutomaticos().ordenesGeneradas()).isEmpty();
     }
 
@@ -190,11 +184,11 @@ class PlanificacionIT extends PruebaIntegracion {
         Orden orden = planificacion.programar(id, null, lima("2026-10-03T01:00"), "Parche de seguridad", actorAdmin);
         assertThat(orden.getOrigen()).isEqualTo(OrigenOrden.SOLICITUD_BAJO_DEMANDA);
 
-        // RF51: no se admite otra intervencion superpuesta sobre el mismo servidor.
+        // RF51: no se admite otra intervención superpuesta sobre el mismo servidor
         assertThatThrownBy(() -> planificacion.programar(id, null, lima("2026-10-03T03:00"), null, actorAdmin))
                 .isInstanceOf(PlanificacionImposibleException.class)
                 .hasMessageContaining(orden.getCodigo());
-        // Fuera de la ventana permisiva.
+        // Fuera de la ventana permisiva
         assertThatThrownBy(() -> planificacion.programar(id, null, lima("2026-10-03T07:00"), null, actorAdmin))
                 .isInstanceOf(PlanificacionImposibleException.class)
                 .hasMessageContaining("ventana permisiva");
@@ -212,7 +206,7 @@ class PlanificacionIT extends PruebaIntegracion {
         Orden cancelada = consulta.obtener(orden.getId(), alcanceAdmin);
         assertThat(cancelada.getEstado()).isEqualTo(EstadoOrden.CANCELADA);
         assertThat(cancelada.getDetalles().getFirst().getEstado()).isEqualTo(EstadoDetalleOrden.NO_INICIADO);
-        // La reserva queda libre: el mismo horario puede programarse otra vez.
+        // La reserva queda libre: el mismo horario puede programarse otra vez
         assertThat(planificacion.programar(id, null, lima("2026-10-10T02:00"), null, actorAdmin)).isNotNull();
     }
 
@@ -239,7 +233,7 @@ class PlanificacionIT extends PruebaIntegracion {
         Integer a = servidor("srv-grupo-a", "10.0.0.6", idMedia, responsable);
         Integer b = servidor("srv-grupo-b", "10.0.0.7", idMedia, responsable);
         for (Integer id : List.of(a, b)) {
-            // Dos intervalos: la orden grupal debe incluir a cada integrante una sola vez.
+            // Dos intervalos: la orden grupal debe incluir a cada integrante una sola vez
             ventanas(id, ventana(SABADO, "00:00", SABADO, "23:00"), ventana(DOMINGO, "00:00", DOMINGO, "05:00"));
             configurar(id, ModalidadPlanificacion.BAJO_DEMANDA);
         }
@@ -251,7 +245,7 @@ class PlanificacionIT extends PruebaIntegracion {
         Orden individual = planificacion.programar(a, null, lima("2026-10-03T00:00"), null, actorAdmin);
         Orden grupal = planificacion.programar(null, grupo, null, null, actorAdmin);
         Orden grupalLeida = consulta.obtener(grupal.getId(), alcanceAdmin);
-        // RF46: el tramo grupal de A no se superpone con su orden individual.
+        // RF46: el tramo grupal de A no se superpone con su orden individual
         assertThat(grupalLeida.detalleDe(a).orElseThrow().getFechaPrevistaInicio())
                 .isAfterOrEqualTo(lima("2026-10-03T04:00"));
         assertThat(grupalLeida.getDetalles()).extracting("posicionEjecucion").containsExactly(1, 2);
@@ -284,7 +278,7 @@ class PlanificacionIT extends PruebaIntegracion {
                 .extracting(p -> p.getOrden().getServidor().getHostname())
                 .containsExactly("srv-propio");
 
-        // RF30: solo el administrador programa; el responsable recibe 403.
+        // RF30: solo el administrador programa, el responsable recibe 403
         mockMvc.perform(post("/api/ordenes").with(user(new UsuarioAutenticado(responsable)))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"idServidor\":%d}".formatted(propio)))

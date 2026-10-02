@@ -9,7 +9,6 @@ import java.util.Optional;
 
 public interface CierreOrdenRepositorio extends JpaRepository<CierreOrden, Integer> {
 
-    /** Ultimo cierre de las ordenes individuales de un servidor que aun no genero su ciclo siguiente. */
     @Query("""
             select c from CierreOrden c
             where c.orden.servidor.id = :idServidor and c.ordenSiguiente is null

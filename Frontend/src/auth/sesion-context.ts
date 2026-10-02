@@ -4,9 +4,9 @@ import type { UsuarioSesion } from '@/api/types'
 
 export interface SesionContextValue {
   usuario: UsuarioSesion | null
-  /** Verdadero mientras se valida el token guardado al abrir el panel. */
+  /** Verdadero mientras se valida el token guardado al abrir el panel */
   cargando: boolean
-  /** Verdadero si la última sesión terminó porque el backend la rechazó (RF02). */
+  /** Verdadero si la última sesión terminó porque el backend la rechazó (RF02) */
   expirada: boolean
   iniciarSesion: (codigo: string, contrasena: string) => Promise<void>
   cerrarSesion: () => void

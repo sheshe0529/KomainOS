@@ -1,23 +1,4 @@
--- =============================================================================
--- 03 - Datos de prueba de KomainOS (solo desarrollo y demostración)
---
--- Carga usuarios, catálogos, servidores con sus direcciones IP, recursos,
--- ventana permisiva y configuración, un grupo de mantenimiento, órdenes en distintos estados y un
--- servidor dado de baja. Se ejecuta sobre una base con 01_esquema.sql y
--- 02_datos_sistema.sql y sin datos de negocio.
---
--- NUNCA en una base con datos reales: todos los usuarios comparten la
--- contraseña de demostración  Cambiar.2026
---
--- Las fechas de las órdenes se calculan respecto del momento en que se ejecuta
--- (próximo sábado con al menos 3 días de anticipación, en hora de Lima), así
--- que siempre quedan en el futuro cercano.
---
---   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/03_datos_prueba.sql
---
--- Para volver a cargarlo: limpiar_datos_desarrollo.sql y luego este script.
--- Todo va en una transacción: si algo falla, no queda nada a medias.
--- =============================================================================
+-- 03 - Datos de prueba solo para desarrollo: NUNCA en una base con datos reales (ver README)
 BEGIN;
 SET LOCAL search_path TO "KomainOS";
 
@@ -31,10 +12,7 @@ BEGIN
     END IF;
 END $$;
 
--- ----------------------------------------------------------------- usuarios
--- Uno por rol, más un usuario inactivo. Hash BCrypt de «Cambiar.2026», el mismo
--- formato que genera el backend. Como ya existe un administrador, el backend
--- no crea el de KOMAINOS_ADMIN_CLAVE_INICIAL (DEC-21).
+-- Uno por rol más un inactivo. Como ya existe un administrador, el backend no crea el inicial (DEC-21)
 INSERT INTO usuario (codigo, nombre_completo, hash_contrasena, rol, activo) VALUES
     ('admin',     'Administrador del sistema', '$2a$10$Cwf9zKiXIwEyfO1ojeGMwutM/pMHzoYxXwwHND14H9./6gWgM8Kem', 'ADMINISTRADOR', true),
     ('m.herrera', 'M. Herrera',                '$2a$10$Cwf9zKiXIwEyfO1ojeGMwutM/pMHzoYxXwwHND14H9./6gWgM8Kem', 'RESPONSABLE',   true),
@@ -43,13 +21,12 @@ INSERT INTO usuario (codigo, nombre_completo, hash_contrasena, rol, activo) VALU
     ('operador',  'Operador de turno',         '$2a$10$Cwf9zKiXIwEyfO1ojeGMwutM/pMHzoYxXwwHND14H9./6gWgM8Kem', 'OPERADOR',      true),
     ('a.soto',    'A. Soto',                   '$2a$10$Cwf9zKiXIwEyfO1ojeGMwutM/pMHzoYxXwwHND14H9./6gWgM8Kem', 'OPERADOR',      false);
 
--- ---------------------------------------------------------------- catálogos
 INSERT INTO entorno (nombre, descripcion) VALUES
     ('Producción', 'Servicios productivos'),
     ('Staging',    'Preproducción'),
     ('QA',         'Pruebas');
 
--- Menor prioridad = más crítico (DEC-13).
+-- Menor prioridad = más crítico (DEC-13)
 INSERT INTO nivel_criticidad (nombre, prioridad, frecuencia_revision_dias, frecuencia_mantenimiento_dias,
                               plazo_autorizacion_horas, plazo_validacion_horas) VALUES
     ('Alta',  1,  7, 30, 24, 24),
@@ -61,7 +38,7 @@ INSERT INTO sistema_operativo (nombre, familia) VALUES
     ('RHEL',           'LINUX'),
     ('Windows Server', 'WINDOWS');
 
--- Ubuntu 20.04 queda inactiva: fin de soporte, solo la usa el servidor dado de baja.
+-- Ubuntu 20.04 queda inactiva: fin de soporte, solo la usa el servidor dado de baja
 INSERT INTO version_sistema_operativo (id_sistema_operativo, version, activo)
 SELECT so.id_sistema_operativo, d.version, d.activo
 FROM (VALUES ('Ubuntu', '20.04', false),
@@ -71,9 +48,7 @@ FROM (VALUES ('Ubuntu', '20.04', false),
              ('Windows Server', '2022', true)) AS d(sistema, version, activo)
 JOIN sistema_operativo so ON so.nombre = d.sistema;
 
--- --------------------------------------------------------------- servidores
--- ACTIVO si tiene configuración de mantenimiento (DEC-14); srv-batch-01 queda
--- pendiente de configuración y srv-legacy-01 dado de baja.
+-- ACTIVO si tiene configuración (DEC-14), srv-batch-01 queda pendiente de configuración y srv-legacy-01 dado de baja
 INSERT INTO servidor (id_version_sistema_operativo, id_entorno, id_nivel_criticidad, id_usuario_responsable,
                       hostname, vdc, servidor_fisico, vlan, cluster, dns, plataforma,
                       descripcion, estado, cantidad_cpu, ram_gb, hd_virtual_gb, fecha_alta, fecha_actualizacion)
@@ -99,8 +74,7 @@ JOIN entorno e ON e.nombre = d.entorno
 JOIN nivel_criticidad n ON n.nombre = d.criticidad
 JOIN usuario u ON u.codigo = d.responsable;
 
--- Direcciones IP (DEC-37): una principal por servidor; algunos tienen además
--- una red de respaldo o de replicación. Ninguna IP se repite entre servidores.
+-- Una principal por servidor y ninguna IP se repite entre servidores (DEC-37)
 INSERT INTO direccion_ip (id_servidor, direccion, principal)
 SELECT s.id_servidor, d.direccion, d.principal
 FROM (VALUES
@@ -121,8 +95,7 @@ FROM (VALUES
 ) AS d(hostname, direccion, principal)
 JOIN servidor s ON s.hostname = d.hostname;
 
--- Ventana permisiva (RF18), en hora de Lima (DEC-06). Un intervalo que cruza
--- la medianoche termina al día siguiente.
+-- En hora de Lima (DEC-06), un intervalo que cruza la medianoche termina al día siguiente
 INSERT INTO ventana_mantenimiento (id_servidor, dia_inicio, hora_inicio, dia_fin, hora_fin)
 SELECT s.id_servidor, d.dia_inicio::enum_dia_semana, d.hora_inicio::time, d.dia_fin::enum_dia_semana, d.hora_fin::time
 FROM (VALUES
@@ -139,9 +112,7 @@ FROM (VALUES
 ) AS d(hostname, dia_inicio, hora_inicio, dia_fin, hora_fin)
 JOIN servidor s ON s.hostname = d.hostname;
 
--- Configuración de mantenimiento (RF17): las frecuencias se copian del nivel de
--- criticidad. Se fecha de modo que el primer ciclo automático (DEC-09) venza en
--- dos días.
+-- Se fecha para que el primer ciclo automático (DEC-09) venza en dos días
 DO $$
 DECLARE
     r record;
@@ -166,8 +137,7 @@ BEGIN
     END LOOP;
 END $$;
 
--- ------------------------------------------------------------------- grupo
--- Mismo responsable, entorno y sistema operativo en todos sus integrantes (RF20).
+-- Mismo responsable, entorno y sistema operativo en todos sus integrantes (RF20)
 DO $$
 DECLARE
     v_grupo integer;
@@ -188,8 +158,7 @@ BEGIN
     VALUES (v_config, v_grupo, 'SECUENCIAL');
 END $$;
 
--- -------------------------------------------------------------------- baja
--- RF72: la baja conserva el historial y deja constancia del motivo y de quién la pidió.
+-- RF72: la baja conserva el historial con el motivo y quién la pidió
 INSERT INTO solicitud_baja (id_servidor, id_usuario_solicitante, estado, motivo, fecha_solicitud, fecha_aplicacion)
 SELECT s.id_servidor, u.id_usuario, 'APLICADA'::enum_estado_solicitud_baja,
        'Reemplazado por srv-app-02; Ubuntu 20.04 sin soporte del fabricante',
@@ -198,15 +167,11 @@ SELECT s.id_servidor, u.id_usuario, 'APLICADA'::enum_estado_solicitud_baja,
 FROM servidor s, usuario u
 WHERE s.hostname = 'srv-legacy-01' AND u.codigo = 'admin';
 
--- ----------------------------------------------------------------- órdenes
--- Hora de Lima a UTC, como se guardan todos los TIMESTAMP (DEC-06).
+-- Hora de Lima a UTC, como se guardan todos los TIMESTAMP (DEC-06)
 CREATE FUNCTION pg_temp.a_utc(p_hora_local timestamp) RETURNS timestamp LANGUAGE sql AS
 $$ SELECT (p_hora_local AT TIME ZONE 'America/Lima') AT TIME ZONE 'UTC' $$;
 
--- Crea una orden individual PROGRAMADA como lo hace el backend: código
--- OM-<año>-<id> (DEC-07), reserva de max_duracion_mop_minutos (DEC-08),
--- evaluación previa según el plazo de autorización de la criticidad, primera
--- versión de la programación e historial de estados.
+-- Crea una orden PROGRAMADA como lo hace el backend: código OM-<año>-<id> (DEC-07) y reserva de max_duracion_mop_minutos (DEC-08)
 CREATE FUNCTION pg_temp.crear_orden(p_hostname text, p_origen text, p_solicitante text,
                                     p_inicio_local timestamp, p_ventana_inicio_local timestamp,
                                     p_ventana_fin_local timestamp, p_motivo text) RETURNS integer
@@ -227,8 +192,7 @@ BEGIN
     FROM servidor s JOIN nivel_criticidad n ON n.id_nivel_criticidad = s.id_nivel_criticidad
     WHERE s.hostname = p_hostname;
 
-    -- Primer ciclo automático: creación de la configuración más la frecuencia (DEC-09);
-    -- una orden solicitada por el administrador apunta a la fecha elegida.
+    -- Primer ciclo automático: creación de la configuración más la frecuencia (DEC-09)
     SELECT cm.fecha_creacion + make_interval(days => cm.frecuencia_mantenimiento_dias)
     INTO v_objetivo
     FROM configuracion_servidor cs
@@ -261,13 +225,12 @@ DECLARE
     v_sabado timestamp := date_trunc('week', now() AT TIME ZONE 'America/Lima') + interval '5 days';
     v_id integer;
 BEGIN
-    -- Próximo sábado con al menos 3 días de anticipación: así la evaluación
-    -- previa (hasta 48 h antes del inicio) también queda en el futuro.
+    -- Próximo sábado con al menos 3 días de anticipación: la evaluación previa también queda en el futuro
     WHILE v_sabado < v_ahora_local + interval '3 days' LOOP
         v_sabado := v_sabado + interval '7 days';
     END LOOP;
 
-    -- Ciclos automáticos (RF27) dentro de la ventana de cada servidor.
+    -- Ciclos automáticos (RF27) dentro de la ventana de cada servidor
     PERFORM pg_temp.crear_orden('srv-app-01', 'PLANIFICACION_AUTOMATICA', NULL,
             v_sabado + interval '1 hour', v_sabado + interval '1 hour', v_sabado + interval '5 hours',
             'Ciclo automático generado por el Sistema');
@@ -278,12 +241,12 @@ BEGIN
             v_sabado + interval '22 hours', v_sabado + interval '22 hours', v_sabado + interval '28 hours',
             'Ciclo automático generado por el Sistema');
 
-    -- Servidor bajo demanda: la programa el administrador (RF30).
+    -- Servidor bajo demanda: la programa el administrador (RF30)
     PERFORM pg_temp.crear_orden('srv-cache-01', 'SOLICITUD_BAJO_DEMANDA', 'admin',
             v_sabado + interval '25 hours', v_sabado + interval '25 hours', v_sabado + interval '29 hours',
             'Actualización de parches de seguridad solicitada por el responsable');
 
-    -- Ciclo cancelado por el administrador (DEC-19): deja de ocupar el servidor.
+    -- Ciclo cancelado por el administrador (DEC-19): deja de ocupar el servidor
     v_id := pg_temp.crear_orden('srv-app-02', 'PLANIFICACION_AUTOMATICA', NULL,
             v_sabado + interval '1 hour', v_sabado + interval '1 hour', v_sabado + interval '5 hours',
             'Ciclo automático generado por el Sistema');

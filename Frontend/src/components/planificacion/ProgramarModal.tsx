@@ -21,17 +21,12 @@ type Modo = 'primer-intervalo' | 'fecha'
 interface ProgramarModalProps {
   abierto: boolean
   objetivo: ObjetivoProgramacion
-  /** Si se indica, reprograma esa orden en vez de crear una nueva (RF30). */
+  /** Si se indica, reprograma esa orden en vez de crear una nueva (RF30) */
   idOrden?: number
   onCerrar: () => void
   onGuardado: (orden: OrdenDetalleRespuesta) => void
 }
 
-/**
- * Programación y reprogramación de una orden (RF30, HU18). El backend verifica
- * la ventana permisiva, la capacidad y los conflictos; la fecha programada la
- * decide el algoritmo voraz cuando se elige el primer intervalo disponible.
- */
 export function ProgramarModal({ abierto, objetivo, idOrden, onCerrar, onGuardado }: ProgramarModalProps) {
   const reprogramando = idOrden !== undefined
   const [modo, setModo] = useState<Modo>('primer-intervalo')
@@ -48,8 +43,7 @@ export function ProgramarModal({ abierto, objetivo, idOrden, onCerrar, onGuardad
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
 
-  // Al programar una orden nueva se muestra de antemano el intervalo que
-  // tomaría el algoritmo; al reprogramar lo calcula el backend al confirmar.
+  // Al programar se muestra de antemano el intervalo del algoritmo, al reprogramar lo calcula el backend al confirmar
   useEffect(() => {
     if (reprogramando || modo !== 'primer-intervalo') return
     let vigente = true

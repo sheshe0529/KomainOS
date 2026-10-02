@@ -1,7 +1,4 @@
-# Perfil de las pruebas de integracion (*IT). Usa la base dbkomainos_test con
-# un esquema "KomainOS" propio que se borra y se vuelve a crear en cada corrida
-# con scripts/bd/01 y 02 (PruebaIntegracion, DEC-22, DEC-34). Nunca debe
-# apuntar a DBKomainOS.
+# Pruebas de integración: dbkomainos_test con un esquema que se recrea en cada corrida, nunca DBKomainOS
 spring:
   config:
     import: optional:file:.env[.properties]
@@ -17,6 +14,8 @@ komainos:
       expiracion-minutos: 15
     administrador-inicial:
       clave: ""
+  credenciales:
+    llave-maestra: bGxhdmUtZGUtcHJ1ZWJhcy1zb2xvLXBhcmEtZWwtaXQ=
   planificacion:
     proceso-automatico:
       habilitado: false

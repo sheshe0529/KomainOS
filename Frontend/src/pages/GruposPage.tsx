@@ -27,7 +27,7 @@ interface ColumnaGrupo extends DefinicionColumna {
   celda: (g: GrupoResumenRespuesta, ctx: Contexto) => ReactNode
 }
 
-/** Columnas de la lista de grupos (RF20, DEC-32); el nombre y las acciones siempre se muestran. */
+/** El nombre y las acciones siempre se muestran (DEC-32) */
 const COLUMNAS: ColumnaGrupo[] = [
   {
     id: 'grupo',
@@ -38,7 +38,7 @@ const COLUMNAS: ColumnaGrupo[] = [
         <Link to={`/grupos/${g.id}`} className="font-medium text-ink hover:text-accent">
           {g.nombre}
         </Link>
-        {/* Si la descripción no tiene columna propia, se resume bajo el nombre. */}
+        {/* Si la descripción no tiene columna propia, se resume bajo el nombre */}
         {!ve('descripcion') && g.descripcion && <p className="line-clamp-1 text-xs text-ink-faint">{g.descripcion}</p>}
       </>
     ),
@@ -91,7 +91,6 @@ const COLUMNAS: ColumnaGrupo[] = [
 
 const DEFINICIONES: DefinicionColumna[] = [...COLUMNAS, { id: 'acciones', etiqueta: 'Acciones', fija: true }]
 
-/** Grupos de mantenimiento (RF20, HU15). */
 export function GruposPage() {
   const tonoCriticidad = useTonoCriticidad()
   const { tieneRol } = useSesion()

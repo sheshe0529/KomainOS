@@ -26,7 +26,6 @@ export interface FiltroServidores {
   orden?: string
 }
 
-/** Inventario de servidores (RF09-RF14, RF17-RF19, RF72, RF73). */
 export const servidoresApi = {
   listar: (f: FiltroServidores = {}) =>
     http.get<Pagina<ServidorResumenRespuesta>>(
@@ -53,7 +52,6 @@ export const servidoresApi = {
   reactivar: (id: number) => http.post<FichaServidorRespuesta>(`/servidores/${id}/reactivacion`),
 }
 
-/** Grupos de mantenimiento (RF20, RF21, RF76). */
 export const gruposApi = {
   listar: () => http.get<GrupoResumenRespuesta[]>('/grupos'),
   ficha: (id: number) => http.get<FichaGrupoRespuesta>(`/grupos/${id}`),

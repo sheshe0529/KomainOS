@@ -11,7 +11,6 @@ import type {
   VersionSistemaOperativoPeticion,
 } from './types'
 
-/** Catálogos del inventario (RF15, RF74) y parámetros de ejecución (RF68). */
 export const catalogosApi = {
   entornos: () => http.get<EntornoRespuesta[]>('/entornos'),
   crearEntorno: (datos: EntornoPeticion) => http.post<EntornoRespuesta>('/entornos', datos),

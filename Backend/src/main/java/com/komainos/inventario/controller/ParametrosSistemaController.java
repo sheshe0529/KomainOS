@@ -2,6 +2,7 @@ package com.komainos.inventario.controller;
 
 import com.komainos.inventario.dto.ParametrosSistemaPeticion;
 import com.komainos.inventario.dto.ParametrosSistemaRespuesta;
+import com.komainos.inventario.service.ServicioAsignacionCuentas;
 import com.komainos.inventario.service.ServicioParametrosSistema;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.UsuarioAutenticado;
@@ -17,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Parametros de ejecucion (RF68). */
 @RestController
 @RequestMapping("/api/parametros-sistema")
 @RequiredArgsConstructor
@@ -25,12 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class ParametrosSistemaController {
 
     private final ServicioParametrosSistema servicio;
+    private final ServicioAsignacionCuentas cuentasServicio;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'OPERADOR')")
     @Operation(summary = "Consulta los parámetros de ejecución")
     public ParametrosSistemaRespuesta obtener() {
-        return ParametrosSistemaRespuesta.de(servicio.obtener());
+        return ParametrosSistemaRespuesta.de(servicio.obtener(), cuentasServicio.predeterminada());
     }
 
     @PutMapping
@@ -39,6 +40,6 @@ public class ParametrosSistemaController {
     public ParametrosSistemaRespuesta actualizar(@Valid @RequestBody ParametrosSistemaPeticion peticion,
                                                  @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         return ParametrosSistemaRespuesta.de(servicio.actualizar(peticion.aDatos(),
-                AlcanceUsuario.de(solicitante).actor()));
+                AlcanceUsuario.de(solicitante).actor()), cuentasServicio.predeterminada());
     }
 }

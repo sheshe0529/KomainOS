@@ -27,7 +27,7 @@ class FechaObjetivoTest {
     @Test
     @DisplayName("conserva las fracciones de día en vez de redondear el factor")
     void conservaFracciones() {
-        // 45 días × 0,75 = 33,75 días = 33 días y 18 horas.
+        // 45 días × 0,75 = 33,75 días = 33 días y 18 horas
         assertThat(FechaObjetivo.calcular(CIERRE, 45, new BigDecimal("0.75")))
                 .isEqualTo(CIERRE.plus(Duration.ofDays(33)).plus(Duration.ofHours(18)));
     }

@@ -7,12 +7,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * Adaptador entre {@link Usuario} y Spring Security.
- *
- * <p>Separado para que la entidad de dominio no implemente {@code UserDetails}
- * ni arrastre la semantica del framework de seguridad.
- */
+/** Separado para que la entidad no implemente UserDetails */
 public record UsuarioAutenticado(Usuario usuario) implements UserDetails {
 
     @Override
@@ -30,7 +25,7 @@ public record UsuarioAutenticado(Usuario usuario) implements UserDetails {
         return usuario.getCodigo();
     }
 
-    /** RNF01: una cuenta inactiva no puede abrir sesion. */
+    /** RNF01: una cuenta inactiva no puede abrir sesión */
     @Override
     public boolean isEnabled() {
         return usuario.isActivo();

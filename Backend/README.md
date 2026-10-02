@@ -19,8 +19,11 @@ tablas (DEC-34). La base se prepara una vez con los scripts de `scripts/bd/`.
    psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/03_datos_prueba.sql   # opcional
    ```
 3. Copiar `.env.example` a `.env` y completar la clave de la base, el secreto JWT
-   (`openssl rand -base64 32`) y la contraseña del administrador inicial. El archivo
-   `.env` está ignorado por git: ningún secreto se versiona (RNF03).
+   (`openssl rand -base64 32`), la llave maestra de las credenciales
+   (`KOMAINOS_CREDENCIALES_LLAVE`, también con `openssl rand -base64 32`) y la
+   contraseña del administrador inicial. El archivo `.env` está ignorado por git:
+   ningún secreto se versiona (RNF03). Si la llave maestra se pierde o cambia, las
+   credenciales ya registradas no se pueden descifrar (DEC-38).
 4. Arrancar:
    ```bash
    mvn spring-boot:run -Dspring-boot.run.profiles=dev
@@ -63,6 +66,13 @@ con `01_esquema.sql` y `02_datos_sistema.sql` y levantan el contexto completo:
 que arranquen ya prueba que los scripts crean una base válida y que las
 entidades coinciden con las tablas.
 
+`ContratoApiIT` deja además el contrato OpenAPI en `target/openapi.json`. Con él
+se regeneran los tipos del panel sin levantar el backend:
+
+```bash
+python <skill komainos-backend>/scripts/generar_tipos_ts.py --origen target/openapi.json --destino ../Frontend/src/api
+```
+
 ## Estructura
 
 Primero por **componente** de la vista de componentes de R2.2, y dentro de cada
@@ -73,6 +83,7 @@ com.komainos
 ├── seguridad/      autenticación JWT, usuarios, roles y alcance por usuario (RF01–RF03)
 ├── auditoria/      bitácora de operaciones (RNF06)
 ├── inventario/     catálogos, servidores, grupos, ventanas, importación y exportación (RF09–RF21, RF70–RF76)
+├── credencial/     credenciales documentales, cuentas de servicio, cifrado y revelado (RF04–RF08)
 ├── mantenimiento/  órdenes de mantenimiento, su detalle, historial y máquina de estados
 ├── planificacion/  algoritmo voraz, cronograma y proceso automático (RF27–RF38, RF46, RF51, RF64)
 │   ├── controller/     endpoints REST (@RestController): validan el borde y delegan

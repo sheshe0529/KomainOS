@@ -13,23 +13,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-/**
- * Algoritmo voraz que determina la fecha programada de una orden (RF28).
- *
- * <p>Implementa la especificacion de
- * {@code Documentos/Decisiones/Algoritmo_planificacion_voraz.md}: recorre las
- * ventanas permisivas concretas desde el inicio mas temprano y devuelve el
- * <b>primer</b> inicio que respeta la ventana, la exclusion por servidor
- * (RF46, RF51) y la capacidad (RF68). Los unicos inicios que hace falta probar
- * son el comienzo de cada ventana y los instantes en que un tramo propio
- * empezaria justo cuando termina una reserva existente (seccion 5.4).
- *
- * <p>Es una clase pura, sin Spring ni JPA: recibe todo lo que necesita y no
- * consulta la base, lo que permite probar cada regla con datos literales.
- */
+/** Algoritmo voraz (RF28): devuelve el primer inicio que respeta ventana, exclusión por servidor y capacidad */
 public final class PlanificadorVoraz {
 
-    /** Modo automatico y reprogramacion sin fecha (especificacion, seccion 8). */
+    /** Busca el primer intervalo: modo automático y reprogramación sin fecha */
     public ResultadoPlanificacion planificar(SolicitudPlanificacion s, List<Reserva> reservas) {
         Forma forma = Forma.de(s);
         Duration total = forma.total();
@@ -72,10 +59,7 @@ public final class PlanificadorVoraz {
                 + "la ventana permisiva, la capacidad y las órdenes ya programadas").formatted(s.horizonte().toDays()));
     }
 
-    /**
-     * Programacion manual con fecha y hora (RF30): no busca, verifica que el
-     * inicio solicitado cumpla ventana, conflictos y capacidad (DEC-23).
-     */
+    /** Programación manual con fecha (RF30): no busca, solo verifica ventana, conflictos y capacidad (DEC-23) */
     public ResultadoPlanificacion verificar(SolicitudPlanificacion s, Instant inicio, List<Reserva> reservas) {
         Instant t = inicio.truncatedTo(ChronoUnit.SECONDS);
         if (!t.isAfter(s.ahora())) {
@@ -108,9 +92,6 @@ public final class PlanificadorVoraz {
         return resultado(s, forma, t, ventana, evaluacion);
     }
 
-    // ------------------------------------------------------------------ reglas
-
-    /** Seccion 5.2: codigos de las ordenes que ocupan un servidor propio en ese horario. */
     private static Set<String> conflictos(Forma forma, Instant t, List<Reserva> reservas) {
         Set<String> codigos = new LinkedHashSet<>();
         for (TramoRelativo tramo : forma.tramos()) {
@@ -124,10 +105,7 @@ public final class PlanificadorVoraz {
         return codigos;
     }
 
-    /**
-     * Seccion 5.3: en ningun instante se superan C servidores en ejecucion.
-     * Basta revisar los instantes en que algo empieza dentro de la orden.
-     */
+    /** Nunca más de C servidores en ejecución: basta revisar los instantes en que algo empieza dentro de la orden */
     private static boolean respetaCapacidad(Forma forma, Instant t, List<Reserva> reservas, int capacidad) {
         Intervalo orden = new Intervalo(t, t.plus(forma.total()));
         List<Intervalo> propios = forma.tramos().stream().map(tr -> tr.en(t, forma.duracionPorServidor())).toList();
@@ -180,9 +158,7 @@ public final class PlanificadorVoraz {
         return a.isAfter(b) ? a : b;
     }
 
-    // --------------------------------------------------- forma de la reserva
-
-    /** Tramo de un servidor expresado como desplazamiento desde el inicio de la orden. */
+    /** Tramo de un servidor como desplazamiento desde el inicio de la orden */
     record TramoRelativo(Integer idServidor, int posicion, Duration desplazamiento) {
         Intervalo en(Instant inicioOrden, Duration duracion) {
             Instant inicio = inicioOrden.plus(desplazamiento);
@@ -190,11 +166,7 @@ public final class PlanificadorVoraz {
         }
     }
 
-    /**
-     * Seccion 4: individual, un tramo; SECUENCIAL, uno detras de otro;
-     * PARALELO, un tramo piloto y luego oleadas de a lo sumo C servidores
-     * (RF58, DEC-11).
-     */
+    /** Individual un tramo, SECUENCIAL uno tras otro, PARALELO un piloto y luego oleadas de hasta C servidores (RF58, DEC-11) */
     record Forma(List<TramoRelativo> tramos, Duration duracionPorServidor, Duration total) {
 
         static Forma de(SolicitudPlanificacion s) {

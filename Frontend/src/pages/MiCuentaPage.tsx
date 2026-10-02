@@ -13,7 +13,7 @@ import { useConsulta } from '@/hooks/useConsulta'
 import { ETIQUETA_ROL } from '@/utils/etiquetas'
 import { formatearFechaHora } from '@/utils/formato'
 
-/** Alcance de cada clase de usuario (R2.1, tabla 3). */
+/** Alcance de cada clase de usuario (R2.1, tabla 3) */
 const ALCANCE_ROL: Record<Rol, string> = {
   ADMINISTRADOR:
     'Gestiona usuarios, inventario, catálogos, políticas, cronograma, incidencias y parámetros globales, e interviene en las autorizaciones que correspondan según la política configurada.',
@@ -23,7 +23,6 @@ const ALCANCE_ROL: Record<Rol, string> = {
     'Autoriza y valida las órdenes de mantenimiento de sus servidores y gestiona sus ventanas permisivas. Solo ve la información de los servidores a su cargo.',
 }
 
-/** Detalle de la cuenta del usuario autenticado. */
 export function MiCuentaPage() {
   const { cerrarSesion } = useSesion()
   const navigate = useNavigate()

@@ -3,16 +3,7 @@ package com.komainos.shared.dto;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-/**
- * Forma unica de todo error que sale del backend.
- *
- * <p>Que sea una sola forma le permite al cliente de API del panel manejar los
- * errores en un solo lugar en vez de interpretar un cuerpo distinto por
- * endpoint. Los mensajes van en espanol porque se muestran al usuario (RNF05).
- *
- * @param codigo identificador estable del tipo de error; el frontend puede
- *               ramificar sobre el sin depender del texto del mensaje.
- */
+/** codigo es estable: el panel ramifica sobre él sin depender del texto del mensaje */
 public record ErrorRespuesta(
         OffsetDateTime marcaTiempo,
         int estado,

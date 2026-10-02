@@ -2,17 +2,7 @@ package com.komainos.inventario.event;
 
 import com.komainos.shared.model.Actor;
 
-/**
- * Evento de dominio: cambio la ventana permisiva de un servidor (RF18, RF19).
- *
- * <p>Cambiar los integrantes de un grupo no lo publica: las ordenes grupales
- * ya generadas conservan sus integrantes (RF20), asi que su ventana efectiva
- * no cambia por eso.
- *
- * <p>La planificacion lo escucha para aplicar el cambio a los proximos
- * mantenimientos (HU14 CA3, DEC-18). Se publica como evento para que el
- * inventario no dependa de la planificacion.
- */
+/** La planificación lo escucha para reprogramar las órdenes afectadas (DEC-18), así el inventario no depende de ella */
 public record VentanasServidorActualizadas(Integer idServidor, Actor actor) {
 
     public static VentanasServidorActualizadas deServidor(Integer idServidor, Actor actor) {

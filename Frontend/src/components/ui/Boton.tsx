@@ -41,7 +41,7 @@ interface BotonIconoProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   etiqueta: string
 }
 
-/** Botón solo con ícono; la etiqueta queda como texto accesible y tooltip. */
+/** La etiqueta queda como texto accesible y tooltip */
 export function BotonIcono({ icono: Icono, etiqueta, className = '', ...resto }: BotonIconoProps) {
   return (
     <button

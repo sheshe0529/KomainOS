@@ -31,11 +31,7 @@ function aFila(v: VentanaRespuesta): VentanaPeticion {
   }
 }
 
-/**
- * Edición de la ventana permisiva (RF18, RF19, HU14). Admite intervalos que
- * cruzan la medianoche eligiendo el día siguiente como día de fin; los
- * intervalos contiguos entre días se tratan como uno continuo.
- */
+/** Un intervalo que cruza la medianoche se define eligiendo el día siguiente como día de fin */
 export function VentanasModal({ abierto, hostname, actuales, onCerrar, onGuardar }: VentanasModalProps) {
   const [filas, setFilas] = useState<VentanaPeticion[]>(() => actuales.map(aFila))
   const [guardando, setGuardando] = useState(false)

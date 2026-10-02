@@ -15,7 +15,6 @@ interface SeleccionObjetivoModalProps {
   onElegir: (objetivo: ObjetivoProgramacion) => void
 }
 
-/** Paso previo a programar desde el cronograma: elegir un servidor o un grupo activo. */
 export function SeleccionObjetivoModal({ abierto, onCerrar, onElegir }: SeleccionObjetivoModalProps) {
   const [tipo, setTipo] = useState<'servidor' | 'grupo'>('servidor')
   const [id, setId] = useState('')

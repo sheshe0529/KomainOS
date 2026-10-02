@@ -15,21 +15,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * Ventana permisiva efectiva expresada como tramos de una semana tipo, en
- * minutos desde el lunes 00:00 de la zona horaria operativa (DEC-06).
- *
- * <p>Resuelve tres reglas de la especificacion:
- * <ul>
- *   <li>Intervalos que cruzan la medianoche, incluso de domingo a lunes (RF18, RF19).</li>
- *   <li>Intervalos contiguos entre dias se tratan como uno continuo (HU14 CA5): los
- *       tramos se fusionan cuando uno termina donde empieza el siguiente.</li>
- *   <li>La ventana de un grupo es la interseccion de la de sus integrantes (RF21).</li>
- * </ul>
- *
- * <p>Es inmutable y no depende de JPA ni de Spring: la planificacion la usa
- * para proyectar la ventana sobre fechas concretas (RF28).
- */
+/** Ventana semanal inmutable, en minutos desde el lunes 00:00 de la zona operativa (DEC-06) */
 public final class CalendarioSemanal {
 
     public static final int MINUTOS_DIA = 24 * 60;
@@ -53,7 +39,6 @@ public final class CalendarioSemanal {
         return new CalendarioSemanal(fusionar(tramos));
     }
 
-    /** Construccion directa, util en pruebas y para ventanas aun no persistidas. */
     public static CalendarioSemanal deIntervalos(List<IntervaloSemanal> intervalos) {
         List<Tramo> tramos = new ArrayList<>();
         for (IntervaloSemanal i : intervalos) {
@@ -70,7 +55,6 @@ public final class CalendarioSemanal {
         return tramos;
     }
 
-    /** RF21: interseccion con otra ventana (minutos presentes en ambas). */
     public CalendarioSemanal interseccion(CalendarioSemanal otro) {
         List<Tramo> resultado = new ArrayList<>();
         int i = 0;
@@ -103,10 +87,7 @@ public final class CalendarioSemanal {
         return acumulado;
     }
 
-    /**
-     * Tramo continuo mas largo, considerando que el domingo empalma con el
-     * lunes. Si la ventana cubre toda la semana no tiene fin.
-     */
+    /** El domingo empalma con el lunes: una ventana que cubre toda la semana no tiene fin */
     public Duration tramoContinuoMasLargo() {
         if (tramos.isEmpty()) {
             return Duration.ZERO;
@@ -127,19 +108,12 @@ public final class CalendarioSemanal {
         return tramos.size() == 1 && tramos.getFirst().inicio() == 0 && tramos.getFirst().fin() == MINUTOS_SEMANA;
     }
 
-    /**
-     * Proyecta la ventana sobre la linea de tiempo real y devuelve los
-     * intervalos concretos que se solapan con [desde, hasta), ya fusionados
-     * cuando son contiguos (incluido el paso de domingo a lunes). Los
-     * intervalos no se recortan: la planificacion necesita sus limites reales
-     * para registrar la ventana aplicada.
-     */
+    /** Los intervalos no se recortan: la planificación necesita sus límites reales */
     public List<Intervalo> proyectar(Instant desde, Instant hasta, ZoneId zona) {
         if (tramos.isEmpty() || !hasta.isAfter(desde)) {
             return List.of();
         }
-        // Se empieza una semana antes para capturar un tramo que venga cruzando
-        // desde la semana anterior, y se termina una despues por simetria.
+        // Empieza una semana antes para capturar un tramo que venga cruzando desde la semana anterior
         LocalDate lunes = LocalDate.ofInstant(desde, zona)
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 .minusWeeks(1);
@@ -173,12 +147,7 @@ public final class CalendarioSemanal {
                 .toList();
     }
 
-    /**
-     * Vuelve a expresar la ventana como intervalos dia/hora para mostrarla
-     * (por ejemplo, la ventana calculada de un grupo, HU15 CA4). Un tramo que
-     * termina el domingo a medianoche y otro que empieza el lunes 00:00 se
-     * presentan como uno solo que cruza la semana.
-     */
+    /** Un tramo que termina el domingo a medianoche y otro que empieza el lunes 00:00 se muestran como uno solo */
     public List<IntervaloSemanal> aIntervalos() {
         if (tramos.isEmpty()) {
             return List.of();
@@ -197,8 +166,6 @@ public final class CalendarioSemanal {
                 .toList();
     }
 
-    // ------------------------------------------------------------- internos
-
     private static void agregar(List<Tramo> tramos, DiaSemana diaInicio, LocalTime horaInicio,
                                 DiaSemana diaFin, LocalTime horaFin) {
         int inicio = diaInicio.ordinal() * MINUTOS_DIA + horaInicio.toSecondOfDay() / 60;
@@ -211,7 +178,7 @@ public final class CalendarioSemanal {
         if (fin <= MINUTOS_SEMANA) {
             tramos.add(new Tramo(inicio, fin));
         } else {
-            // Cruza de domingo a lunes: se parte en dos tramos de la semana tipo.
+            // Cruza de domingo a lunes: se parte en dos tramos
             tramos.add(new Tramo(inicio, MINUTOS_SEMANA));
             tramos.add(new Tramo(0, fin - MINUTOS_SEMANA));
         }
@@ -237,20 +204,19 @@ public final class CalendarioSemanal {
         int fin = t.fin() % MINUTOS_SEMANA;
         DiaSemana diaInicio = DiaSemana.values()[inicio / MINUTOS_DIA];
         LocalTime horaInicio = LocalTime.ofSecondOfDay((inicio % MINUTOS_DIA) * 60L);
-        // Un fin exacto a medianoche se presenta como 00:00 del dia siguiente.
+        // Un fin exacto a medianoche se muestra como 00:00 del día siguiente
         DiaSemana diaFin = DiaSemana.values()[(fin / MINUTOS_DIA) % 7];
         LocalTime horaFin = LocalTime.ofSecondOfDay((fin % MINUTOS_DIA) * 60L);
         return new IntervaloSemanal(diaInicio, horaInicio, diaFin, horaFin);
     }
 
-    /** Tramo [inicio, fin) en minutos desde el lunes 00:00. */
+    /** Tramo [inicio, fin) en minutos desde el lunes 00:00 */
     record Tramo(int inicio, int fin) {
         int longitud() {
             return fin - inicio;
         }
     }
 
-    /** Intervalo semanal expresado como en {@code ventana_mantenimiento}. */
     public record IntervaloSemanal(DiaSemana diaInicio, LocalTime horaInicio, DiaSemana diaFin, LocalTime horaFin) {
     }
 }

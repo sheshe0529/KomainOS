@@ -2,7 +2,6 @@ import { consulta, http } from './cliente'
 import type { Pagina, Rol } from './dominio'
 import type { ActualizarUsuarioPeticion, CrearUsuarioPeticion, UsuarioRespuesta } from './types'
 
-/** Usuarios y roles (RF03). */
 export const usuariosApi = {
   listar: (filtro: { texto?: string; rol?: Rol; activo?: boolean; tamano?: number } = {}) =>
     http.get<Pagina<UsuarioRespuesta>>(

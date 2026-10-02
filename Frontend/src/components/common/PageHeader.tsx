@@ -6,7 +6,6 @@ interface PageHeaderProps {
   actions?: ReactNode
 }
 
-/** Encabezado de página consistente: título + descripción opcional + acciones a la derecha. */
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">

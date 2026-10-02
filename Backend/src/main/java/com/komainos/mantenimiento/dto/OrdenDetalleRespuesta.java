@@ -8,16 +8,12 @@ import com.komainos.shared.dto.ReferenciaSimple;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Detalle de una orden (RF33): informacion general y, por cada servidor, su
- * estado, posicion de ejecucion y fechas previstas y reales; ademas el
- * historial de programaciones (RF30) y de estados.
- */
 public record OrdenDetalleRespuesta(
         OrdenResumenRespuesta resumen,
         ReferenciaSimple solicitante,
         ModoEjecucion modoEjecucionAplicado,
-        boolean usaCuentaPredeterminada,
+        /** Cuenta resuelta al generar la orden, nula si no había ninguna asignada ni predeterminada */
+        ReferenciaSimple cuentaServicio,
         Instant inicioVentanaAplicada,
         Instant finVentanaAplicada,
         List<Detalle> detalles,
@@ -34,7 +30,7 @@ public record OrdenDetalleRespuesta(
                                ReferenciaSimple registradoPor, Instant fechaRegistro) {
     }
 
-    /** {@code usuario} nulo significa que la transicion la hizo el Sistema. */
+    /** usuario nulo: la transición la hizo el Sistema */
     public record CambioEstado(EstadoOrden estadoAnterior, EstadoOrden estadoNuevo, String motivo,
                                ReferenciaSimple usuario, Instant fechaHora) {
     }

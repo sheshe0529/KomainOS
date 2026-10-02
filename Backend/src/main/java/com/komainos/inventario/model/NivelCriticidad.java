@@ -12,17 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Nivel de criticidad con frecuencias recomendadas y plazos (RF15), tabla
- * {@code nivel_criticidad}.
- *
- * <p>Las frecuencias se copian a la configuracion de mantenimiento al crearla;
- * editarlas aqui no reescribe configuraciones existentes (HU11 CA2).
- *
- * <p>{@code prioridad} es unica y ordena los niveles: <b>menor valor = mayor
- * criticidad</b> (DEC-13). Se usa para la criticidad de un grupo (RF76) y para
- * decidir que orden toma primero un intervalo en la planificacion (RF28).
- */
+/** prioridad es única: menor valor = mayor criticidad (DEC-13) */
 @Entity
 @Table(name = "nivel_criticidad")
 @Getter
@@ -47,11 +37,10 @@ public class NivelCriticidad {
     @Column(name = "frecuencia_mantenimiento_dias", nullable = false)
     private Integer frecuenciaMantenimientoDias;
 
-    /** Anticipacion de la evaluacion previa y plazo de autorizacion (RF38, RF75). */
+    /** Anticipación de la evaluación previa y plazo de autorización (RF38, RF75) */
     @Column(name = "plazo_autorizacion_horas", nullable = false)
     private Integer plazoAutorizacionHoras;
 
-    /** Plazo de la validacion funcional del responsable (RF56). */
     @Column(name = "plazo_validacion_horas", nullable = false)
     private Integer plazoValidacionHoras;
 
@@ -74,7 +63,6 @@ public class NivelCriticidad {
         plazoValidacionHoras = datos.plazoValidacionHoras();
     }
 
-    /** Verdadero si este nivel es mas critico que el otro (DEC-13). */
     public boolean esMasCriticoQue(NivelCriticidad otro) {
         return otro == null || prioridad < otro.prioridad;
     }

@@ -12,7 +12,6 @@ import com.komainos.inventario.service.intercambio.ResultadoImportacion.Resultad
 import com.komainos.inventario.service.intercambio.ResultadoImportacion;
 import com.komainos.shared.dto.ReferenciaSimple;
 
-/** Traduce la importación y exportación del inventario a DTO (RF12, RF13). */
 public final class IntercambioMapeador {
 
     private IntercambioMapeador() {

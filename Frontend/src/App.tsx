@@ -12,6 +12,7 @@ import { FichaGrupoPage } from '@/pages/FichaGrupoPage'
 import { CatalogosPage } from '@/pages/CatalogosPage'
 import { ParametrosPage } from '@/pages/ParametrosPage'
 import { UsuariosPage } from '@/pages/UsuariosPage'
+import { CuentasServicioPage } from '@/pages/CuentasServicioPage'
 import { PreferenciasPage } from '@/pages/PreferenciasPage'
 import { NoEncontradoPage } from '@/pages/NoEncontradoPage'
 import { CronogramaPage } from '@/pages/CronogramaPage'
@@ -20,7 +21,6 @@ import { OrdenesPage } from '@/pages/OrdenesPage'
 import { OrdenDetallePage } from '@/pages/OrdenDetallePage'
 import { MiCuentaPage } from '@/pages/MiCuentaPage'
 
-/** Disposición común de las vistas autenticadas: sidebar, topbar y contenido centrado. */
 function DisposicionAutenticada() {
   return (
     <RutaProtegida>
@@ -31,11 +31,7 @@ function DisposicionAutenticada() {
   )
 }
 
-/**
- * El árbol de rutas refleja src/config/navigation.ts: cada `path` del menú
- * tiene aquí su <Route>. Las restricciones de rol repiten las del menú para
- * que un acceso directo por URL tampoco exponga la vista.
- */
+/** Cada path de navigation.ts tiene aquí su Route, con las mismas restricciones de rol para el acceso directo por URL */
 function App() {
   return (
     <ThemeProvider>
@@ -65,6 +61,14 @@ function App() {
                 element={
                   <RutaProtegida roles={['ADMINISTRADOR']}>
                     <UsuariosPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/configuracion/cuentas-servicio"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR']}>
+                    <CuentasServicioPage />
                   </RutaProtegida>
                 }
               />

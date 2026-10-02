@@ -11,14 +11,13 @@ export const FORMATOS: { valor: FormatoArchivo; etiqueta: string; descripcion: s
   { valor: 'YAML', etiqueta: 'YAML', descripcion: 'Lista legible para configuración' },
 ]
 
-/** Tamaño máximo aceptado por el backend (spring.servlet.multipart.max-file-size). */
+/** Tamaño máximo aceptado por el backend (spring.servlet.multipart.max-file-size) */
 export const TAMANO_MAXIMO_BYTES = 5 * 1024 * 1024
 
-/** Importación (RF12, HU08) y exportación (RF13, HU09) del inventario. */
 export const intercambioApi = {
   columnas: () => http.get<ColumnaInventarioRespuesta[]>('/servidores/exportacion/columnas'),
 
-  /** Exporta con los mismos filtros del listado; devuelve el nombre del archivo descargado. */
+  /** Exporta con los mismos filtros del listado y devuelve el nombre del archivo descargado */
   exportar: (formato: FormatoArchivo, columnas: string[], f: FiltroServidores & { texto?: string }) =>
     descargar(
       `/servidores/exportacion${consulta({
@@ -43,7 +42,7 @@ export const intercambioApi = {
     return http.enviarArchivo<AnalisisImportacionRespuesta>('/servidores/importacion/analisis', formulario)
   },
 
-  /** Envía de nuevo el archivo con las filas duplicadas cuya sobrescritura se confirmó (HU08 CA4). */
+  /** Envía de nuevo el archivo con los duplicados cuya sobrescritura se confirmó (HU08 CA4) */
   importar: (archivo: File, sobrescribir: number[]) => {
     const formulario = new FormData()
     formulario.append('archivo', archivo)

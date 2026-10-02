@@ -54,8 +54,7 @@ public class ConfiguracionSeguridad {
     public SecurityFilterChain cadenaFiltros(HttpSecurity http,
                                              FiltroAutenticacionJwt filtroJwt) throws Exception {
         return http
-                // Sin CSRF porque no hay sesion ni cookie de autenticacion: el
-                // token viaja en la cabecera Authorization.
+                // Sin CSRF: no hay sesión ni cookie, el token viaja en la cabecera Authorization
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(fuenteCors()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -63,11 +62,9 @@ public class ConfiguracionSeguridad {
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        // Todo lo demas cerrado por defecto; el permiso fino se
-                        // declara con @PreAuthorize en cada controlador.
+                        // El permiso fino se declara con @PreAuthorize en cada controlador
                         .anyRequest().authenticated())
-                // Sin token o con token vencido: 401 con la forma comun de
-                // error, para que el panel vuelva al inicio de sesion (RF02).
+                // Sin token o con token vencido responde 401 para que el panel vuelva al inicio de sesión (RF02)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, e) -> escribirError(req, res, HttpStatus.UNAUTHORIZED,
                                 "NO_AUTENTICADO", "Sesión no iniciada o expirada. Inicie sesión nuevamente"))
@@ -118,8 +115,7 @@ public class ConfiguracionSeguridad {
         DaoAuthenticationProvider proveedor = new DaoAuthenticationProvider();
         proveedor.setUserDetailsService(detallesUsuario);
         proveedor.setPasswordEncoder(codificador);
-        // Sin esto, un codigo inexistente responde distinto que una
-        // contrasena incorrecta y permite enumerar usuarios (HU01 CA2).
+        // Sin esto un código inexistente responde distinto que una contraseña incorrecta y permite enumerar usuarios
         proveedor.setHideUserNotFoundExceptions(true);
         return new ProviderManager(proveedor);
     }

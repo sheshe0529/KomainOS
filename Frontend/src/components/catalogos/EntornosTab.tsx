@@ -13,7 +13,6 @@ import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { errorDeCampo, textoDeError, tieneErroresDeCampo } from '@/utils/errores'
 
-/** Gestión de entornos (RF74). Se desactivan, no se eliminan, para conservar sus referencias. */
 export function EntornosTab() {
   const { avisar } = useAvisos()
   const entornos = useConsulta(() => catalogosApi.entornos(), [])

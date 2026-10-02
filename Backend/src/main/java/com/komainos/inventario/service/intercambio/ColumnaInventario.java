@@ -9,24 +9,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 
-/**
- * Columnas del inventario para exportar (RF13, HU09) e importar (RF12, HU08).
- *
- * <p>La clave es la etiqueta normalizada ({@link ClaveColumna}): así el mismo
- * archivo se entiende con encabezados legibles en XLSX y CSV y con claves en
- * JSON y YAML. Las referencias a catálogos se intercambian por nombre y el
- * responsable por su código de usuario, porque los identificadores internos no
- * significan nada fuera del sistema.
- *
- * <p>Ninguna columna contiene credenciales: incluirlas depende del revelado con
- * reautenticación de RF08, que no forma parte de esta iteración (DEC-31).
- */
+/** Catálogos por nombre y responsable por código: los id internos no significan nada fuera del sistema */
 public enum ColumnaInventario {
 
     HOSTNAME("Hostname", Uso.OBLIGATORIA, Servidor::getHostname),
-    /** IP principal (DEC-37). */
+    /** IP principal */
     DIRECCION_IP("Dirección IP", Uso.OBLIGATORIA, Servidor::getDireccionIp),
-    /** Las demás IP del servidor, separadas por «;». */
     IPS_ADICIONALES("IPs adicionales", Uso.OPCIONAL,
             s -> s.direccionesAdicionales().isEmpty() ? null : String.join("; ", s.direccionesAdicionales())),
     ESTADO("Estado", Uso.SOLO_EXPORTACION, s -> s.getEstado().name()),
@@ -51,13 +39,10 @@ public enum ColumnaInventario {
     FECHA_ALTA("Fecha de alta", Uso.SOLO_EXPORTACION, Servidor::getFechaAlta),
     FECHA_ACTUALIZACION("Fecha de actualización", Uso.SOLO_EXPORTACION, Servidor::getFechaActualizacion);
 
-    /** Participación de la columna en la importación. */
     public enum Uso {
-        /** Debe estar en el encabezado y tener valor en cada registro. */
         OBLIGATORIA,
-        /** Se importa si viene; vacía deja el dato sin valor. */
+        /** Vacía deja el dato sin valor */
         OPCIONAL,
-        /** Dato que administra el sistema: se exporta, pero al importar se ignora. */
         SOLO_EXPORTACION
     }
 
@@ -97,7 +82,7 @@ public enum ColumnaInventario {
         return extractor.apply(servidor);
     }
 
-    /** 16 y no 16.00: el valor se exporta como texto y se vuelve a importar igual. */
+    /** 16 y no 16.00: se exporta como texto y se vuelve a importar igual */
     private static String numero(BigDecimal valor) {
         return valor == null ? null : valor.stripTrailingZeros().toPlainString();
     }
@@ -110,7 +95,7 @@ public enum ColumnaInventario {
         return Arrays.stream(values()).filter(ColumnaInventario::importable).toList();
     }
 
-    /** Busca por clave normalizada, de modo que acepta también la etiqueta. */
+    /** Acepta la clave o la etiqueta */
     public static ColumnaInventario deClave(String texto) {
         String clave = ClaveColumna.normalizar(texto);
         return Arrays.stream(values()).filter(c -> c.clave.equals(clave)).findFirst().orElse(null);

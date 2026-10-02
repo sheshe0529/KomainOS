@@ -6,6 +6,7 @@ import com.komainos.inventario.event.ConfiguracionMantenimientoActualizada;
 import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
 import com.komainos.inventario.model.CalendarioSemanal;
 import com.komainos.inventario.model.ConfiguracionGrupo;
+import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.GrupoMantenimiento;
 import com.komainos.inventario.model.ModalidadPlanificacion;
 import com.komainos.inventario.model.ModoEjecucion;
@@ -14,6 +15,7 @@ import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionGrupoRepositorio;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
+import com.komainos.inventario.service.ServicioAsignacionCuentas.CuentaEfectiva;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.shared.exception.ConflictoException;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
@@ -35,13 +37,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * Grupos de mantenimiento (RF20, RF21, RF46, RF76).
- *
- * <p>La criticidad y la ventana del grupo no se guardan: se derivan de los
- * integrantes cada vez, asi que un cambio en cualquiera de ellos se refleja de
- * inmediato (RF76: «actualizarla cuando cambie la composicion o la criticidad»).
- */
 @Service
 @RequiredArgsConstructor
 public class ServicioGrupo {
@@ -49,15 +44,12 @@ public class ServicioGrupo {
     private final GrupoMantenimientoRepositorio grupos;
     private final ConfiguracionGrupoRepositorio configuraciones;
     private final ServidorRepositorio servidores;
+    private final ServicioAsignacionCuentas cuentasServicio;
     private final ServicioAuditoria auditoria;
     private final ApplicationEventPublisher eventos;
     private final Clock reloj;
 
-    /**
-     * Todos los grupos para administrador y operador; para el responsable,
-     * los que agrupan sus servidores (por RF20 todos los integrantes de un
-     * grupo comparten responsable).
-     */
+    /** Para el responsable, los grupos de sus servidores: todos los integrantes comparten responsable (RF20) */
     @Transactional(readOnly = true)
     public List<FichaGrupo> listar(AlcanceUsuario alcance) {
         Map<Integer, ConfiguracionGrupo> configuracionPorGrupo = new HashMap<>();
@@ -65,19 +57,19 @@ public class ServicioGrupo {
         return grupos.findAllByOrderByNombreAsc().stream()
                 .filter(g -> esVisible(g, alcance))
                 .map(g -> new FichaGrupo(g, Optional.ofNullable(configuracionPorGrupo.get(g.getId())),
-                        g.criticidadEfectiva(), null))
+                        Optional.empty(), g.criticidadEfectiva(), null))
                 .toList();
     }
 
-    /** HU15 CA4: incluye la criticidad y la ventana calculadas. */
     @Transactional(readOnly = true)
     public FichaGrupo ficha(Integer id, AlcanceUsuario alcance) {
         GrupoMantenimiento grupo = buscar(id);
         if (!esVisible(grupo, alcance)) {
             throw RecursoNoEncontradoException.de("el grupo de mantenimiento", id);
         }
-        return new FichaGrupo(grupo, configuraciones.findByGrupoId(id), grupo.criticidadEfectiva(),
-                ventanaEfectiva(grupo).aIntervalos());
+        Optional<ConfiguracionGrupo> configuracion = configuraciones.findByGrupoId(id);
+        return new FichaGrupo(grupo, configuracion, configuracion.flatMap(cuentasServicio::efectiva),
+                grupo.criticidadEfectiva(), ventanaEfectiva(grupo).aIntervalos());
     }
 
     @Transactional
@@ -113,11 +105,7 @@ public class ServicioGrupo {
         return grupo;
     }
 
-    /**
-     * RF20: define los integrantes. Solo admite servidores no dados de baja con
-     * el mismo responsable, entorno y sistema operativo (DEC-20). Las ordenes
-     * ya generadas conservan los integrantes que tenian.
-     */
+    /** Mismo responsable, entorno y SO (DEC-20), las órdenes ya generadas conservan sus integrantes */
     @Transactional
     public GrupoMantenimiento reemplazarIntegrantes(Integer id, List<Integer> idsServidores, Actor actor) {
         GrupoMantenimiento grupo = buscar(id);
@@ -151,10 +139,6 @@ public class ServicioGrupo {
         return grupo;
     }
 
-    /**
-     * RF17: configuracion del grupo con su modo de ejecucion. Las frecuencias
-     * que no se indiquen se toman de la criticidad efectiva del grupo.
-     */
     @Transactional
     public ConfiguracionGrupo configurar(Integer id, DatosConfiguracionGrupo datos, Actor actor) {
         GrupoMantenimiento grupo = buscar(id);
@@ -171,9 +155,12 @@ public class ServicioGrupo {
 
         Optional<ConfiguracionGrupo> existente = configuraciones.findByGrupoId(id);
         Map<String, Object> anterior = existente.map(ServicioGrupo::instantanea).orElse(null);
+        cuentasServicio.validarCambio(existente.map(ConfiguracionGrupo::getIdCuentaServicio).orElse(null),
+                datos.idCuentaServicio(), familia(grupo));
         ConfiguracionGrupo configuracion = existente.orElseGet(() -> ConfiguracionGrupo.nueva(
                 grupo, revision, mantenimiento, datos.modalidad(), datos.modoEjecucion()));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad(), datos.modoEjecucion());
+        configuracion.setIdCuentaServicio(datos.idCuentaServicio());
         configuraciones.save(configuracion);
         grupo.alConfigurar();
 
@@ -200,18 +187,20 @@ public class ServicioGrupo {
         return grupo;
     }
 
-    /** RF21: interseccion de las ventanas de los integrantes. */
     public static CalendarioSemanal ventanaEfectiva(GrupoMantenimiento grupo) {
         return CalendarioSemanal.interseccionDe(grupo.servidores().stream()
                 .map(s -> CalendarioSemanal.de(s.getVentanas()))
                 .toList());
     }
 
-    // ------------------------------------------------------------- internos
-
     private GrupoMantenimiento buscar(Integer id) {
         return grupos.findConIntegrantesById(id)
                 .orElseThrow(() -> RecursoNoEncontradoException.de("el grupo de mantenimiento", id));
+    }
+
+    /** Los integrantes comparten sistema operativo (RF20), un grupo vacío admite cualquier familia */
+    private static FamiliaSistemaOperativo familia(GrupoMantenimiento grupo) {
+        return grupo.servidores().stream().findFirst().map(Servidor::familia).orElse(null);
     }
 
     private static boolean esVisible(GrupoMantenimiento grupo, AlcanceUsuario alcance) {
@@ -263,15 +252,20 @@ public class ServicioGrupo {
         return v;
     }
 
+    /** idCuentaServicio nula: usa la cuenta predeterminada del sistema (RF06) */
     public record DatosConfiguracionGrupo(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
-                                          ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion) {
+                                          ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion,
+                                          Integer idCuentaServicio) {
+
+        public DatosConfiguracionGrupo(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
+                                       ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion) {
+            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, modoEjecucion, null);
+        }
     }
 
-    /**
-     * Grupo con sus valores derivados. {@code ventanaEfectiva} es nula en el
-     * listado para no calcularla por cada grupo.
-     */
+    /** ventanaEfectiva y cuentaServicio quedan vacías en el listado para no calcularlas por cada grupo */
     public record FichaGrupo(GrupoMantenimiento grupo, Optional<ConfiguracionGrupo> configuracion,
+                             Optional<CuentaEfectiva> cuentaServicio,
                              Optional<NivelCriticidad> criticidadEfectiva, List<IntervaloSemanal> ventanaEfectiva) {
     }
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Save } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { KeyRound, Save } from 'lucide-react'
 import { catalogosApi } from '@/api/catalogos'
 import type { ParametrosSistemaPeticion, ParametrosSistemaRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
@@ -59,7 +60,7 @@ function aFormulario(p?: ParametrosSistemaRespuesta): Formulario {
   }
 }
 
-/** Parámetros de ejecución (RF68). El operador los consulta; el administrador los modifica. */
+/** El operador los consulta y el administrador los modifica (RF68) */
 export function ParametrosPage() {
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
@@ -131,6 +132,29 @@ export function ParametrosPage() {
           </div>
         )}
       </form>
+      <section className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-panel p-6">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+            <KeyRound className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Cuenta de servicio predeterminada</h3>
+            <p className="mt-0.5 text-sm text-ink-soft">
+              {parametros.datos?.cuentaServicioPredeterminada?.nombre ? (
+                <span className="font-medium text-ink">{parametros.datos.cuentaServicioPredeterminada.nombre}</span>
+              ) : (
+                <span className="text-warning">No definida</span>
+              )}
+              . La usan las configuraciones de mantenimiento que no tienen una cuenta propia.
+            </p>
+          </div>
+        </div>
+        {esAdmin && (
+          <Link to="/configuracion/cuentas-servicio" className="text-sm font-medium text-accent hover:underline">
+            Gestionar cuentas de servicio
+          </Link>
+        )}
+      </section>
     </>
   )
 }

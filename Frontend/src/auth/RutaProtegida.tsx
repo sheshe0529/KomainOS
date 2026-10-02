@@ -6,16 +6,11 @@ import { useSesion } from './sesion-context'
 
 interface RutaProtegidaProps {
   children: ReactNode
-  /** Roles que pueden ver la ruta; si se omite, cualquier usuario autenticado. */
+  /** Si se omite, cualquier usuario autenticado */
   roles?: Rol[]
 }
 
-/**
- * Protección de rutas por rol (componente "Enrutamiento y disposición" de
- * R2.2). Es comodidad de interfaz: la autorización efectiva la verifica el
- * backend en cada petición. Un acceso directo a una ruta no autorizada
- * redirige al inicio sin exponer la vista.
- */
+/** Comodidad de interfaz: la autorización efectiva la verifica el backend en cada petición */
 export function RutaProtegida({ children, roles }: RutaProtegidaProps) {
   const { usuario, cargando } = useSesion()
   const location = useLocation()

@@ -4,18 +4,12 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Datos de alta o edicion de un servidor (RF10), en terminos de dominio.
- *
- * <p>Existe para que el servicio no reciba el DTO de la API: el dia que la
- * importacion masiva (RF12) alimente el mismo caso de uso, lo reutiliza sin
- * fabricar una peticion HTTP. Llega ya validado en formato.
- */
+/** Datos en términos de dominio para que la importación reutilice el caso de uso sin un DTO HTTP */
 public record DatosServidor(
         String hostname,
-        /** IP principal (DEC-37). */
+        /** IP principal */
         String direccionIp,
-        /** Virtual DataCenter (DEC-37, antes datacenter). */
+        /** Virtual DataCenter (antes datacenter) */
         String vdc,
         String servidorFisico,
         String vlan,
@@ -27,7 +21,6 @@ public record DatosServidor(
         Integer idNivelCriticidad,
         Integer idResponsable,
         String descripcion,
-        /** IP que no son la principal; vacia si solo tiene una. */
         List<String> direccionesIpAdicionales,
         Integer cantidadCpu,
         BigDecimal ramGb,
@@ -37,7 +30,6 @@ public record DatosServidor(
         direccionesIpAdicionales = direccionesIpAdicionales == null ? List.of() : List.copyOf(direccionesIpAdicionales);
     }
 
-    /** La principal seguida de las adicionales. */
     public List<String> todasLasDirecciones() {
         List<String> todas = new ArrayList<>();
         todas.add(direccionIp);

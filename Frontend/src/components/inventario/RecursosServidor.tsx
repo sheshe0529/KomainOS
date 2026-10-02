@@ -18,7 +18,6 @@ function formatear(valor: number): string {
   return valor.toLocaleString('es-PE', { maximumFractionDigits: 2 })
 }
 
-/** Recursos de la máquina virtual (DEC-37): un indicador por recurso, con su unidad. */
 export function RecursosServidor({ cantidadCpu, ramGb, hdVirtualGb }: RecursosServidorProps) {
   const recursos: Recurso[] = [
     { icono: Cpu, etiqueta: 'CPU', valor: cantidadCpu, unidad: 'vCPU' },

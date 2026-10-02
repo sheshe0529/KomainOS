@@ -6,10 +6,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-/**
- * RF15 / HU11: frecuencias recomendadas en dias y plazos independientes de
- * autorizacion y validacion en horas. Los minimos repiten ck_nivel_criticidad_valores.
- */
 public record NivelCriticidadPeticion(
         @NotBlank(message = "El nombre del nivel es obligatorio")
         @Size(max = 150, message = "El nombre no puede superar los 150 caracteres")

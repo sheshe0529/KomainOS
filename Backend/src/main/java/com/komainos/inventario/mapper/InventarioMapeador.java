@@ -20,20 +20,16 @@ import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.model.SolicitudBaja;
 import com.komainos.inventario.model.VentanaMantenimiento;
 import com.komainos.inventario.model.VersionSistemaOperativo;
+import com.komainos.inventario.service.ServicioAsignacionCuentas.CuentaEfectiva;
 import com.komainos.inventario.service.ServicioGrupo.FichaGrupo;
 import com.komainos.inventario.service.ServicioServidor.FichaServidor;
 import com.komainos.shared.dto.ReferenciaSimple;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
-/**
- * Traduccion del dominio del inventario al contrato HTTP.
- *
- * <p>Se escribe a mano: es el unico punto donde se decide que sale del
- * sistema. Lee asociaciones, asi que las entidades deben venir con su
- * {@code @EntityGraph} cargado desde el servicio.
- */
+/** Lee asociaciones: las entidades deben llegar con su EntityGraph cargado desde el servicio */
 public final class InventarioMapeador {
 
     private InventarioMapeador() {
@@ -75,7 +71,7 @@ public final class InventarioMapeador {
                 s.getEstado(),
                 s.getFechaAlta(),
                 s.getFechaActualizacion(),
-                ficha.configuracion().map(InventarioMapeador::configuracion).orElse(null),
+                ficha.configuracion().map(c -> configuracion(c, ficha.cuentaServicio())).orElse(null),
                 ventanas(s.getVentanas()),
                 ficha.grupos().stream().map(g -> new ReferenciaSimple(g.getId(), g.getNombre())).toList(),
                 ficha.bajaPendiente().map(InventarioMapeador::solicitud).orElse(null),
@@ -86,11 +82,12 @@ public final class InventarioMapeador {
                         .toList());
     }
 
-    public static ConfiguracionRespuesta configuracion(ConfiguracionMantenimiento c) {
+    public static ConfiguracionRespuesta configuracion(ConfiguracionMantenimiento c, Optional<CuentaEfectiva> cuenta) {
         return new ConfiguracionRespuesta(
                 c.getFrecuenciaRevisionDias(), c.getFrecuenciaMantenimientoDias(), c.getModalidadPlanificacion(),
                 c instanceof ConfiguracionGrupo g ? g.getModoEjecucion() : null,
                 c.getIdCuentaServicio(), c.getIdCuentaServicio() == null,
+                cuenta.map(e -> new ReferenciaSimple(e.id(), e.nombre())).orElse(null),
                 c.getFechaCreacion(), c.getFechaActualizacion());
     }
 
@@ -144,7 +141,7 @@ public final class InventarioMapeador {
                 referencia == null ? null : new ReferenciaSimple(referencia.getResponsable().getId(),
                         referencia.getResponsable().getNombreCompleto()),
                 referencia == null ? null : sistemaOperativo(referencia),
-                ficha.configuracion().map(InventarioMapeador::configuracion).orElse(null),
+                ficha.configuracion().map(c -> configuracion(c, ficha.cuentaServicio())).orElse(null),
                 servidores.stream().map(InventarioMapeador::resumen).toList(),
                 ficha.ventanaEfectiva() == null ? List.of() : intervalos(ficha.ventanaEfectiva()),
                 g.getFechaCreacion(), g.getFechaActualizacion());

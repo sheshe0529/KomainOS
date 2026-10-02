@@ -37,11 +37,7 @@ public class AutenticacionController {
     private final ServicioUsuario servicioUsuario;
     private final PuertoServidoresACargo servidoresACargo;
 
-    /**
-     * HU01: ante credenciales invalidas o cuenta inactiva (RNF01) la excepcion
-     * de Spring Security llega al manejador global como 401 con mensaje
-     * generico; no se distingue usuario inexistente de contrasena incorrecta.
-     */
+    /** Credenciales inválidas o cuenta inactiva llegan como 401 genérico: no se distingue usuario inexistente de contraseña incorrecta (HU01) */
     @PostMapping("/login")
     @Operation(summary = "Inicia sesión y devuelve el token de acceso")
     public TokenRespuesta login(@Valid @RequestBody LoginPeticion peticion) {
@@ -55,10 +51,7 @@ public class AutenticacionController {
         return TokenRespuesta.de(token, minutos, UsuarioSesion.de(usuario));
     }
 
-    /**
-     * "Mi cuenta": datos de la cuenta autenticada, releidos de la base para
-     * reflejar cambios hechos por el administrador durante la sesion.
-     */
+    /** Se releen de la base para reflejar cambios hechos por el administrador durante la sesión */
     @GetMapping("/perfil")
     @Operation(summary = "Detalle de la cuenta del usuario autenticado")
     public PerfilRespuesta perfil(@AuthenticationPrincipal UsuarioAutenticado autenticado) {

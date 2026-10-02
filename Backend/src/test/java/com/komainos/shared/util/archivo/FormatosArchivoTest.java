@@ -56,7 +56,7 @@ class FormatosArchivoTest {
         assertThat(primera.valor("vlan")).isEqualTo("220");
         assertThat(segunda.valor("descripcion")).isEqualTo("Réplica \"principal\", sede Lima");
         assertThat(segunda.valores()).doesNotContainKey("vlan");
-        // El número es el que el usuario ve: fila de la hoja o posición del registro.
+        // El número es el que el usuario ve: fila de la hoja o posición del registro
         int primeraFila = formato == FormatoArchivo.XLSX || formato == FormatoArchivo.CSV ? 2 : 1;
         assertThat(primera.numero()).isEqualTo(primeraFila);
         assertThat(segunda.numero()).isEqualTo(primeraFila + 1);

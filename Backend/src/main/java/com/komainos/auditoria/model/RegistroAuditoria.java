@@ -29,7 +29,6 @@ public class RegistroAuditoria {
     @Column(name = "id_auditoria")
     private Integer id;
 
-    /** Usuario que ejecuto la operacion; nulo si fue un proceso del Sistema. */
     @Column(name = "id_usuario")
     private Integer idUsuario;
 
@@ -51,7 +50,6 @@ public class RegistroAuditoria {
     @Column(name = "id_entidad")
     private Integer idEntidad;
 
-    /** Valores previos serializados en JSON y sin secretos */
     @Column(name = "valor_anterior", columnDefinition = "text")
     private String valorAnterior;
 
@@ -61,7 +59,6 @@ public class RegistroAuditoria {
     @Column(name = "motivo", length = 1000)
     private String motivo;
 
-    /** Proceso automatico que ejecuto la operacion; nulo si fue un usuario. */
     @Column(name = "proceso", length = 255)
     private String proceso;
 

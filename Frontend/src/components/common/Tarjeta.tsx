@@ -7,7 +7,6 @@ interface TarjetaProps {
   className?: string
 }
 
-/** Tarjeta de contenido con título, como en la ficha del servidor de las pantallas preliminares. */
 export function Tarjeta({ titulo, acciones, children, className = '' }: TarjetaProps) {
   return (
     <section className={`rounded-xl border border-line bg-panel p-5 ${className}`}>

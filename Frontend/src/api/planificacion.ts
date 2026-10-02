@@ -21,9 +21,7 @@ export interface FiltroOrdenes {
   tamano?: number
 }
 
-/** Cronograma y órdenes de mantenimiento (RF27-RF30, RF32, RF33, RF36). */
 export const planificacionApi = {
-  /** RF32: órdenes programadas en un rango (vista mensual y distribución por día). */
   cronograma: (desde: Date, hasta: Date) =>
     http.get<OrdenResumenRespuesta[]>(`/cronograma${consulta({ desde: desde.toISOString(), hasta: hasta.toISOString() })}`),
 
@@ -48,10 +46,8 @@ export const planificacionApi = {
     http.post<OrdenDetalleRespuesta>(`/ordenes/${id}/reprogramacion`, datos),
   cancelar: (id: number, datos: CancelarOrdenPeticion) => http.post<OrdenDetalleRespuesta>(`/ordenes/${id}/cancelacion`, datos),
 
-  /** RF28: primer intervalo disponible sin crear la orden. */
   propuesta: (objetivo: { idServidor?: number; idGrupo?: number }, desde?: Date) =>
     http.get<PropuestaRespuesta>(
       `/planificacion/propuesta${consulta({ idServidor: objetivo.idServidor, idGrupo: objetivo.idGrupo, desde: desde?.toISOString() })}`,
     ),
-  /** RF27/RF29: ejecuta ahora la planificación automática. */
 }

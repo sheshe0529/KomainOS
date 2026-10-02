@@ -1,7 +1,4 @@
-/**
- * Formato de fechas en español. El backend envía instantes ISO-8601 en UTC;
- * aquí se muestran en la zona horaria del navegador.
- */
+/** El backend envía instantes ISO-8601 en UTC y aquí se muestran en la zona horaria del navegador */
 const LOCALE = 'es-PE'
 
 const fechaHora = new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' })
@@ -33,7 +30,7 @@ export function formatearMesAnio(d: Date): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
-/** "4 h 30 min" a partir de minutos. */
+/** "4 h 30 min" a partir de minutos */
 export function formatearDuracion(minutos?: number | null): string {
   if (minutos === undefined || minutos === null) return '—'
   const h = Math.floor(minutos / 60)
@@ -42,14 +39,14 @@ export function formatearDuracion(minutos?: number | null): string {
   return m === 0 ? `${h} h` : `${h} h ${m} min`
 }
 
-/** Clave de día local "AAAA-MM-DD" para agrupar en el calendario. */
+/** Clave de día local "AAAA-MM-DD" para agrupar en el calendario */
 export function claveDia(d: Date): string {
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
   return `${d.getFullYear()}-${mm}-${dd}`
 }
 
-/** Valor para <input type="datetime-local"> en hora local. */
+/** Valor para <input type="datetime-local"> en hora local */
 export function aValorFechaHoraLocal(d: Date): string {
   return `${claveDia(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }

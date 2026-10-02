@@ -8,21 +8,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 
-/**
- * Entradas del algoritmo voraz (especificacion, seccion 2).
- *
- * @param idsServidores       servidores del objetivo, en su orden de posicion
- *                            (uno para una orden individual)
- * @param modoEjecucion       modo del grupo; nulo en ordenes individuales
- * @param fechaObjetivo       T0 (RF64)
- * @param plazoAutorizacion   P: anticipacion de la evaluacion previa (RF38)
- * @param ventana             ventana permisiva efectiva W (RF21 en grupos)
- * @param duracionPorServidor D: tiempo reservado por servidor (DEC-08)
- * @param capacidad           C: servidores en ejecucion simultanea (RF68)
- * @param ahora               instante actual
- * @param zona                zona horaria operativa de las ventanas (DEC-06)
- * @param horizonte           H: limite de busqueda (DEC-12)
- */
+/** Entradas del algoritmo: ventana efectiva, duración por servidor (DEC-08), capacidad (RF68), zona (DEC-06) y horizonte (DEC-12) */
 public record SolicitudPlanificacion(
         List<Integer> idsServidores,
         ModoEjecucion modoEjecucion,

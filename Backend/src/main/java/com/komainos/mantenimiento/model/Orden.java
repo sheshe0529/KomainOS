@@ -36,21 +36,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Orden de mantenimiento de un servidor o de un grupo (tabla {@code orden}).
- *
- * <p>Conserva los valores aplicados al generarse (criticidad, cuenta de
- * servicio, modo de ejecucion e integrantes), de modo que cambios posteriores
- * de configuracion no alteran ordenes existentes (HU13 CA7-CA8, RF20).
- *
- * <p>Toda transicion pasa por {@link #cambiarEstado}, que valida la tabla 6
- * de R2.1 y deja el registro en {@code historial_estado_orden}.
- *
- * <p>El id se asigna antes de insertar, tomado de la secuencia de identidad,
- * porque el codigo {@code OM-<anio>-<id>} lo necesita (DEC-07). Por eso la
- * entidad implementa {@link Persistable}: con id asignado Spring Data la
- * trataria como existente y haria un merge en vez de un insert.
- */
+/** Persistable: el id se asigna antes de insertar por el código OM, sin esto Spring Data haría merge en vez de insert */
 @Entity
 @Table(name = "orden")
 @Getter
@@ -64,26 +50,23 @@ public class Orden implements Persistable<Integer> {
     @Column(name = "codigo", nullable = false, length = 100)
     private String codigo;
 
-    /** Servidor de una orden individual; nulo en las grupales (ck_orden_objetivo_xor). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_servidor")
     private Servidor servidor;
 
-    /** Grupo de una orden grupal; nulo en las individuales. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_grupo_mantenimiento")
     private GrupoMantenimiento grupo;
 
-    /** Criticidad aplicada al generarse (RF76 para grupos). */
+    /** Criticidad aplicada al generarse: no cambia con la configuración posterior */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_nivel_criticidad", nullable = false)
     private NivelCriticidad nivelCriticidad;
 
-    /** Cuenta de servicio aplicada; nula mientras no exista el modulo de credenciales. */
+    /** Nula mientras no exista el módulo de credenciales */
     @Column(name = "id_cuenta_servicio")
     private Integer idCuentaServicio;
 
-    /** Nulo cuando la genera el Sistema (RF27). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario_solicitante")
     private Usuario usuarioSolicitante;
@@ -98,7 +81,6 @@ public class Orden implements Persistable<Integer> {
     @Column(name = "estado", nullable = false, columnDefinition = "enum_estado_orden")
     private EstadoOrden estado;
 
-    /** Solo en ordenes grupales (ck_orden_modo_grupo). */
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType.class)
     @Column(name = "modo_ejecucion_aplicado", columnDefinition = "enum_modo_ejecucion")
@@ -107,7 +89,7 @@ public class Orden implements Persistable<Integer> {
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private Instant fechaCreacion;
 
-    // BatchSize: al listar ordenes, sus colecciones se cargan en lotes y no una consulta por orden.
+    // BatchSize: las colecciones se cargan en lotes al listar órdenes
     @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("posicionEjecucion ASC")
     @BatchSize(size = 50)
@@ -125,11 +107,6 @@ public class Orden implements Persistable<Integer> {
     @Transient
     private boolean nueva;
 
-    /**
-     * Crea una orden en estado PROGRAMADA con su primer registro de historial.
-     * Los detalles y la programacion se agregan despues con el resultado del
-     * algoritmo de planificacion.
-     */
     public static Orden nueva(Integer id, Servidor servidor, GrupoMantenimiento grupo,
                               NivelCriticidad criticidad, Integer idCuentaServicio, Usuario solicitante,
                               OrigenOrden origen, ModoEjecucion modoEjecucion, Instant ahora, String motivo) {
@@ -170,7 +147,7 @@ public class Orden implements Persistable<Integer> {
         programaciones.add(ProgramacionOrden.nueva(this, version, datos, registradoPor, ahora));
     }
 
-    /** Programacion vigente: la de mayor numero de version. */
+    /** Vigente: la de mayor número de versión */
     public Optional<ProgramacionOrden> programacionVigente() {
         return programaciones.stream().max(Comparator.comparingInt(ProgramacionOrden::getNumeroVersion));
     }
@@ -179,10 +156,7 @@ public class Orden implements Persistable<Integer> {
         return detalles.stream().filter(d -> d.getServidor().getId().equals(idServidor)).findFirst();
     }
 
-    /**
-     * Unico punto por el que cambia el estado: valida la transicion (tabla 6)
-     * y la registra en el historial con su motivo y autor.
-     */
+    /** Único punto por el que cambia el estado: valida la transición y la registra en el historial */
     public void cambiarEstado(EstadoOrden destino, Usuario autor, String motivo, Instant ahora) {
         if (!estado.puedePasarA(destino)) {
             throw new ReglaNegocioException("La orden %s no puede pasar de %s a %s"
@@ -192,11 +166,7 @@ public class Orden implements Persistable<Integer> {
         estado = destino;
     }
 
-    /**
-     * RF30: nueva fecha factible con motivo, conservando la programacion
-     * anterior como version previa. Pasa por REPROGRAMADA y vuelve a
-     * PROGRAMADA, como define la tabla 6.
-     */
+    /** Pasa por REPROGRAMADA y vuelve a PROGRAMADA (R2.1, tabla 6) */
     public void reprogramar(ProgramacionOrden.Datos datos, List<TramoDetalle> tramos, Usuario autor,
                             String motivo, Instant ahora) {
         cambiarEstado(EstadoOrden.REPROGRAMADA, autor, motivo, ahora);
@@ -207,17 +177,12 @@ public class Orden implements Persistable<Integer> {
         cambiarEstado(EstadoOrden.PROGRAMADA, autor, motivo, ahora);
     }
 
-    /** RF30: cancelacion con motivo. Los detalles no iniciados quedan como tales. */
     public void cancelar(Usuario autor, String motivo, Instant ahora) {
         cambiarEstado(EstadoOrden.CANCELADA, autor, motivo, ahora);
         detalles.forEach(OrdenDetalle::marcarNoIniciadoSiPendiente);
     }
 
-    /**
-     * RF72: retira un servidor dado de baja de una orden grupal pendiente sin
-     * alterar a los demas integrantes. El detalle se conserva como historial
-     * (RF20) en estado NO_INICIADO y deja de ocupar el servidor.
-     */
+    /** El detalle se conserva como historial en NO_INICIADO y deja de ocupar el servidor (RF20) */
     public void retirarServidor(Integer idServidor) {
         detalleDe(idServidor).ifPresent(OrdenDetalle::marcarNoIniciadoSiPendiente);
     }
@@ -237,7 +202,6 @@ public class Orden implements Persistable<Integer> {
         nueva = false;
     }
 
-    /** Tramo reservado para un servidor, resultado de la planificacion. */
     public record TramoDetalle(Integer idServidor, int posicion, Instant inicio, Instant fin) {
     }
 }

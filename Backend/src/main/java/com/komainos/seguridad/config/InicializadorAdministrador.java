@@ -10,13 +10,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-/**
- * Crea el primer administrador si la base no tiene ninguno activo (DEC-21).
- *
- * <p>Sin esta cuenta nadie podria iniciar sesion para registrar a los demas
- * usuarios. La contrasena sale del entorno y no tiene valor por defecto: una
- * clave conocida y versionada permitiria entrar a cualquier instalacion.
- */
+/** Crea el primer administrador si no hay ninguno activo (DEC-21), la contraseña sale del entorno y no tiene valor por defecto */
 @Component
 @RequiredArgsConstructor
 @Slf4j

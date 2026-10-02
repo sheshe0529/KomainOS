@@ -9,7 +9,6 @@ export interface Catalogos {
   sistemasOperativos: SistemaOperativoRespuesta[]
 }
 
-/** Catálogos de referencia del inventario, cargados en paralelo. */
 export function useCatalogos() {
   return useConsulta<Catalogos>(async () => {
     const [entornos, criticidades, sistemasOperativos] = await Promise.all([
@@ -21,10 +20,7 @@ export function useCatalogos() {
   }, [])
 }
 
-/**
- * Usuarios activos con rol Responsable (DEC-24). Solo el administrador
- * puede listar usuarios, por eso se carga únicamente cuando se necesita.
- */
+/** Solo el administrador puede listar usuarios: se carga únicamente cuando se necesita (DEC-24) */
 export function useResponsables(habilitado: boolean) {
   return useConsulta<UsuarioRespuesta[]>(
     async () => (habilitado ? ((await usuariosApi.listar({ rol: 'RESPONSABLE', activo: true })).contenido ?? []) : []),

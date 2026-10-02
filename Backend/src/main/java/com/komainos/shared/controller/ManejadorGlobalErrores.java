@@ -23,13 +23,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 
-/**
- * Traduce las excepciones del dominio a respuestas HTTP con una forma unica.
- *
- * <p>Los servicios lanzan la excepcion que describe el problema de negocio sin
- * conocer codigos HTTP; el panel recibe siempre la misma estructura y puede
- * ramificar sobre {@code codigo}. Todos los mensajes van en espanol (RNF05).
- */
+/** Los servicios lanzan excepciones de negocio sin conocer HTTP y el panel recibe siempre la misma forma (RNF05) */
 @RestControllerAdvice
 @Slf4j
 public class ManejadorGlobalErrores {
@@ -63,10 +57,7 @@ public class ManejadorGlobalErrores {
                 .body(ErrorRespuesta.deValidacion(req.getRequestURI(), campos));
     }
 
-    /**
-     * JSON mal formado o un valor que no pertenece a un enumerado (por ejemplo
-     * un dia de la semana inexistente). Sin este manejador terminaria como 500.
-     */
+    /** JSON mal formado o valor fuera de un enumerado: sin este manejador terminaría como 500 */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorRespuesta> cuerpoIlegible(HttpMessageNotReadableException ex, HttpServletRequest req) {
         return construir(HttpStatus.BAD_REQUEST, "VALIDACION",
@@ -91,18 +82,14 @@ public class ManejadorGlobalErrores {
                 "Falta el archivo en el campo '%s'".formatted(ex.getRequestPartName()), req);
     }
 
-    /** RF12: el tamaño máximo lo fija {@code spring.servlet.multipart.max-file-size}. */
+    /** El tamaño máximo lo fija spring.servlet.multipart.max-file-size (RF12) */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorRespuesta> archivoExcedido(MaxUploadSizeExceededException ex, HttpServletRequest req) {
         return construir(HttpStatus.PAYLOAD_TOO_LARGE, "ARCHIVO_EXCEDIDO",
                 "El archivo supera el tamaño máximo permitido de 5 MB", req);
     }
 
-    /**
-     * Red de seguridad para las restricciones que solo la base puede verificar
-     * de forma atomica (unicidad bajo concurrencia, integridad referencial).
-     * El servicio igual comprueba antes para dar un mensaje util.
-     */
+    /** Red de seguridad para lo que solo la base verifica de forma atómica: el servicio comprueba antes para dar un mensaje útil */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorRespuesta> integridad(DataIntegrityViolationException ex, HttpServletRequest req) {
         log.warn("Violacion de integridad en {}: {}", req.getRequestURI(), ex.getMostSpecificCause().getMessage());
@@ -122,10 +109,7 @@ public class ManejadorGlobalErrores {
                 "Credenciales inválidas o sesión expirada", req);
     }
 
-    /**
-     * Nada de lo inesperado llega al cliente: el detalle va al log y la
-     * respuesta lleva un mensaje generico (RNF11).
-     */
+    /** Lo inesperado no llega al cliente: el detalle va al log y la respuesta es genérica (RNF11) */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorRespuesta> inesperado(Exception ex, HttpServletRequest req) {
         log.error("Error no controlado en {}", req.getRequestURI(), ex);

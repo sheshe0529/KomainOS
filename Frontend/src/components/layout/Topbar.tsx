@@ -14,10 +14,7 @@ function iniciales(nombre?: string): string {
   return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? (partes[partes.length - 1][0] ?? '') : '')).toUpperCase()
 }
 
-/**
- * Barra superior: título de la sección, acceso a "Mi cuenta" y cierre de
- * sesión. El tema se cambia solo desde Configuración › Preferencias.
- */
+/** El tema se cambia solo desde Configuración › Preferencias */
 export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const location = useLocation()
   const navigate = useNavigate()

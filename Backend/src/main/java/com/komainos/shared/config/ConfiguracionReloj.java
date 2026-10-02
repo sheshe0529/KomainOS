@@ -5,13 +5,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
 
-/**
- * Reloj del sistema como bean.
- *
- * <p>La planificacion depende del instante actual (inicio mas temprano, fecha
- * de evaluacion). Inyectarlo permite probar esas reglas con una hora fija en
- * vez de depender de cuando corre la prueba.
- */
+/** Inyectarlo permite probar la planificación con una hora fija */
 @Configuration
 public class ConfiguracionReloj {
 

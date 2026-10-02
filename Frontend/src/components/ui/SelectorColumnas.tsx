@@ -2,11 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import { Columns3, RotateCcw } from 'lucide-react'
 import type { ColumnasVisibles } from '@/hooks/useColumnasVisibles'
 
-/**
- * Botón «Columnas» con la lista para mostrar u ocultar columnas de una tabla
- * (DEC-32). La lista es un popover nativo: se cierra al hacer clic fuera o con
- * Escape y no la recorta el contenedor de la tabla.
- */
+/** La lista es un popover nativo: no la recorta el contenedor de la tabla (DEC-32) */
 export function SelectorColumnas({ columnas, ve, alternar, restablecer, cantidadVisibles }: ColumnasVisibles) {
   const idPanel = useId()
   const boton = useRef<HTMLButtonElement>(null)
@@ -15,7 +11,7 @@ export function SelectorColumnas({ columnas, ve, alternar, restablecer, cantidad
   useEffect(() => {
     const el = panel.current
     if (!el) return
-    // Se alinea al borde derecho del botón antes de mostrarse.
+    // Se alinea al borde derecho del botón antes de mostrarse
     const ubicar = (e: Event) => {
       if ((e as Event & { newState?: string }).newState !== 'open') return
       const r = boton.current?.getBoundingClientRect()

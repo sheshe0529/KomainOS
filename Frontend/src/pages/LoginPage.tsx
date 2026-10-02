@@ -8,7 +8,6 @@ import { Boton } from '@/components/ui/Boton'
 import { Campo, Entrada } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 
-/** HU01: inicio de sesión con código y contraseña. */
 export function LoginPage() {
   const { usuario, iniciarSesion, expirada } = useSesion()
   const navigate = useNavigate()
@@ -32,7 +31,7 @@ export function LoginPage() {
       await iniciarSesion(codigo.trim(), contrasena)
       navigate(destino, { replace: true })
     } catch (e) {
-      // HU01 CA2: mensaje genérico; el backend no distingue usuario de contraseña.
+      // HU01 CA2: mensaje genérico, el backend no distingue usuario de contraseña
       setError(e)
     } finally {
       setEnviando(false)

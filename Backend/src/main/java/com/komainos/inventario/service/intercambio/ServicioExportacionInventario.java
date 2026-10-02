@@ -24,14 +24,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Exportación del inventario (RF13, HU09).
- *
- * <p>Se exportan los servidores que el usuario puede ver, con el mismo filtro
- * del listado (RF11) y el alcance por rol aplicado en la consulta: un
- * responsable solo obtiene los suyos. Las columnas autorizadas son las de
- * {@link ColumnaInventario}; ninguna contiene secretos (RNF12).
- */
 @Service
 @RequiredArgsConstructor
 public class ServicioExportacionInventario {
@@ -41,21 +33,11 @@ public class ServicioExportacionInventario {
     private final ServicioAuditoria auditoria;
     private final Clock reloj;
 
-    /**
-     * Columnas que el usuario puede exportar (HU09 CA2). En esta iteración
-     * son las mismas para todos los roles: las credenciales, únicas columnas
-     * restringidas, dependen de RF08 (DEC-31).
-     */
+    /** Iguales para todos los roles hasta implementar las credenciales (RF08, DEC-31) */
     public List<ColumnaInventario> columnasAutorizadas(AlcanceUsuario alcance) {
         return Arrays.asList(ColumnaInventario.values());
     }
 
-    /**
-     * Genera el archivo (HU09 CA1, CA3) y deja constancia en la auditoría de
-     * quién exportó, qué columnas y cuántos registros.
-     *
-     * @param columnas vacía = todas las autorizadas, en su orden natural
-     */
     @Transactional
     public ArchivoGenerado exportar(FiltroServidores filtro, List<ColumnaInventario> columnas,
                                     FormatoArchivo formato, AlcanceUsuario alcance) {

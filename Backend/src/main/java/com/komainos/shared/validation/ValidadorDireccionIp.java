@@ -7,12 +7,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.regex.Pattern;
 
-/**
- * Valida IPv4 con una expresion estricta (cuatro octetos 0-255) e IPv6 con el
- * analizador de la plataforma. Para IPv6 solo se llama a {@link InetAddress}
- * cuando el texto contiene ':' y caracteres hexadecimales: en ese caso lo
- * interpreta como literal y nunca consulta DNS.
- */
+/** Una IPv6 solo pasa a InetAddress si es un literal hexadecimal con dos puntos: así nunca consulta DNS */
 public class ValidadorDireccionIp implements ConstraintValidator<DireccionIp, String> {
 
     private static final Pattern IPV4 = Pattern.compile(
@@ -27,7 +22,7 @@ public class ValidadorDireccionIp implements ConstraintValidator<DireccionIp, St
         return esValida(valor);
     }
 
-    /** La misma regla fuera de Bean Validation, por ejemplo al importar (RF12). */
+    /** La misma regla fuera de Bean Validation, por ejemplo al importar (RF12) */
     public static boolean esValida(String valor) {
         if (valor == null) {
             return false;

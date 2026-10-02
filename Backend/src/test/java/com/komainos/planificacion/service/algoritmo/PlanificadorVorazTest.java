@@ -25,13 +25,7 @@ import static com.komainos.inventario.model.DiaSemana.SABADO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Algoritmo voraz de la fecha programada (RF28). Cada prueba corresponde a una
- * regla de Documentos/Decisiones/Algoritmo_planificacion_voraz.md.
- *
- * <p>Referencia temporal: "ahora" es el lunes 2026-09-28 09:00 en Lima; el
- * primer sabado es el 2026-10-03.
- */
+/** Referencia temporal: ahora es el lunes 2026-09-28 09:00 en Lima y el primer sábado es el 2026-10-03 */
 @DisplayName("Algoritmo voraz de planificación (RF28)")
 class PlanificadorVorazTest {
 
@@ -71,7 +65,7 @@ class PlanificadorVorazTest {
             assertThat(r.inicio()).isEqualTo(lima("2026-10-03T01:00"));
             assertThat(r.fin()).isEqualTo(lima("2026-10-03T05:00"));
             assertThat(r.ventanaAplicada()).isEqualTo(new Intervalo(lima("2026-10-03T01:00"), lima("2026-10-03T06:00")));
-            // RF38: la evaluacion previa empieza el plazo de autorizacion antes.
+            // RF38: la evaluación previa empieza el plazo de autorización antes
             assertThat(r.fechaEvaluacion()).isEqualTo(lima("2026-10-02T01:00"));
             assertThat(r.tramos()).containsExactly(new Tramo(1, 1, r.inicio(), r.fin()));
         }
@@ -87,7 +81,7 @@ class PlanificadorVorazTest {
         @Test
         @DisplayName("DEC-10: si la ventana cae antes de ahora + plazo de autorización, pasa a la siguiente")
         void respetaPlazoDeAutorizacion() {
-            // Ahora viernes 12:00 con plazo de 24 h: el sabado 01:00 queda dentro del plazo.
+            // Ahora viernes 12:00 con plazo de 24 h: el sábado 01:00 queda dentro del plazo
             var s = new SolicitudPlanificacion(List.of(1), null, lima("2026-10-02T12:00"), Duration.ofHours(24),
                     ventana(SABADO, "01:00", SABADO, "06:00"), CUATRO_HORAS, 10, lima("2026-10-02T12:00"), LIMA,
                     Duration.ofDays(365));
@@ -99,7 +93,7 @@ class PlanificadorVorazTest {
         void empiezaDentroDeLaVentana() {
             var r = planificador.planificar(
                     individual(ventana(SABADO, "00:00", SABADO, "12:00"), lima("2026-10-03T02:30:20"), 10), List.of());
-            // Se redondea al minuto siguiente: TIMESTAMP(0) y horarios legibles.
+            // Se redondea al minuto siguiente: TIMESTAMP(0) y horarios legibles
             assertThat(r.inicio()).isEqualTo(lima("2026-10-03T02:31"));
         }
     }
@@ -237,7 +231,7 @@ class PlanificadorVorazTest {
         void grupoRespetaOrdenIndividual() {
             var s = new SolicitudPlanificacion(List.of(1, 2), ModoEjecucion.SECUENCIAL, AHORA, Duration.ofHours(24),
                     ventana(SABADO, "00:00", SABADO, "12:00"), Duration.ofMinutes(60), 10, AHORA, LIMA, Duration.ofDays(365));
-            // El servidor 2 (segundo tramo, desplazamiento 1 h) esta ocupado hasta las 03:00.
+            // El servidor 2 (segundo tramo, desplazamiento 1 h) está ocupado hasta las 03:00
             var r = planificador.planificar(s, List.of(reserva(2, "2026-10-03T00:30", "2026-10-03T03:00", "OM-2026-0007")));
 
             assertThat(r.inicio()).isEqualTo(lima("2026-10-03T02:00"));

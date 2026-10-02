@@ -24,7 +24,7 @@ function mesDesdeParametro(valor: string | null): Date {
   return new Date(anio, mes - 1, 1)
 }
 
-/** Primer lunes visible de la grilla del mes (6 semanas, como un calendario de pared). */
+/** Primer lunes visible de la grilla del mes (6 semanas, como un calendario de pared) */
 function inicioDeGrilla(mes: Date): Date {
   const inicio = new Date(mes)
   const desplazamiento = (inicio.getDay() + 6) % 7 // lunes = 0
@@ -32,7 +32,6 @@ function inicioDeGrilla(mes: Date): Date {
   return inicio
 }
 
-/** Panel de supervisión del cronograma: vista mensual (RF32, HU20). */
 export function CronogramaPage() {
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
@@ -79,7 +78,6 @@ export function CronogramaPage() {
         description="Vista mensual de las órdenes programadas. Seleccione un día para ver su distribución horaria."
         actions={
           <div className="flex items-center gap-2">
-            {/* La planificación automática la ejecuta el sistema por sí solo (RF27, DEC-36). */}
             {esAdmin && (
               <Boton variante="primario" icono={CalendarPlus} onClick={() => setEligiendo(true)}>
                 Programar

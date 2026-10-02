@@ -10,10 +10,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * Configuracion de mantenimiento de un servidor (RF17), tabla
- * {@code configuracion_servidor}. Se elimina al aplicarse la baja (HU13 CA9).
- */
+/** Se elimina al aplicarse la baja (HU13 CA9) */
 @Entity
 @Table(name = "configuracion_servidor")
 @PrimaryKeyJoinColumn(name = "id_configuracion_mantenimiento")

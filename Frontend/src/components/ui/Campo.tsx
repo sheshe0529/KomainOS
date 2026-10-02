@@ -12,7 +12,6 @@ interface CampoProps {
   className?: string
 }
 
-/** Etiqueta + control + mensaje de validación del backend junto al campo (RNF05). */
 export function Campo({ etiqueta, error, ayuda, obligatorio, children, className = '' }: CampoProps) {
   return (
     <label className={`flex flex-col gap-1 text-sm ${className}`}>
@@ -34,7 +33,6 @@ export function Entrada(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${CONTROL} ${props.className ?? ''}`} />
 }
 
-/** Lista desplegable con el estilo del panel; ver Selector.tsx. */
 export { Selector } from './Selector'
 
 export function AreaTexto(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {

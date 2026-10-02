@@ -37,12 +37,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Inventario de servidores virtuales (RF09-RF11, RF14, RF17-RF19, RF70, RF72, RF73).
- *
- * <p>El controlador solo traduce: valida el borde, resuelve el alcance y
- * mapea. Las reglas viven en {@link ServicioServidor}.
- */
 @RestController
 @RequestMapping("/api/servidores")
 @RequiredArgsConstructor
@@ -99,20 +93,18 @@ public class ServidorController {
 
     @PutMapping("/{id}/configuracion")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    @Operation(summary = "Crea o modifica la configuración de mantenimiento (RF17, RF70)")
+    @Operation(summary = "Crea o modifica la configuración de mantenimiento y su cuenta de servicio (RF05, RF17, RF70)")
     public FichaServidorRespuesta configurar(@PathVariable Integer id,
                                              @Valid @RequestBody ConfiguracionPeticion peticion,
                                              @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         servicio.configurar(id, new DatosConfiguracion(peticion.frecuenciaRevisionDias(),
-                peticion.frecuenciaMantenimientoDias(), peticion.modalidadPlanificacion()), alcance.actor());
+                peticion.frecuenciaMantenimientoDias(), peticion.modalidadPlanificacion(),
+                peticion.idCuentaServicio()), alcance.actor());
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 
-    /**
-     * RF18 (administrador, cualquier servidor) y RF19 (responsable, solo los
-     * suyos). El alcance lo verifica el servicio.
-     */
+    /** El responsable solo edita la ventana de sus servidores, lo verifica el servicio (RF19) */
     @PutMapping("/{id}/ventanas")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'RESPONSABLE')")
     @Operation(summary = "Reemplaza la ventana permisiva del servidor (RF18, RF19)")
@@ -127,10 +119,7 @@ public class ServidorController {
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 
-    /**
-     * La baja es una transicion de estado y no un DELETE: RF72 exige conservar
-     * el historial del servidor.
-     */
+    /** La baja es una transición de estado y no un DELETE: se conserva el historial (RF72) */
     @PostMapping("/{id}/baja")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(summary = "Solicita la baja del servidor conservando su historial (RF72)")

@@ -14,10 +14,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Version de un sistema operativo (tabla {@code version_sistema_operativo}).
- * La combinacion sistema operativo + version es unica.
- */
 @Entity
 @Table(name = "version_sistema_operativo")
 @Getter
@@ -48,7 +44,6 @@ public class VersionSistemaOperativo {
         return v;
     }
 
-    /** Texto para mostrar: "Ubuntu 22.04". */
     public String descripcionCompleta() {
         return sistemaOperativo.getNombre() + " " + version;
     }

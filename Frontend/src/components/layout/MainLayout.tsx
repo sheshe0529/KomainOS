@@ -32,9 +32,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMobileNav={() => setMobileOpen(true)} />
 
-        {/* Todo el contenido de página vive centrado acá, con el mismo margen
-            en los cuatro breakpoints — el sidebar queda fuera de este contenedor
-            a propósito, tal como pide la consigna. */}
+        {/* El contenido de página vive centrado acá y el sidebar queda fuera a propósito */}
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>

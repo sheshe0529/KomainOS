@@ -16,12 +16,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
-/**
- * Version de la programacion de una orden (tabla {@code programacion_orden}).
- *
- * <p>Cada reprogramacion crea una version nueva con su motivo; las anteriores
- * se conservan como historial del cronograma (RF30, HU18 CA3).
- */
+/** Cada reprogramación crea una versión nueva y las anteriores quedan como historial (RF30) */
 @Entity
 @Table(name = "programacion_orden")
 @Getter
@@ -37,7 +32,6 @@ public class ProgramacionOrden {
     @JoinColumn(name = "id_orden", nullable = false)
     private Orden orden;
 
-    /** Nulo si la registro el Sistema. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario_registro")
     private Usuario usuarioRegistro;
@@ -45,18 +39,16 @@ public class ProgramacionOrden {
     @Column(name = "numero_version", nullable = false)
     private Integer numeroVersion;
 
-    /** Fecha calculada con la periodicidad y el factor, antes de restricciones (RF64). */
+    /** Calculada con periodicidad y factor, antes de aplicar restricciones (RF64) */
     @Column(name = "fecha_objetivo", nullable = false)
     private Instant fechaObjetivo;
 
-    /** Fecha programada (RF28). */
     @Column(name = "fecha_inicio_programada", nullable = false)
     private Instant fechaInicioProgramada;
 
     @Column(name = "fecha_fin_programada", nullable = false)
     private Instant fechaFinProgramada;
 
-    /** Inicio de la evaluacion previa (RF38). */
     @Column(name = "fecha_evaluacion_programada")
     private Instant fechaEvaluacionProgramada;
 

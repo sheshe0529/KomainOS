@@ -76,9 +76,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- RF12 / RF13: importacion y exportacion del inventario (DEC-31).
-             CSV y YAML con los formatos de Jackson que ya administra Spring Boot;
-             XLSX con Apache POI, que ademas protege contra archivos comprimidos maliciosos. -->
+        <!-- Importación y exportación del inventario (RF12, RF13): CSV y YAML con Jackson, XLSX con Apache POI -->
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-csv</artifactId>
@@ -147,13 +145,7 @@
                 </configuration>
             </plugin>
 
-            <!--
-              Surefire corre *Test: unitarias y slices web. No tocan la base de datos,
-              asi que `mvn test` funciona siempre, en cualquier maquina.
-              Failsafe corre *IT: integracion contra PostgreSQL real. Solo se activa
-              con el perfil `integracion` para que la ausencia de una base local
-              nunca bloquee el ciclo normal de desarrollo.
-            -->
+            <!-- Surefire corre *Test sin base de datos, los *IT corren con Failsafe solo en el perfil integracion -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

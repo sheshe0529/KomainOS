@@ -52,7 +52,7 @@ class CalendarioSemanalTest {
         @DisplayName("domingo 23:00 a lunes 01:00 se proyecta como un solo intervalo concreto")
         void cruzaDeDomingoALunes() {
             var c = calendario(intervalo(DOMINGO, "23:00", LUNES, "01:00"));
-            // Semana del lunes 2026-09-28: el domingo 2026-10-04 23:00 empalma con el lunes 05.
+            // Semana del lunes 2026-09-28: el domingo 2026-10-04 23:00 empalma con el lunes 05
             List<Intervalo> concretos = c.proyectar(lima("2026-10-04T00:00"), lima("2026-10-06T00:00"), LIMA);
             assertThat(concretos).containsExactly(
                     new Intervalo(lima("2026-10-04T23:00"), lima("2026-10-05T01:00")));

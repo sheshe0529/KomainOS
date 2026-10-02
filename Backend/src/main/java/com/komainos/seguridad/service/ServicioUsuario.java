@@ -19,10 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
-/**
- * Cuentas de usuario (RF03). En esta iteracion es una dependencia del
- * inventario: todo servidor exige un responsable (DEC-15).
- */
 @Service
 @RequiredArgsConstructor
 public class ServicioUsuario {
@@ -42,7 +38,6 @@ public class ServicioUsuario {
                 .orElseThrow(() -> RecursoNoEncontradoException.de("el usuario", id));
     }
 
-    /** RF03: impide codigos de usuario duplicados. */
     @Transactional
     public Usuario crear(String codigo, String nombreCompleto, String contrasena, Rol rol, Actor actor) {
         String codigoNormalizado = codigo.trim();
@@ -75,7 +70,7 @@ public class ServicioUsuario {
         return usuario;
     }
 
-    /** RF03: la cuenta se desactiva, no se borra, y conserva su historial. */
+    /** La cuenta se desactiva, no se borra, y conserva su historial (RF03) */
     @Transactional
     public Usuario desactivar(Integer id, Actor actor) {
         Usuario usuario = obtener(id);
@@ -84,7 +79,7 @@ public class ServicioUsuario {
         return usuario;
     }
 
-    /** Nunca incluye el hash de la contrasena (RNF11). */
+    /** Nunca incluye el hash de la contraseña (RNF11) */
     private static Map<String, Object> instantanea(Usuario u) {
         return Map.of("codigo", u.getCodigo(), "nombreCompleto", u.getNombreCompleto(),
                 "rol", u.getRol().name(), "activo", u.isActivo());

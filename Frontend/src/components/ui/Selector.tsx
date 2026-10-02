@@ -11,9 +11,9 @@ interface Opcion {
 
 export interface SelectorProps {
   value?: string | number
-  /** Misma forma que el onChange de un select nativo, para no cambiar a quien lo usa. */
+  /** Misma forma que el onChange de un select nativo, para no cambiar a quien lo usa */
   onChange?: (evento: { target: { value: string } }) => void
-  /** Elementos <option>, como en un select nativo. */
+  /** Elementos <option>, como en un select nativo */
   children: ReactNode
   required?: boolean
   disabled?: boolean
@@ -53,15 +53,7 @@ function extraerOpciones(children: ReactNode): Opcion[] {
   return opciones
 }
 
-/**
- * Lista desplegable con el estilo del panel. Reemplaza al select nativo, cuya
- * lista la dibuja el sistema operativo y no respeta el tema.
- *
- * La lista es un popover nativo: se muestra en la capa superior, así que no la
- * recortan los contenedores con scroll ni los diálogos, y el navegador la
- * cierra al hacer clic fuera o con Escape. Navegable con teclado (flechas,
- * Inicio, Fin, Enter y la primera letra de una opción).
- */
+/** Reemplaza al select nativo, que no respeta el tema. La lista es un popover nativo y no la recortan los contenedores con scroll */
 export function Selector({ value, onChange, children, required, disabled, id, className = '', 'aria-label': ariaLabel }: SelectorProps) {
   const opciones = extraerOpciones(children)
   const valor = value === undefined || value === null ? '' : String(value)
@@ -75,13 +67,13 @@ export function Selector({ value, onChange, children, required, disabled, id, cl
   const [abierta, setAbierta] = useState(false)
   const [activa, setActiva] = useState(-1)
 
-  // El manejador del evento toggle se registra una sola vez; lee la selección vigente por referencia.
+  // El manejador del evento toggle se registra una sola vez y lee la selección vigente por referencia
   const indiceSeleccionadoRef = useRef(indiceSeleccionado)
   useEffect(() => {
     indiceSeleccionadoRef.current = indiceSeleccionado
   }, [indiceSeleccionado])
 
-  /** Se posiciona de forma imperativa antes de mostrarse, para que no parpadee. */
+  /** Se posiciona de forma imperativa antes de mostrarse, para que no parpadee */
   const ubicar = useCallback(() => {
     const el = lista.current
     const r = disparador.current?.getBoundingClientRect()
@@ -124,7 +116,7 @@ export function Selector({ value, onChange, children, required, disabled, id, cl
     }
   }, [ubicar])
 
-  // Mientras está abierta, sigue al control si la página o el diálogo se desplazan.
+  // Mientras está abierta, sigue al control si la página o el diálogo se desplazan
   useEffect(() => {
     if (!abierta) return
     window.addEventListener('resize', ubicar)
@@ -161,7 +153,7 @@ export function Selector({ value, onChange, children, required, disabled, id, cl
     else if (e.key === 'Enter' || e.key === ' ') elegir(activa)
     else if (e.key === 'Tab') lista.current?.hidePopover()
     else if (e.key.length === 1) {
-      // Salta a la siguiente opción que empieza con la letra tecleada.
+      // Salta a la siguiente opción que empieza con la letra tecleada
       const letra = e.key.toLowerCase()
       const orden = [...opciones.keys()].map((k) => (activa + 1 + k) % opciones.length)
       const encontrada = orden.find((i) => !opciones[i].deshabilitada && opciones[i].texto.toLowerCase().startsWith(letra))
@@ -202,7 +194,7 @@ export function Selector({ value, onChange, children, required, disabled, id, cl
         />
       </button>
 
-      {/* Conserva la validación nativa de campo obligatorio del formulario. */}
+      {/* Conserva la validación nativa de campo obligatorio del formulario */}
       {required && (
         <input
           tabIndex={-1}
@@ -223,7 +215,7 @@ export function Selector({ value, onChange, children, required, disabled, id, cl
         aria-label={ariaLabel}
         aria-activedescendant={activa >= 0 ? `${idLista}-${activa}` : undefined}
         onKeyDown={alTeclearEnLista}
-        // Dentro de un <label> (Campo), un clic en la lista activaría el control y la volvería a abrir.
+        // Dentro de un <label> (Campo), un clic en la lista activaría el control y la volvería a abrir
         onClick={(e) => e.preventDefault()}
         className="m-0 overflow-y-auto rounded-lg border border-line bg-panel p-1 text-sm text-ink shadow-lg outline-none"
       >

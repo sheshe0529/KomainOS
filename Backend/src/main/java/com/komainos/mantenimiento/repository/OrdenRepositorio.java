@@ -18,10 +18,7 @@ import java.util.Optional;
 
 public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpecificationExecutor<Orden> {
 
-    /**
-     * Siguiente id de la secuencia de identidad de la tabla. Se pide antes de
-     * insertar porque el codigo de la orden lo incluye (DEC-07).
-     */
+    /** Se pide antes de insertar porque el código de la orden incluye el id (DEC-07) */
     @Query(value = "select nextval('\"KomainOS\".orden_id_orden_seq')", nativeQuery = true)
     Integer siguienteId();
 
@@ -33,14 +30,8 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
             "detalles.servidor"})
     Optional<Orden> findConDetalleById(Integer id);
 
-    /*
-     * Los enumerados se pasan siempre como parametro y nunca como literal en
-     * JPQL: Hibernate escribe el literal con un cast al nombre de la clase Java
-     * ('X'::EstadoDetalleOrden), tipo que no existe en PostgreSQL. Como
-     * parametro se envia sin tipo y la base lo resuelve por la columna.
-     */
+    /* Enumerados siempre como parámetro: como literal Hibernate los castea a un tipo que PostgreSQL no tiene (DEC-26) */
 
-    /** Ordenes en ciertos estados en las que participa un servidor (detalle vigente). */
     @Query("""
             select distinct o from Orden o join o.detalles d
             where d.servidor.id = :idServidor
@@ -69,7 +60,7 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
         return existeDelServidorEnEstados(idServidor, estados, EstadoDetalleOrden.NO_INICIADO);
     }
 
-    /** Ordenes individuales de un servidor en ciertos estados (RF27: no duplicar el ciclo). */
+    /** Evita duplicar el ciclo automático (RF27) */
     boolean existsByServidorIdAndEstadoIn(Integer idServidor, Collection<EstadoOrden> estados);
 
     boolean existsByGrupoIdAndEstadoIn(Integer idGrupo, Collection<EstadoOrden> estados);
@@ -78,6 +69,5 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
 
     boolean existsByGrupoId(Integer idGrupo);
 
-    /** Ordenes pendientes de un grupo (DEC-18: replanificar si cambia su ventana). */
     List<Orden> findByGrupoIdAndEstadoIn(Integer idGrupo, Collection<EstadoOrden> estados);
 }

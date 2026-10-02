@@ -14,14 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import javax.crypto.SecretKey;
 
-/**
- * Emision y verificacion de los tokens de acceso (RF01, RF02).
- *
- * <p>La vigencia la define {@code configuracion_sistema.minutos_expiracion_token}
- * y se recibe en cada emision: asi un cambio del administrador aplica a las
- * sesiones siguientes sin reiniciar el backend. Al vencer, el token deja de
- * validar y RF02 exige autenticarse de nuevo.
- */
+/** La vigencia se recibe en cada emisión: un cambio del administrador aplica sin reiniciar el backend */
 @Service
 public class ServicioJwt {
 
@@ -50,11 +43,7 @@ public class ServicioJwt {
         return expiracionPorDefectoMinutos;
     }
 
-    /**
-     * Devuelve el codigo de usuario si el token es autentico y esta vigente.
-     * Un token invalido se resuelve como ausencia: la cadena de seguridad
-     * decide luego el 401.
-     */
+    /** Un token inválido se resuelve como ausencia: la cadena de seguridad decide luego el 401 */
     public Optional<String> codigoUsuarioSiEsValido(String token) {
         try {
             Claims claims = Jwts.parser()

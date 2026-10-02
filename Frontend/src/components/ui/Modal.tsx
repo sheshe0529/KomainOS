@@ -14,10 +14,7 @@ interface ModalProps {
 
 const ANCHOS = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
 
-/**
- * Diálogo modal sobre el elemento nativo <dialog>: el navegador resuelve el
- * foco, la tecla Escape y la capa de fondo sin dependencias adicionales.
- */
+/** Sobre <dialog> nativo: el navegador resuelve el foco, Escape y la capa de fondo */
 export function Modal({ abierto, titulo, descripcion, onCerrar, children, pie, ancho = 'md' }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
 

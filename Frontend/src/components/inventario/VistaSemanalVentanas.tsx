@@ -13,9 +13,8 @@ interface Ventana {
 
 interface VistaSemanalVentanasProps {
   ventanas: Ventana[]
-  /** Texto cuando no hay intervalos. */
   vacio?: string
-  /** Alto de cada fila de hora, en píxeles. */
+  /** Alto de cada fila de hora, en píxeles */
   altoHora?: number
 }
 
@@ -49,11 +48,7 @@ function hhmm(minutosDelDia: number): string {
   return `${String(h).padStart(2, '0')}:${String(minutosDelDia % 60).padStart(2, '0')}`
 }
 
-/**
- * Duración del intervalo: la informada por el backend o, mientras se edita,
- * la calculada igual que él (el día de fin puede ser el siguiente o dar la
- * vuelta a la semana). Cero si el intervalo no es válido.
- */
+/** La informada por el backend o, mientras se edita, calculada igual que él. Cero si no es válido */
 function duracion(v: Ventana): number {
   if (v.duracionMinutos !== undefined) return v.duracionMinutos
   if (!v.diaInicio || !v.diaFin) return 0
@@ -62,7 +57,7 @@ function duracion(v: Ventana): number {
   return total > 0 ? total : 0
 }
 
-/** Reparte cada intervalo en tramos de un solo día. */
+/** Reparte cada intervalo en tramos de un solo día */
 function tramos(ventanas: Ventana[]): Tramo[] {
   const resultado: Tramo[] = []
   ventanas.forEach((v, intervalo) => {
@@ -81,7 +76,7 @@ function tramos(ventanas: Ventana[]): Tramo[] {
   return resultado
 }
 
-/** Une rangos solapados o contiguos, para contar cada minuto una sola vez. */
+/** Une rangos solapados o contiguos, para contar cada minuto una sola vez */
 function unir(rangos: [number, number][]): [number, number][] {
   const ordenados = [...rangos].sort((a, b) => a[0] - b[0])
   const unidos: [number, number][] = []
@@ -93,12 +88,7 @@ function unir(rangos: [number, number][]): [number, number][] {
   return unidos
 }
 
-/**
- * Semana de la ventana permisiva (RF18, HU14): una columna por día y una fila
- * por cada una de las 24 horas, con los minutos permitidos coloreados. Al pasar
- * el cursor por una hora se ve su detalle y se resalta el intervalo al que
- * pertenece; un intervalo que cruza la medianoche continúa en el día siguiente.
- */
+/** Una columna por día y una fila por hora, un intervalo que cruza la medianoche continúa en el día siguiente (RF18) */
 export function VistaSemanalVentanas({ ventanas, vacio = 'Sin ventana permisiva definida.', altoHora = 18 }: VistaSemanalVentanasProps) {
   const [celda, setCelda] = useState<{ dia: number; hora: number } | null>(null)
   const partes = tramos(ventanas)
@@ -106,7 +96,7 @@ export function VistaSemanalVentanas({ ventanas, vacio = 'Sin ventana permisiva 
   const minutosPorDia = porDia.map((rangos) => rangos.reduce((suma, [d, h]) => suma + h - d, 0))
   const totalSemana = minutosPorDia.reduce((a, b) => a + b, 0)
 
-  /** Tramos del día que caen dentro de la hora, recortados a ella. */
+  /** Tramos del día que caen dentro de la hora, recortados a ella */
   const enHora = (dia: number, hora: number) =>
     partes
       .filter((t) => t.dia === dia && t.desde < (hora + 1) * 60 && t.hasta > hora * 60)
@@ -186,12 +176,11 @@ export function VistaSemanalVentanas({ ventanas, vacio = 'Sin ventana permisiva 
   )
 }
 
-/** Globo con el detalle de una hora: cuánto de ella está permitido y a qué intervalo pertenece. */
 function DetalleHora({ dia, hora, dentro, ventanas }: { dia: number; hora: number; dentro: Tramo[]; ventanas: Ventana[] }) {
   const rangos = unir(dentro.map((t) => [t.desde, t.hasta]))
   const permitidos = rangos.reduce((suma, [d, h]) => suma + h - d, 0)
   const intervalos = [...new Set(dentro.map((t) => t.intervalo))].map((i) => ventanas[i])
-  // Cerca de los bordes el globo se abre hacia adentro para que no lo recorte el contenedor.
+  // Cerca de los bordes el globo se abre hacia adentro para que no lo recorte el contenedor
   const vertical = hora < 6 ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
   const horizontal = dia < 2 ? 'left-0' : dia > 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'
 

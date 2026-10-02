@@ -11,11 +11,7 @@ import java.util.List;
 
 public interface ProgramacionOrdenRepositorio extends JpaRepository<ProgramacionOrden, Integer> {
 
-    /**
-     * Cronograma (RF32): programacion vigente (mayor version) de cada orden
-     * que se solapa con [desde, hasta). Las canceladas no se muestran porque
-     * no van a ocurrir. El alcance del responsable va dentro de la consulta.
-     */
+    /** Las canceladas no se muestran porque no van a ocurrir */
     @Query("""
             select p from ProgramacionOrden p
               join fetch p.orden o

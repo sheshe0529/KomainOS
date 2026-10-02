@@ -30,11 +30,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Catalogos del inventario: entornos (RF74), niveles de criticidad (RF15) y
- * sistemas operativos con sus versiones. Todos los roles los consultan (los
- * necesitan para filtrar el inventario); solo el administrador los modifica.
- */
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -42,8 +37,6 @@ import java.util.List;
 public class CatalogoController {
 
     private final ServicioCatalogos servicio;
-
-    // ---------------------------------------------------------------- entornos
 
     @GetMapping("/entornos")
     @Operation(summary = "Lista los entornos")
@@ -84,8 +77,6 @@ public class CatalogoController {
                                               @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         return EntornoRespuesta.de(servicio.cambiarEstadoEntorno(id, false, actor(solicitante)));
     }
-
-    // ------------------------------------------------------ niveles de criticidad
 
     @GetMapping("/niveles-criticidad")
     @Operation(summary = "Lista los niveles de criticidad, del más crítico al menos crítico")
@@ -135,8 +126,6 @@ public class CatalogoController {
                                    @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         servicio.eliminarCriticidad(id, actor(solicitante));
     }
-
-    // ---------------------------------------------------- sistemas operativos
 
     @GetMapping("/sistemas-operativos")
     @Operation(summary = "Lista los sistemas operativos con sus versiones")

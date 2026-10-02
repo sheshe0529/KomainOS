@@ -16,7 +16,6 @@ interface GrupoFormularioProps {
   onGuardado: (grupo: FichaGrupoRespuesta) => void
 }
 
-/** Alta y edición del nombre y la descripción de un grupo (RF20). */
 export function GrupoFormulario({ abierto, grupo, onCerrar, onGuardado }: GrupoFormularioProps) {
   const [nombre, setNombre] = useState(grupo?.nombre ?? '')
   const [descripcion, setDescripcion] = useState(grupo?.descripcion ?? '')

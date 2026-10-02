@@ -5,6 +5,7 @@ import { servidoresApi } from '@/api/inventario'
 import type { FichaServidorRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
 import { Dato, Tarjeta } from '@/components/common/Tarjeta'
+import { CredencialesDocumentales } from '@/components/credenciales/CredencialesDocumentales'
 import { BajaModal } from '@/components/inventario/BajaModal'
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
 import { RecursosServidor } from '@/components/inventario/RecursosServidor'
@@ -27,15 +28,13 @@ import { textoDeError } from '@/utils/errores'
 
 type Dialogo = 'editar' | 'configurar' | 'ventanas' | 'baja' | 'programar' | null
 
-/** Ficha del servidor (RF14, HU10). */
 export function FichaServidorPage() {
   const tonoCriticidad = useTonoCriticidad()
   const { id } = useParams()
   const idServidor = Number(id)
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
-  // RF19: el responsable edita la ventana de sus servidores; si puede ver la
-  // ficha es porque el servidor es suyo (el backend responde 404 si no).
+  // Si el responsable ve la ficha, el servidor es suyo: el backend responde 404 si no (RF19)
   const puedeEditarVentana = tieneRol('ADMINISTRADOR', 'RESPONSABLE')
   const { avisar } = useAvisos()
   const [dialogo, setDialogo] = useState<Dialogo>(null)
@@ -234,7 +233,19 @@ export function FichaServidorPage() {
                   etiqueta="Modalidad de planificación"
                   valor={s.configuracion.modalidadPlanificacion ? ETIQUETA_MODALIDAD[s.configuracion.modalidadPlanificacion] : undefined}
                 />
-                <Dato etiqueta="Cuenta de servicio" valor={s.configuracion.usaCuentaPredeterminada ? 'Predeterminada del sistema' : `#${s.configuracion.idCuentaServicio}`} />
+                <Dato
+                  etiqueta="Cuenta de servicio"
+                  valor={
+                    s.configuracion.cuentaServicio ? (
+                      <span>
+                        {s.configuracion.cuentaServicio.nombre}
+                        {s.configuracion.usaCuentaPredeterminada && <span className="text-ink-faint"> · predeterminada del sistema</span>}
+                      </span>
+                    ) : (
+                      <span className="text-warning">Sin cuenta: no hay una predeterminada definida</span>
+                    )
+                  }
+                />
               </dl>
             ) : (
               <p className="text-sm text-ink-soft">Sin configuración de mantenimiento.</p>
@@ -295,6 +306,15 @@ export function FichaServidorPage() {
         </Tarjeta>
       )}
 
+      {esAdmin && (
+        <CredencialesDocumentales
+          idServidor={idServidor}
+          hostname={s.hostname ?? ''}
+          familia={s.familiaSistemaOperativo}
+          editable={!dadoDeBaja}
+        />
+      )}
+
       <OrdenesDelObjetivo idServidor={idServidor} version={versionOrdenes} />
 
       {dialogo === 'programar' && (
@@ -325,6 +345,7 @@ export function FichaServidorPage() {
           titulo={`Configuración de mantenimiento de ${s.hostname}`}
           actual={s.configuracion}
           recomendadas={{ revision: criticidad?.frecuenciaRevisionDias, mantenimiento: criticidad?.frecuenciaMantenimientoDias }}
+          familia={s.familiaSistemaOperativo}
           onCerrar={() => setDialogo(null)}
           onGuardar={async (datos) => {
             actualizar(
@@ -332,11 +353,11 @@ export function FichaServidorPage() {
                 frecuenciaRevisionDias: datos.frecuenciaRevisionDias,
                 frecuenciaMantenimientoDias: datos.frecuenciaMantenimientoDias,
                 modalidadPlanificacion: datos.modalidadPlanificacion,
+                idCuentaServicio: datos.idCuentaServicio,
               }),
               'Configuración de mantenimiento guardada.',
             )
-            // En modalidad automática el backend genera el primer ciclo antes de
-            // responder (RF27): basta con recargar el historial.
+            // En modalidad automática el backend genera el primer ciclo antes de responder (RF27): basta con recargar el historial
             setVersionOrdenes((v) => v + 1)
           }}
         />

@@ -1,21 +1,4 @@
--- =============================================================================
--- Cambio 2026-09-30: VDC, varias direcciones IP por servidor y recursos (DEC-37)
---
--- Para una base creada ANTES de este cambio (por ejemplo, DBKomainOS). Una base
--- nueva no lo necesita: 01_esquema.sql ya incluye estos cambios.
---
---   - servidor.datacenter pasa a llamarse vdc (Virtual DataCenter).
---   - servidor.direccion_ip se reemplaza por la tabla direccion_ip: un servidor
---     tiene una o varias IP, exactamente una principal, y una IP no puede
---     pertenecer a dos servidores. La IP actual de cada servidor queda como
---     principal.
---   - servidor gana cantidad_cpu, ram_gb y hd_virtual_gb (opcionales).
---
--- Conserva todos los datos. Se ejecuta una sola vez; si ya se aplicó, se detiene
--- sin cambiar nada:
---
---   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/cambios/2026-09-30_vdc_direcciones_ip_recursos.sql
--- =============================================================================
+-- Cambio 2026-09-30 (DEC-37) para bases creadas antes: se ejecuta una sola vez y conserva los datos
 BEGIN;
 SET LOCAL search_path TO "KomainOS";
 
@@ -27,17 +10,14 @@ BEGIN
     END IF;
 END $$;
 
--- VDC
 ALTER TABLE servidor RENAME COLUMN datacenter TO vdc;
 
--- Recursos de la máquina virtual
 ALTER TABLE servidor
     ADD COLUMN cantidad_cpu integer,
     ADD COLUMN ram_gb numeric(7,2),
     ADD COLUMN hd_virtual_gb numeric(10,2),
     ADD CONSTRAINT ck_servidor_recursos CHECK ((((cantidad_cpu IS NULL) OR (cantidad_cpu > 0)) AND ((ram_gb IS NULL) OR (ram_gb > (0)::numeric)) AND ((hd_virtual_gb IS NULL) OR (hd_virtual_gb > (0)::numeric))));
 
--- Direcciones IP
 CREATE TABLE direccion_ip (
     id_direccion_ip integer NOT NULL,
     id_servidor integer NOT NULL,
@@ -61,7 +41,7 @@ ALTER TABLE ONLY direccion_ip
 ALTER TABLE ONLY direccion_ip
     ADD CONSTRAINT fk_direccion_ip_servidor FOREIGN KEY (id_servidor) REFERENCES servidor(id_servidor) ON UPDATE RESTRICT ON DELETE CASCADE;
 
--- La IP que ya tenía cada servidor pasa a ser su IP principal.
+-- La IP que ya tenía cada servidor pasa a ser su IP principal
 INSERT INTO direccion_ip (id_servidor, direccion, principal)
 SELECT id_servidor, direccion_ip, true FROM servidor;
 

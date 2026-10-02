@@ -14,11 +14,6 @@ import org.springframework.data.jpa.domain.Specification;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Filtros de la consulta de ordenes (RF36) y alcance del usuario. Como en el
- * inventario, el alcance va dentro de la consulta: el responsable solo obtiene
- * las ordenes en las que participa alguno de sus servidores.
- */
 public final class EspecificacionesOrden {
 
     private EspecificacionesOrden() {
@@ -49,7 +44,6 @@ public final class EspecificacionesOrden {
                 condiciones.add(cb.equal(raiz.get("nivelCriticidad").get("id"), f.idNivelCriticidad()));
             }
             if (f.desde() != null || f.hasta() != null) {
-                // Programacion vigente: la de mayor version de la orden.
                 Subquery<Integer> vigente = consulta.subquery(Integer.class);
                 Root<ProgramacionOrden> p = vigente.from(ProgramacionOrden.class);
                 Subquery<Integer> maxima = consulta.subquery(Integer.class);
@@ -72,7 +66,6 @@ public final class EspecificacionesOrden {
         };
     }
 
-    /** Subconsulta "existe un detalle de esta orden cuyo atributo vale x". */
     private static Subquery<Integer> detalleDe(Root<Orden> orden, Subquery<Integer> sub, CriteriaBuilder cb,
                                                String ruta, Integer valor) {
         Root<OrdenDetalle> d = sub.from(OrdenDetalle.class);

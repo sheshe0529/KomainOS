@@ -22,11 +22,7 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.time.Instant;
 
-/**
- * Superclase de la generalizacion de configuraciones
- * Su ausencia representa un registro pendiente de configuracion
- * Los cambios afectan solo a las ordenes nuevas
- */
+/** Los cambios solo afectan a las órdenes nuevas */
 @Entity
 @Table(name = "configuracion_mantenimiento")
 @Inheritance(strategy = InheritanceType.JOINED)
@@ -46,7 +42,6 @@ public abstract class ConfiguracionMantenimiento {
     @Column(name = "frecuencia_revision_dias", nullable = false)
     private Integer frecuenciaRevisionDias;
 
-    /** Periodicidad base del mantenimiento (RF64). */
     @Column(name = "frecuencia_mantenimiento_dias", nullable = false)
     private Integer frecuenciaMantenimientoDias;
 

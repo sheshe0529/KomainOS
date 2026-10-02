@@ -4,14 +4,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Estados del ciclo de una orden de mantenimiento (R2.1, tabla 6;
- * {@code enum_estado_orden}).
- *
- * <p>Las transiciones permitidas estan escritas una sola vez aqui. La entidad
- * {@link Orden} las consulta en cada cambio, de modo que ningun punto del
- * codigo puede saltarse la maquina de estados.
- */
+/** Transiciones definidas una sola vez: Orden las valida en cada cambio (R2.1, tabla 6) */
 public enum EstadoOrden {
     PROGRAMADA,
     EN_EVALUACION,
@@ -46,17 +39,11 @@ public enum EstadoOrden {
             Map.entry(CANCELADA, EnumSet.of(CERRADA)),
             Map.entry(CERRADA, EnumSet.noneOf(EstadoOrden.class)));
 
-    /**
-     * Estados en los que la intervencion todavia puede ocurrir o esta
-     * ocurriendo: reservan tiempo en el cronograma (algoritmo, seccion 3).
-     */
+    /** Estados que reservan tiempo en el cronograma */
     private static final Set<EstadoOrden> OCUPAN_CRONOGRAMA = EnumSet.of(
             PROGRAMADA, REPROGRAMADA, EN_EVALUACION, PENDIENTE_AUTORIZACION, AUTORIZADA, EN_COLA, EN_EJECUCION);
 
-    /**
-     * El ciclo ya empezo (evaluacion en adelante) y aun no se cierra: un
-     * servidor en esta situacion no se da de baja hasta que termine (RF72, DEC-25).
-     */
+    /** El ciclo ya empezó y no se cerró: el servidor no se da de baja hasta que termine (DEC-25) */
     private static final Set<EstadoOrden> EN_CURSO = EnumSet.of(
             EN_EVALUACION, PENDIENTE_AUTORIZACION, EN_EJECUCION, PENDIENTE_VALIDACION, INCIDENCIA);
 
@@ -80,7 +67,6 @@ public enum EstadoOrden {
         return EnumSet.copyOf(EN_CURSO);
     }
 
-    /** Etapa del ciclo a la que pertenece el estado (RF34), atributo derivado. */
     public EtapaOrden etapa() {
         return switch (this) {
             case PROGRAMADA, REPROGRAMADA -> EtapaOrden.PLANIFICACION;

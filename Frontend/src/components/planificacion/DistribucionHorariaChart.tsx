@@ -6,7 +6,6 @@ export interface PuntoHora {
   ordenes: number
 }
 
-/** Tooltip de una barra: hora y cantidad de órdenes que inician en ella. */
 function TooltipHora({ active, payload, label }: TooltipContentProps) {
   if (!active || !payload || payload.length === 0) return null
   const valor = Number(payload[0].value ?? 0)
@@ -22,17 +21,13 @@ function TooltipHora({ active, payload, label }: TooltipContentProps) {
   )
 }
 
-/**
- * Distribución horaria del día (RF32, HU20 CA3): una sola serie, sin leyenda
- * (el título la nombra), barras finas con el extremo redondeado sobre la base
- * y tooltip por barra. La lista de órdenes debajo es su vista de tabla.
- */
+/** Una sola serie sin leyenda: el título la nombra y la lista de órdenes debajo es su vista de tabla (RF32) */
 export function DistribucionHorariaChart({ datos }: { datos: PuntoHora[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={datos} margin={{ top: 8, right: 8, bottom: 0, left: -24 }} barCategoryGap={2}>
         <CartesianGrid vertical={false} stroke="var(--color-line)" strokeDasharray="0" />
-        {/* Las 24 horas siempre rotuladas, también las que no tienen órdenes. */}
+        {/* Las 24 horas siempre rotuladas, también las que no tienen órdenes */}
         <XAxis
           dataKey="hora"
           tickLine={false}

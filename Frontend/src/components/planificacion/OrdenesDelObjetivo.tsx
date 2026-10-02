@@ -9,11 +9,10 @@ import { OrdenesTabla } from './OrdenesTabla'
 interface OrdenesDelObjetivoProps {
   idServidor?: number
   idGrupo?: number
-  /** Cambiarlo fuerza la recarga (por ejemplo, después de programar). */
+  /** Cambiarlo fuerza la recarga (por ejemplo, después de programar) */
   version?: number
 }
 
-/** Historial de órdenes de un servidor o grupo (RF14, HU10 CA3-CA4). */
 export function OrdenesDelObjetivo({ idServidor, idGrupo, version = 0 }: OrdenesDelObjetivoProps) {
   const ordenes = useConsulta(() => planificacionApi.ordenes({ idServidor, idGrupo, tamano: 10 }), [idServidor, idGrupo, version])
   const total = ordenes.datos?.totalElementos ?? 0

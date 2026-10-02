@@ -29,14 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * Grupo de servidores que se mantienen de forma coordinada (RF20), tabla
- * {@code grupo_mantenimiento}.
- *
- * <p>No persiste criticidad ni ventana: ambas se derivan de sus integrantes
- * (RF21, RF76), asi que siempre reflejan la composicion vigente. Cada orden
- * grupal conserva la criticidad y los integrantes que tenia al generarse.
- */
+/** No persiste criticidad ni ventana: se derivan de sus integrantes (RF21, RF76) */
 @Entity
 @Table(name = "grupo_mantenimiento")
 @Getter
@@ -66,12 +59,7 @@ public class GrupoMantenimiento {
     @Column(name = "fecha_actualizacion", nullable = false)
     private Instant fechaActualizacion;
 
-    /**
-     * Conjunto y no lista: la ficha y la planificacion cargan los integrantes
-     * junto con la ventana de cada servidor, y esa consulta repite al
-     * integrante una vez por intervalo de ventana. En una lista aparecerian
-     * duplicados; en un conjunto, cada integrante una sola vez.
-     */
+    /** Set y no List: la consulta con ventanas repite cada integrante una vez por intervalo */
     @OneToMany(mappedBy = "grupo", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("fechaIncorporacion ASC, id ASC")
     private Set<GrupoServidor> integrantes = new LinkedHashSet<>();
@@ -100,10 +88,7 @@ public class GrupoMantenimiento {
         integrantes.removeIf(i -> i.getServidor().getId().equals(idServidor));
     }
 
-    /**
-     * RF76: la criticidad del grupo es la mas alta vigente entre sus
-     * integrantes (menor prioridad, DEC-13). Vacia si no tiene integrantes.
-     */
+    /** La más alta entre sus integrantes: menor prioridad = más crítica (DEC-13) */
     public Optional<NivelCriticidad> criticidadEfectiva() {
         return servidores().stream()
                 .map(Servidor::getNivelCriticidad)
@@ -114,7 +99,7 @@ public class GrupoMantenimiento {
         return estado == EstadoGrupo.INACTIVO;
     }
 
-    /** Guardar la configuracion habilita el grupo salvo que este desactivado (DEC-14). */
+    /** Guardar la configuración habilita el grupo salvo que esté desactivado (DEC-14) */
     public void alConfigurar() {
         if (estado == EstadoGrupo.PENDIENTE_DE_CONFIGURACION) {
             estado = EstadoGrupo.ACTIVO;
@@ -128,7 +113,7 @@ public class GrupoMantenimiento {
         estado = EstadoGrupo.INACTIVO;
     }
 
-    /** Al reactivarlo vuelve a ACTIVO solo si conserva su configuracion. */
+    /** Vuelve a ACTIVO solo si conserva su configuración */
     public void activar(boolean tieneConfiguracion) {
         if (!estaInactivo()) {
             throw new ReglaNegocioException("El grupo %s no se encuentra inactivo".formatted(nombre));

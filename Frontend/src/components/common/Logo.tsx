@@ -4,15 +4,11 @@ import { useTheme } from '@/theme/theme-context'
 
 interface LogoProps {
   className?: string
-  /** Si el nombre «KomainOS» ya aparece al lado, la imagen no se anuncia a los lectores de pantalla. */
+  /** Si el nombre «KomainOS» ya aparece al lado, la imagen no se anuncia a los lectores de pantalla */
   decorativo?: boolean
 }
 
-/**
- * Logo de KomainOS (UI/Logo_KomainOS.png). En tema oscuro se usa una variante
- * con el azul marino aclarado, que de otro modo no se distinguiría del fondo;
- * el cian se conserva en ambas.
- */
+/** En tema oscuro se usa una variante con el azul marino aclarado para que se distinga del fondo */
 export function Logo({ className = '', decorativo }: LogoProps) {
   const { theme } = useTheme()
   return (

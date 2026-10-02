@@ -3,12 +3,7 @@ package com.komainos.shared.util.archivo;
 import java.text.Normalizer;
 import java.util.Locale;
 
-/**
- * Normaliza encabezados para reconocer una columna escrita de distintas formas:
- * «Dirección IP», «direccion_ip», «DIRECCION IP» y «direccionIp» son la misma
- * clave {@code direccion_ip}. Asi un archivo exportado (con etiquetas en XLSX
- * y CSV, y claves en JSON y YAML) se puede volver a importar sin editarlo.
- */
+/** «Dirección IP», «direccion_ip» y «direccionIp» son la misma clave: un archivo exportado se reimporta sin editarlo */
 public final class ClaveColumna {
 
     private ClaveColumna() {

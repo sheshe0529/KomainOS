@@ -9,7 +9,6 @@ import java.util.Optional;
 
 public interface SistemaOperativoRepositorio extends JpaRepository<SistemaOperativo, Integer> {
 
-    /** Trae las versiones en la misma consulta: el catalogo se muestra completo. */
     @EntityGraph(attributePaths = "versiones")
     List<SistemaOperativo> findAllByOrderByNombreAsc();
 

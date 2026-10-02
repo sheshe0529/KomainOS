@@ -1,14 +1,6 @@
 package com.komainos.shared.model;
 
-/**
- * Quien ejecuta una operacion: un usuario o un proceso automatico del Sistema.
- *
- * <p>La especificacion trata al Sistema como un actor mas (R2.1, clases de
- * usuario), y la tabla auditoria exige exactamente uno de los dos
- * (ck_auditoria_ejecutor). Pasarlo explicito a los servicios evita que el
- * dominio tenga que leer el contexto de Spring Security, y permite que un
- * proceso programado reutilice el mismo caso de uso que un usuario.
- */
+/** Un usuario o un proceso del Sistema: la auditoría exige exactamente uno (ck_auditoria_ejecutor) */
 public record Actor(Integer usuarioId, String proceso) {
 
     public Actor {

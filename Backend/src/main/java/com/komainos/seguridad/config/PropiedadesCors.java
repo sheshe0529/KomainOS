@@ -4,11 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.List;
 
-/**
- * Origenes autorizados a consumir la API. Se listan explicitamente en vez de
- * usar comodin porque la API viaja con token en cabecera y un origen abierto
- * permitiria a cualquier pagina consultarla desde el navegador del usuario.
- */
+/** Orígenes explícitos y no comodín: con un origen abierto cualquier página podría consultar la API desde el navegador del usuario */
 @ConfigurationProperties(prefix = "komainos.seguridad.cors")
 public record PropiedadesCors(List<String> origenes) {
 }

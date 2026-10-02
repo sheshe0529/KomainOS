@@ -18,15 +18,11 @@ import java.util.Optional;
 
 public interface ServidorRepositorio extends JpaRepository<Servidor, Integer>, JpaSpecificationExecutor<Servidor> {
 
-    /**
-     * El grafo trae en la misma consulta todo lo que el listado muestra; sin
-     * el, cada fila dispararia cuatro consultas adicionales.
-     */
+    /** El grafo evita cuatro consultas adicionales por fila del listado */
     @Override
     @EntityGraph(attributePaths = {"versionSistemaOperativo.sistemaOperativo", "entorno", "nivelCriticidad", "responsable"})
     Page<Servidor> findAll(Specification<Servidor> especificacion, Pageable paginacion);
 
-    /** Exportacion (RF13): el mismo filtro del listado, sin paginar. */
     @Override
     @EntityGraph(attributePaths = {"versionSistemaOperativo.sistemaOperativo", "entorno", "nivelCriticidad", "responsable"})
     List<Servidor> findAll(Specification<Servidor> especificacion, Sort orden);
@@ -42,11 +38,6 @@ public interface ServidorRepositorio extends JpaRepository<Servidor, Integer>, J
     @EntityGraph(attributePaths = {"versionSistemaOperativo.sistemaOperativo", "entorno", "nivelCriticidad", "responsable"})
     List<Servidor> findByEstadoNotOrderByHostnameAsc(EstadoServidor estado);
 
-    /**
-     * Importacion (RF12): servidores que ya usan alguno de los hostnames (en
-     * minusculas) o alguna de las IP del archivo, para clasificar los duplicados en una sola
-     * consulta.
-     */
     @EntityGraph(attributePaths = {"versionSistemaOperativo.sistemaOperativo", "entorno", "nivelCriticidad", "responsable"})
     @Query("""
             select s from Servidor s

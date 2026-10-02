@@ -12,7 +12,6 @@ import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { ESTADO_ORDEN } from '@/utils/etiquetas'
 
-/** Consulta de órdenes y su detalle (RF36, HU23). */
 export function OrdenesPage() {
   const [codigo, setCodigo] = useState('')
   const [filtro, setFiltro] = useState<FiltroOrdenes>({ estado: '', pagina: 0, tamano: 20 })
