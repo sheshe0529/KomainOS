@@ -19,14 +19,12 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
-import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
 import { ESTADO_GRUPO, ESTADO_SERVIDOR, ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
 import { textoDeError } from '@/utils/errores'
 
 type Dialogo = 'editar' | 'integrantes' | 'configurar' | 'programar' | null
 
 export function FichaGrupoPage() {
-  const tonoCriticidad = useTonoCriticidad()
   const { id } = useParams()
   const idGrupo = Number(id)
   const { tieneRol } = useSesion()
@@ -77,7 +75,7 @@ export function FichaGrupoPage() {
           {g.descripcion && <p className="mt-1 text-sm text-ink-soft">{g.descripcion}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
             {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
-            {g.criticidad && <StatusPill tone={tonoCriticidad(g.criticidad.prioridad)} label={`Criticidad ${g.criticidad.nombre}`} />}
+            {g.criticidad && <StatusPill tone="neutral" label={`Criticidad ${g.criticidad.nombre}`} />}
             {g.configuracion?.modalidadPlanificacion && (
               <StatusPill tone="neutral" label={`Modalidad: ${ETIQUETA_MODALIDAD[g.configuracion.modalidadPlanificacion]}`} />
             )}
@@ -171,9 +169,7 @@ export function FichaGrupoPage() {
                       <span className="ml-2 font-mono text-xs text-ink-faint">{s.direccionIp}</span>
                     </td>
                     <td className="py-2 pr-4 text-ink-soft">{s.versionSistemaOperativo?.nombre}</td>
-                    <td className="py-2 pr-4">
-                      <StatusPill tone={tonoCriticidad(s.criticidad?.prioridad)} label={s.criticidad?.nombre ?? ''} />
-                    </td>
+                    <td className="py-2 pr-4 text-ink-soft">{s.criticidad?.nombre}</td>
                     <td className="py-2 pr-4">
                       {s.estado && <StatusPill tone={ESTADO_SERVIDOR[s.estado].tono} label={ESTADO_SERVIDOR[s.estado].etiqueta} />}
                     </td>

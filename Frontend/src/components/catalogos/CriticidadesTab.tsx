@@ -11,7 +11,6 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
-import { invalidarCriticidades, tonoSegunCatalogo } from '@/hooks/useTonoCriticidad'
 import { errorDeCampo, textoDeError, tieneErroresDeCampo } from '@/utils/errores'
 
 type Formulario = Record<keyof NivelCriticidadPeticion, string>
@@ -28,9 +27,6 @@ const VACIO: Formulario = {
 export function CriticidadesTab() {
   const { avisar } = useAvisos()
   const niveles = useConsulta(() => catalogosApi.criticidades(), [])
-  const prioridadesActivas = (niveles.datos ?? [])
-    .filter((n) => n.activo && n.prioridad !== undefined)
-    .map((n) => n.prioridad!)
   const [editando, setEditando] = useState<NivelCriticidadRespuesta | 'nuevo' | null>(null)
   const [f, setF] = useState<Formulario>(VACIO)
   const [guardando, setGuardando] = useState(false)
@@ -69,7 +65,6 @@ export function CriticidadesTab() {
       if (editando === 'nuevo') await catalogosApi.crearCriticidad(datos)
       else if (editando?.id) await catalogosApi.actualizarCriticidad(editando.id, datos)
       setEditando(null)
-      invalidarCriticidades()
       niveles.recargar()
       avisar('Nivel de criticidad guardado.')
     } catch (e) {
@@ -82,7 +77,6 @@ export function CriticidadesTab() {
   async function ejecutar(accion: () => Promise<unknown>, mensaje: string) {
     try {
       await accion()
-      invalidarCriticidades()
       niveles.recargar()
       avisar(mensaje)
     } catch (e) {
@@ -128,9 +122,7 @@ export function CriticidadesTab() {
             <tbody className="divide-y divide-line">
               {niveles.datos?.map((n) => (
                 <tr key={n.id} className="hover:bg-panel-muted">
-                  <td className="px-4 py-3">
-                    <StatusPill tone={n.activo ? tonoSegunCatalogo(n.prioridad, prioridadesActivas) : 'neutral'} label={n.nombre ?? ''} />
-                  </td>
+                  <td className="px-4 py-3 font-medium text-ink">{n.nombre}</td>
                   <td className="px-4 py-3 font-mono tabular-nums">{n.prioridad}</td>
                   <td className="px-4 py-3 text-ink-soft">Cada {n.frecuenciaRevisionDias} días</td>
                   <td className="px-4 py-3 text-ink-soft">Cada {n.frecuenciaMantenimientoDias} días</td>

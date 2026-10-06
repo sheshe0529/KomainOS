@@ -2,7 +2,6 @@ import { ArchiveX, CalendarClock, CalendarPlus, Pencil, RotateCcw, Wrench } from
 import type { FichaServidorRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
 import { StatusPill } from '@/components/ui/StatusPill'
-import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
 import { ESTADO_SERVIDOR, ETIQUETA_MODALIDAD } from '@/utils/etiquetas'
 
 export type DialogoFichaServidor = 'editar' | 'configurar' | 'ventanas' | 'baja' | 'programar'
@@ -28,7 +27,6 @@ export function EncabezadoFichaServidor({
   onAbrir,
   onReactivar,
 }: EncabezadoFichaServidorProps) {
-  const tonoCriticidad = useTonoCriticidad()
   const estado = s.estado ? ESTADO_SERVIDOR[s.estado] : undefined
   const dadoDeBaja = s.estado === 'DADO_DE_BAJA'
 
@@ -39,7 +37,7 @@ export function EncabezadoFichaServidor({
         <p className="mt-1 text-sm text-ink-soft">{s.dns ?? s.direccionIp}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
-          <StatusPill tone={tonoCriticidad(s.criticidad?.prioridad)} label={`Criticidad ${s.criticidad?.nombre ?? ''}`} />
+          <StatusPill tone="neutral" label={`Criticidad ${s.criticidad?.nombre ?? ''}`} />
           <StatusPill tone="neutral" label={s.entorno?.nombre ?? ''} />
           {s.configuracion?.modalidadPlanificacion && (
             <StatusPill tone="neutral" label={`Modalidad: ${ETIQUETA_MODALIDAD[s.configuracion.modalidadPlanificacion]}`} />

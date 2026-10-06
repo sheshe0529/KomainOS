@@ -10,7 +10,7 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
-import { ESTADO_ORDEN } from '@/utils/etiquetas'
+import { ETIQUETA_ESTADO_ORDEN } from '@/utils/etiquetas'
 
 export function OrdenesPage() {
   const [codigo, setCodigo] = useState('')
@@ -59,9 +59,9 @@ export function OrdenesPage() {
           onChange={(e) => setFiltro((f) => ({ ...f, estado: e.target.value as EstadoOrden | '', pagina: 0 }))}
         >
           <option value="">Todos los estados</option>
-          {(Object.keys(ESTADO_ORDEN) as EstadoOrden[]).map((e) => (
+          {(Object.keys(ETIQUETA_ESTADO_ORDEN) as EstadoOrden[]).map((e) => (
             <option key={e} value={e}>
-              {ESTADO_ORDEN[e].etiqueta}
+              {ETIQUETA_ESTADO_ORDEN[e]}
             </option>
           ))}
         </Selector>

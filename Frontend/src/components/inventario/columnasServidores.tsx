@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { ServidorResumenRespuesta } from '@/api/types'
-import { StatusPill, type StatusTone } from '@/components/ui/StatusPill'
+import { StatusPill } from '@/components/ui/StatusPill'
 import type { DefinicionColumna } from '@/hooks/useColumnasVisibles'
 import { ESTADO_SERVIDOR } from '@/utils/etiquetas'
 import { formatearFechaHora } from '@/utils/formato'
 
 export interface ContextoColumna {
-  tonoCriticidad: (prioridad?: number) => StatusTone
   ve: (id: string) => boolean
 }
 
@@ -94,14 +93,7 @@ export const COLUMNAS_SERVIDORES: ColumnaServidor[] = [
   { id: 'ram', etiqueta: 'RAM', ocultaPorDefecto: true, orden: 'ramGb', celda: (s) => recurso(s.ramGb, 'GB') },
   { id: 'disco', etiqueta: 'Disco', ocultaPorDefecto: true, orden: 'hdVirtualGb', celda: (s) => recurso(s.hdVirtualGb, 'GB') },
   { id: 'entorno', etiqueta: 'Entorno', orden: 'entorno.nombre', celda: (s) => texto(s.entorno?.nombre) },
-  {
-    id: 'criticidad',
-    etiqueta: 'Criticidad',
-    orden: 'nivelCriticidad.prioridad',
-    celda: (s, { tonoCriticidad }) => (
-      <StatusPill tone={tonoCriticidad(s.criticidad?.prioridad)} label={s.criticidad?.nombre ?? '—'} />
-    ),
-  },
+  { id: 'criticidad', etiqueta: 'Criticidad', orden: 'nivelCriticidad.prioridad', celda: (s) => texto(s.criticidad?.nombre) },
   {
     id: 'estado',
     etiqueta: 'Estado',

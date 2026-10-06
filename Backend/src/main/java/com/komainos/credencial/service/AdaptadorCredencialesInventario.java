@@ -30,7 +30,7 @@ public class AdaptadorCredencialesInventario implements PuertoCredencialesInvent
 
     private final ServicioCredenciales credenciales;
 
-    @Override
+    @Override 
     public Map<Integer, CredencialArchivo> principales(Collection<Integer> idsServidores) {
         Map<Integer, CredencialArchivo> resultado = new HashMap<>();
         credenciales.principales(idsServidores).forEach((id, acceso) -> resultado.put(id, archivo(acceso)));

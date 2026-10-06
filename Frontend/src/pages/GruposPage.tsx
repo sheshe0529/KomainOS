@@ -12,14 +12,12 @@ import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { SelectorColumnas } from '@/components/ui/SelectorColumnas'
-import { StatusPill, type StatusTone } from '@/components/ui/StatusPill'
+import { StatusPill } from '@/components/ui/StatusPill'
 import { useColumnasVisibles, type DefinicionColumna } from '@/hooks/useColumnasVisibles'
 import { useConsulta } from '@/hooks/useConsulta'
-import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
 import { ESTADO_GRUPO, ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
 
 interface Contexto {
-  tonoCriticidad: (prioridad?: number) => StatusTone
   ve: (id: string) => boolean
 }
 
@@ -54,12 +52,7 @@ const COLUMNAS: ColumnaGrupo[] = [
     etiqueta: 'Integrantes',
     celda: (g) => <span className="tabular-nums text-ink-soft">{g.cantidadIntegrantes}</span>,
   },
-  {
-    id: 'criticidad',
-    etiqueta: 'Criticidad',
-    celda: (g, { tonoCriticidad }) =>
-      g.criticidad ? <StatusPill tone={tonoCriticidad(g.criticidad.prioridad)} label={g.criticidad.nombre ?? ''} /> : '—',
-  },
+  { id: 'criticidad', etiqueta: 'Criticidad', celda: (g) => <span className="text-ink-soft">{g.criticidad?.nombre ?? '—'}</span> },
   { id: 'entorno', etiqueta: 'Entorno', celda: (g) => <span className="text-ink-soft">{g.entorno?.nombre ?? '—'}</span> },
   {
     id: 'sistemaOperativo',
@@ -92,7 +85,6 @@ const COLUMNAS: ColumnaGrupo[] = [
 const DEFINICIONES: DefinicionColumna[] = [...COLUMNAS, { id: 'acciones', etiqueta: 'Acciones', fija: true }]
 
 export function GruposPage() {
-  const tonoCriticidad = useTonoCriticidad()
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
   const navigate = useNavigate()
@@ -102,7 +94,7 @@ export function GruposPage() {
   const columnas = useColumnasVisibles('grupos', DEFINICIONES)
 
   const visibles = COLUMNAS.filter((c) => columnas.ve(c.id))
-  const contexto: Contexto = { tonoCriticidad, ve: columnas.ve }
+  const contexto: Contexto = { ve: columnas.ve }
   const totalColumnas = visibles.length + 1
 
   return (

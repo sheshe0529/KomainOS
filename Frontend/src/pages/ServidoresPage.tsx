@@ -18,10 +18,8 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { useCatalogos, useResponsables } from '@/hooks/useCatalogos'
 import { useColumnasVisibles } from '@/hooks/useColumnasVisibles'
 import { useConsulta } from '@/hooks/useConsulta'
-import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
 
 export function ServidoresPage() {
-  const tonoCriticidad = useTonoCriticidad()
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
   const navigate = useNavigate()
@@ -100,7 +98,7 @@ export function ServidoresPage() {
 
       <TablaServidores
         columnas={COLUMNAS_SERVIDORES.filter((c) => columnas.ve(c.id))}
-        contexto={{ tonoCriticidad, ve: columnas.ve }}
+        contexto={{ ve: columnas.ve }}
         pagina={servidores.datos}
         cargando={servidores.cargando}
         orden={orden}

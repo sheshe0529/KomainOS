@@ -12,7 +12,6 @@ import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { useConsulta } from '@/hooks/useConsulta'
-import { PUNTO_GRUPO, grupoCronograma } from '@/utils/etiquetas'
 import { claveDia, formatearMesAnio } from '@/utils/formato'
 
 const DIAS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
@@ -87,15 +86,7 @@ export function CronogramaPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <ul className="flex flex-wrap gap-4 text-xs text-ink-soft" aria-label="Leyenda">
-          {Object.values(PUNTO_GRUPO).map((g) => (
-            <li key={g.etiqueta} className="flex items-center gap-1.5">
-              <span className={`h-2 w-2 rounded-full ${g.clase}`} aria-hidden="true" />
-              {g.etiqueta}
-            </li>
-          ))}
-        </ul>
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => cambiarMes(-1)} aria-label="Mes anterior" className="rounded-lg border border-line bg-panel p-2 text-ink-soft hover:bg-panel-muted hover:text-ink">
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -146,16 +137,9 @@ export function CronogramaPage() {
                         {d.getDate()}
                       </span>
                       {delDia.length > 0 && (
-                        <>
-                          <span className="rounded-md bg-accent-soft px-1.5 py-0.5 font-mono text-[11px] font-medium text-accent">
-                            {delDia.length} {delDia.length === 1 ? 'orden' : 'órdenes'}
-                          </span>
-                          <span className="flex gap-1" aria-hidden="true">
-                            {delDia.slice(0, 6).map((o) => (
-                              <span key={o.id} className={`h-1.5 w-1.5 rounded-full ${PUNTO_GRUPO[grupoCronograma(o.etapa)].clase}`} />
-                            ))}
-                          </span>
-                        </>
+                        <span className="rounded-md bg-accent-soft px-1.5 py-0.5 font-mono text-[11px] font-medium text-accent">
+                          {delDia.length} {delDia.length === 1 ? 'orden' : 'órdenes'}
+                        </span>
                       )}
                     </button>
                   )

@@ -25,7 +25,7 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
 export const ESTADO_SERVIDOR: Record<EstadoServidor, { etiqueta: string; tono: StatusTone }> = {
   ACTIVO: { etiqueta: 'Activo', tono: 'success' },
   PENDIENTE_DE_CONFIGURACION: { etiqueta: 'Pendiente de configuración', tono: 'warning' },
-  DADO_DE_BAJA: { etiqueta: 'Baja', tono: 'neutral' },
+  DADO_DE_BAJA: { etiqueta: 'Baja', tono: 'danger' },
 }
 
 export const ESTADO_GRUPO: Record<EstadoGrupo, { etiqueta: string; tono: StatusTone }> = {
@@ -84,32 +84,32 @@ export function textoVentana(v: { diaInicio?: DiaSemana; horaInicio?: string; di
 }
 
 /** Estados del ciclo de la orden (R2.1, tabla 6) */
-export const ESTADO_ORDEN: Record<EstadoOrden, { etiqueta: string; tono: StatusTone }> = {
-  PROGRAMADA: { etiqueta: 'Programada', tono: 'neutral' },
-  EN_EVALUACION: { etiqueta: 'En evaluación', tono: 'warning' },
-  SIN_IMPLEMENTACION: { etiqueta: 'Sin implementación', tono: 'danger' },
-  PENDIENTE_AUTORIZACION: { etiqueta: 'Pendiente de autorización', tono: 'warning' },
-  AUTORIZADA: { etiqueta: 'Autorizada', tono: 'warning' },
-  EN_COLA: { etiqueta: 'En cola', tono: 'warning' },
-  EN_EJECUCION: { etiqueta: 'En ejecución', tono: 'warning' },
-  PENDIENTE_VALIDACION: { etiqueta: 'Pendiente de validación', tono: 'warning' },
-  INCIDENCIA: { etiqueta: 'Incidencia', tono: 'danger' },
-  REPROGRAMADA: { etiqueta: 'Reprogramada', tono: 'neutral' },
-  RECHAZADA: { etiqueta: 'Rechazada', tono: 'danger' },
-  AUTORIZACION_VENCIDA: { etiqueta: 'Autorización vencida', tono: 'danger' },
-  VALIDACION_VENCIDA: { etiqueta: 'Validación vencida', tono: 'danger' },
-  CANCELADA: { etiqueta: 'Cancelada', tono: 'neutral' },
-  CERRADA: { etiqueta: 'Cerrada', tono: 'success' },
+export const ETIQUETA_ESTADO_ORDEN: Record<EstadoOrden, string> = {
+  PROGRAMADA: 'Programada',
+  EN_EVALUACION: 'En evaluación',
+  SIN_IMPLEMENTACION: 'Sin implementación',
+  PENDIENTE_AUTORIZACION: 'Pendiente de autorización',
+  AUTORIZADA: 'Autorizada',
+  EN_COLA: 'En cola',
+  EN_EJECUCION: 'En ejecución',
+  PENDIENTE_VALIDACION: 'Pendiente de validación',
+  INCIDENCIA: 'Incidencia',
+  REPROGRAMADA: 'Reprogramada',
+  RECHAZADA: 'Rechazada',
+  AUTORIZACION_VENCIDA: 'Autorización vencida',
+  VALIDACION_VENCIDA: 'Validación vencida',
+  CANCELADA: 'Cancelada',
+  CERRADA: 'Cerrada',
 }
 
 /** Estados del detalle de orden (R2.1, tabla 7) */
-export const ESTADO_DETALLE: Record<EstadoDetalleOrden, { etiqueta: string; tono: StatusTone }> = {
-  PENDIENTE: { etiqueta: 'Pendiente', tono: 'neutral' },
-  EN_COLA: { etiqueta: 'En cola', tono: 'warning' },
-  EN_EJECUCION: { etiqueta: 'En ejecución', tono: 'warning' },
-  FINALIZADO: { etiqueta: 'Finalizado', tono: 'success' },
-  FALLIDO: { etiqueta: 'Fallido', tono: 'danger' },
-  NO_INICIADO: { etiqueta: 'No iniciado', tono: 'neutral' },
+export const ETIQUETA_ESTADO_DETALLE: Record<EstadoDetalleOrden, string> = {
+  PENDIENTE: 'Pendiente',
+  EN_COLA: 'En cola',
+  EN_EJECUCION: 'En ejecución',
+  FINALIZADO: 'Finalizado',
+  FALLIDO: 'Fallido',
+  NO_INICIADO: 'No iniciado',
 }
 
 export const ETIQUETA_ETAPA: Record<EtapaOrden, string> = {
@@ -128,21 +128,6 @@ export const ETIQUETA_ORIGEN: Record<OrigenOrden, string> = {
   LANZAMIENTO_INMEDIATO: 'Lanzamiento inmediato',
   CONDICION_CRITICA: 'Condición crítica',
 }
-
-/** Agrupación de la leyenda del cronograma según la etapa del ciclo */
-export function grupoCronograma(etapa?: EtapaOrden): 'programado' | 'en-curso' | 'completado' | 'incidencia' {
-  if (etapa === 'PLANIFICACION' || etapa === undefined) return 'programado'
-  if (etapa === 'CIERRE') return 'completado'
-  if (etapa === 'INCIDENCIA') return 'incidencia'
-  return 'en-curso'
-}
-
-export const PUNTO_GRUPO = {
-  completado: { clase: 'bg-success', etiqueta: 'Completado' },
-  'en-curso': { clase: 'bg-warning', etiqueta: 'En curso' },
-  incidencia: { clase: 'bg-danger', etiqueta: 'Incidencia' },
-  programado: { clase: 'bg-ink-faint', etiqueta: 'Programado' },
-} as const
 
 export const ESTADO_FILA_IMPORTACION: Record<'NUEVA' | 'DUPLICADA' | 'ERRONEA', { etiqueta: string; tono: StatusTone }> = {
   NUEVA: { etiqueta: 'Nuevo', tono: 'success' },

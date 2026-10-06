@@ -6,10 +6,8 @@ import { ChartCard } from '@/components/dashboard/ChartCard'
 import { DistribucionHorariaChart, type PuntoHora } from '@/components/planificacion/DistribucionHorariaChart'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
-import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
-import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
-import { ESTADO_ORDEN, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
+import { ETIQUETA_ESTADO_ORDEN, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
 import { claveDia, formatearFechaHora, formatearFechaLarga, formatearHora } from '@/utils/formato'
 
 function fechaDesdeClave(clave?: string): Date {
@@ -22,7 +20,6 @@ function fechaDesdeClave(clave?: string): Date {
 }
 
 export function CronogramaDiaPage() {
-  const tonoCriticidad = useTonoCriticidad()
   const { fecha } = useParams()
   const dia = fechaDesdeClave(fecha)
   const siguiente = new Date(dia)
@@ -82,7 +79,6 @@ export function CronogramaDiaPage() {
                 </thead>
                 <tbody className="divide-y divide-line">
                   {delDia.map((o) => {
-                    const estado = o.estado ? ESTADO_ORDEN[o.estado] : undefined
                     const empiezaHoy = o.inicioProgramado && claveDia(new Date(o.inicioProgramado)) === clave
                     return (
                       <tr key={o.id} className="hover:bg-panel-muted">
@@ -100,10 +96,8 @@ export function CronogramaDiaPage() {
                           {o.tipoObjetivo === 'GRUPAL' && <span className="block text-xs text-ink-faint">{o.cantidadServidores} servidores</span>}
                         </td>
                         <td className="px-4 py-3 text-ink-soft">{o.origen ? ETIQUETA_ORIGEN[o.origen] : ''}</td>
-                        <td className="px-4 py-3">
-                          <StatusPill tone={tonoCriticidad(o.criticidad?.prioridad)} label={o.criticidad?.nombre ?? ''} />
-                        </td>
-                        <td className="px-4 py-3">{estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}</td>
+                        <td className="px-4 py-3 text-ink-soft">{o.criticidad?.nombre}</td>
+                        <td className="px-4 py-3 text-ink-soft">{o.estado ? ETIQUETA_ESTADO_ORDEN[o.estado] : ''}</td>
                       </tr>
                     )
                   })}

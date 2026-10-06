@@ -14,8 +14,7 @@ import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
-import { useTonoCriticidad } from '@/hooks/useTonoCriticidad'
-import { ESTADO_DETALLE, ESTADO_ORDEN, ETIQUETA_ETAPA, ETIQUETA_MODO, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
+import { ETIQUETA_ESTADO_DETALLE, ETIQUETA_ESTADO_ORDEN, ETIQUETA_ETAPA, ETIQUETA_MODO, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
 import { formatearFechaHora } from '@/utils/formato'
 
 /** Estados desde los que la tabla 6 permite reprogramar y cancelar */
@@ -23,7 +22,6 @@ const REPROGRAMABLES: EstadoOrden[] = ['PROGRAMADA', 'EN_COLA']
 const CANCELABLES: EstadoOrden[] = ['PROGRAMADA', 'AUTORIZADA', 'EN_COLA']
 
 export function OrdenDetallePage() {
-  const tonoCriticidad = useTonoCriticidad()
   const { id } = useParams()
   const idOrden = Number(id)
   const navigate = useNavigate()
@@ -45,7 +43,6 @@ export function OrdenDetallePage() {
   if (orden.error && !o) return <MensajeError error={orden.error} onReintentar={orden.recargar} />
   if (!o || !r) return null
 
-  const estado = r.estado ? ESTADO_ORDEN[r.estado] : undefined
   const grupal = r.tipoObjetivo === 'GRUPAL'
   const enlaceObjetivo = grupal ? `/grupos/${r.objetivo?.id}` : `/servidores/${r.objetivo?.id}`
 
@@ -65,8 +62,8 @@ export function OrdenDetallePage() {
             </Link>
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
-            <StatusPill tone={tonoCriticidad(r.criticidad?.prioridad)} label={`Criticidad ${r.criticidad?.nombre ?? ''}`} />
+            {r.estado && <StatusPill tone="neutral" label={ETIQUETA_ESTADO_ORDEN[r.estado]} />}
+            <StatusPill tone="neutral" label={`Criticidad ${r.criticidad?.nombre ?? ''}`} />
             {r.etapa && <StatusPill tone="neutral" label={`Etapa: ${ETIQUETA_ETAPA[r.etapa]}`} />}
             {r.prioridad === 'ALTA' && <StatusPill tone="danger" label="Prioridad alta" />}
           </div>
@@ -101,7 +98,6 @@ export function OrdenDetallePage() {
         </Tarjeta>
         <Tarjeta titulo="Programación vigente">
           <dl className="grid gap-4 sm:grid-cols-2">
-            <Dato etiqueta="Fecha objetivo" valor={formatearFechaHora(r.fechaObjetivo)} />
             <Dato etiqueta="Inicio programado" valor={formatearFechaHora(r.inicioProgramado)} />
             <Dato etiqueta="Fin previsto" valor={formatearFechaHora(r.finProgramado)} />
             <Dato etiqueta="Evaluación previa" valor={formatearFechaHora(r.fechaEvaluacion)} />
@@ -138,9 +134,7 @@ export function OrdenDetallePage() {
                     </Link>
                     <span className="ml-2 font-mono text-xs text-ink-faint">{d.direccionIp}</span>
                   </td>
-                  <td className="py-2 pr-4">
-                    {d.estado && <StatusPill tone={ESTADO_DETALLE[d.estado].tono} label={ESTADO_DETALLE[d.estado].etiqueta} />}
-                  </td>
+                  <td className="py-2 pr-4 text-ink-soft">{d.estado ? ETIQUETA_ESTADO_DETALLE[d.estado] : ''}</td>
                   <td className="py-2 pr-4 text-ink-soft">
                     {formatearFechaHora(d.fechaPrevistaInicio)} – {formatearFechaHora(d.fechaPrevistaFin)}
                   </td>
@@ -178,8 +172,8 @@ export function OrdenDetallePage() {
             {o.historial?.map((h, i) => (
               <li key={i} className="flex flex-col gap-0.5 border-l-2 border-line pl-3 text-sm">
                 <span className="text-ink">
-                  {h.estadoAnterior ? `${ESTADO_ORDEN[h.estadoAnterior].etiqueta} → ` : ''}
-                  <span className="font-medium">{h.estadoNuevo ? ESTADO_ORDEN[h.estadoNuevo].etiqueta : ''}</span>
+                  {h.estadoAnterior ? `${ETIQUETA_ESTADO_ORDEN[h.estadoAnterior]} → ` : ''}
+                  <span className="font-medium">{h.estadoNuevo ? ETIQUETA_ESTADO_ORDEN[h.estadoNuevo] : ''}</span>
                 </span>
                 <span className="text-xs text-ink-faint">
                   {formatearFechaHora(h.fechaHora)} · {h.usuario?.nombre ?? 'Sistema'}
