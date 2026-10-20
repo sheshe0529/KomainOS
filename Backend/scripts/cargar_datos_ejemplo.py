@@ -81,7 +81,7 @@ def main() -> None:
 
     # ------------------------------------------------------------ catalogos
     entornos = {e["nombre"]: e["id"] for e in api.exigir("GET", "/entornos")}
-    for nombre, descripcion in [("Producción", "Servicios productivos"), ("Staging", "Preproducción"), ("QA", "Pruebas")]:
+    for nombre, descripcion in [("Producción", "Servicios productivos"), ("Desarrollo", "Entorno de desarrollo"), ("QA", "Pruebas")]:
         if nombre not in entornos:
             entornos[nombre] = api.exigir("POST", "/entornos", {"nombre": nombre, "descripcion": descripcion})["id"]
 
@@ -123,27 +123,38 @@ def main() -> None:
     fin_de_semana = [{"diaInicio": "SABADO", "horaInicio": "01:00", "diaFin": "SABADO", "horaFin": "05:00"},
                      {"diaInicio": "DOMINGO", "horaInicio": "01:00", "diaFin": "DOMINGO", "horaFin": "05:00"}]
     noche_sabado = [{"diaInicio": "SABADO", "horaInicio": "22:00", "diaFin": "DOMINGO", "horaFin": "04:00"}]
+    # Hostname: SERV + entorno (PROD, DES, QA) + función (APP, BDD, CAC, WEB, BAT) + V + número
     servidores = [
-        # hostname, ip, dc, fisico, so, entorno, criticidad, responsable, modalidad, ventanas
-        ("srv-app-01", "10.20.1.11", "DC-Norte", "esx-blade-04", "Ubuntu 22.04", "Producción", "Media", "m.herrera", "AUTOMATICA", fin_de_semana),
-        ("srv-app-02", "10.20.1.12", "DC-Norte", "esx-blade-04", "Ubuntu 22.04", "Producción", "Media", "m.herrera", "AUTOMATICA", fin_de_semana),
-        ("srv-db-01", "10.20.2.10", "DC-Norte", "esx-blade-02", "RHEL 9", "Producción", "Alta", "j.paredes", "AUTOMATICA", noche_sabado),
-        ("srv-db-02", "10.20.2.11", "DC-Norte", "esx-blade-02", "RHEL 9", "Producción", "Alta", "j.paredes", "AUTOMATICA", noche_sabado),
-        ("srv-cache-01", "10.20.3.10", "DC-Sur", "esx-blade-09", "Ubuntu 22.04", "Producción", "Alta", "m.herrera", "BAJO_DEMANDA", fin_de_semana),
-        ("srv-web-01", "10.30.1.20", "DC-Sur", "esx-blade-11", "Windows Server 2022", "Staging", "Media", "c.rojas", "BAJO_DEMANDA", noche_sabado),
-        ("srv-batch-01", "10.40.1.15", "DC-Norte", "esx-blade-06", "Ubuntu 24.04", "QA", "Baja", "c.rojas", None, []),
+        # hostname, ip, vdc, fisico, vlan, cluster, plataforma, so, entorno, criticidad, responsable, modalidad, ventanas,
+        # cpu, ram_gb, disco_gb, descripcion
+        ("SERVPRODAPPV01", "10.20.1.11", "DCNORTE", "ESXNORTE04", "VLAN120", "CLAPPNORTE", "VMware", "Ubuntu 22.04", "Producción", "Media", "m.herrera", "AUTOMATICA", fin_de_semana,
+         4, 16, 120, "Servidor de aplicaciones del portal de clientes, nodo 1. Atiende el tráfico productivo."),
+        ("SERVPRODAPPV02", "10.20.1.12", "DCNORTE", "ESXNORTE05", "VLAN120", "CLAPPNORTE", "VMware", "Ubuntu 22.04", "Producción", "Media", "m.herrera", "AUTOMATICA", fin_de_semana,
+         4, 16, 120, "Servidor de aplicaciones del portal de clientes, nodo 2. Atiende el tráfico productivo."),
+        ("SERVPRODBDDV01", "10.20.2.10", "DCNORTE", "ESXNORTE02", "VLAN210", "CLBDDNORTE", "VMware", "RHEL 9", "Producción", "Alta", "j.paredes", "AUTOMATICA", noche_sabado,
+         16, 64, 1024, "Base de datos transaccional de producción, nodo primario. Soporta el portal de clientes y la facturación."),
+        ("SERVPRODBDDV02", "10.20.2.11", "DCNORTE", "ESXNORTE03", "VLAN210", "CLBDDNORTE", "VMware", "RHEL 9", "Producción", "Alta", "j.paredes", "AUTOMATICA", noche_sabado,
+         16, 64, 1024, "Base de datos transaccional de producción, réplica en espera del nodo primario SERVPRODBDDV01."),
+        ("SERVPRODCACV01", "10.20.3.10", "DCSUR", "ESXSUR09", "VLAN130", "CLAPPSUR", "VMware", "Ubuntu 22.04", "Producción", "Alta", "m.herrera", "BAJO_DEMANDA", fin_de_semana,
+         2, 8, 60, "Caché distribuida de sesiones del portal de clientes."),
+        ("SERVDESWEBV01", "10.30.1.20", "DCSUR", "ESXSUR11", "VLAN300", "CLHVSUR", "Hyper-V", "Windows Server 2022", "Desarrollo", "Media", "c.rojas", "BAJO_DEMANDA", noche_sabado,
+         4, 16, 200, "Servidor web (IIS sobre Windows Server 2022) de desarrollo, usado en las pruebas de despliegue del portal de clientes."),
+        ("SERVQABATV01", "10.40.1.15", "DCNORTE", "ESXNORTE06", "VLAN400", "CLQANORTE", "VMware", "Ubuntu 24.04", "QA", "Baja", "c.rojas", None, [],
+         4, 8, 100, "Ejecución de procesos batch y trabajos programados del entorno de pruebas."),
     ]
     existentes = {s["hostname"]: s["id"] for s in api.exigir("GET", "/servidores?size=500")["contenido"]}
     ids: dict[str, int] = {}
-    for (host, ip, dc, fisico, so, entorno, criticidad, responsable, modalidad, ventanas) in servidores:
+    for (host, ip, vdc, fisico, vlan, cluster, plataforma, so, entorno, criticidad, responsable, modalidad, ventanas,
+         cpu, ram, disco, descripcion) in servidores:
         if host in existentes:
             ids[host] = existentes[host]
             continue
         ficha = api.exigir("POST", "/servidores", {
-            "hostname": host, "direccionIp": ip, "vdc": dc, "servidorFisico": fisico,
-            "idVersionSistemaOperativo": versiones[so], "plataforma": "VMware", "dns": f"{host}.komainos.local",
+            "hostname": host, "direccionIp": ip, "vdc": vdc, "servidorFisico": fisico, "vlan": vlan, "cluster": cluster,
+            "idVersionSistemaOperativo": versiones[so], "plataforma": plataforma, "dns": f"{host.lower()}.komainos.local",
             "idEntorno": entornos[entorno], "idNivelCriticidad": criticidades[criticidad],
-            "idResponsable": usuarios[responsable], "descripcion": f"Servidor de ejemplo {host}"})
+            "idResponsable": usuarios[responsable], "descripcion": descripcion,
+            "cantidadCpu": cpu, "ramGb": ram, "hdVirtualGb": disco})
         ids[host] = ficha["id"]
         if ventanas:
             api.exigir("PUT", f"/servidores/{ficha['id']}/ventanas", {"ventanas": ventanas})
@@ -153,13 +164,14 @@ def main() -> None:
 
     # ---------------------------------------------------------------- grupos
     grupos = {g["nombre"]: g["id"] for g in api.exigir("GET", "/grupos")}
-    if "Grupo DB Producción" not in grupos:
-        g = api.exigir("POST", "/grupos", {"nombre": "Grupo DB Producción",
-                                           "descripcion": "Bases de datos productivas de J. Paredes"})
-        api.exigir("PUT", f"/grupos/{g['id']}/integrantes", {"idsServidores": [ids["srv-db-01"], ids["srv-db-02"]]})
+    if "Grupo Base de Datos Producción" not in grupos:
+        g = api.exigir("POST", "/grupos", {
+            "nombre": "Grupo Base de Datos Producción",
+            "descripcion": "Nodo primario y réplica de la base de datos transaccional de producción, a cargo de J. Paredes."})
+        api.exigir("PUT", f"/grupos/{g['id']}/integrantes", {"idsServidores": [ids["SERVPRODBDDV01"], ids["SERVPRODBDDV02"]]})
         api.exigir("PUT", f"/grupos/{g['id']}/configuracion",
                    {"modalidadPlanificacion": "BAJO_DEMANDA", "modoEjecucion": "SECUENCIAL"})
-        print("  grupo Grupo DB Producción registrado")
+        print("  grupo Grupo Base de Datos Producción registrado")
 
     total = api.exigir("GET", "/servidores?size=1")["totalElementos"]
     print(f"Listo: {total} servidores en el inventario. Usuarios de ejemplo con contrasena '{CLAVE_DEMO}'.")

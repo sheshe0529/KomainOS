@@ -23,7 +23,7 @@ INSERT INTO usuario (codigo, nombre_completo, hash_contrasena, rol, activo) VALU
 
 INSERT INTO entorno (nombre, descripcion) VALUES
     ('Producción', 'Servicios productivos'),
-    ('Staging',    'Preproducción'),
+    ('Desarrollo', 'Entorno de desarrollo'),
     ('QA',         'Pruebas');
 
 -- Menor prioridad = más crítico (DEC-13)
@@ -48,24 +48,25 @@ FROM (VALUES ('Ubuntu', '20.04', false),
              ('Windows Server', '2022', true)) AS d(sistema, version, activo)
 JOIN sistema_operativo so ON so.nombre = d.sistema;
 
--- ACTIVO si tiene configuración (DEC-14), srv-batch-01 queda pendiente de configuración y srv-legacy-01 dado de baja
+-- Hostname SERV + entorno (PROD, DES, QA) + función (APP, BDD, CAC, WEB, BAT, LEG) + V + número; el VDC es el centro de datos virtual
+-- ACTIVO si tiene configuración (DEC-14), SERVQABATV01 queda pendiente de configuración y SERVPRODLEGV01 dado de baja
 INSERT INTO servidor (id_version_sistema_operativo, id_entorno, id_nivel_criticidad, id_usuario_responsable,
                       hostname, vdc, servidor_fisico, vlan, cluster, dns, plataforma,
                       descripcion, estado, cantidad_cpu, ram_gb, hd_virtual_gb, fecha_alta, fecha_actualizacion)
 SELECT v.id_version_sistema_operativo, e.id_entorno, n.id_nivel_criticidad, u.id_usuario,
-       d.hostname, d.vdc, d.fisico, d.vlan, d.cluster, d.hostname || '.komainos.local', d.plataforma,
+       d.hostname, d.vdc, d.fisico, d.vlan, d.cluster, lower(d.hostname) || '.komainos.local', d.plataforma,
        d.descripcion, d.estado::enum_estado_servidor, d.cpu, d.ram, d.disco,
        date_trunc('second', now() AT TIME ZONE 'UTC') - make_interval(days => d.dias_alta),
        date_trunc('second', now() AT TIME ZONE 'UTC') - make_interval(days => d.dias_alta)
 FROM (VALUES
-    ('srv-app-01',    'VDC-Norte', 'esx-blade-04', 'VLAN 120', 'cl-app-norte', 'Ubuntu', '22.04', 'Producción', 'Media', 'm.herrera', 'VMware',  'ACTIVO',                     120,  4,   16.00,  120.00, 'Aplicación del portal de clientes (nodo 1)'),
-    ('srv-app-02',    'VDC-Norte', 'esx-blade-04', 'VLAN 120', 'cl-app-norte', 'Ubuntu', '22.04', 'Producción', 'Media', 'm.herrera', 'VMware',  'ACTIVO',                     120,  4,   16.00,  120.00, 'Aplicación del portal de clientes (nodo 2)'),
-    ('srv-db-01',     'VDC-Norte', 'esx-blade-02', 'VLAN 210', 'cl-db-norte',  'RHEL',   '9',     'Producción', 'Alta',  'j.paredes', 'VMware',  'ACTIVO',                     200, 16,   64.00, 1024.00, 'Base de datos transaccional, primaria'),
-    ('srv-db-02',     'VDC-Norte', 'esx-blade-02', 'VLAN 210', 'cl-db-norte',  'RHEL',   '9',     'Producción', 'Alta',  'j.paredes', 'VMware',  'ACTIVO',                     200, 16,   64.00, 1024.00, 'Base de datos transaccional, réplica'),
-    ('srv-cache-01',  'VDC-Sur',   'esx-blade-09', 'VLAN 130', 'cl-app-sur',   'Ubuntu', '22.04', 'Producción', 'Alta',  'm.herrera', 'VMware',  'ACTIVO',                      90,  2,    8.00,   60.00, 'Caché distribuida de sesiones'),
-    ('srv-web-01',    'VDC-Sur',   'esx-blade-11', 'VLAN 300', 'cl-web-sur',   'Windows Server', '2022', 'Staging', 'Media', 'c.rojas', 'Hyper-V', 'ACTIVO',                  60,  4,   12.50,  200.00, 'Servidor web de preproducción'),
-    ('srv-batch-01',  'VDC-Norte', 'esx-blade-06', 'VLAN 400', 'cl-qa',        'Ubuntu', '24.04', 'QA',         'Baja',  'c.rojas',   'VMware',  'PENDIENTE_DE_CONFIGURACION',  10, NULL,  NULL,    NULL, 'Procesos batch de pruebas'),
-    ('srv-legacy-01', 'VDC-Norte', 'esx-blade-01', 'VLAN 120', 'cl-app-norte', 'Ubuntu', '20.04', 'Producción', 'Baja',  'm.herrera', 'VMware',  'DADO_DE_BAJA',               400,  2,    4.00,   40.00, 'Antiguo servidor de aplicaciones')
+    ('SERVPRODAPPV01', 'DCNORTE', 'ESXNORTE04', 'VLAN120', 'CLAPPNORTE', 'Ubuntu', '22.04', 'Producción', 'Media', 'm.herrera', 'VMware',  'ACTIVO',                     120,  4,   16.00,  120.00, 'Servidor de aplicaciones del portal de clientes, nodo 1. Atiende el tráfico productivo.'),
+    ('SERVPRODAPPV02', 'DCNORTE', 'ESXNORTE05', 'VLAN120', 'CLAPPNORTE', 'Ubuntu', '22.04', 'Producción', 'Media', 'm.herrera', 'VMware',  'ACTIVO',                     120,  4,   16.00,  120.00, 'Servidor de aplicaciones del portal de clientes, nodo 2. Atiende el tráfico productivo.'),
+    ('SERVPRODBDDV01', 'DCNORTE', 'ESXNORTE02', 'VLAN210', 'CLBDDNORTE', 'RHEL',   '9',     'Producción', 'Alta',  'j.paredes', 'VMware',  'ACTIVO',                     200, 16,   64.00, 1024.00, 'Base de datos transaccional de producción, nodo primario. Soporta el portal de clientes y la facturación.'),
+    ('SERVPRODBDDV02', 'DCNORTE', 'ESXNORTE03', 'VLAN210', 'CLBDDNORTE', 'RHEL',   '9',     'Producción', 'Alta',  'j.paredes', 'VMware',  'ACTIVO',                     200, 16,   64.00, 1024.00, 'Base de datos transaccional de producción, réplica en espera del nodo primario SERVPRODBDDV01.'),
+    ('SERVPRODCACV01', 'DCSUR',   'ESXSUR09',   'VLAN130', 'CLAPPSUR',   'Ubuntu', '22.04', 'Producción', 'Alta',  'm.herrera', 'VMware',  'ACTIVO',                      90,  2,    8.00,   60.00, 'Caché distribuida de sesiones del portal de clientes.'),
+    ('SERVDESWEBV01',  'DCSUR',   'ESXSUR11',   'VLAN300', 'CLHVSUR',    'Windows Server', '2022', 'Desarrollo', 'Media', 'c.rojas', 'Hyper-V', 'ACTIVO',                60,  4,   16.00,  200.00, 'Servidor web (IIS sobre Windows Server 2022) de desarrollo, usado en las pruebas de despliegue del portal de clientes.'),
+    ('SERVQABATV01',   'DCNORTE', 'ESXNORTE06', 'VLAN400', 'CLQANORTE',  'Ubuntu', '24.04', 'QA',         'Baja',  'c.rojas',   'VMware',  'PENDIENTE_DE_CONFIGURACION',  10,  4,    8.00,  100.00, 'Ejecución de procesos batch y trabajos programados del entorno de pruebas.'),
+    ('SERVPRODLEGV01', 'DCNORTE', 'ESXNORTE01', 'VLAN120', 'CLAPPNORTE', 'Ubuntu', '20.04', 'Producción', 'Baja',  'm.herrera', 'VMware',  'DADO_DE_BAJA',               400,  2,    4.00,   40.00, 'Antiguo servidor de aplicaciones del portal de clientes. Dado de baja por el fin de soporte de Ubuntu 20.04.')
 ) AS d(hostname, vdc, fisico, vlan, cluster, sistema, version, entorno, criticidad, responsable,
        plataforma, estado, dias_alta, cpu, ram, disco, descripcion)
 JOIN sistema_operativo so ON so.nombre = d.sistema
@@ -78,20 +79,20 @@ JOIN usuario u ON u.codigo = d.responsable;
 INSERT INTO direccion_ip (id_servidor, direccion, principal)
 SELECT s.id_servidor, d.direccion, d.principal
 FROM (VALUES
-    ('srv-app-01',    '10.20.1.11', true),
-    ('srv-app-01',    '10.90.1.11', false),
-    ('srv-app-02',    '10.20.1.12', true),
-    ('srv-app-02',    '10.90.1.12', false),
-    ('srv-db-01',     '10.20.2.10', true),
-    ('srv-db-01',     '10.21.2.10', false),
-    ('srv-db-01',     '10.90.2.10', false),
-    ('srv-db-02',     '10.20.2.11', true),
-    ('srv-db-02',     '10.21.2.11', false),
-    ('srv-cache-01',  '10.20.3.10', true),
-    ('srv-web-01',    '10.30.1.20', true),
-    ('srv-web-01',    'fd00:30::20', false),
-    ('srv-batch-01',  '10.40.1.15', true),
-    ('srv-legacy-01', '10.20.9.5',  true)
+    ('SERVPRODAPPV01', '10.20.1.11',  true),
+    ('SERVPRODAPPV01', '10.90.1.11',  false),
+    ('SERVPRODAPPV02', '10.20.1.12',  true),
+    ('SERVPRODAPPV02', '10.90.1.12',  false),
+    ('SERVPRODBDDV01', '10.20.2.10',  true),
+    ('SERVPRODBDDV01', '10.21.2.10',  false),
+    ('SERVPRODBDDV01', '10.90.2.10',  false),
+    ('SERVPRODBDDV02', '10.20.2.11',  true),
+    ('SERVPRODBDDV02', '10.21.2.11',  false),
+    ('SERVPRODCACV01', '10.20.3.10',  true),
+    ('SERVDESWEBV01',  '10.30.1.20',  true),
+    ('SERVDESWEBV01',  'fd00:30::20', false),
+    ('SERVQABATV01',   '10.40.1.15',  true),
+    ('SERVPRODLEGV01', '10.20.9.5',   true)
 ) AS d(hostname, direccion, principal)
 JOIN servidor s ON s.hostname = d.hostname;
 
@@ -99,16 +100,16 @@ JOIN servidor s ON s.hostname = d.hostname;
 INSERT INTO ventana_mantenimiento (id_servidor, dia_inicio, hora_inicio, dia_fin, hora_fin)
 SELECT s.id_servidor, d.dia_inicio::enum_dia_semana, d.hora_inicio::time, d.dia_fin::enum_dia_semana, d.hora_fin::time
 FROM (VALUES
-    ('srv-app-01',   'SABADO',  '01:00', 'SABADO',  '05:00'),
-    ('srv-app-01',   'DOMINGO', '01:00', 'DOMINGO', '05:00'),
-    ('srv-app-02',   'SABADO',  '01:00', 'SABADO',  '05:00'),
-    ('srv-app-02',   'DOMINGO', '01:00', 'DOMINGO', '05:00'),
-    ('srv-db-01',    'SABADO',  '22:00', 'DOMINGO', '04:00'),
-    ('srv-db-02',    'SABADO',  '22:00', 'DOMINGO', '04:00'),
-    ('srv-cache-01', 'SABADO',  '01:00', 'SABADO',  '05:00'),
-    ('srv-cache-01', 'DOMINGO', '01:00', 'DOMINGO', '05:00'),
-    ('srv-web-01',   'MIERCOLES', '23:00', 'JUEVES', '03:00'),
-    ('srv-web-01',   'SABADO',  '22:00', 'DOMINGO', '04:00')
+    ('SERVPRODAPPV01', 'SABADO',    '01:00', 'SABADO',  '05:00'),
+    ('SERVPRODAPPV01', 'DOMINGO',   '01:00', 'DOMINGO', '05:00'),
+    ('SERVPRODAPPV02', 'SABADO',    '01:00', 'SABADO',  '05:00'),
+    ('SERVPRODAPPV02', 'DOMINGO',   '01:00', 'DOMINGO', '05:00'),
+    ('SERVPRODBDDV01', 'SABADO',    '22:00', 'DOMINGO', '04:00'),
+    ('SERVPRODBDDV02', 'SABADO',    '22:00', 'DOMINGO', '04:00'),
+    ('SERVPRODCACV01', 'SABADO',    '01:00', 'SABADO',  '05:00'),
+    ('SERVPRODCACV01', 'DOMINGO',   '01:00', 'DOMINGO', '05:00'),
+    ('SERVDESWEBV01',  'MIERCOLES', '23:00', 'JUEVES',  '03:00'),
+    ('SERVDESWEBV01',  'SABADO',    '22:00', 'DOMINGO', '04:00')
 ) AS d(hostname, dia_inicio, hora_inicio, dia_fin, hora_fin)
 JOIN servidor s ON s.hostname = d.hostname;
 
@@ -121,9 +122,9 @@ BEGIN
     FOR r IN
         SELECT s.id_servidor, n.frecuencia_revision_dias, n.frecuencia_mantenimiento_dias,
                d.modalidad::enum_modalidad_planificacion AS modalidad
-        FROM (VALUES ('srv-app-01', 'AUTOMATICA'), ('srv-app-02', 'AUTOMATICA'),
-                     ('srv-db-01', 'AUTOMATICA'), ('srv-db-02', 'AUTOMATICA'),
-                     ('srv-cache-01', 'BAJO_DEMANDA'), ('srv-web-01', 'BAJO_DEMANDA')) AS d(hostname, modalidad)
+        FROM (VALUES ('SERVPRODAPPV01', 'AUTOMATICA'), ('SERVPRODAPPV02', 'AUTOMATICA'),
+                     ('SERVPRODBDDV01', 'AUTOMATICA'), ('SERVPRODBDDV02', 'AUTOMATICA'),
+                     ('SERVPRODCACV01', 'BAJO_DEMANDA'), ('SERVDESWEBV01', 'BAJO_DEMANDA')) AS d(hostname, modalidad)
         JOIN servidor s ON s.hostname = d.hostname
         JOIN nivel_criticidad n ON n.id_nivel_criticidad = s.id_nivel_criticidad
     LOOP
@@ -144,11 +145,12 @@ DECLARE
     v_config integer;
 BEGIN
     INSERT INTO grupo_mantenimiento (nombre, descripcion, estado)
-    VALUES ('Grupo DB Producción', 'Bases de datos productivas de J. Paredes', 'ACTIVO')
+    VALUES ('Grupo Base de Datos Producción',
+            'Nodo primario y réplica de la base de datos transaccional de producción, a cargo de J. Paredes.', 'ACTIVO')
     RETURNING id_grupo_mantenimiento INTO v_grupo;
 
     INSERT INTO grupo_servidor (id_grupo_mantenimiento, id_servidor)
-    SELECT v_grupo, id_servidor FROM servidor WHERE hostname IN ('srv-db-01', 'srv-db-02');
+    SELECT v_grupo, id_servidor FROM servidor WHERE hostname IN ('SERVPRODBDDV01', 'SERVPRODBDDV02');
 
     INSERT INTO configuracion_mantenimiento (frecuencia_revision_dias, frecuencia_mantenimiento_dias, modalidad_planificacion)
     SELECT frecuencia_revision_dias, frecuencia_mantenimiento_dias, 'BAJO_DEMANDA'::enum_modalidad_planificacion
@@ -161,11 +163,11 @@ END $$;
 -- RF72: la baja conserva el historial con el motivo y quién la pidió
 INSERT INTO solicitud_baja (id_servidor, id_usuario_solicitante, estado, motivo, fecha_solicitud, fecha_aplicacion)
 SELECT s.id_servidor, u.id_usuario, 'APLICADA'::enum_estado_solicitud_baja,
-       'Reemplazado por srv-app-02; Ubuntu 20.04 sin soporte del fabricante',
+       'Reemplazado por SERVPRODAPPV02; Ubuntu 20.04 sin soporte del fabricante',
        date_trunc('second', now() AT TIME ZONE 'UTC') - interval '15 days',
        date_trunc('second', now() AT TIME ZONE 'UTC') - interval '15 days'
 FROM servidor s, usuario u
-WHERE s.hostname = 'srv-legacy-01' AND u.codigo = 'admin';
+WHERE s.hostname = 'SERVPRODLEGV01' AND u.codigo = 'admin';
 
 -- Hora de Lima a UTC, como se guardan todos los TIMESTAMP (DEC-06)
 CREATE FUNCTION pg_temp.a_utc(p_hora_local timestamp) RETURNS timestamp LANGUAGE sql AS
@@ -231,23 +233,23 @@ BEGIN
     END LOOP;
 
     -- Ciclos automáticos (RF27) dentro de la ventana de cada servidor
-    PERFORM pg_temp.crear_orden('srv-app-01', 'PLANIFICACION_AUTOMATICA', NULL,
+    PERFORM pg_temp.crear_orden('SERVPRODAPPV01', 'PLANIFICACION_AUTOMATICA', NULL,
             v_sabado + interval '1 hour', v_sabado + interval '1 hour', v_sabado + interval '5 hours',
             'Ciclo automático generado por el Sistema');
-    PERFORM pg_temp.crear_orden('srv-db-01', 'PLANIFICACION_AUTOMATICA', NULL,
+    PERFORM pg_temp.crear_orden('SERVPRODBDDV01', 'PLANIFICACION_AUTOMATICA', NULL,
             v_sabado + interval '22 hours', v_sabado + interval '22 hours', v_sabado + interval '28 hours',
             'Ciclo automático generado por el Sistema');
-    PERFORM pg_temp.crear_orden('srv-db-02', 'PLANIFICACION_AUTOMATICA', NULL,
+    PERFORM pg_temp.crear_orden('SERVPRODBDDV02', 'PLANIFICACION_AUTOMATICA', NULL,
             v_sabado + interval '22 hours', v_sabado + interval '22 hours', v_sabado + interval '28 hours',
             'Ciclo automático generado por el Sistema');
 
     -- Servidor bajo demanda: la programa el administrador (RF30)
-    PERFORM pg_temp.crear_orden('srv-cache-01', 'SOLICITUD_BAJO_DEMANDA', 'admin',
+    PERFORM pg_temp.crear_orden('SERVPRODCACV01', 'SOLICITUD_BAJO_DEMANDA', 'admin',
             v_sabado + interval '25 hours', v_sabado + interval '25 hours', v_sabado + interval '29 hours',
             'Actualización de parches de seguridad solicitada por el responsable');
 
     -- Ciclo cancelado por el administrador (DEC-19): deja de ocupar el servidor
-    v_id := pg_temp.crear_orden('srv-app-02', 'PLANIFICACION_AUTOMATICA', NULL,
+    v_id := pg_temp.crear_orden('SERVPRODAPPV02', 'PLANIFICACION_AUTOMATICA', NULL,
             v_sabado + interval '1 hour', v_sabado + interval '1 hour', v_sabado + interval '5 hours',
             'Ciclo automático generado por el Sistema');
     UPDATE orden SET estado = 'CANCELADA' WHERE id_orden = v_id;
