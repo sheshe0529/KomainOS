@@ -17,17 +17,12 @@ public record OrdenDetalleRespuesta(
         Instant inicioVentanaAplicada,
         Instant finVentanaAplicada,
         List<Detalle> detalles,
-        List<Programacion> programaciones,
+        /** Incluye las reprogramaciones: la orden guarda solo su programación vigente (R2.4) */
         List<CambioEstado> historial) {
 
     public record Detalle(Integer id, ReferenciaSimple servidor, String direccionIp, int posicionEjecucion,
                           boolean esServidorPiloto, EstadoDetalleOrden estado, Instant fechaPrevistaInicio,
                           Instant fechaPrevistaFin, Instant fechaRealInicio, Instant fechaRealFin) {
-    }
-
-    public record Programacion(int numeroVersion, Instant fechaObjetivo, Instant inicio, Instant fin,
-                               Instant fechaEvaluacion, Instant inicioVentana, Instant finVentana, String motivo,
-                               ReferenciaSimple registradoPor, Instant fechaRegistro) {
     }
 
     /** usuario nulo: la transición la hizo el Sistema */

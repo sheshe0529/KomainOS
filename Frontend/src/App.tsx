@@ -22,6 +22,8 @@ import {
   ParametrosPage,
   PreferenciasPage,
   ServidoresPage,
+  UmbralDetallePage,
+  UmbralesPage,
   UsuariosPage,
 } from '@/pages'
 
@@ -91,6 +93,22 @@ function App() {
                 element={
                   <RutaProtegida roles={['ADMINISTRADOR']}>
                     <CatalogosPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/configuracion/umbrales"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <UmbralesPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/configuracion/umbrales/:idUmbral"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <UmbralDetallePage />
                   </RutaProtegida>
                 }
               />

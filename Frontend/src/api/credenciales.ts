@@ -17,7 +17,7 @@ export const credencialesApi = {
   registrarDocumental: (idServidor: number, datos: CredencialPeticion) =>
     http.post<CredencialRespuesta>(`/servidores/${idServidor}/credenciales`, datos),
   actualizarDatos: (id: number, datos: DatosCredencialPeticion) => http.put<CredencialRespuesta>(`/credenciales/${id}`, datos),
-  actualizarSecreto: (id: number, datos: SecretoPeticion) => http.post<CredencialRespuesta>(`/credenciales/${id}/versiones`, datos),
+  actualizarSecreto: (id: number, datos: SecretoPeticion) => http.put<CredencialRespuesta>(`/credenciales/${id}/secreto`, datos),
   revocar: (id: number, motivo?: string) => http.post<CredencialRespuesta>(`/credenciales/${id}/revocacion`, { motivo }),
   revelar: (id: number, contrasena: string) =>
     http.post<SecretoReveladoRespuesta>(`/credenciales/${id}/revelado`, { contrasena }),

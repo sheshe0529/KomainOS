@@ -3,7 +3,6 @@ package com.komainos.mantenimiento.repository;
 import com.komainos.mantenimiento.model.FiltroOrdenes;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrdenDetalle;
-import com.komainos.mantenimiento.model.ProgramacionOrden;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
@@ -43,24 +42,11 @@ public final class EspecificacionesOrden {
             if (f.idNivelCriticidad() != null) {
                 condiciones.add(cb.equal(raiz.get("nivelCriticidad").get("id"), f.idNivelCriticidad()));
             }
-            if (f.desde() != null || f.hasta() != null) {
-                Subquery<Integer> vigente = consulta.subquery(Integer.class);
-                Root<ProgramacionOrden> p = vigente.from(ProgramacionOrden.class);
-                Subquery<Integer> maxima = consulta.subquery(Integer.class);
-                Root<ProgramacionOrden> p2 = maxima.from(ProgramacionOrden.class);
-                maxima.select(cb.max(p2.get("numeroVersion"))).where(cb.equal(p2.get("orden"), raiz));
-
-                List<Predicate> enRango = new ArrayList<>();
-                enRango.add(cb.equal(p.get("orden"), raiz));
-                enRango.add(cb.equal(p.get("numeroVersion"), maxima));
-                if (f.desde() != null) {
-                    enRango.add(cb.greaterThanOrEqualTo(p.get("fechaInicioProgramada"), f.desde()));
-                }
-                if (f.hasta() != null) {
-                    enRango.add(cb.lessThan(p.get("fechaInicioProgramada"), f.hasta()));
-                }
-                vigente.select(p.get("id")).where(enRango.toArray(Predicate[]::new));
-                condiciones.add(cb.exists(vigente));
+            if (f.desde() != null) {
+                condiciones.add(cb.greaterThanOrEqualTo(raiz.get("fechaInicioProgramada"), f.desde()));
+            }
+            if (f.hasta() != null) {
+                condiciones.add(cb.lessThan(raiz.get("fechaInicioProgramada"), f.hasta()));
             }
             return cb.and(condiciones.toArray(Predicate[]::new));
         };

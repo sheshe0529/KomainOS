@@ -122,14 +122,16 @@ class ImportacionCredencialesIT extends PruebaIntegracion {
         var revelada = credenciales.revelar(nueva.getId(), CLAVE_ADMIN, alcanceAdmin);
         assertThat(revelada.secreto()).isEqualTo(" clave con espacios ");
         assertThat(revelada.su()).isEqualTo("root-1");
-        assertThat(revelada.version().getTipoUsuario()).isEqualTo(TipoUsuario.GENERICO);
+        assertThat(revelada.vigente().getTipoUsuario()).isEqualTo(TipoUsuario.GENERICO);
 
         var existente = credenciales.documentalesDe(idExistente, alcanceAdmin);
         assertThat(existente).hasSize(1);
         assertThat(credenciales.revelar(existente.getFirst().getId(), CLAVE_ADMIN, alcanceAdmin))
                 .satisfies(r -> {
                     assertThat(r.secreto()).isEqualTo("clave-nueva");
-                    assertThat(r.version().getNumeroVersion()).isEqualTo(2);
+                    // El secreto importado reemplaza al vigente: queda uno solo por credencial (R2.4)
+                    assertThat(jdbc.queryForObject("select count(*) from credencial_secreto where id_credencial = ?",
+                            Integer.class, r.credencial().getId())).isOne();
                 });
         assertThat(jdbc.queryForObject("select count(*) from servidor where hostname = 'srv-win-02'", Integer.class)).isZero();
         Integer idSin = jdbc.queryForObject("select id_servidor from servidor where hostname = 'srv-sin-01'", Integer.class);

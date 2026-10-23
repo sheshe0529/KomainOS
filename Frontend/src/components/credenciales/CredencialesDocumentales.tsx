@@ -118,7 +118,7 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
                       )}
                     </td>
                     <td className="py-3 pr-4 text-xs text-ink-soft">
-                      <span className="font-mono text-ink">v{c.numeroVersion}</span> · {formatearFecha(c.fechaSecreto)}
+                      {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}
                     </td>
                     <td className="py-3 pr-4">
                       {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
@@ -186,8 +186,8 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
           familia={familia}
           onCerrar={() => setDialogo(null)}
           onGuardar={async (datos) => {
-            const nueva = await credencialesApi.actualizarSecreto(dialogo.credencial.id!, datos)
-            listo(`Secreto actualizado: versión ${nueva.numeroVersion}.`)
+            await credencialesApi.actualizarSecreto(dialogo.credencial.id!, datos)
+            listo('Secreto actualizado.')
           }}
         />
       )}

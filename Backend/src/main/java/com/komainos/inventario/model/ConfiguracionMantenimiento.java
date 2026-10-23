@@ -67,11 +67,17 @@ public abstract class ConfiguracionMantenimiento {
         return modalidadPlanificacion == ModalidadPlanificacion.AUTOMATICA;
     }
 
-    @PrePersist
-    void alInsertar() {
-        Instant ahora = Tiempo.ahora();
+    /** Con el reloj del servicio: el primer ciclo automático se calcula desde esta fecha (DEC-09) */
+    protected void registrarCreacion(Instant ahora) {
         fechaCreacion = ahora;
         fechaActualizacion = ahora;
+    }
+
+    @PrePersist
+    void alInsertar() {
+        if (fechaCreacion == null) {
+            registrarCreacion(Tiempo.ahora());
+        }
     }
 
     @PreUpdate

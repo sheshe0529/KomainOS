@@ -12,14 +12,14 @@ import java.util.Optional;
 public interface CredencialDocumentalRepositorio extends JpaRepository<CredencialDocumental, Integer> {
 
     /** La principal primero y las vigentes antes que las revocadas: el enumerado de PostgreSQL ordena por su declaración */
-    @EntityGraph(attributePaths = {"versiones"})
+    @EntityGraph(attributePaths = {"secreto"})
     List<CredencialDocumental> findByServidorIdOrderByPrincipalDescEstadoAscNombreAsc(Integer idServidor);
 
     Optional<CredencialDocumental> findByServidorIdAndPrincipalTrue(Integer idServidor);
 
-    @EntityGraph(attributePaths = {"versiones"})
+    @EntityGraph(attributePaths = {"secreto"})
     List<CredencialDocumental> findByServidorIdInAndPrincipalTrue(Collection<Integer> idsServidores);
 
-    @EntityGraph(attributePaths = {"versiones", "servidor"})
+    @EntityGraph(attributePaths = {"secreto", "servidor"})
     List<CredencialDocumental> findByEstadoOrderByServidorHostnameAscPrincipalDescNombreAsc(EstadoCredencial estado);
 }

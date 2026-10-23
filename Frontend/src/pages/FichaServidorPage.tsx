@@ -15,6 +15,7 @@ import { EncabezadoFichaServidor, type DialogoFichaServidor } from '@/components
 import { HistorialBajasServidor } from '@/components/inventario/HistorialBajasServidor'
 import { RecursosServidor } from '@/components/inventario/RecursosServidor'
 import { ServidorFormulario } from '@/components/inventario/ServidorFormulario'
+import { UmbralesServidorTarjeta } from '@/components/inventario/UmbralesServidorTarjeta'
 import { VentanaPermisivaTarjeta } from '@/components/inventario/VentanaPermisivaTarjeta'
 import { VentanasModal } from '@/components/inventario/VentanasModal'
 import { OrdenesDelObjetivo } from '@/components/planificacion/OrdenesDelObjetivo'
@@ -114,6 +115,7 @@ export function FichaServidorPage() {
         vacio="Sin ventana definida: el servidor no puede planificarse."
         onEditar={puedeEditarVentana && !dadoDeBaja ? () => setDialogo('ventanas') : undefined}
       />
+      <UmbralesServidorTarjeta idServidor={idServidor} grupos={s.grupos ?? []} />
       <HistorialBajasServidor servidor={s} />
       {esAdmin && (
         <CredencialesDocumentales idServidor={idServidor} hostname={s.hostname ?? ''} familia={s.familiaSistemaOperativo} editable={!dadoDeBaja} />

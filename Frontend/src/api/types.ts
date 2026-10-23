@@ -7,6 +7,20 @@
  */
 
 
+export interface ActualizarExcepcionUmbralPeticion {
+  valorAdvertencia?: number
+  valorCritico?: number
+  idListaReferencia?: number
+  motivo?: string
+}
+
+export interface ActualizarMetricaPeticion {
+  nombre: string
+  unidad?: string
+  tipoDato: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
+  esLista?: boolean
+}
+
 export interface ActualizarUsuarioPeticion {
   nombreCompleto: string
   rol: 'ADMINISTRADOR' | 'OPERADOR' | 'RESPONSABLE'
@@ -105,7 +119,6 @@ export interface CredencialRespuesta {
   tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
   conSu?: boolean
   principal?: boolean
-  numeroVersion?: number
   fechaRegistro?: string
   fechaSecreto?: string
   fechaRevocacion?: string
@@ -128,7 +141,6 @@ export interface CuentaServicioRespuesta {
   descripcion?: string
   estado?: 'VIGENTE' | 'REVOCADA'
   tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
-  numeroVersion?: number
   fechaRegistro?: string
   fechaSecreto?: string
   fechaRevocacion?: string
@@ -186,6 +198,34 @@ export interface ErrorRespuesta {
   mensaje?: string
   ruta?: string
   errores?: ErrorCampo[]
+}
+
+export interface ExcepcionAplicadaRespuesta {
+  id?: number
+  alcance?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD'
+  objetivo?: ReferenciaSimple
+  motivo?: string
+}
+
+export interface ExcepcionUmbralPeticion {
+  alcance: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD'
+  idObjetivo: number
+  valorAdvertencia?: number
+  valorCritico?: number
+  idListaReferencia?: number
+  motivo?: string
+}
+
+export interface ExcepcionUmbralRespuesta {
+  id?: number
+  alcance?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD'
+  objetivo?: ReferenciaSimple
+  valorAdvertencia?: number
+  valorCritico?: number
+  lista?: ListaResumenRespuesta
+  motivo?: string
+  activo?: boolean
+  fechaActualizacion?: string
 }
 
 export interface FichaGrupoRespuesta {
@@ -278,9 +318,54 @@ export interface IntegrantesPeticion {
   idsServidores: number[]
 }
 
+export interface ListaReferenciaPeticion {
+  nombre: string
+  tipoDato: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
+  ignoraMayusculas?: boolean
+  elementos: string[]
+}
+
+export interface ListaReferenciaRespuesta {
+  id?: number
+  nombre?: string
+  tipoDato?: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
+  ignoraMayusculas?: boolean
+  activo?: boolean
+  elementos?: string[]
+  umbrales?: number
+  excepciones?: number
+  fechaActualizacion?: string
+}
+
+export interface ListaResumenRespuesta {
+  id?: number
+  nombre?: string
+  tipoDato?: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
+  activo?: boolean
+  elementos?: string[]
+}
+
 export interface LoginPeticion {
   codigo: string
   contrasena: string
+}
+
+export interface MetricaPeticion {
+  codigo: string
+  nombre: string
+  unidad?: string
+  tipoDato: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
+  esLista?: boolean
+}
+
+export interface MetricaRespuesta {
+  id?: number
+  codigo?: string
+  nombre?: string
+  unidad?: string
+  tipoDato?: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
+  esLista?: boolean
+  activo?: boolean
 }
 
 export interface NivelCriticidadPeticion {
@@ -311,7 +396,6 @@ export interface OrdenDetalleRespuesta {
   inicioVentanaAplicada?: string
   finVentanaAplicada?: string
   detalles?: Detalle[]
-  programaciones?: Programacion[]
   historial?: CambioEstado[]
 }
 
@@ -393,19 +477,6 @@ export interface PerfilRespuesta {
   minutosSesion?: number
 }
 
-export interface Programacion {
-  numeroVersion?: number
-  fechaObjetivo?: string
-  inicio?: string
-  fin?: string
-  fechaEvaluacion?: string
-  inicioVentana?: string
-  finVentana?: string
-  motivo?: string
-  registradoPor?: ReferenciaSimple
-  fechaRegistro?: string
-}
-
 export interface ProgramarOrdenPeticion {
   idServidor?: number
   idGrupo?: number
@@ -421,6 +492,16 @@ export interface PropuestaRespuesta {
   inicioVentana?: string
   finVentana?: string
   tramos?: Tramo[]
+}
+
+export interface PruebaUmbralRespuesta {
+  nivel?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  origen?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'GLOBAL'
+  excepcion?: ExcepcionAplicadaRespuesta
+  aplicado?: ValoresUmbralRespuesta
+  valor?: number
+  faltantes?: string[]
+  sobrantes?: string[]
 }
 
 export interface ReactivacionRespuesta {
@@ -486,7 +567,7 @@ export interface SecretoReveladoRespuesta {
   usuarioAcceso?: string
   tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
   tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
-  numeroVersion?: number
+  fechaSecreto?: string
   secreto?: string
   secretoSu?: string
   segundosVisible?: number
@@ -584,6 +665,50 @@ export interface Tramo {
   fin?: string
 }
 
+export interface UmbralEnGrupoRespuesta {
+  grupo?: ReferenciaSimple
+  excepcion?: ExcepcionAplicadaRespuesta
+  valores?: ValoresUmbralRespuesta
+}
+
+export interface UmbralPeticion {
+  idMetrica: number
+  nombre: string
+  operador?: 'MAYOR' | 'MAYOR_IGUAL' | 'MENOR' | 'MENOR_IGUAL' | 'IGUAL' | 'DISTINTO'
+  valorAdvertencia?: number
+  valorCritico?: number
+  idListaReferencia?: number
+  nivelFaltante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  nivelSobrante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+}
+
+export interface UmbralRespuesta {
+  id?: number
+  nombre?: string
+  metrica?: MetricaRespuesta
+  activo?: boolean
+  operador?: 'MAYOR' | 'MAYOR_IGUAL' | 'MENOR' | 'MENOR_IGUAL' | 'IGUAL' | 'DISTINTO'
+  valorAdvertencia?: number
+  valorCritico?: number
+  lista?: ListaResumenRespuesta
+  nivelFaltante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  nivelSobrante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  cantidadExcepciones?: number
+  excepcionesActivas?: number
+  excepciones?: ExcepcionUmbralRespuesta[]
+  fechaActualizacion?: string
+}
+
+export interface UmbralServidorRespuesta {
+  umbral?: ReferenciaSimple
+  metrica?: MetricaRespuesta
+  origen?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'GLOBAL'
+  excepcion?: ExcepcionAplicadaRespuesta
+  aplicado?: ValoresUmbralRespuesta
+  global?: ValoresUmbralRespuesta
+  enGrupos?: UmbralEnGrupoRespuesta[]
+}
+
 export interface UsuarioRespuesta {
   id?: number
   codigo?: string
@@ -598,6 +723,15 @@ export interface UsuarioSesion {
   codigo?: string
   nombreCompleto?: string
   rol?: 'ADMINISTRADOR' | 'OPERADOR' | 'RESPONSABLE'
+}
+
+export interface ValoresUmbralRespuesta {
+  operador?: 'MAYOR' | 'MAYOR_IGUAL' | 'MENOR' | 'MENOR_IGUAL' | 'IGUAL' | 'DISTINTO'
+  valorAdvertencia?: number
+  valorCritico?: number
+  lista?: ListaResumenRespuesta
+  nivelFaltante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  nivelSobrante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
 }
 
 export interface VentanaPeticion {

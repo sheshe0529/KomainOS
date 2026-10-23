@@ -108,7 +108,7 @@ export function CuentasServicioPage() {
                     <td className="px-4 py-3 font-mono">{c.usuarioAcceso}</td>
                     <td className="px-4 py-3">{c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}</td>
                     <td className="px-4 py-3 text-xs text-ink-soft">
-                      <span className="font-mono text-ink">v{c.numeroVersion}</span> · {formatearFecha(c.fechaSecreto)}
+                      {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}
                     </td>
                     <td className="px-4 py-3 text-ink-soft">{textoUso(c)}</td>
                     <td className="px-4 py-3">{estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}</td>
@@ -177,8 +177,8 @@ export function CuentasServicioPage() {
           credencial={dialogo.cuenta}
           onCerrar={() => setDialogo(null)}
           onGuardar={async (datos) => {
-            const nueva = await credencialesApi.actualizarSecreto(dialogo.cuenta.id!, datos)
-            listo(`Secreto actualizado: versión ${nueva.numeroVersion}.`)
+            await credencialesApi.actualizarSecreto(dialogo.cuenta.id!, datos)
+            listo('Secreto actualizado.')
           }}
         />
       )}

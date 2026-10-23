@@ -207,7 +207,8 @@ class ServicioServidorTest {
             Servidor servidor = DatosPrueba.servidor(3, "srv-db-01", responsable);
             GrupoMantenimiento grupo = GrupoMantenimiento.nuevo("Grupo DB", null);
             grupo.agregar(servidor, Instant.now());
-            ConfiguracionServidor config = ConfiguracionServidor.nueva(servidor, 7, 30, ModalidadPlanificacion.AUTOMATICA);
+            ConfiguracionServidor config = ConfiguracionServidor.nueva(servidor, 7, 30, ModalidadPlanificacion.AUTOMATICA,
+                    Instant.parse("2026-09-27T12:00:00Z"));
             when(servidores.findConDetalleById(3)).thenReturn(Optional.of(servidor));
             when(usuarios.findById(1)).thenReturn(Optional.of(DatosPrueba.usuario(1, "admin", Rol.ADMINISTRADOR)));
             when(solicitudesBaja.save(any())).thenAnswer(i -> i.getArgument(0));

@@ -6,13 +6,13 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OrderBy;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -21,12 +21,9 @@ import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 
-/** Identidad común de la credencial, sin secretos: estos viven cifrados en sus versiones (R2.4) */
+/** Identidad común de la credencial, sin secretos: el vigente vive cifrado en credencial_secreto (R2.4) */
 @Entity
 @Table(name = "credencial")
 @Inheritance(strategy = InheritanceType.JOINED)
@@ -59,10 +56,13 @@ public abstract class Credencial {
     @Column(name = "fecha_revocacion")
     private Instant fechaRevocacion;
 
-    /** Actualizar el secreto agrega una versión y la vigente es la de mayor número (RF04) */
-    @OneToMany(mappedBy = "credencial", cascade = CascadeType.PERSIST)
-    @OrderBy("numeroVersion ASC")
-    private List<CredencialVersion> versiones = new ArrayList<>();
+    /**
+     * Como máximo uno: rotarlo lo sobrescribe y revocar la credencial lo elimina (RF04). Sin orphanRemoval: en el lado
+     * inverso de un @OneToOne con @MapsId Hibernate no lo aplica, el servicio borra el secreto al revocar.
+     */
+    @Getter(AccessLevel.NONE)
+    @OneToOne(mappedBy = "credencial", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    private CredencialSecreto secreto;
 
     protected void registrar(String nombre, String usuarioAcceso, String descripcion, Instant ahora) {
         aplicarDatos(nombre, usuarioAcceso, descripcion);
@@ -75,26 +75,28 @@ public abstract class Credencial {
         aplicarDatos(nombre, usuarioAcceso, descripcion);
     }
 
-    /** La contraseña su acompaña solo al usuario Genérico, igual que exige ck_credencial_version_su */
-    public CredencialVersion agregarVersion(TipoAutenticacion tipo, TipoUsuario tipoUsuario, SecretoCifrado secreto,
-                                            SecretoCifrado su, Instant ahora) {
+    /** Registra o rota el secreto; la contraseña su acompaña solo al usuario Genérico, igual que exige ck_credencial_secreto_su */
+    public CredencialSecreto establecerSecreto(TipoAutenticacion tipo, TipoUsuario tipoUsuario, SecretoCifrado cifrado,
+                                               SecretoCifrado su, Instant ahora) {
         exigirVigente("actualizar su secreto");
         if ((tipoUsuario == TipoUsuario.GENERICO) != (su != null)) {
             throw new ReglaNegocioException("La contraseña su corresponde solo a un usuario Genérico");
         }
-        int numero = versionVigente().map(CredencialVersion::getNumeroVersion).orElse(0) + 1;
-        CredencialVersion version = CredencialVersion.nueva(this, numero, tipo, tipoUsuario, secreto, su, ahora);
-        versiones.add(version);
-        return version;
+        if (secreto == null) {
+            secreto = CredencialSecreto.nuevo(this);
+        }
+        secreto.reemplazar(tipo, tipoUsuario, cifrado, su, ahora);
+        return secreto;
     }
 
-    /** Las versiones se conservan: las ejecuciones registran con cuál se autenticaron */
+    /** Suelta el secreto, que quien llama elimina: las ejecuciones conservan la cuenta de servicio, no el secreto */
     public void revocar(Instant ahora) {
         if (!estaVigente()) {
             throw new ReglaNegocioException("La credencial %s ya está revocada".formatted(nombre));
         }
         estado = EstadoCredencial.REVOCADA;
         fechaRevocacion = ahora;
+        secreto = null;
     }
 
     public boolean estaVigente() {
@@ -107,8 +109,8 @@ public abstract class Credencial {
         }
     }
 
-    public Optional<CredencialVersion> versionVigente() {
-        return versiones.stream().max(Comparator.comparingInt(CredencialVersion::getNumeroVersion));
+    public Optional<CredencialSecreto> secretoVigente() {
+        return Optional.ofNullable(secreto);
     }
 
     private void aplicarDatos(String nombre, String usuarioAcceso, String descripcion) {

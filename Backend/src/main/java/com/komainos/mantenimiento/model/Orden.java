@@ -32,8 +32,9 @@ import org.springframework.data.domain.Persistable;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Persistable: el id se asigna antes de insertar por el código OM, sin esto Spring Data haría merge en vez de insert */
@@ -86,6 +87,26 @@ public class Orden implements Persistable<Integer> {
     @Column(name = "modo_ejecucion_aplicado", columnDefinition = "enum_modo_ejecucion")
     private ModoEjecucion modoEjecucionAplicado;
 
+    /** Calculada con periodicidad y factor antes de aplicar restricciones (RF64): no cambia al reprogramar */
+    @Column(name = "fecha_objetivo", nullable = false, updatable = false)
+    private Instant fechaObjetivo;
+
+    @Column(name = "fecha_inicio_programada", nullable = false)
+    private Instant fechaInicioProgramada;
+
+    @Column(name = "fecha_fin_programada", nullable = false)
+    private Instant fechaFinProgramada;
+
+    /** Inicio de la evaluación previa: el plazo de autorización antes del inicio (RF38) */
+    @Column(name = "fecha_evaluacion_programada", nullable = false)
+    private Instant fechaEvaluacionProgramada;
+
+    @Column(name = "inicio_ventana_aplicada", nullable = false)
+    private Instant inicioVentanaAplicada;
+
+    @Column(name = "fin_ventana_aplicada", nullable = false)
+    private Instant finVentanaAplicada;
+
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private Instant fechaCreacion;
 
@@ -96,11 +117,6 @@ public class Orden implements Persistable<Integer> {
     private List<OrdenDetalle> detalles = new ArrayList<>();
 
     @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("numeroVersion ASC")
-    @BatchSize(size = 50)
-    private List<ProgramacionOrden> programaciones = new ArrayList<>();
-
-    @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("fechaHora ASC, id ASC")
     private List<HistorialEstadoOrden> historial = new ArrayList<>();
 
@@ -109,7 +125,8 @@ public class Orden implements Persistable<Integer> {
 
     public static Orden nueva(Integer id, Servidor servidor, GrupoMantenimiento grupo,
                               NivelCriticidad criticidad, Integer idCuentaServicio, Usuario solicitante,
-                              OrigenOrden origen, ModoEjecucion modoEjecucion, Instant ahora, String motivo) {
+                              OrigenOrden origen, ModoEjecucion modoEjecucion, Programacion programacion,
+                              Instant ahora, String motivo) {
         if ((servidor == null) == (grupo == null)) {
             throw new IllegalArgumentException("La orden se dirige a un servidor o a un grupo, no a ambos ni a ninguno");
         }
@@ -125,6 +142,8 @@ public class Orden implements Persistable<Integer> {
         orden.origen = origen;
         orden.modoEjecucionAplicado = grupo != null ? modoEjecucion : null;
         orden.estado = EstadoOrden.PROGRAMADA;
+        orden.fechaObjetivo = programacion.fechaObjetivo();
+        orden.aplicarProgramacion(programacion);
         orden.fechaCreacion = ahora;
         orden.historial.add(HistorialEstadoOrden.nuevo(orden, solicitante, null, EstadoOrden.PROGRAMADA, motivo, ahora));
         return orden;
@@ -142,14 +161,9 @@ public class Orden implements Persistable<Integer> {
         detalles.add(OrdenDetalle.nuevo(this, servidorDetalle, posicion, previstaInicio, previstaFin));
     }
 
-    public void agregarProgramacion(ProgramacionOrden.Datos datos, Usuario registradoPor, Instant ahora) {
-        int version = programaciones.stream().mapToInt(ProgramacionOrden::getNumeroVersion).max().orElse(0) + 1;
-        programaciones.add(ProgramacionOrden.nueva(this, version, datos, registradoPor, ahora));
-    }
-
-    /** Vigente: la de mayor número de versión */
-    public Optional<ProgramacionOrden> programacionVigente() {
-        return programaciones.stream().max(Comparator.comparingInt(ProgramacionOrden::getNumeroVersion));
+    public Programacion programacion() {
+        return new Programacion(fechaObjetivo, fechaInicioProgramada, fechaFinProgramada, fechaEvaluacionProgramada,
+                inicioVentanaAplicada, finVentanaAplicada);
     }
 
     public Optional<OrdenDetalle> detalleDe(Integer idServidor) {
@@ -166,11 +180,10 @@ public class Orden implements Persistable<Integer> {
         estado = destino;
     }
 
-    /** Pasa por REPROGRAMADA y vuelve a PROGRAMADA (R2.1, tabla 6) */
-    public void reprogramar(ProgramacionOrden.Datos datos, List<TramoDetalle> tramos, Usuario autor,
-                            String motivo, Instant ahora) {
+    /** Pasa por REPROGRAMADA y vuelve a PROGRAMADA (R2.1, tabla 6); el historial y la auditoría conservan el cambio */
+    public void reprogramar(Programacion nueva, List<TramoDetalle> tramos, Usuario autor, String motivo, Instant ahora) {
         cambiarEstado(EstadoOrden.REPROGRAMADA, autor, motivo, ahora);
-        agregarProgramacion(datos, autor, ahora);
+        aplicarProgramacion(nueva);
         for (TramoDetalle tramo : tramos) {
             detalleDe(tramo.idServidor()).ifPresent(d -> d.replanificar(tramo.posicion(), tramo.inicio(), tramo.fin()));
         }
@@ -189,6 +202,30 @@ public class Orden implements Persistable<Integer> {
 
     public boolean puedeCancelarse() {
         return estado.puedePasarA(EstadoOrden.CANCELADA);
+    }
+
+    /** Sin las colecciones: es lo que queda en la auditoría al programar o reprogramar */
+    public Map<String, Object> instantaneaProgramacion() {
+        Map<String, Object> v = new HashMap<>();
+        v.put("fechaObjetivo", fechaObjetivo.toString());
+        v.put("inicio", fechaInicioProgramada.toString());
+        v.put("fin", fechaFinProgramada.toString());
+        v.put("fechaEvaluacion", fechaEvaluacionProgramada.toString());
+        v.put("inicioVentana", inicioVentanaAplicada.toString());
+        v.put("finVentana", finVentanaAplicada.toString());
+        return v;
+    }
+
+    /** La fecha objetivo se fija al generar la orden y no se toca aquí */
+    private void aplicarProgramacion(Programacion p) {
+        if (p.fin().isBefore(p.inicio()) || p.finVentana().isBefore(p.inicioVentana())) {
+            throw new IllegalArgumentException("El fin de la programación no puede ser anterior a su inicio");
+        }
+        fechaInicioProgramada = p.inicio();
+        fechaFinProgramada = p.fin();
+        fechaEvaluacionProgramada = p.evaluacion();
+        inicioVentanaAplicada = p.inicioVentana();
+        finVentanaAplicada = p.finVentana();
     }
 
     @Override

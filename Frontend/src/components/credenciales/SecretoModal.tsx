@@ -18,7 +18,7 @@ interface SecretoModalProps {
   onGuardar: (datos: SecretoPeticion) => Promise<void>
 }
 
-/** El secreto anterior no se edita: se conserva como versión, y un campo vacío copia el vigente si sigue aplicando (RF04) */
+/** Rota el secreto: reemplaza al vigente sin conservarlo, y un campo vacío copia el vigente si sigue aplicando (RF04, R2.4) */
 export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, onCerrar, onGuardar }: SecretoModalProps) {
   const [tipo, setTipo] = useState<TipoAutenticacion>(credencial.tipoAutenticacion ?? 'PASSWORD')
   const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>(credencial.tipoUsuario ?? 'ADMINISTRADOR')
@@ -26,7 +26,6 @@ export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, o
   const [su, setSu] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
-  const siguiente = (credencial.numeroVersion ?? 0) + 1
 
   const windows = clase === 'documental' && familia === 'WINDOWS'
   const conTipoUsuario = clase === 'documental' && !windows
@@ -57,12 +56,12 @@ export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, o
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={`Nuevo secreto de ${credencial.nombre}`}
-      descripcion={`Se registrará como versión ${siguiente}. Las versiones anteriores se conservan cifradas para el historial.`}
+      descripcion="Reemplaza al secreto vigente, que no se conserva. El cambio queda en la auditoría, sin el secreto."
       pie={
         <>
           <Boton onClick={onCerrar}>Cancelar</Boton>
           <Boton type="submit" form="form-secreto" variante="primario" icono={KeyRound} cargando={guardando}>
-            Registrar versión {siguiente}
+            Reemplazar secreto
           </Boton>
         </>
       }

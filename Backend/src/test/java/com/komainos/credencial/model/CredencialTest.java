@@ -10,55 +10,63 @@ import java.time.Instant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("Credencial: versiones, revocación y mecanismos (RF04, HU04 CA3, DEC-39)")
+@DisplayName("Credencial: secreto vigente, revocación y mecanismos (RF04, HU04 CA3, DEC-39, R2.4)")
 class CredencialTest {
 
     private static final Instant AHORA = Instant.parse("2026-10-01T15:00:00Z");
     private static final SecretoCifrado SECRETO = new SecretoCifrado(new byte[]{1}, new byte[12], new byte[16], "AES-256-GCM");
+    private static final SecretoCifrado OTRO = new SecretoCifrado(new byte[]{2}, new byte[12], new byte[16], "AES-256-GCM");
 
     @Test
-    @DisplayName("cada secreto nuevo es una versión más y la vigente es la de mayor número")
-    void versiones() {
+    @DisplayName("rotar el secreto sobrescribe el vigente y actualiza su fecha, sin conservar el anterior")
+    void rotacion() {
         CuentaServicio cuenta = CuentaServicio.nueva("svc-ansible", "ansible", null, AHORA);
-        cuenta.agregarVersion(TipoAutenticacion.PASSWORD, null, SECRETO, null, AHORA);
-        cuenta.agregarVersion(TipoAutenticacion.LLAVE_SSH, null, SECRETO, null, AHORA.plusSeconds(60));
+        CredencialSecreto primero = cuenta.establecerSecreto(TipoAutenticacion.PASSWORD, null, SECRETO, null, AHORA);
+        CredencialSecreto rotado = cuenta.establecerSecreto(TipoAutenticacion.LLAVE_SSH, null, OTRO, null,
+                AHORA.plusSeconds(60));
 
-        assertThat(cuenta.getVersiones()).hasSize(2);
-        assertThat(cuenta.versionVigente()).get()
-                .satisfies(v -> {
-                    assertThat(v.getNumeroVersion()).isEqualTo(2);
-                    assertThat(v.getTipoAutenticacion()).isEqualTo(TipoAutenticacion.LLAVE_SSH);
-                    assertThat(v.tieneSu()).isFalse();
-                });
+        assertThat(rotado).isSameAs(primero);
+        assertThat(cuenta.secretoVigente()).get().satisfies(s -> {
+            assertThat(s.getTipoAutenticacion()).isEqualTo(TipoAutenticacion.LLAVE_SSH);
+            assertThat(s.secreto().cifrado()).containsExactly(2);
+            assertThat(s.getFechaActualizacion()).isEqualTo(AHORA.plusSeconds(60));
+            assertThat(s.tieneSu()).isFalse();
+        });
     }
 
     @Test
-    @DisplayName("DEC-39: la contraseña su acompaña solo al usuario Genérico")
+    @DisplayName("DEC-39: la contraseña su acompaña solo al usuario Genérico y se quita al pasar a Administrador")
     void contrasenaSu() {
         CuentaServicio cuenta = CuentaServicio.nueva("acceso", "appuser", null, AHORA);
 
-        cuenta.agregarVersion(TipoAutenticacion.LLAVE_SSH, TipoUsuario.GENERICO, SECRETO, SECRETO, AHORA);
-        assertThat(cuenta.versionVigente()).get().satisfies(v -> {
-            assertThat(v.tieneSu()).isTrue();
-            assertThat(v.secretoSu()).isPresent();
+        cuenta.establecerSecreto(TipoAutenticacion.LLAVE_SSH, TipoUsuario.GENERICO, SECRETO, SECRETO, AHORA);
+        assertThat(cuenta.secretoVigente()).get().satisfies(s -> {
+            assertThat(s.tieneSu()).isTrue();
+            assertThat(s.secretoSu()).isPresent();
         });
-        assertThatThrownBy(() -> cuenta.agregarVersion(TipoAutenticacion.PASSWORD, TipoUsuario.GENERICO, SECRETO, null, AHORA))
-                .isInstanceOf(ReglaNegocioException.class);
-        assertThatThrownBy(() -> cuenta.agregarVersion(TipoAutenticacion.PASSWORD, TipoUsuario.ADMINISTRADOR, SECRETO,
+        assertThatThrownBy(() -> cuenta.establecerSecreto(TipoAutenticacion.PASSWORD, TipoUsuario.GENERICO, SECRETO,
+                null, AHORA)).isInstanceOf(ReglaNegocioException.class);
+        assertThatThrownBy(() -> cuenta.establecerSecreto(TipoAutenticacion.PASSWORD, TipoUsuario.ADMINISTRADOR, SECRETO,
                 SECRETO, AHORA)).isInstanceOf(ReglaNegocioException.class);
+
+        cuenta.establecerSecreto(TipoAutenticacion.PASSWORD, TipoUsuario.ADMINISTRADOR, OTRO, null, AHORA);
+        assertThat(cuenta.secretoVigente()).get().satisfies(s -> {
+            assertThat(s.tieneSu()).isFalse();
+            assertThat(s.secretoSu()).isEmpty();
+        });
     }
 
     @Test
-    @DisplayName("una credencial revocada conserva sus versiones pero no admite cambios")
+    @DisplayName("R2.4: revocar elimina el secreto y la credencial ya no admite cambios")
     void revocada() {
         CuentaServicio cuenta = CuentaServicio.nueva("svc-ansible", "ansible", null, AHORA);
-        cuenta.agregarVersion(TipoAutenticacion.PASSWORD, null, SECRETO, null, AHORA);
+        cuenta.establecerSecreto(TipoAutenticacion.PASSWORD, null, SECRETO, null, AHORA);
         cuenta.revocar(AHORA);
 
         assertThat(cuenta.getEstado()).isEqualTo(EstadoCredencial.REVOCADA);
         assertThat(cuenta.getFechaRevocacion()).isEqualTo(AHORA);
-        assertThat(cuenta.getVersiones()).hasSize(1);
-        assertThatThrownBy(() -> cuenta.agregarVersion(TipoAutenticacion.PASSWORD, null, SECRETO, null, AHORA))
+        assertThat(cuenta.secretoVigente()).isEmpty();
+        assertThatThrownBy(() -> cuenta.establecerSecreto(TipoAutenticacion.PASSWORD, null, SECRETO, null, AHORA))
                 .isInstanceOf(ReglaNegocioException.class);
         assertThatThrownBy(() -> cuenta.actualizarDatos("otro", "otro", null))
                 .isInstanceOf(ReglaNegocioException.class);

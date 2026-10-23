@@ -27,10 +27,7 @@ public class ServicioConsultaOrdenes {
     public Page<Orden> listar(FiltroOrdenes filtro, AlcanceUsuario alcance, Pageable paginacion) {
         Page<Orden> pagina = ordenes.findAll(EspecificacionesOrden.con(filtro, alcance), paginacion);
         // Con BatchSize estas inicializaciones cargan las colecciones de toda la página en pocas consultas
-        pagina.forEach(o -> {
-            Hibernate.initialize(o.getProgramaciones());
-            Hibernate.initialize(o.getDetalles());
-        });
+        pagina.forEach(o -> Hibernate.initialize(o.getDetalles()));
         return pagina;
     }
 
@@ -41,7 +38,6 @@ public class ServicioConsultaOrdenes {
                 .noneMatch(d -> d.getServidor().esVisiblePara(alcance.usuarioId()))) {
             throw RecursoNoEncontradoException.de("la orden", id);
         }
-        orden.getProgramaciones().forEach(p -> Hibernate.initialize(p.getUsuarioRegistro()));
         orden.getHistorial().forEach(h -> Hibernate.initialize(h.getUsuario()));
         return orden;
     }

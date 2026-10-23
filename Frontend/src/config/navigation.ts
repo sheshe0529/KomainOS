@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { BookOpen, Boxes, CalendarDays, ClipboardList, KeyRound, Palette, Server, ServerCog, Settings, SlidersHorizontal, Users } from 'lucide-react'
+import { BookOpen, Boxes, CalendarDays, ClipboardList, Gauge, KeyRound, Palette, Server, ServerCog, Settings, SlidersHorizontal, Users } from 'lucide-react'
 import type { Rol } from '@/api/dominio'
 
 /** Única fuente para el Sidebar, el título del Topbar y la ruta activa. Cada path necesita su Route en App.tsx */
@@ -50,6 +50,13 @@ export const navigation: NavItem[] = [
         icon: KeyRound,
         path: '/configuracion/cuentas-servicio',
         roles: ['ADMINISTRADOR'],
+      },
+      {
+        id: 'umbrales',
+        label: 'Umbrales',
+        icon: Gauge,
+        path: '/configuracion/umbrales',
+        roles: ['ADMINISTRADOR', 'OPERADOR'],
       },
       {
         id: 'parametros',

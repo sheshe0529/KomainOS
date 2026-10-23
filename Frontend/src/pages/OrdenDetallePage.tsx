@@ -45,6 +45,7 @@ export function OrdenDetallePage() {
 
   const grupal = r.tipoObjetivo === 'GRUPAL'
   const enlaceObjetivo = grupal ? `/grupos/${r.objetivo?.id}` : `/servidores/${r.objetivo?.id}`
+  const reprogramaciones = (o.historial ?? []).filter((h) => h.estadoNuevo === 'REPROGRAMADA').reverse()
 
   return (
     <div className="flex flex-col gap-6">
@@ -98,6 +99,7 @@ export function OrdenDetallePage() {
         </Tarjeta>
         <Tarjeta titulo="Programación vigente">
           <dl className="grid gap-4 sm:grid-cols-2">
+            <Dato etiqueta="Fecha objetivo" valor={formatearFechaHora(r.fechaObjetivo)} />
             <Dato etiqueta="Inicio programado" valor={formatearFechaHora(r.inicioProgramado)} />
             <Dato etiqueta="Fin previsto" valor={formatearFechaHora(r.finProgramado)} />
             <Dato etiqueta="Evaluación previa" valor={formatearFechaHora(r.fechaEvaluacion)} />
@@ -149,23 +151,23 @@ export function OrdenDetallePage() {
       </Tarjeta>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Tarjeta titulo="Historial de programación">
-          <ol className="flex flex-col gap-3">
-            {o.programaciones?.map((p) => (
-              <li key={p.numeroVersion} className="rounded-lg bg-panel-muted px-3 py-2 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium text-ink">Versión {p.numeroVersion}</span>
-                  <span className="text-xs text-ink-faint">
-                    {formatearFechaHora(p.fechaRegistro)} · {p.registradoPor?.nombre ?? 'Sistema'}
-                  </span>
-                </div>
-                <p className="mt-1 text-ink-soft">
-                  {formatearFechaHora(p.inicio)} – {formatearFechaHora(p.fin)}
-                </p>
-                {p.motivo && <p className="mt-1 text-xs text-ink-soft">Motivo: {p.motivo}</p>}
-              </li>
-            ))}
-          </ol>
+        {/* La orden guarda solo su programación vigente: cada reprogramación queda en el historial (R2.4) */}
+        <Tarjeta titulo={`Reprogramaciones (${reprogramaciones.length})`}>
+          {reprogramaciones.length === 0 ? (
+            <p className="text-sm text-ink-soft">Conserva la programación con la que se generó.</p>
+          ) : (
+            <ol className="flex flex-col gap-3">
+              {reprogramaciones.map((h, i) => (
+                <li key={i} className="rounded-lg bg-panel-muted px-3 py-2 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium text-ink">{formatearFechaHora(h.fechaHora)}</span>
+                    <span className="text-xs text-ink-faint">{h.usuario?.nombre ?? 'Sistema'}</span>
+                  </div>
+                  {h.motivo && <p className="mt-1 text-xs text-ink-soft">Motivo: {h.motivo}</p>}
+                </li>
+              ))}
+            </ol>
+          )}
         </Tarjeta>
         <Tarjeta titulo="Historial de estados">
           <ol className="flex flex-col gap-3">

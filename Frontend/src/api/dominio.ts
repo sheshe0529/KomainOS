@@ -5,10 +5,14 @@ import type {
   SecretoPeticion,
   Detalle,
   OrdenResumenRespuesta,
+  ExcepcionUmbralRespuesta,
   FichaGrupoRespuesta,
+  MetricaRespuesta,
+  PruebaUmbralRespuesta,
   ServidorResumenRespuesta,
   SistemaOperativoRespuesta,
   SolicitudBajaRespuesta,
+  UmbralRespuesta,
   UsuarioSesion,
   VentanaPeticion,
 } from './types'
@@ -28,6 +32,11 @@ export type EstadoDetalleOrden = NonNullable<Detalle['estado']>
 export type TipoAutenticacion = SecretoPeticion['tipoAutenticacion']
 export type TipoUsuario = NonNullable<SecretoPeticion['tipoUsuario']>
 export type EstadoCredencial = NonNullable<CredencialRespuesta['estado']>
+export type TipoDato = NonNullable<MetricaRespuesta['tipoDato']>
+export type OperadorComparacion = NonNullable<UmbralRespuesta['operador']>
+export type NivelAlerta = NonNullable<PruebaUmbralRespuesta['nivel']>
+export type AlcanceExcepcion = NonNullable<ExcepcionUmbralRespuesta['alcance']>
+export type OrigenUmbral = NonNullable<PruebaUmbralRespuesta['origen']>
 
 export const DIAS_SEMANA: DiaSemana[] = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
 

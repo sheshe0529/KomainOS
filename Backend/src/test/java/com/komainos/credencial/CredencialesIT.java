@@ -82,7 +82,7 @@ class CredencialesIT extends PruebaIntegracion {
     void documentalSinSecretos() throws Exception {
         crearDocumental(idLinux, "Acceso root", "root", "PASSWORD", "ADMINISTRADOR", "S3creto-root", null)
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.numeroVersion").value(1))
+                .andExpect(jsonPath("$.fechaSecreto").value("2026-09-28T14:00:00Z"))
                 .andExpect(jsonPath("$.tipoAutenticacion").value("PASSWORD"))
                 .andExpect(jsonPath("$.tipoUsuario").value("ADMINISTRADOR"))
                 .andExpect(jsonPath("$.conSu").value(false))
@@ -96,7 +96,7 @@ class CredencialesIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$..secretoCifrado").isEmpty());
 
         Map<String, Object> fila = jdbc.queryForMap(
-                "select secreto_cifrado, iv_nonce, tag_autenticacion, algoritmo, su_secreto_cifrado from credencial_version");
+                "select secreto_cifrado, iv_nonce, tag_autenticacion, algoritmo, su_secreto_cifrado from credencial_secreto");
         assertThat(new String((byte[]) fila.get("secreto_cifrado"), StandardCharsets.UTF_8)).doesNotContain("S3creto");
         assertThat((byte[]) fila.get("iv_nonce")).hasSize(12);
         assertThat((byte[]) fila.get("tag_autenticacion")).hasSize(16);
@@ -106,20 +106,24 @@ class CredencialesIT extends PruebaIntegracion {
     }
 
     @Test
-    @DisplayName("RF08/DEC-39: usuario Genérico con contraseña su, nueva versión que conserva la contraseña y revelado de ambas")
+    @DisplayName("RF08/DEC-39: usuario Genérico con contraseña su, rotación que conserva la contraseña y revelado de ambas")
     void genericoConSu() throws Exception {
         Integer id = idDe(crearDocumental(idLinux, "Usuario de aplicación", "appuser", "PASSWORD", "GENERICO",
                 "clave-app", "root-1"));
         em.flush();
-        assertThat(jdbc.queryForObject("select tipo_usuario::text from credencial_version", String.class))
+        assertThat(jdbc.queryForObject("select tipo_usuario::text from credencial_secreto", String.class))
                 .isEqualTo("GENERICO");
+        byte[] ivAnterior = jdbc.queryForObject("select iv_nonce from credencial_secreto", byte[].class);
 
-        // Solo cambia la contraseña su: la del usuario se conserva en la versión nueva
-        mockMvc.perform(comoAdmin(post("/api/credenciales/{id}/versiones", id))
+        // Solo cambia la contraseña su: la del usuario se conserva y el secreto se sobrescribe con un IV nuevo (RNF04)
+        mockMvc.perform(comoAdmin(put("/api/credenciales/{id}/secreto", id))
                         .content(cuerpo("tipoAutenticacion", "PASSWORD", "tipoUsuario", "GENERICO", "secretoSu", "root-2")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.numeroVersion").value(2))
                 .andExpect(jsonPath("$.conSu").value(true));
+        em.flush();
+        assertThat(jdbc.queryForObject("select count(*) from credencial_secreto where id_credencial = ?", Integer.class, id))
+                .isOne();
+        assertThat(jdbc.queryForObject("select iv_nonce from credencial_secreto", byte[].class)).isNotEqualTo(ivAnterior);
 
         mockMvc.perform(comoAdmin(post("/api/credenciales/{id}/revelado", id)).content(cuerpo("contrasena", "incorrecta")))
                 .andExpect(status().isUnprocessableEntity())
@@ -132,16 +136,15 @@ class CredencialesIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$.secreto").value("clave-app"))
                 .andExpect(jsonPath("$.secretoSu").value("root-2"))
                 .andExpect(jsonPath("$.tipoUsuario").value("GENERICO"))
-                .andExpect(jsonPath("$.numeroVersion").value(2))
+                .andExpect(jsonPath("$.fechaSecreto").exists())
                 .andExpect(jsonPath("$.segundosVisible").value(30));
         assertThat(revelados()).isOne();
         assertThat(auditorias()).noneMatch(v -> v.contains("clave-app") || v.contains("root-1") || v.contains("root-2"));
 
         // Pasar a Administrador quita la contraseña su
-        mockMvc.perform(comoAdmin(post("/api/credenciales/{id}/versiones", id))
+        mockMvc.perform(comoAdmin(put("/api/credenciales/{id}/secreto", id))
                         .content(cuerpo("tipoAutenticacion", "PASSWORD", "tipoUsuario", "ADMINISTRADOR")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.numeroVersion").value(3))
                 .andExpect(jsonPath("$.conSu").value(false));
     }
 
@@ -303,7 +306,13 @@ class CredencialesIT extends PruebaIntegracion {
         mockMvc.perform(comoAdmin(put("/api/cuentas-servicio/{id}/servidores", llave))
                         .content(json.writeValueAsString(Map.of("idsServidores", List.of(idLinux)))))
                 .andExpect(status().isOk());
-        revocar(svc).andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("REVOCADA"));
+        revocar(svc).andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("REVOCADA"))
+                .andExpect(jsonPath("$.fechaSecreto").doesNotExist());
+        // R2.4: al revocar la credencial su secreto se elimina
+        em.flush();
+        assertThat(jdbc.queryForObject("select count(*) from credencial_secreto where id_credencial = ?", Integer.class, svc))
+                .isZero();
 
         configurar(idWindows, svc)
                 .andExpect(status().isUnprocessableEntity())

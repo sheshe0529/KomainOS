@@ -15,6 +15,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
+import java.time.Instant;
+
 /** Las órdenes grupales la usan sin reemplazar la configuración individual de cada integrante (RF46) */
 @Entity
 @Table(name = "configuracion_grupo")
@@ -34,10 +36,11 @@ public class ConfiguracionGrupo extends ConfiguracionMantenimiento {
 
     public static ConfiguracionGrupo nueva(GrupoMantenimiento grupo, int frecuenciaRevisionDias,
                                            int frecuenciaMantenimientoDias, ModalidadPlanificacion modalidad,
-                                           ModoEjecucion modoEjecucion) {
+                                           ModoEjecucion modoEjecucion, Instant ahora) {
         ConfiguracionGrupo configuracion = new ConfiguracionGrupo();
         configuracion.grupo = grupo;
         configuracion.actualizar(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, modoEjecucion);
+        configuracion.registrarCreacion(ahora);
         return configuracion;
     }
 

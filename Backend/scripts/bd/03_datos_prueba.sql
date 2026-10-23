@@ -201,20 +201,18 @@ BEGIN
     JOIN configuracion_mantenimiento cm ON cm.id_configuracion_mantenimiento = cs.id_configuracion_mantenimiento
     WHERE cs.id_servidor = v_servidor AND p_origen = 'PLANIFICACION_AUTOMATICA';
 
-    INSERT INTO orden (id_orden, codigo, id_servidor, id_nivel_criticidad, id_usuario_solicitante, origen, estado, fecha_creacion)
+    -- La orden guarda su programación vigente (R2.4)
+    INSERT INTO orden (id_orden, codigo, id_servidor, id_nivel_criticidad, id_usuario_solicitante, origen, estado,
+                       fecha_objetivo, fecha_inicio_programada, fecha_fin_programada, fecha_evaluacion_programada,
+                       inicio_ventana_aplicada, fin_ventana_aplicada, fecha_creacion)
     VALUES (v_id, format('OM-%s-%s', extract(year FROM v_ahora)::int, lpad(v_id::text, 4, '0')), v_servidor, v_criticidad,
-            v_solicitante, p_origen::enum_origen_orden, 'PROGRAMADA', v_ahora);
+            v_solicitante, p_origen::enum_origen_orden, 'PROGRAMADA',
+            coalesce(v_objetivo, v_inicio), v_inicio, v_fin, greatest(v_inicio - make_interval(hours => v_plazo), v_ahora),
+            pg_temp.a_utc(p_ventana_inicio_local), pg_temp.a_utc(p_ventana_fin_local), v_ahora);
 
     INSERT INTO orden_detalle (id_orden, id_servidor, posicion_ejecucion, es_servidor_piloto, estado,
                                fecha_prevista_inicio, fecha_prevista_fin)
     VALUES (v_id, v_servidor, 1, false, 'PENDIENTE', v_inicio, v_fin);
-
-    INSERT INTO programacion_orden (id_orden, id_usuario_registro, numero_version, fecha_objetivo, fecha_inicio_programada,
-                                    fecha_fin_programada, fecha_evaluacion_programada, inicio_ventana_aplicada,
-                                    fin_ventana_aplicada, motivo, fecha_registro)
-    VALUES (v_id, v_solicitante, 1, coalesce(v_objetivo, v_inicio), v_inicio, v_fin,
-            greatest(v_inicio - make_interval(hours => v_plazo), v_ahora),
-            pg_temp.a_utc(p_ventana_inicio_local), pg_temp.a_utc(p_ventana_fin_local), p_motivo, v_ahora);
 
     INSERT INTO historial_estado_orden (id_orden, id_usuario, estado_anterior, estado_nuevo, motivo, fecha_hora)
     VALUES (v_id, v_solicitante, NULL, 'PROGRAMADA', p_motivo, v_ahora);

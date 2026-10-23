@@ -17,6 +17,7 @@ tablas (DEC-34). La base se prepara una vez con los scripts de `scripts/bd/`.
    psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/01_esquema.sql
    psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/02_datos_sistema.sql
    psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/03_datos_prueba.sql   # opcional
+   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/04_datos_prueba_umbrales.sql   # opcional, después del 03
    ```
 3. Copiar `.env.example` a `.env` y completar la clave de la base, el secreto JWT
    (`openssl rand -base64 32`), la llave maestra de las credenciales
@@ -44,9 +45,10 @@ se cambia con `KOMAINOS_PUERTO`.
 
 | Script | Uso |
 |---|---|
-| `01_esquema.sql` | Crea el esquema `KomainOS` completo (49 tablas, 31 enumerados). Es el esquema real de `DBKomainOS`; `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
+| `01_esquema.sql` | Crea el esquema `KomainOS` completo: 52 tablas, 89 claves foráneas y 31 enumerados, igual a `Documentos/Docs/01_esquema_vfinal.sql` y al R2.4 final (DEC-40). Requiere PostgreSQL 15 o superior. `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
 | `02_datos_sistema.sql` | Datos sin los cuales el sistema no opera: factores de ciclo y parámetros globales. Idempotente. |
 | `03_datos_prueba.sql` | Datos de demostración: un usuario por rol (contraseña `Cambiar.2026`), catálogos, 8 servidores con ventanas y configuración, un grupo, órdenes en distintos estados y una baja. Las fechas de las órdenes se calculan al ejecutarlo. Solo sobre una base sin datos de negocio. |
+| `04_datos_prueba_umbrales.sql` | Datos de demostración de métricas, listas de referencia y umbrales con excepciones en los cuatro alcances (DEC-41). Después del `03`; no vuelve a cargar si ya hay métricas. |
 | `limpiar_datos_desarrollo.sql` | Vacía los datos de negocio conservando el esquema y los datos del sistema, para volver a cargar `03`. Solo para desarrollo. |
 | `cambios/AAAA-MM-DD_*.sql` | Cambios de estructura para una base creada antes de esa fecha (por ejemplo, `DBKomainOS`). Se aplican una vez, en orden de fecha, y conservan los datos; una base nueva no los necesita porque `01_esquema.sql` ya los incluye. |
 

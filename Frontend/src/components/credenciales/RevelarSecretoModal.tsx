@@ -103,7 +103,7 @@ export function RevelarSecretoModal({ abierto, credencial, onCerrar, onRevelar }
           <p className="text-sm text-ink-soft">
             <span className="font-mono text-ink">{revelado.usuarioAcceso}</span>
             {revelado.tipoAutenticacion && ` · ${ETIQUETA_AUTENTICACION[revelado.tipoAutenticacion]}`}
-            {revelado.tipoUsuario && ` · ${ETIQUETA_TIPO_USUARIO[revelado.tipoUsuario]}`} · versión {revelado.numeroVersion}
+            {revelado.tipoUsuario && ` · ${ETIQUETA_TIPO_USUARIO[revelado.tipoUsuario]}`}
           </p>
           <BloqueSecreto
             titulo={revelado.tipoAutenticacion === 'LLAVE_SSH' ? 'Llave privada' : 'Contraseña'}

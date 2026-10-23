@@ -15,13 +15,12 @@ public record CredencialRespuesta(
         EstadoCredencial estado,
         TipoAutenticacion tipoAutenticacion,
         TipoUsuario tipoUsuario,
-        /** Si la versión vigente guarda contraseña su */
+        /** Si el secreto vigente guarda contraseña su */
         boolean conSu,
         /** Solo en credenciales documentales: la que viaja en el inventario */
         Boolean principal,
-        Integer numeroVersion,
         Instant fechaRegistro,
-        /** Fecha de la versión vigente del secreto */
+        /** Registro o última rotación del secreto vigente; nula si la credencial está revocada */
         Instant fechaSecreto,
         Instant fechaRevocacion) {
 }

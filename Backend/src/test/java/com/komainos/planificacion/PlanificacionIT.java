@@ -140,8 +140,8 @@ class PlanificacionIT extends PruebaIntegracion {
         assertThat(resumen.ordenesGeneradas()).hasSize(2);
         Orden deAlta = consulta.obtener(ordenesDe(alta).getFirst().getId(), alcanceAdmin);
         Orden deMedia = consulta.obtener(ordenesDe(media).getFirst().getId(), alcanceAdmin);
-        Instant inicioAlta = deAlta.programacionVigente().orElseThrow().getFechaInicioProgramada();
-        Instant inicioMedia = deMedia.programacionVigente().orElseThrow().getFechaInicioProgramada();
+        Instant inicioAlta = deAlta.getFechaInicioProgramada();
+        Instant inicioMedia = deMedia.getFechaInicioProgramada();
 
         // La más crítica toma el primer intervalo, con capacidad 1 la otra va después
         assertThat(inicioAlta.atZone(LIMA).getDayOfWeek()).isEqualTo(DayOfWeek.SATURDAY);
@@ -152,7 +152,7 @@ class PlanificacionIT extends PruebaIntegracion {
         assertThat(deAlta.getEstado()).isEqualTo(EstadoOrden.PROGRAMADA);
         assertThat(deAlta.getUsuarioSolicitante()).isNull();
         // RF38: la evaluación previa empieza el plazo de autorización (24 h) antes
-        assertThat(deAlta.programacionVigente().orElseThrow().getFechaEvaluacionProgramada())
+        assertThat(deAlta.getFechaEvaluacionProgramada())
                 .isEqualTo(inicioAlta.minus(Duration.ofHours(24)));
         assertThat(jdbc.queryForObject("select count(*) from auditoria where operacion = 'GENERAR_ORDEN_AUTOMATICA' "
                 + "and proceso = 'PLANIFICACION_AUTOMATICA'", Integer.class)).isEqualTo(2);
@@ -170,12 +170,12 @@ class PlanificacionIT extends PruebaIntegracion {
 
         List<Orden> generadas = ordenesDe(id);
         assertThat(generadas).hasSize(1);
-        assertThat(generadas.getFirst().programacionVigente().orElseThrow().getFechaInicioProgramada())
+        assertThat(generadas.getFirst().getFechaInicioProgramada())
                 .isEqualTo(lima("2026-10-03T22:00"));
     }
 
     @Test
-    @DisplayName("RF30: programar con fecha verifica ventana y conflictos; reprogramar conserva el historial; cancelar libera")
+    @DisplayName("RF30: programar con fecha verifica ventana y conflictos; reprogramar deja la anterior en la auditoría; cancelar libera")
     void programarReprogramarCancelar() {
         Integer id = servidor("srv-manual", "10.0.0.4", idMedia, responsable);
         ventanas(id, ventana(SABADO, "01:00", SABADO, "09:00"));
@@ -193,10 +193,15 @@ class PlanificacionIT extends PruebaIntegracion {
                 .isInstanceOf(PlanificacionImposibleException.class)
                 .hasMessageContaining("ventana permisiva");
 
+        Instant fechaObjetivo = orden.getFechaObjetivo();
         planificacion.reprogramar(orden.getId(), lima("2026-10-10T02:00"), "Congelamiento de cambios", actorAdmin);
         Orden reprogramada = consulta.obtener(orden.getId(), alcanceAdmin);
-        assertThat(reprogramada.getProgramaciones()).hasSize(2);
-        assertThat(reprogramada.programacionVigente().orElseThrow().getMotivo()).isEqualTo("Congelamiento de cambios");
+        // R2.4: la orden guarda la programación vigente; la fecha objetivo no cambia al reprogramar
+        assertThat(reprogramada.getFechaInicioProgramada()).isEqualTo(lima("2026-10-10T02:00"));
+        assertThat(reprogramada.getFechaObjetivo()).isEqualTo(fechaObjetivo);
+        assertThat(reprogramada.getHistorial().get(1).getMotivo()).isEqualTo("Congelamiento de cambios");
+        assertThat(jdbc.queryForObject("select valor_anterior from auditoria where operacion = 'REPROGRAMAR_ORDEN'",
+                String.class)).contains(lima("2026-10-03T01:00").toString());
         assertThat(reprogramada.getDetalles().getFirst().getFechaPrevistaInicio()).isEqualTo(lima("2026-10-10T02:00"));
         assertThat(reprogramada.getHistorial()).extracting("estadoNuevo")
                 .containsExactly(EstadoOrden.PROGRAMADA, EstadoOrden.REPROGRAMADA, EstadoOrden.PROGRAMADA);
@@ -221,10 +226,8 @@ class PlanificacionIT extends PruebaIntegracion {
         ventanas(id, ventana(DOMINGO, "01:00", DOMINGO, "09:00"));
 
         Orden actualizada = consulta.obtener(orden.getId(), alcanceAdmin);
-        var vigente = actualizada.programacionVigente().orElseThrow();
-        assertThat(vigente.getNumeroVersion()).isEqualTo(2);
-        assertThat(vigente.getMotivo()).isEqualTo("Cambio de ventana permisiva");
-        assertThat(vigente.getFechaInicioProgramada().atZone(LIMA).getDayOfWeek()).isEqualTo(DayOfWeek.SUNDAY);
+        assertThat(actualizada.getHistorial()).extracting("motivo").contains("Cambio de ventana permisiva");
+        assertThat(actualizada.getFechaInicioProgramada().atZone(LIMA).getDayOfWeek()).isEqualTo(DayOfWeek.SUNDAY);
     }
 
     @Test
@@ -275,7 +278,7 @@ class PlanificacionIT extends PruebaIntegracion {
 
         assertThat(cronograma.entradas(desde, hasta, alcanceAdmin)).hasSize(2);
         assertThat(cronograma.entradas(desde, hasta, new AlcanceUsuario(responsable.getId(), Rol.RESPONSABLE)))
-                .extracting(p -> p.getOrden().getServidor().getHostname())
+                .extracting(o -> o.getServidor().getHostname())
                 .containsExactly("srv-propio");
 
         // RF30: solo el administrador programa, el responsable recibe 403

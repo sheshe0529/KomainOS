@@ -10,6 +10,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 /** Se elimina al aplicarse la baja (HU13 CA9) */
 @Entity
 @Table(name = "configuracion_servidor")
@@ -23,10 +25,12 @@ public class ConfiguracionServidor extends ConfiguracionMantenimiento {
     private Servidor servidor;
 
     public static ConfiguracionServidor nueva(Servidor servidor, int frecuenciaRevisionDias,
-                                              int frecuenciaMantenimientoDias, ModalidadPlanificacion modalidad) {
+                                              int frecuenciaMantenimientoDias, ModalidadPlanificacion modalidad,
+                                              Instant ahora) {
         ConfiguracionServidor configuracion = new ConfiguracionServidor();
         configuracion.servidor = servidor;
         configuracion.aplicarComunes(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad);
+        configuracion.registrarCreacion(ahora);
         return configuracion;
     }
 

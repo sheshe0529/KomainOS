@@ -37,10 +37,11 @@ public abstract class PruebaIntegracion {
         jdbc.execute("""
                 TRUNCATE TABLE alerta_destinatario, alerta, auditoria, incidencia, validacion_funcional,
                     validacion_tecnica, autorizacion_detalle, solicitud_autorizacion, notificacion_regla,
-                    regla_politica_cambio, mop_tarea, mop, evaluacion_umbral, medicion_metrica, evaluacion,
-                    cierre_orden, confirmacion_fuera_ventana, orden_detalle, historial_estado_orden,
-                    programacion_orden, orden, umbral_tarea, tarea, script_parametro, script_version,
-                    script_implementacion, script, umbral, metrica, configuracion_grupo, configuracion_servidor,
+                    regla_politica_cambio, mop_tarea, mop, evaluacion_umbral, medicion_lista_item, medicion_metrica,
+                    evaluacion, cierre_orden, confirmacion_fuera_ventana, orden_detalle, historial_estado_orden,
+                    orden, umbral_tarea, tarea, script_parametro, script_version, script_implementacion, script,
+                    umbral_excepcion, umbral, lista_referencia_item, lista_referencia, metrica,
+                    configuracion_grupo, configuracion_servidor,
                     configuracion_mantenimiento, grupo_servidor, grupo_mantenimiento, solicitud_baja,
                     ventana_mantenimiento, credencial_documental, direccion_ip, servidor, version_sistema_operativo,
                     sistema_operativo, nivel_criticidad, entorno, usuario

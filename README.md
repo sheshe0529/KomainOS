@@ -27,7 +27,8 @@ Requisitos: Java 21, Maven 3.9, Node.js 20 o superior y PostgreSQL 18.
 
 1. **Bases de datos.** Crear `DBKomainOS` (desarrollo) y, para las pruebas de integración, `dbkomainos_test`.
    En una `DBKomainOS` vacía, ejecutar `Backend/scripts/bd/01_esquema.sql`, `02_datos_sistema.sql` y, si se
-   quieren datos de demostración, `03_datos_prueba.sql` (usuarios con contraseña `Cambiar.2026`).
+   quieren datos de demostración, `03_datos_prueba.sql` (usuarios con contraseña `Cambiar.2026`) y
+   `04_datos_prueba_umbrales.sql`. Una base creada antes se actualiza con los scripts de `Backend/scripts/bd/cambios`.
    El backend se conecta a la base existente y no modifica su estructura.
 2. **Backend.** Copiar `Backend/.env.example` a `Backend/.env`, completar las claves y ejecutar:
    ```bash

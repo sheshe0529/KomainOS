@@ -3,10 +3,13 @@ package com.komainos;
 import com.komainos.inventario.model.DiaSemana;
 import com.komainos.inventario.model.Entorno;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
+import com.komainos.inventario.model.GrupoMantenimiento;
+import com.komainos.inventario.model.Metrica;
 import com.komainos.inventario.model.NivelCriticidad.DatosNivelCriticidad;
 import com.komainos.inventario.model.NivelCriticidad;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.model.SistemaOperativo;
+import com.komainos.inventario.model.TipoDato;
 import com.komainos.inventario.model.VentanaMantenimiento;
 import com.komainos.inventario.model.VersionSistemaOperativo;
 import com.komainos.seguridad.model.Rol;
@@ -50,6 +53,24 @@ public final class DatosPrueba {
         VersionSistemaOperativo v = VersionSistemaOperativo.nueva(sistema, version);
         v.setId(id);
         return v;
+    }
+
+    public static GrupoMantenimiento grupo(int id, String nombre) {
+        GrupoMantenimiento g = GrupoMantenimiento.nuevo(nombre, null);
+        g.setId(id);
+        return g;
+    }
+
+    public static Metrica metrica(String codigo, TipoDato tipoDato, boolean esLista) {
+        return Metrica.nueva(codigo, "Métrica " + codigo, null, tipoDato, esLista);
+    }
+
+    /** Servidor con su entorno y su criticidad, para resolver excepciones de umbral */
+    public static Servidor servidorEn(int id, String hostname, Entorno entorno, NivelCriticidad criticidad) {
+        Servidor s = servidor(id, hostname, usuario(90, "resp", Rol.RESPONSABLE));
+        s.setEntorno(entorno);
+        s.setNivelCriticidad(criticidad);
+        return s;
     }
 
     public static Servidor servidor(int id, String hostname, Usuario responsable) {

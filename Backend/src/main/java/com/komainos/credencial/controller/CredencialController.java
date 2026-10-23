@@ -88,8 +88,8 @@ public class CredencialController {
                 peticion.descripcion(), AlcanceUsuario.de(solicitante).actor()));
     }
 
-    @PostMapping("/credenciales/{id}/versiones")
-    @Operation(summary = "Registra un secreto nuevo como otra versión y conserva las anteriores (RF04)")
+    @PutMapping("/credenciales/{id}/secreto")
+    @Operation(summary = "Rota el secreto: reemplaza el vigente sin conservar el anterior (RF04, R2.4)")
     public CredencialRespuesta actualizarSecreto(@PathVariable Integer id, @Valid @RequestBody SecretoPeticion peticion,
                                                  @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         return CredencialMapeador.credencial(

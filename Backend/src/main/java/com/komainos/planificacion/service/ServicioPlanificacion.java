@@ -28,7 +28,7 @@ import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrdenDetalle;
 import com.komainos.mantenimiento.model.OrigenOrden;
-import com.komainos.mantenimiento.model.ProgramacionOrden;
+import com.komainos.mantenimiento.model.Programacion;
 import com.komainos.mantenimiento.repository.CierreOrdenRepositorio;
 import com.komainos.mantenimiento.repository.OrdenDetalleRepositorio;
 import com.komainos.mantenimiento.repository.OrdenRepositorio;
@@ -151,14 +151,15 @@ public class ServicioPlanificacion {
         return planificador.planificar(solicitud(objetivo, fechaObjetivo, ahora), reservas(ahora, fechaObjetivo, null));
     }
 
-    /** Conserva la programación anterior, sin fecha busca desde la fecha objetivo original (RF30) */
+    /** La auditoría conserva la programación anterior, sin fecha busca desde la fecha objetivo original (RF30) */
     @Transactional
     public Orden reprogramar(Integer idOrden, Instant inicio, String motivo, Actor actor) {
         Orden orden = buscarOrden(idOrden);
-        ResultadoPlanificacion resultado = reprogramarInterno(orden, inicio, motivo, usuarioDe(actor));
+        Map<String, Object> anterior = orden.instantaneaProgramacion();
+        reprogramarInterno(orden, inicio, motivo, usuarioDe(actor));
         auditoria.registrar(actor, Operacion.de("REPROGRAMAR_ORDEN", "orden", idOrden)
                 .sobreOrden(idOrden)
-                .valores(null, instantanea(resultado))
+                .valores(anterior, orden.instantaneaProgramacion())
                 .motivo(motivo));
         return orden;
     }
@@ -226,10 +227,11 @@ public class ServicioPlanificacion {
                 continue;
             }
             try {
-                ResultadoPlanificacion resultado = reprogramarInterno(orden, null, "Cambio de ventana permisiva", autor);
+                Map<String, Object> anterior = orden.instantaneaProgramacion();
+                reprogramarInterno(orden, null, "Cambio de ventana permisiva", autor);
                 auditoria.registrar(evento.actor(), Operacion.de("REPROGRAMAR_ORDEN", "orden", orden.getId())
                         .sobreOrden(orden.getId()).sobreServidor(evento.idServidor())
-                        .valores(null, instantanea(resultado))
+                        .valores(anterior, orden.instantaneaProgramacion())
                         .motivo("Cambio de ventana permisiva"));
             } catch (ReglaNegocioException ex) {
                 log.warn("La orden {} quedó fuera de la nueva ventana y no pudo reprogramarse: {}",
@@ -320,14 +322,14 @@ public class ServicioPlanificacion {
         return orden;
     }
 
-    private ResultadoPlanificacion reprogramarInterno(Orden orden, Instant inicio, String motivo, Usuario autor) {
+    private void reprogramarInterno(Orden orden, Instant inicio, String motivo, Usuario autor) {
         if (!orden.getEstado().puedePasarA(EstadoOrden.REPROGRAMADA)) {
             throw new ReglaNegocioException("La orden %s está en estado %s y no puede reprogramarse"
                     .formatted(orden.getCodigo(), orden.getEstado()));
         }
         Objetivo objetivo = objetivoDeOrden(orden);
         Instant ahora = Tiempo.ahora(reloj);
-        Instant fechaObjetivo = orden.programacionVigente().map(ProgramacionOrden::getFechaObjetivo).orElse(ahora);
+        Instant fechaObjetivo = orden.getFechaObjetivo();
         SolicitudPlanificacion solicitud = solicitud(objetivo, fechaObjetivo, ahora);
         List<Reserva> reservas = reservas(ahora, inicio != null ? inicio : fechaObjetivo, orden.getId());
         ResultadoPlanificacion resultado = inicio != null
@@ -337,16 +339,11 @@ public class ServicioPlanificacion {
         List<Orden.TramoDetalle> tramos = resultado.tramos().stream()
                 .map(t -> new Orden.TramoDetalle(t.idServidor(), t.posicion(), t.inicio(), t.fin()))
                 .toList();
-        orden.reprogramar(datosProgramacion(resultado, motivo), tramos, autor, motivo, ahora);
-        return resultado;
+        orden.reprogramar(programacion(resultado), tramos, autor, motivo, ahora);
     }
 
     private boolean sigueDentroDeSuVentana(Orden orden) {
-        Optional<ProgramacionOrden> vigente = orden.programacionVigente();
-        if (vigente.isEmpty()) {
-            return true;
-        }
-        Intervalo programada = new Intervalo(vigente.get().getFechaInicioProgramada(), vigente.get().getFechaFinProgramada());
+        Intervalo programada = new Intervalo(orden.getFechaInicioProgramada(), orden.getFechaFinProgramada());
         CalendarioSemanal ventana = objetivoDeOrden(orden).ventana();
         return ventana.proyectar(programada.inicio().minus(Duration.ofDays(8)), programada.fin().plus(Duration.ofDays(1)),
                         propiedades.zona())
@@ -446,19 +443,18 @@ public class ServicioPlanificacion {
                 ? o.configuracion().getIdCuentaServicio()
                 : parametros.obtener().getIdCuentaServicioPredeterminada();
         Orden orden = Orden.nueva(ordenes.siguienteId(), o.servidor(), o.grupo(), o.criticidad(), idCuenta,
-                solicitante, origen, o.modo(), ahora, motivo);
+                solicitante, origen, o.modo(), programacion(r), ahora, motivo);
         Map<Integer, Servidor> porId = new HashMap<>();
         o.integrantes().forEach(s -> porId.put(s.getId(), s));
         for (ResultadoPlanificacion.Tramo t : r.tramos()) {
             orden.agregarDetalle(porId.get(t.idServidor()), t.posicion(), t.inicio(), t.fin());
         }
-        orden.agregarProgramacion(datosProgramacion(r, motivo), solicitante, ahora);
         return ordenes.save(orden);
     }
 
-    private static ProgramacionOrden.Datos datosProgramacion(ResultadoPlanificacion r, String motivo) {
-        return new ProgramacionOrden.Datos(r.fechaObjetivo(), r.inicio(), r.fin(), r.fechaEvaluacion(),
-                r.ventanaAplicada().inicio(), r.ventanaAplicada().fin(), motivo);
+    private static Programacion programacion(ResultadoPlanificacion r) {
+        return new Programacion(r.fechaObjetivo(), r.inicio(), r.fin(), r.fechaEvaluacion(),
+                r.ventanaAplicada().inicio(), r.ventanaAplicada().fin());
     }
 
     private Orden buscarOrden(Integer id) {

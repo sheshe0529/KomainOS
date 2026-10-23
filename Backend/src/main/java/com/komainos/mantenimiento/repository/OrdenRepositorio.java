@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +30,26 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
     @EntityGraph(attributePaths = {"servidor.responsable", "grupo", "nivelCriticidad", "usuarioSolicitante",
             "detalles.servidor"})
     Optional<Orden> findConDetalleById(Integer id);
+
+    /** Las canceladas no se muestran porque no van a ocurrir */
+    @Query("""
+            select o from Orden o
+              left join fetch o.servidor
+              left join fetch o.grupo
+              join fetch o.nivelCriticidad
+            where o.fechaInicioProgramada < :hasta
+              and o.fechaFinProgramada > :desde
+              and o.estado <> :excluido
+              and (:todos = true or exists (
+                    select d.id from OrdenDetalle d
+                    where d.orden = o and d.servidor.responsable.id = :idUsuario))
+            order by o.fechaInicioProgramada, o.codigo
+            """)
+    List<Orden> findCronograma(@Param("desde") Instant desde,
+                               @Param("hasta") Instant hasta,
+                               @Param("excluido") EstadoOrden excluido,
+                               @Param("todos") boolean todos,
+                               @Param("idUsuario") Integer idUsuario);
 
     /* Enumerados siempre como parámetro: como literal Hibernate los castea a un tipo que PostgreSQL no tiene (DEC-26) */
 

@@ -6,7 +6,7 @@ import com.komainos.credencial.dto.SecretoReveladoRespuesta;
 import com.komainos.credencial.dto.ServidorAsignableRespuesta;
 import com.komainos.credencial.model.Credencial;
 import com.komainos.credencial.model.CredencialDocumental;
-import com.komainos.credencial.model.CredencialVersion;
+import com.komainos.credencial.model.CredencialSecreto;
 import com.komainos.credencial.service.ServicioCredenciales.CredencialExportada;
 import com.komainos.credencial.service.ServicioCredenciales.CuentaConUso;
 import com.komainos.credencial.service.ServicioCredenciales.Revelado;
@@ -21,14 +21,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** Espera las versiones ya cargadas por el servicio: open-in-view está desactivado */
+/** Espera el secreto ya cargado por el servicio: open-in-view está desactivado */
 public final class CredencialMapeador {
 
     private static final ColumnaArchivo HOSTNAME = new ColumnaArchivo("hostname", "Hostname");
     private static final ColumnaArchivo DIRECCION_IP = new ColumnaArchivo("direccion_ip", "Dirección IP");
     private static final ColumnaArchivo NOMBRE = new ColumnaArchivo("credencial", "Credencial");
     private static final ColumnaArchivo PRINCIPAL = new ColumnaArchivo("principal", "Principal");
-    private static final ColumnaArchivo VERSION = new ColumnaArchivo("version_del_secreto", "Versión del secreto");
     private static final ColumnaArchivo FECHA = new ColumnaArchivo("fecha_del_secreto", "Fecha del secreto");
     private static final ColumnaArchivo DESCRIPCION = new ColumnaArchivo("descripcion", "Descripción");
 
@@ -43,7 +42,7 @@ public final class CredencialMapeador {
         for (ColumnaCredencial c : ColumnaCredencial.values()) {
             columnas.add(c.comoColumnaArchivo());
         }
-        columnas.addAll(List.of(VERSION, FECHA, DESCRIPCION));
+        columnas.addAll(List.of(FECHA, DESCRIPCION));
         return List.copyOf(columnas);
     }
 
@@ -60,37 +59,35 @@ public final class CredencialMapeador {
         fila.put(ColumnaCredencial.USUARIO.clave(), e.acceso().usuario());
         fila.put(ColumnaCredencial.SECRETO.clave(), e.acceso().secreto());
         fila.put(ColumnaCredencial.SECRETO_SU.clave(), e.acceso().su());
-        fila.put(VERSION.clave(), e.version().getNumeroVersion());
-        fila.put(FECHA.clave(), e.version().getFechaCreacion());
+        fila.put(FECHA.clave(), e.secreto().getFechaActualizacion());
         fila.put(DESCRIPCION.clave(), c.getDescripcion());
         return fila;
     }
 
     public static CredencialRespuesta credencial(Credencial c) {
-        Optional<CredencialVersion> vigente = c.versionVigente();
+        Optional<CredencialSecreto> vigente = c.secretoVigente();
         return new CredencialRespuesta(c.getId(), c.getNombre(), c.getUsuarioAcceso(), c.getDescripcion(),
                 c.getEstado(),
-                vigente.map(CredencialVersion::getTipoAutenticacion).orElse(null),
-                vigente.map(CredencialVersion::getTipoUsuario).orElse(null),
-                vigente.map(CredencialVersion::tieneSu).orElse(false),
+                vigente.map(CredencialSecreto::getTipoAutenticacion).orElse(null),
+                vigente.map(CredencialSecreto::getTipoUsuario).orElse(null),
+                vigente.map(CredencialSecreto::tieneSu).orElse(false),
                 c instanceof CredencialDocumental d ? d.isPrincipal() : null,
-                vigente.map(CredencialVersion::getNumeroVersion).orElse(null),
                 c.getFechaRegistro(),
-                vigente.map(CredencialVersion::getFechaCreacion).orElse(null),
+                vigente.map(CredencialSecreto::getFechaActualizacion).orElse(null),
                 c.getFechaRevocacion());
     }
 
     public static CuentaServicioRespuesta cuenta(CuentaConUso uso) {
         CredencialRespuesta c = credencial(uso.cuenta());
         return new CuentaServicioRespuesta(c.id(), c.nombre(), c.usuarioAcceso(), c.descripcion(), c.estado(),
-                c.tipoAutenticacion(), c.numeroVersion(), c.fechaRegistro(), c.fechaSecreto(), c.fechaRevocacion(),
+                c.tipoAutenticacion(), c.fechaRegistro(), c.fechaSecreto(), c.fechaRevocacion(),
                 uso.servidores(), uso.grupos(), uso.predeterminada());
     }
 
     public static SecretoReveladoRespuesta revelado(Revelado r, int segundosVisible) {
         return new SecretoReveladoRespuesta(r.credencial().getId(), r.credencial().getNombre(),
-                r.credencial().getUsuarioAcceso(), r.version().getTipoAutenticacion(), r.version().getTipoUsuario(),
-                r.version().getNumeroVersion(), r.secreto(), r.su(), segundosVisible);
+                r.credencial().getUsuarioAcceso(), r.vigente().getTipoAutenticacion(), r.vigente().getTipoUsuario(),
+                r.vigente().getFechaActualizacion(), r.secreto(), r.su(), segundosVisible);
     }
 
     public static ServidorAsignableRespuesta asignable(ConfiguracionServidor c) {

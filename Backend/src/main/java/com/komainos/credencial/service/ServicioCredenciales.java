@@ -4,7 +4,7 @@ import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.credencial.model.Credencial;
 import com.komainos.credencial.model.CredencialDocumental;
-import com.komainos.credencial.model.CredencialVersion;
+import com.komainos.credencial.model.CredencialSecreto;
 import com.komainos.credencial.model.CuentaServicio;
 import com.komainos.credencial.model.EstadoCredencial;
 import com.komainos.credencial.model.SecretoCifrado;
@@ -12,6 +12,7 @@ import com.komainos.credencial.model.TipoAutenticacion;
 import com.komainos.credencial.model.TipoUsuario;
 import com.komainos.credencial.repository.CredencialDocumentalRepositorio;
 import com.komainos.credencial.repository.CredencialRepositorio;
+import com.komainos.credencial.repository.CredencialSecretoRepositorio;
 import com.komainos.credencial.repository.CuentaServicioRepositorio;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.Servidor;
@@ -51,6 +52,7 @@ public class ServicioCredenciales {
 
     private final CredencialRepositorio credenciales;
     private final CredencialDocumentalRepositorio documentales;
+    private final CredencialSecretoRepositorio secretos;
     private final CuentaServicioRepositorio cuentas;
     private final CifradorCredenciales cifrador;
     private final ServicioServidor servidores;
@@ -109,8 +111,8 @@ public class ServicioCredenciales {
 
         CuentaServicio cuenta = cuentas.save(CuentaServicio.nueva(nombre, datos.usuarioAcceso().trim(),
                 vacioANulo(datos.descripcion()), ahora()));
-        CredencialVersion version = agregarVersion(cuenta, acceso);
-        auditoria.registrar(actor, operacion("REGISTRAR_CREDENCIAL", cuenta).valores(null, instantanea(cuenta, version)));
+        CredencialSecreto secreto = establecerSecreto(cuenta, acceso);
+        auditoria.registrar(actor, operacion("REGISTRAR_CREDENCIAL", cuenta).valores(null, instantanea(cuenta, secreto)));
         return cuenta;
     }
 
@@ -121,15 +123,15 @@ public class ServicioCredenciales {
         if (credencial instanceof CuentaServicio && cuentas.existsByNombreIgnoreCaseAndIdNot(limpio, id)) {
             throw new ConflictoException("Ya existe otra cuenta de servicio con el nombre %s".formatted(limpio));
         }
-        CredencialVersion version = credencial.versionVigente().orElse(null);
-        Map<String, Object> anterior = instantanea(credencial, version);
+        CredencialSecreto secreto = credencial.secretoVigente().orElse(null);
+        Map<String, Object> anterior = instantanea(credencial, secreto);
         credencial.actualizarDatos(limpio, usuarioAcceso.trim(), vacioANulo(descripcion));
         auditoria.registrar(actor, operacion("ACTUALIZAR_CREDENCIAL", credencial)
-                .valores(anterior, instantanea(credencial, version)));
+                .valores(anterior, instantanea(credencial, secreto)));
         return credencial;
     }
 
-    /** Crea una versión nueva y conserva las anteriores (RF04), un secreto vacío conserva el vigente si sigue aplicando */
+    /** Rota el secreto sin conservar el anterior (RF04, R2.4), un secreto vacío conserva el vigente si sigue aplicando */
     @Transactional
     public Credencial actualizarSecreto(Integer id, Secreto secreto, Actor actor) {
         Credencial credencial = buscar(id);
@@ -137,24 +139,27 @@ public class ServicioCredenciales {
         Secreto forma = credencial instanceof CredencialDocumental documental
                 ? formaDocumental(secreto, documental.getServidor())
                 : formaCuenta(secreto, id);
-        CredencialVersion actual = credencial.versionVigente().orElse(null);
+        CredencialSecreto actual = credencial.secretoVigente().orElse(null);
         Secreto acceso = completo(forma, actual, id);
 
         Map<String, Object> anterior = instantanea(credencial, actual);
-        CredencialVersion version = agregarVersion(credencial, acceso);
+        CredencialSecreto rotado = establecerSecreto(credencial, acceso);
         auditoria.registrar(actor, operacion("ACTUALIZAR_SECRETO_CREDENCIAL", credencial)
-                .valores(anterior, instantanea(credencial, version)));
+                .valores(anterior, instantanea(credencial, rotado)));
         return credencial;
     }
 
-    /** Una cuenta en uso no se revoca y una documental principal cede su lugar a la vigente más antigua */
+    /** Una cuenta en uso no se revoca, una documental principal cede su lugar a la vigente más antigua y el secreto se elimina */
     @Transactional
     public Credencial revocar(Integer id, String motivo, Actor actor) {
         Credencial credencial = buscar(id);
         if (credencial instanceof CuentaServicio cuenta) {
             exigirSinUso(cuenta);
         }
+        Optional<CredencialSecreto> secreto = credencial.secretoVigente();
         credencial.revocar(ahora());
+        // R2.4: al revocar la credencial su secreto se elimina
+        secreto.ifPresent(secretos::delete);
         Map<String, Object> detalle = new HashMap<>();
         if (credencial instanceof CredencialDocumental documental && documental.isPrincipal()) {
             documental.quitarPrincipal();
@@ -175,13 +180,14 @@ public class ServicioCredenciales {
         reautenticacion.exigir(alcance.usuarioId(), contrasena);
         Credencial credencial = buscar(id);
         credencial.exigirVigente("revelar su secreto");
-        CredencialVersion version = credencial.versionVigente()
+        CredencialSecreto secreto = credencial.secretoVigente()
                 .orElseThrow(() -> new ReglaNegocioException("La credencial %s no tiene un secreto registrado"
                         .formatted(credencial.getNombre())));
-        AccesoClaro acceso = descifrar(credencial, version);
+        AccesoClaro acceso = descifrar(credencial, secreto);
         auditoria.registrar(alcance.actor(), operacion("REVELAR_CREDENCIAL", credencial)
-                .valores(null, Map.of("numeroVersion", version.getNumeroVersion(), "incluyeSu", acceso.su() != null)));
-        return new Revelado(credencial, version, acceso.secreto(), acceso.su());
+                .valores(null, Map.of("fechaSecreto", secreto.getFechaActualizacion().toString(),
+                        "incluyeSu", acceso.su() != null)));
+        return new Revelado(credencial, secreto, acceso.secreto(), acceso.su());
     }
 
     /** Con los secretos en claro: quien llama ya verificó la reautenticación del administrador */
@@ -192,7 +198,7 @@ public class ServicioCredenciales {
             return resultado;
         }
         for (CredencialDocumental c : documentales.findByServidorIdInAndPrincipalTrue(idsServidores)) {
-            c.versionVigente().ifPresent(v -> resultado.put(c.getServidor().getId(), exportado(c, v)));
+            c.secretoVigente().ifPresent(s -> resultado.put(c.getServidor().getId(), exportado(c, s)));
         }
         return resultado;
     }
@@ -204,7 +210,7 @@ public class ServicioCredenciales {
         List<CredencialExportada> filas = new ArrayList<>();
         for (CredencialDocumental c : documentales.findByEstadoOrderByServidorHostnameAscPrincipalDescNombreAsc(
                 EstadoCredencial.VIGENTE)) {
-            c.versionVigente().ifPresent(v -> filas.add(new CredencialExportada(c, v, exportado(c, v))));
+            c.secretoVigente().ifPresent(s -> filas.add(new CredencialExportada(c, s, exportado(c, s))));
         }
         auditoria.registrar(alcance.actor(), Operacion.de("EXPORTAR_CREDENCIALES", "credencial_documental", null)
                 .valores(null, Map.of("registros", filas.size())));
@@ -234,11 +240,11 @@ public class ServicioCredenciales {
         if (principal.isEmpty() || !principal.get().getUsuarioAcceso().equalsIgnoreCase(usuario.trim())) {
             return true;
         }
-        CredencialVersion version = principal.get().versionVigente().orElse(null);
-        return version == null || !mismoAcceso(principal.get(), version, secreto);
+        CredencialSecreto vigente = principal.get().secretoVigente().orElse(null);
+        return vigente == null || !mismoAcceso(principal.get(), vigente, secreto);
     }
 
-    /** El usuario identifica la credencial: si ya existe se le agrega una versión, si no se registra, y queda principal */
+    /** El usuario identifica la credencial: si ya existe se rota su secreto, si no se registra, y queda principal */
     @Transactional
     public CredencialDocumental aplicarPrincipalImportada(Integer idServidor, String usuario, Secreto secreto,
                                                           Actor actor) {
@@ -254,12 +260,12 @@ public class ServicioCredenciales {
             return registrarDocumental(servidor, limpio, limpio, null, acceso, true, actor);
         }
         CredencialDocumental credencial = existente.get();
-        CredencialVersion actual = credencial.versionVigente().orElse(null);
+        CredencialSecreto actual = credencial.secretoVigente().orElse(null);
         if (actual == null || !mismoAcceso(credencial, actual, acceso)) {
             Map<String, Object> anterior = instantanea(credencial, actual);
-            CredencialVersion version = agregarVersion(credencial, acceso);
+            CredencialSecreto rotado = establecerSecreto(credencial, acceso);
             auditoria.registrar(actor, operacion("ACTUALIZAR_SECRETO_CREDENCIAL", credencial)
-                    .valores(anterior, instantanea(credencial, version))
+                    .valores(anterior, instantanea(credencial, rotado))
                     .motivo("Importación del inventario"));
         }
         return marcarPrincipal(credencial.getId(), actor);
@@ -270,14 +276,14 @@ public class ServicioCredenciales {
                                                      Actor actor) {
         CredencialDocumental credencial = documentales.save(CredencialDocumental.nueva(servidor, nombre.trim(),
                 usuario.trim(), vacioANulo(descripcion), principal, ahora()));
-        CredencialVersion version = agregarVersion(credencial, acceso);
+        CredencialSecreto secreto = establecerSecreto(credencial, acceso);
         auditoria.registrar(actor, operacion("REGISTRAR_CREDENCIAL", credencial)
-                .valores(null, instantanea(credencial, version)));
+                .valores(null, instantanea(credencial, secreto)));
         return credencial;
     }
 
     private Credencial buscar(Integer id) {
-        return credenciales.findConVersionesById(id)
+        return credenciales.findConSecretoById(id)
                 .orElseThrow(() -> RecursoNoEncontradoException.de("la credencial", id));
     }
 
@@ -295,31 +301,31 @@ public class ServicioCredenciales {
                 .min(Comparator.comparing(Credencial::getFechaRegistro).thenComparing(Credencial::getId));
     }
 
-    /** El id ya existe porque la credencial se insertó antes: el cifrado lo usa como dato asociado */
-    private CredencialVersion agregarVersion(Credencial credencial, Secreto acceso) {
+    /** El id ya existe porque la credencial se insertó antes: el cifrado lo usa como dato asociado, con un IV nuevo cada vez */
+    private CredencialSecreto establecerSecreto(Credencial credencial, Secreto acceso) {
         Integer id = credencial.getId();
         SecretoCifrado su = acceso.su() == null ? null : cifrador.cifrarSu(acceso.su(), id);
-        return credencial.agregarVersion(acceso.tipo(), acceso.tipoUsuario(), cifrador.cifrar(acceso.valor(), id), su,
+        return credencial.establecerSecreto(acceso.tipo(), acceso.tipoUsuario(), cifrador.cifrar(acceso.valor(), id), su,
                 ahora());
     }
 
-    private AccesoClaro descifrar(Credencial credencial, CredencialVersion version) {
+    private AccesoClaro descifrar(Credencial credencial, CredencialSecreto secreto) {
         Integer id = credencial.getId();
-        return new AccesoClaro(cifrador.descifrar(version.secreto(), id),
-                version.secretoSu().map(su -> cifrador.descifrarSu(su, id)).orElse(null));
+        return new AccesoClaro(cifrador.descifrar(secreto.secreto(), id),
+                secreto.secretoSu().map(su -> cifrador.descifrarSu(su, id)).orElse(null));
     }
 
-    private boolean mismoAcceso(Credencial credencial, CredencialVersion version, Secreto acceso) {
-        if (version.getTipoAutenticacion() != acceso.tipo() || version.getTipoUsuario() != acceso.tipoUsuario()) {
+    private boolean mismoAcceso(Credencial credencial, CredencialSecreto secreto, Secreto acceso) {
+        if (secreto.getTipoAutenticacion() != acceso.tipo() || secreto.getTipoUsuario() != acceso.tipoUsuario()) {
             return false;
         }
-        AccesoClaro actual = descifrar(credencial, version);
+        AccesoClaro actual = descifrar(credencial, secreto);
         return actual.secreto().equals(acceso.valor()) && Objects.equals(actual.su(), acceso.su());
     }
 
-    private AccesoExportado exportado(CredencialDocumental c, CredencialVersion v) {
-        AccesoClaro acceso = descifrar(c, v);
-        return new AccesoExportado(v.getTipoAutenticacion(), v.getTipoUsuario(), c.getUsuarioAcceso(),
+    private AccesoExportado exportado(CredencialDocumental c, CredencialSecreto s) {
+        AccesoClaro acceso = descifrar(c, s);
+        return new AccesoExportado(s.getTipoAutenticacion(), s.getTipoUsuario(), c.getUsuarioAcceso(),
                 acceso.secreto(), acceso.su());
     }
 
@@ -366,8 +372,8 @@ public class ServicioCredenciales {
         return s;
     }
 
-    /** Completa con la versión vigente lo que llega vacío y exige lo que falte */
-    private Secreto completo(Secreto forma, CredencialVersion actual, Integer idCredencial) {
+    /** Completa con el secreto vigente lo que llega vacío y exige lo que falte */
+    private Secreto completo(Secreto forma, CredencialSecreto actual, Integer idCredencial) {
         String valor = forma.valor();
         if (!tieneTexto(valor) && actual != null && actual.getTipoAutenticacion() == forma.tipo()) {
             valor = cifrador.descifrar(actual.secreto(), idCredencial);
@@ -420,7 +426,7 @@ public class ServicioCredenciales {
     }
 
     /** Nunca incluye el secreto ni su forma cifrada (RNF11) */
-    private static Map<String, Object> instantanea(Credencial c, CredencialVersion version) {
+    private static Map<String, Object> instantanea(Credencial c, CredencialSecreto secreto) {
         Map<String, Object> v = new HashMap<>();
         v.put("nombre", c.getNombre());
         v.put("usuarioAcceso", c.getUsuarioAcceso());
@@ -429,11 +435,11 @@ public class ServicioCredenciales {
         if (c instanceof CredencialDocumental documental) {
             v.put("principal", documental.isPrincipal());
         }
-        if (version != null) {
-            v.put("numeroVersion", version.getNumeroVersion());
-            v.put("tipoAutenticacion", version.getTipoAutenticacion().name());
-            v.put("tipoUsuario", version.getTipoUsuario() == null ? null : version.getTipoUsuario().name());
-            v.put("conSu", version.tieneSu());
+        if (secreto != null) {
+            v.put("fechaSecreto", secreto.getFechaActualizacion().toString());
+            v.put("tipoAutenticacion", secreto.getTipoAutenticacion().name());
+            v.put("tipoUsuario", secreto.getTipoUsuario() == null ? null : secreto.getTipoUsuario().name());
+            v.put("conSu", secreto.tieneSu());
         }
         return v;
     }
@@ -464,14 +470,14 @@ public class ServicioCredenciales {
     public record CuentaConUso(CuentaServicio cuenta, long servidores, long grupos, boolean predeterminada) {
     }
 
-    public record Revelado(Credencial credencial, CredencialVersion version, String secreto, String su) {
+    public record Revelado(Credencial credencial, CredencialSecreto vigente, String secreto, String su) {
     }
 
     public record AccesoExportado(TipoAutenticacion tipo, TipoUsuario tipoUsuario, String usuario, String secreto,
                                   String su) {
     }
 
-    public record CredencialExportada(CredencialDocumental credencial, CredencialVersion version,
+    public record CredencialExportada(CredencialDocumental credencial, CredencialSecreto secreto,
                                       AccesoExportado acceso) {
     }
 

@@ -158,7 +158,7 @@ public class ServicioGrupo {
         cuentasServicio.validarCambio(existente.map(ConfiguracionGrupo::getIdCuentaServicio).orElse(null),
                 datos.idCuentaServicio(), familia(grupo));
         ConfiguracionGrupo configuracion = existente.orElseGet(() -> ConfiguracionGrupo.nueva(
-                grupo, revision, mantenimiento, datos.modalidad(), datos.modoEjecucion()));
+                grupo, revision, mantenimiento, datos.modalidad(), datos.modoEjecucion(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad(), datos.modoEjecucion());
         configuracion.setIdCuentaServicio(datos.idCuentaServicio());
         configuraciones.save(configuracion);

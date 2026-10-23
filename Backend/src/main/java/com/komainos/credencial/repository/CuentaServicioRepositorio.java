@@ -9,11 +9,11 @@ import java.util.Optional;
 
 public interface CuentaServicioRepositorio extends JpaRepository<CuentaServicio, Integer> {
 
-    @EntityGraph(attributePaths = {"versiones"})
+    @EntityGraph(attributePaths = {"secreto"})
     List<CuentaServicio> findAllByOrderByEstadoAscNombreAsc();
 
-    @EntityGraph(attributePaths = {"versiones"})
-    Optional<CuentaServicio> findConVersionesById(Integer id);
+    @EntityGraph(attributePaths = {"secreto"})
+    Optional<CuentaServicio> findConSecretoById(Integer id);
 
     boolean existsByNombreIgnoreCase(String nombre);
 

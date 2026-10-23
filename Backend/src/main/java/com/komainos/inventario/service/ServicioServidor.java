@@ -182,7 +182,7 @@ public class ServicioServidor implements PuertoServidoresACargo {
         cuentasServicio.validarCambio(existente.map(ConfiguracionServidor::getIdCuentaServicio).orElse(null),
                 datos.idCuentaServicio(), servidor.familia());
         ConfiguracionServidor configuracion = existente.orElseGet(() ->
-                ConfiguracionServidor.nueva(servidor, revision, mantenimiento, datos.modalidad()));
+                ConfiguracionServidor.nueva(servidor, revision, mantenimiento, datos.modalidad(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad());
         configuracion.setIdCuentaServicio(datos.idCuentaServicio());
         configuraciones.save(configuracion);

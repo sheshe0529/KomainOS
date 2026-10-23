@@ -8,6 +8,6 @@ import java.util.Optional;
 
 public interface CredencialRepositorio extends JpaRepository<Credencial, Integer> {
 
-    @EntityGraph(attributePaths = {"versiones"})
-    Optional<Credencial> findConVersionesById(Integer id);
+    @EntityGraph(attributePaths = {"secreto"})
+    Optional<Credencial> findConSecretoById(Integer id);
 }

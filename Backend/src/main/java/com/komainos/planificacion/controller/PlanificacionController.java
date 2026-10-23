@@ -32,7 +32,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
@@ -51,7 +50,7 @@ public class PlanificacionController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime hasta,
             @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         return cronograma.entradas(desde.toInstant(), hasta.toInstant(), AlcanceUsuario.de(solicitante)).stream()
-                .map(p -> OrdenMapeador.resumen(p.getOrden(), Optional.of(p)))
+                .map(OrdenMapeador::resumen)
                 .toList();
     }
 
@@ -69,7 +68,7 @@ public class PlanificacionController {
 
     @PostMapping("/ordenes/{id}/reprogramacion")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    @Operation(summary = "Reprograma una orden conservando la programación anterior (RF30)")
+    @Operation(summary = "Reprograma una orden; el historial de estados y la auditoría conservan la programación anterior (RF30)")
     public OrdenDetalleRespuesta reprogramar(@PathVariable Integer id, @Valid @RequestBody ReprogramarOrdenPeticion peticion,
                                              @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
