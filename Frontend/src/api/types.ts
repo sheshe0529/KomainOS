@@ -7,6 +7,13 @@
  */
 
 
+export interface ActividadDiaria {
+  fecha?: string
+  altas?: number
+  mantenimientos?: number
+  incidencias?: number
+}
+
 export interface ActualizarExcepcionUmbralPeticion {
   valorAdvertencia?: number
   valorCritico?: number
@@ -28,6 +35,34 @@ export interface ActualizarUsuarioPeticion {
   versionEsperada?: string
 }
 
+export interface AlertaRespuesta {
+  id?: number
+  tipo?: 'ADVERTENCIA_UMBRAL' | 'CONDICION_CRITICA' | 'SIN_IMPLEMENTACION' | 'SOLICITUD_AUTORIZACION' | 'AUTORIZACION_VENCIDA' | 'SOLICITUD_VALIDACION' | 'VALIDACION_VENCIDA' | 'INCIDENCIA_REGISTRADA' | 'VENTANA_EXCEDIDA' | 'CIERRE_MANTENIMIENTO'
+  titulo?: string
+  mensaje?: string
+  idServidor?: number
+  idOrden?: number
+  idIncidencia?: number
+  fecha?: string
+  leida?: boolean
+  idGrupo?: number
+}
+
+export interface Analisis {
+  id?: number
+  idDetalle?: number
+  idServidor?: number
+  servidor?: string
+  tipo?: 'REVISION_PERIODICA' | 'PREVIA' | 'POSTERIOR'
+  estado?: 'EN_CURSO' | 'FINALIZADA' | 'FALLIDA'
+  idVersion?: number
+  idCuentaServicio?: number
+  fechaInicio?: string
+  fechaFin?: string
+  error?: string
+  mediciones?: Medicion[]
+}
+
 export interface AnalisisImportacionRespuesta {
   formato?: string
   registros?: number
@@ -42,6 +77,26 @@ export interface AnalisisImportacionRespuesta {
 
 export interface AsignacionServidoresPeticion {
   idsServidores: number[]
+}
+
+export interface AtenderPeticion {
+  diagnostico: string
+  acciones: string
+  resultado: string
+  cerrar?: boolean
+}
+
+export interface AutomatizacionOrdenRespuesta {
+  idOrden?: number
+  simulado?: boolean
+  mops?: Plan[]
+  evaluaciones?: Analisis[]
+  autorizaciones?: Solicitud[]
+  validaciones?: Validacion[]
+  validacionesTecnicas?: ValidacionTecnicaVista[]
+  incidencias?: Problema[]
+  orden?: OrdenResumenRespuesta
+  historial?: CambioEstado[]
 }
 
 export interface BajaPeticion {
@@ -60,11 +115,38 @@ export interface CancelarOrdenPeticion {
   motivo: string
 }
 
+export interface ColaRespuesta {
+  idDetalle?: number
+  idOrden?: number
+  orden?: string
+  servidor?: string
+  prioridad?: string
+  estado?: 'PENDIENTE' | 'EN_COLA' | 'EN_EJECUCION' | 'FINALIZADO' | 'FALLIDO' | 'NO_INICIADO'
+  posicion?: number
+  piloto?: boolean
+  inicioPrevisto?: string
+  inicioReal?: string
+}
+
 export interface ColumnaInventarioRespuesta {
   clave?: string
   etiqueta?: string
   importable?: boolean
   obligatoria?: boolean
+}
+
+export interface ConexionGrupoRespuesta {
+  idServidor?: number
+  servidor?: string
+  simulado?: boolean
+  correcto?: boolean
+  mensaje?: string
+}
+
+export interface ConexionRespuesta {
+  simulado?: boolean
+  correcto?: boolean
+  mensaje?: string
 }
 
 export interface ConfiguracionGrupoPeticion {
@@ -159,6 +241,24 @@ export interface DatosCredencialPeticion {
   descripcion?: string
 }
 
+export interface Decision {
+  id?: number
+  tipo?: 'RESPONSABLE' | 'ADMINISTRADOR'
+  secuencia?: number
+  estado?: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'FECHA_PROPUESTA' | 'VENCIDA'
+  usuario?: string
+  fechaSolicitud?: string
+  fechaDecision?: string
+  fechaPropuesta?: string
+  motivo?: string
+}
+
+export interface DecisionPeticion {
+  decision: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'FECHA_PROPUESTA' | 'VENCIDA'
+  motivo: string
+  fechaPropuesta?: string
+}
+
 export interface Detalle {
   id?: number
   servidor?: ReferenciaSimple
@@ -176,6 +276,13 @@ export interface DireccionIpRespuesta {
   id?: number
   direccion?: string
   principal?: boolean
+}
+
+export interface EjecucionDia {
+  fecha?: string
+  exito?: number
+  advertencia?: number
+  error?: number
 }
 
 export interface EntornoPeticion {
@@ -202,6 +309,15 @@ export interface ErrorRespuesta {
   mensaje?: string
   ruta?: string
   errores?: ErrorCampo[]
+}
+
+export interface EstadoInventario {
+  estado?: string
+  cantidad?: number
+}
+
+export interface EstadoVersionPeticion {
+  habilitada?: boolean
 }
 
 export interface ExcepcionAplicadaRespuesta {
@@ -322,6 +438,43 @@ export interface GrupoResumenRespuesta {
   modoEjecucion?: 'SECUENCIAL' | 'PARALELO'
 }
 
+export interface ImplementacionPeticion {
+  idVersionSistemaOperativo: number
+}
+
+export interface ImplementacionScriptVista {
+  id?: number
+  idVersionSistemaOperativo?: number
+  sistemaOperativo?: string
+  versiones?: VersionScriptVista[]
+}
+
+export interface IndicadorKpi {
+  codigo?: string
+  nombre?: string
+  unidad?: string
+  numerador?: number
+  denominador?: number
+  valor?: number
+  meta?: number
+}
+
+export interface InformeKpi {
+  desde?: string
+  hasta?: string
+  fechaActualizacion?: string
+  indicadores?: IndicadorKpi[]
+  inventario?: EstadoInventario[]
+  actividadDiaria?: ActividadDiaria[]
+}
+
+export interface InmediataPeticion {
+  idServidor?: number
+  idGrupo?: number
+  confirmarFueraVentana?: boolean
+  motivo: string
+}
+
 export interface IntegrantesPeticion {
   idsServidores: number[]
 }
@@ -364,6 +517,15 @@ export interface MantenimientoRegistroPeticion {
   ventanas: VentanaPeticion[]
 }
 
+export interface Medicion {
+  codigo?: string
+  nombre?: string
+  instancia?: string
+  valor?: number
+  elementos?: string[]
+  umbrales?: UmbralEvaluado[]
+}
+
 export interface MetricaPeticion {
   codigo: string
   nombre: string
@@ -380,6 +542,10 @@ export interface MetricaRespuesta {
   tipoDato?: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
   esLista?: boolean
   activo?: boolean
+}
+
+export interface MotivoPeticion {
+  motivo: string
 }
 
 export interface NivelCriticidadPeticion {
@@ -437,8 +603,56 @@ export interface Pageable {
   sort?: string[]
 }
 
+export interface PaginaRespuestaAlertaRespuesta {
+  contenido?: AlertaRespuesta[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
+export interface PaginaRespuestaAnalisis {
+  contenido?: Analisis[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
+export interface PaginaRespuestaColaRespuesta {
+  contenido?: ColaRespuesta[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
 export interface PaginaRespuestaOrdenResumenRespuesta {
   contenido?: OrdenResumenRespuesta[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
+export interface PaginaRespuestaPoliticaCambioRespuesta {
+  contenido?: PoliticaCambioRespuesta[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
+export interface PaginaRespuestaProblema {
+  contenido?: Problema[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
+export interface PaginaRespuestaScriptRespuesta {
+  contenido?: ScriptRespuesta[]
   pagina?: number
   tamano?: number
   totalElementos?: number
@@ -453,12 +667,42 @@ export interface PaginaRespuestaServidorResumenRespuesta {
   totalPaginas?: number
 }
 
+export interface PaginaRespuestaTareaRespuesta {
+  contenido?: TareaRespuesta[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
+export interface PaginaRespuestaUsoVersionRespuesta {
+  contenido?: UsoVersionRespuesta[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
 export interface PaginaRespuestaUsuarioRespuesta {
   contenido?: UsuarioRespuesta[]
   pagina?: number
   tamano?: number
   totalElementos?: number
   totalPaginas?: number
+}
+
+export interface ParametroScriptVista {
+  nombre?: string
+  tipo?: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
+  obligatorio?: boolean
+  valorPorDefecto?: string
+}
+
+export interface ParametroVersionPeticion {
+  nombre: string
+  tipo: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
+  obligatorio?: boolean
+  valorPorDefecto?: string
 }
 
 export interface ParametrosSistemaPeticion {
@@ -492,6 +736,38 @@ export interface PerfilRespuesta {
   minutosSesion?: number
 }
 
+export interface Plan {
+  id?: number
+  idDetalle?: number
+  servidor?: string
+  duracionMinutos?: number
+  piloto?: boolean
+  superaDuracionMaxima?: boolean
+  tareas?: TareaMop[]
+}
+
+export interface PoliticaCambioPeticion {
+  idEntorno: number
+  nivelAfectacion: 'SIN_AFECTACION' | 'PARCIAL' | 'TOTAL'
+  requiereResponsable?: boolean
+  requiereAdministrador?: boolean
+  activo?: boolean
+  notificaciones: ('RESPONSABLE' | 'ADMINISTRADOR' | 'OPERADOR')[]
+  versionEsperada?: string
+}
+
+export interface PoliticaCambioRespuesta {
+  id?: number
+  idEntorno?: number
+  entorno?: string
+  nivelAfectacion?: 'SIN_AFECTACION' | 'PARCIAL' | 'TOTAL'
+  requiereResponsable?: boolean
+  requiereAdministrador?: boolean
+  activo?: boolean
+  fechaActualizacion?: string
+  notificaciones?: ('RESPONSABLE' | 'ADMINISTRADOR' | 'OPERADOR')[]
+}
+
 export interface PreparacionImportacionPeticion {
   fila?: number
   idServidorExistente?: number
@@ -501,6 +777,22 @@ export interface PreparacionImportacionPeticion {
 
 export interface PreparacionesImportacionPeticion {
   servidores: PreparacionImportacionPeticion[]
+}
+
+export interface Problema {
+  id?: number
+  idOrden?: number
+  idServidor?: number
+  orden?: string
+  servidor?: string
+  origen?: 'PRUEBA_PILOTO' | 'FALLO_EJECUCION' | 'TIEMPO_EXCEDIDO' | 'VALIDACION_TECNICA_NO_CONFORME' | 'RECHAZO_FUNCIONAL'
+  estado?: 'ABIERTA' | 'EN_ATENCION' | 'CERRADA'
+  error?: string
+  diagnostico?: string
+  acciones?: string
+  resultado?: string
+  fechaApertura?: string
+  fechaCierre?: string
 }
 
 export interface ProgramarOrdenPeticion {
@@ -539,6 +831,13 @@ export interface ReautenticacionPeticion {
   contrasena: string
 }
 
+export interface RecursoHora {
+  hora?: string
+  cpu?: number
+  memoria?: number
+  servidores?: number
+}
+
 export interface ReferenciaSimple {
   id?: number
   nombre?: string
@@ -575,6 +874,12 @@ export interface ResultadoImportacionRespuesta {
   filas?: FilaImportacionRespuesta[]
 }
 
+export interface ResumenGraficos {
+  fechaActualizacion?: string
+  recursos?: RecursoHora[]
+  ejecuciones?: EjecucionDia[]
+}
+
 export interface ResumenPlanificacionRespuesta {
   objetivosEvaluados?: number
   ordenesGeneradas?: string[]
@@ -583,6 +888,22 @@ export interface ResumenPlanificacionRespuesta {
 
 export interface RevocacionPeticion {
   motivo?: string
+}
+
+export interface ScriptPeticion {
+  nombre: string
+  tipo: 'ANALISIS' | 'MANTENIMIENTO'
+  descripcion?: string
+  activo?: boolean
+}
+
+export interface ScriptRespuesta {
+  id?: number
+  nombre?: string
+  tipo?: 'ANALISIS' | 'MANTENIMIENTO'
+  descripcion?: string
+  activo?: boolean
+  implementaciones?: ImplementacionScriptVista[]
 }
 
 export interface SecretoPeticion {
@@ -674,6 +995,15 @@ export interface SistemaOperativoRespuesta {
   versiones?: Version[]
 }
 
+export interface Solicitud {
+  id?: number
+  ronda?: number
+  fechaLimite?: string
+  entorno?: string
+  afectacion?: string
+  decisiones?: Decision[]
+}
+
 export interface SolicitudBajaRespuesta {
   id?: number
   estado?: 'PENDIENTE' | 'APLICADA'
@@ -681,6 +1011,48 @@ export interface SolicitudBajaRespuesta {
   solicitante?: ReferenciaSimple
   fechaSolicitud?: string
   fechaAplicacion?: string
+}
+
+export interface TareaMop {
+  id?: number
+  idTarea?: number
+  tarea?: string
+  prioridad?: number
+  duracionMinutos?: number
+  afectacion?: string
+  idVersion?: number
+  numeroVersion?: number
+  idCuentaServicio?: number
+  estado?: 'PENDIENTE' | 'EN_EJECUCION' | 'FINALIZADA' | 'FALLIDA' | 'NO_INICIADA'
+  codigoRetorno?: number
+  salida?: string
+  error?: string
+  fechaInicio?: string
+  fechaFin?: string
+}
+
+export interface TareaPeticion {
+  idScript: number
+  nombre: string
+  descripcion?: string
+  nivelAfectacion: 'SIN_AFECTACION' | 'PARCIAL' | 'TOTAL'
+  prioridad?: number
+  duracionEstimadaMinutos?: number
+  activo?: boolean
+  idsUmbrales: number[]
+}
+
+export interface TareaRespuesta {
+  id?: number
+  idScript?: number
+  script?: string
+  nombre?: string
+  descripcion?: string
+  nivelAfectacion?: 'SIN_AFECTACION' | 'PARCIAL' | 'TOTAL'
+  prioridad?: number
+  duracionEstimadaMinutos?: number
+  activo?: boolean
+  idsUmbrales?: number[]
 }
 
 export interface TokenRespuesta {
@@ -701,6 +1073,19 @@ export interface UmbralEnGrupoRespuesta {
   grupo?: ReferenciaSimple
   excepcion?: ExcepcionAplicadaRespuesta
   valores?: ValoresUmbralRespuesta
+}
+
+export interface UmbralEvaluado {
+  idUmbral?: number
+  idExcepcion?: number
+  nivel?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  advertencia?: number
+  critico?: number
+  operador?: string
+  idLista?: number
+  nivelFaltante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  nivelSobrante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  fechaEvaluacion?: string
 }
 
 export interface UmbralPeticion {
@@ -742,6 +1127,16 @@ export interface UmbralServidorRespuesta {
   enGrupos?: UmbralEnGrupoRespuesta[]
 }
 
+export interface UsoVersionRespuesta {
+  idOrden?: number
+  orden?: string
+  servidor?: string
+  tarea?: string
+  estado?: 'PENDIENTE' | 'EN_EJECUCION' | 'FINALIZADA' | 'FALLIDA' | 'NO_INICIADA'
+  inicio?: string
+  fin?: string
+}
+
 export interface UsuarioRespuesta {
   id?: number
   codigo?: string
@@ -757,6 +1152,28 @@ export interface UsuarioSesion {
   codigo?: string
   nombreCompleto?: string
   rol?: 'ADMINISTRADOR' | 'OPERADOR' | 'RESPONSABLE'
+}
+
+export interface Validacion {
+  id?: number
+  idResponsable?: number
+  responsable?: string
+  estado?: 'PENDIENTE' | 'CONFORME' | 'RECHAZADA' | 'VENCIDA'
+  fechaLimite?: string
+  fechaRespuesta?: string
+  observaciones?: string
+}
+
+export interface ValidacionTecnicaVista {
+  idDetalle?: number
+  resultado?: 'CONFORME' | 'NO_CONFORME'
+  observaciones?: string
+  fecha?: string
+}
+
+export interface ValidarPeticion {
+  conforme?: boolean
+  observaciones: string
 }
 
 export interface ValoresUmbralRespuesta {
@@ -791,6 +1208,22 @@ export interface Version {
   id?: number
   version?: string
   activo?: boolean
+}
+
+export interface VersionScriptPeticion {
+  contenido: string
+  notasCambio?: string
+  parametros: ParametroVersionPeticion[]
+}
+
+export interface VersionScriptVista {
+  id?: number
+  numero?: number
+  contenido?: string
+  notasCambio?: string
+  habilitada?: boolean
+  fechaCreacion?: string
+  parametros?: ParametroScriptVista[]
 }
 
 export interface VersionSistemaOperativoPeticion {

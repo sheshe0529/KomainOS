@@ -9,6 +9,12 @@ import java.util.Optional;
 
 public interface CierreOrdenRepositorio extends JpaRepository<CierreOrden, Integer> {
 
+    interface FactorAplicable { Integer getId(); java.math.BigDecimal getFactor(); }
+    @Query(value="select id_factor_ciclo as id,factor from factor_ciclo where resultado::text=:resultado",nativeQuery=true)
+    FactorAplicable factor(@Param("resultado") String resultado);
+    @Query("select c from CierreOrden c where (:servidor is not null and c.orden.servidor.id=:servidor) or (:grupo is not null and c.orden.grupo.id=:grupo) order by c.fechaCierre desc")
+    java.util.List<CierreOrden> ultimos(@Param("servidor") Integer servidor,@Param("grupo") Integer grupo,org.springframework.data.domain.Pageable p);
+
     @Query("""
             select c from CierreOrden c
             where c.orden.servidor.id = :idServidor and c.ordenSiguiente is null

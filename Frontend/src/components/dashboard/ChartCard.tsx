@@ -9,7 +9,7 @@ interface ChartCardProps {
 
 export function ChartCard({ title, description, legend, children }: ChartCardProps) {
   return (
-    <div className="rounded-xl border border-line bg-panel p-5">
+    <div className="rounded-2xl border border-line bg-panel p-5 shadow-sm shadow-black/5 sm:p-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
           <h3 className="text-sm font-semibold text-ink">{title}</h3>

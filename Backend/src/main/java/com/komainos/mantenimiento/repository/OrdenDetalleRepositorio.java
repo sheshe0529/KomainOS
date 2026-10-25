@@ -12,6 +12,13 @@ import java.util.Collection;
 import java.util.List;
 
 public interface OrdenDetalleRepositorio extends JpaRepository<OrdenDetalle, Integer> {
+ @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"orden.nivelCriticidad","servidor"})
+ @org.springframework.data.jpa.repository.Query("select d from OrdenDetalle d where d.estado in :estados order by case when d.orden.origen in :altas then 0 else 1 end,d.orden.nivelCriticidad.prioridad,d.orden.fechaInicioProgramada,d.posicionEjecucion")
+ org.springframework.data.domain.Page<OrdenDetalle> cola(@org.springframework.data.repository.query.Param("estados") java.util.Set<EstadoDetalleOrden> estados,@org.springframework.data.repository.query.Param("altas")java.util.Set<com.komainos.mantenimiento.model.OrigenOrden> altas,org.springframework.data.domain.Pageable p);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"orden","servidor"})
+    java.util.List<OrdenDetalle> findByEstado(EstadoDetalleOrden estado);
+
 
     /** Los enumerados van como parámetro (DEC-26) */
     @Query("""

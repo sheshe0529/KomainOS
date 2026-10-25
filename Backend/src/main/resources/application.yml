@@ -78,3 +78,10 @@ komainos:
     proceso-automatico:
       habilitado: true
       intervalo: PT15M
+
+  automatizacion:
+    # Ansible real desactivado por defecto, compatible con el desarrollo local en Windows.
+    modo: ${KOMAINOS_AUTOMATIZACION_MODO:SIMULADO}
+    proceso-habilitado: ${KOMAINOS_AUTOMATIZACION_PROCESO_HABILITADO:true}
+    intervalo-ms: 30000
+    ejecutable: ${KOMAINOS_ANSIBLE_EJECUTABLE:ansible-playbook}

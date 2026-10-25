@@ -1,5 +1,24 @@
 import type { LucideIcon } from 'lucide-react'
-import { BookOpen, Boxes, CalendarDays, ClipboardList, Gauge, KeyRound, Palette, Server, ServerCog, Settings, SlidersHorizontal, Users } from 'lucide-react'
+import {
+  BookOpen,
+  Boxes,
+  CalendarDays,
+  ClipboardList,
+  Gauge,
+  KeyRound,
+  Palette,
+  Server,
+  ServerCog,
+  Settings,
+  SlidersHorizontal,
+  Users,
+  Workflow,
+  Terminal,
+  ListChecks,
+  ShieldCheck,
+  Activity,
+  Bell,
+} from 'lucide-react'
 import type { Rol } from '@/api/dominio'
 
 /** Única fuente para el Sidebar, el título del Topbar y la ruta activa. Cada path necesita su Route en App.tsx */
@@ -9,6 +28,7 @@ export interface NavLeaf {
   icon: LucideIcon
   path: string
   roles?: Rol[]
+  exact?: boolean
 }
 
 export interface NavGroup {
@@ -26,6 +46,43 @@ export function isNavGroup(item: NavItem): item is NavGroup {
 
 export const navigation: NavItem[] = [
   { id: 'cronograma', label: 'Cronograma', icon: CalendarDays, path: '/cronograma' },
+  {
+    id: 'automatizacion',
+    label: 'Automatización',
+    icon: Workflow,
+    children: [
+      {
+        id: 'sala',
+        label: 'Sala de operaciones',
+        icon: Activity,
+        path: '/automatizacion',
+        exact: true,
+        roles: ['ADMINISTRADOR', 'OPERADOR'],
+      },
+      {
+        id: 'scripts',
+        label: 'Scripts',
+        icon: Terminal,
+        path: '/automatizacion/scripts',
+        roles: ['ADMINISTRADOR', 'OPERADOR'],
+      },
+      {
+        id: 'tareas',
+        label: 'Tareas',
+        icon: ListChecks,
+        path: '/automatizacion/tareas',
+        roles: ['ADMINISTRADOR', 'OPERADOR'],
+      },
+      {
+        id: 'incidencias',
+        label: 'Incidencias',
+        icon: Activity,
+        path: '/automatizacion/incidencias',
+        roles: ['ADMINISTRADOR', 'OPERADOR'],
+      },
+    ],
+  },
+  { id: 'alertas', label: 'Mis alertas', icon: Bell, path: '/alertas' },
   { id: 'ordenes', label: 'Órdenes', icon: ClipboardList, path: '/ordenes', roles: ['ADMINISTRADOR', 'OPERADOR'] },
   {
     id: 'inventario',
@@ -44,7 +101,20 @@ export const navigation: NavItem[] = [
     label: 'Configuración',
     icon: Settings,
     children: [
-      { id: 'usuarios', label: 'Usuarios y roles', icon: Users, path: '/configuracion/usuarios', roles: ['ADMINISTRADOR'] },
+      {
+        id: 'politicas',
+        label: 'Políticas de cambio',
+        icon: ShieldCheck,
+        path: '/configuracion/politicas-cambio',
+        roles: ['ADMINISTRADOR', 'OPERADOR'],
+      },
+      {
+        id: 'usuarios',
+        label: 'Usuarios y roles',
+        icon: Users,
+        path: '/configuracion/usuarios',
+        roles: ['ADMINISTRADOR'],
+      },
       {
         id: 'cuentas-servicio',
         label: 'Cuentas de servicio',

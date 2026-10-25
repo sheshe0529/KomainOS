@@ -18,7 +18,9 @@ function coincide(pathname: string, path: string): boolean {
 
 function groupsContainingPath(items: NavItem[], pathname: string): string[] {
   return items
-    .filter((item): item is NavGroup => isNavGroup(item) && item.children.some((child) => coincide(pathname, child.path)))
+    .filter(
+      (item): item is NavGroup => isNavGroup(item) && item.children.some((child) => coincide(pathname, child.path)),
+    )
     .map((item) => item.id)
 }
 
@@ -73,6 +75,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
       <NavLink
         key={item.id}
         to={item.path}
+        end={item.exact}
         className={leafClasses}
         onClick={onCloseMobile}
         title={collapsed ? item.label : undefined}
@@ -160,7 +163,10 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
               title="Expandir menú"
               className="group relative hidden h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-panel-muted hover:text-ink lg:flex"
             >
-              <Logo decorativo className="h-9 w-9 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
+              <Logo
+                decorativo
+                className="h-9 w-9 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0"
+              />
               <PanelLeftOpen
                 className="absolute h-[18px] w-[18px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
                 aria-hidden="true"

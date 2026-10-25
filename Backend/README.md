@@ -1,7 +1,12 @@
 # KomainOS — backend
 
 API REST del sistema de gestión automatizada del mantenimiento de servidores
-virtuales. Java 21, Spring Boot 3.4, PostgreSQL 18.
+virtuales. Java 21, Spring Boot 3.5, PostgreSQL 18.
+
+El componente de automatización funciona en modo **SIMULADO** por defecto.
+La [guía de automatización](AUTOMATIZACION.md) explica el ciclo completo, los
+ejemplos, las pruebas y el adaptador Ansible real que permanece desactivado.
+Se ejecuta directamente en Windows con PostgreSQL local, sin Docker.
 
 ## Puesta en marcha
 

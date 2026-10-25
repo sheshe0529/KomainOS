@@ -52,6 +52,10 @@ public class CierreOrden {
     @Column(name = "observaciones", length = 1000)
     private String observaciones;
 
+    public static CierreOrden nuevo(Orden orden,Integer idFactor,int periodicidad,BigDecimal factor,Instant ahora,String observaciones) {
+        CierreOrden c=new CierreOrden();c.orden=orden;c.idFactorCiclo=idFactor;c.periodicidadBaseDias=periodicidad;c.factorAplicado=factor;c.fechaCierre=ahora;c.observaciones=observaciones;return c;
+    }
+
     public void enlazarSiguiente(Orden siguiente) {
         this.ordenSiguiente = siguiente;
     }

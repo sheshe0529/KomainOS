@@ -74,6 +74,15 @@ public class OrdenDetalle {
         return detalle;
     }
 
+    public void marcarPiloto() { esServidorPiloto = true; }
+    public void cambiarEstado(EstadoDetalleOrden nuevo, Instant ahora) {
+        if (!estado.puedePasarA(nuevo)) throw new com.komainos.shared.exception.ReglaNegocioException("Transición de detalle no permitida: " + estado + " → " + nuevo);
+        estado = nuevo;
+        if (nuevo == EstadoDetalleOrden.EN_EJECUCION) fechaRealInicio = ahora;
+        if (nuevo == EstadoDetalleOrden.FINALIZADO || nuevo == EstadoDetalleOrden.FALLIDO) fechaRealFin = ahora;
+    }
+    public void omitirSiPendiente() { marcarNoIniciadoSiPendiente(); }
+
     void replanificar(int posicion, Instant inicio, Instant fin) {
         posicionEjecucion = posicion;
         fechaPrevistaInicio = inicio;

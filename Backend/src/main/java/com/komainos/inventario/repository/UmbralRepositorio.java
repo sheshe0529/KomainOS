@@ -27,6 +27,8 @@ public interface UmbralRepositorio extends JpaRepository<Umbral, Integer> {
     @Query("select u from Umbral u where u.activo = true and u.metrica.activo = true order by u.metrica.nombre, u.nombre")
     List<Umbral> findAplicables();
 
+    long countByIdIn(java.util.Collection<Integer> ids);
+
     boolean existsByMetricaIdAndNombreIgnoreCase(Integer idMetrica, String nombre);
 
     boolean existsByMetricaIdAndNombreIgnoreCaseAndIdNot(Integer idMetrica, String nombre, Integer id);

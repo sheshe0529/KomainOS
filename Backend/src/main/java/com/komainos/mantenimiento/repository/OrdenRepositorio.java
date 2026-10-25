@@ -19,6 +19,9 @@ import java.util.Optional;
 
 public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpecificationExecutor<Orden> {
 
+    @EntityGraph(attributePaths={"nivelCriticidad", "servidor", "grupo"})
+    List<Orden> findByEstadoInOrderByFechaInicioProgramadaAsc(Collection<EstadoOrden> estados);
+
     /**
      * Bloqueo consultivo de la transacción: se libera solo al confirmar o deshacer. Quien lo toma ve las reservas que
      * confirmó la transacción anterior, así dos planificaciones simultáneas no eligen el mismo hueco.

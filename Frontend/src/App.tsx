@@ -7,6 +7,12 @@ import { AvisosProvider } from '@/components/ui/AvisosProvider'
 import { Cargando } from '@/components/ui/Cargando'
 import { MainLayout } from '@/components/layout/MainLayout'
 import {
+  AutomatizacionPage,
+  ScriptsPage,
+  TareasPage,
+  PoliticasCambioPage,
+  IncidenciasPage,
+  AlertasPage,
   CatalogosPage,
   CronogramaDiaPage,
   CronogramaPage,
@@ -62,6 +68,51 @@ function App() {
             />
             <Route element={<DisposicionAutenticada />}>
               <Route path="/" element={<Navigate to="/cronograma" replace />} />
+              <Route
+                path="/automatizacion"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <AutomatizacionPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/automatizacion/scripts"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <ScriptsPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/automatizacion/tareas"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <TareasPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/configuracion/politicas-cambio"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <PoliticasCambioPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/automatizacion/politicas"
+                element={<Navigate to="/configuracion/politicas-cambio" replace />}
+              />
+              <Route
+                path="/automatizacion/incidencias"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <IncidenciasPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route path="/alertas" element={<AlertasPage />} />
               <Route path="/cronograma" element={<CronogramaPage />} />
               <Route path="/cronograma/dia/:fecha" element={<CronogramaDiaPage />} />
               <Route

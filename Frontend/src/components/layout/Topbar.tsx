@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { LogOut, Menu } from 'lucide-react'
+import { CampanaAlertas } from '@/components/alertas/CampanaAlertas'
 import { findNavLabel } from '@/config/navigation'
 import { useSesion } from '@/auth/sesion-context'
 import { ETIQUETA_ROL } from '@/utils/etiquetas'
@@ -39,6 +40,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
 
       <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-ink sm:text-lg">{title}</h1>
 
+      <CampanaAlertas />
       {usuario && (
         <div className="flex items-center gap-2">
           <Link
@@ -48,7 +50,9 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
           >
             <span className="hidden text-right sm:block">
               <span className="block text-sm font-medium leading-tight text-ink">{usuario.nombreCompleto}</span>
-              <span className="block text-xs leading-tight text-ink-faint">{usuario.rol ? ETIQUETA_ROL[usuario.rol] : ''}</span>
+              <span className="block text-xs leading-tight text-ink-faint">
+                {usuario.rol ? ETIQUETA_ROL[usuario.rol] : ''}
+              </span>
             </span>
             <span
               className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent"

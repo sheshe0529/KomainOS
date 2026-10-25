@@ -19,6 +19,7 @@ export interface SelectorProps {
   disabled?: boolean
   id?: string
   className?: string
+  variante?: 'campo' | 'pastilla'
   'aria-label'?: string
 }
 
@@ -54,7 +55,17 @@ function extraerOpciones(children: ReactNode): Opcion[] {
 }
 
 /** Reemplaza al select nativo, que no respeta el tema. La lista es un popover nativo y no la recortan los contenedores con scroll */
-export function Selector({ value, onChange, children, required, disabled, id, className = '', 'aria-label': ariaLabel }: SelectorProps) {
+export function Selector({
+  value,
+  onChange,
+  children,
+  required,
+  disabled,
+  id,
+  className = '',
+  variante = 'campo',
+  'aria-label': ariaLabel,
+}: SelectorProps) {
   const opciones = extraerOpciones(children)
   const valor = value === undefined || value === null ? '' : String(value)
   const indiceSeleccionado = opciones.findIndex((o) => o.valor === valor)
@@ -156,7 +167,9 @@ export function Selector({ value, onChange, children, required, disabled, id, cl
       // Salta a la siguiente opción que empieza con la letra tecleada
       const letra = e.key.toLowerCase()
       const orden = [...opciones.keys()].map((k) => (activa + 1 + k) % opciones.length)
-      const encontrada = orden.find((i) => !opciones[i].deshabilitada && opciones[i].texto.toLowerCase().startsWith(letra))
+      const encontrada = orden.find(
+        (i) => !opciones[i].deshabilitada && opciones[i].texto.toLowerCase().startsWith(letra),
+      )
       if (encontrada !== undefined) setActiva(encontrada)
       return
     } else return
@@ -183,8 +196,8 @@ export function Selector({ value, onChange, children, required, disabled, id, cl
         aria-controls={idLista}
         aria-label={ariaLabel}
         onKeyDown={alTeclearEnDisparador}
-        className={`flex w-full items-center justify-between gap-2 rounded-lg border bg-panel px-3 py-2 text-left text-sm transition-colors hover:border-ink-faint focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:bg-panel-muted disabled:text-ink-soft ${
-          abierta ? 'border-accent' : 'border-line'
+        className={`flex w-full items-center justify-between gap-2 border px-3 text-left transition-colors hover:border-ink-faint focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:text-ink-soft ${variante === 'pastilla' ? 'rounded-full bg-accent-soft py-1.5 text-xs' : 'rounded-lg bg-panel py-2 text-sm disabled:bg-panel-muted'} ${
+          abierta ? 'border-accent' : variante === 'pastilla' ? 'border-transparent' : 'border-line'
         } ${esMarcador ? 'text-ink-faint' : 'text-ink'}`}
       >
         <span className="truncate">{seleccionada?.etiqueta ?? ''}</span>

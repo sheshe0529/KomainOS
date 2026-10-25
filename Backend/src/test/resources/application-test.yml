@@ -19,3 +19,12 @@ komainos:
   planificacion:
     proceso-automatico:
       habilitado: false
+
+  automatizacion:
+    modo: SIMULADO
+    proceso-habilitado: false
+    escenarios:
+      srv-fallo: FALLO_TAREA
+      srv-no-conforme: NO_CONFORME
+      srv-critico: CRITICO
+      srv-sin-conexion: SIN_CONEXION

@@ -1,0 +1,21 @@
+package com.komainos.catalogo.controller;
+import com.komainos.catalogo.dto.*;import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;import com.komainos.shared.dto.PaginaRespuesta;import com.komainos.seguridad.model.UsuarioAutenticado;
+import jakarta.validation.Valid;import jakarta.validation.constraints.NotNull;import lombok.RequiredArgsConstructor;import org.springframework.web.bind.annotation.*;import org.springframework.security.access.prepost.PreAuthorize;import org.springframework.security.core.annotation.AuthenticationPrincipal;import org.springframework.data.domain.Pageable;import org.springframework.data.web.PageableDefault;import java.util.List;
+@RestController @RequestMapping("/api") @RequiredArgsConstructor @PreAuthorize("hasAnyRole('ADMINISTRADOR','OPERADOR')")
+public class CatalogoAutomatizacionController {
+ private final ServicioCatalogoAutomatizacion servicio;
+ @GetMapping("/scripts") public PaginaRespuesta<ScriptRespuesta> scripts(@PageableDefault(size=20)Pageable p){return PaginaRespuesta.de(servicio.scripts(p),ScriptRespuesta::de);}
+ @GetMapping("/scripts/{id}") public ScriptRespuesta script(@PathVariable Integer id){return ScriptRespuesta.de(servicio.script(id));}
+ @PostMapping("/scripts") @PreAuthorize("hasRole('ADMINISTRADOR')") public ScriptRespuesta crear(@Valid @RequestBody ScriptPeticion p,@AuthenticationPrincipal UsuarioAutenticado u){return ScriptRespuesta.de(servicio.guardarScript(null,p.nombre(),p.tipo(),p.descripcion(),p.activo(),actor(u)));}
+ @PutMapping("/scripts/{id}") @PreAuthorize("hasRole('ADMINISTRADOR')") public ScriptRespuesta editar(@PathVariable Integer id,@Valid @RequestBody ScriptPeticion p,@AuthenticationPrincipal UsuarioAutenticado u){return ScriptRespuesta.de(servicio.guardarScript(id,p.nombre(),p.tipo(),p.descripcion(),p.activo(),actor(u)));}
+ public record ImplementacionPeticion(@NotNull Integer idVersionSistemaOperativo){}
+ @PostMapping("/scripts/{id}/implementaciones") @PreAuthorize("hasRole('ADMINISTRADOR')") public Integer implementar(@PathVariable Integer id,@Valid @RequestBody ImplementacionPeticion p,@AuthenticationPrincipal UsuarioAutenticado u){return servicio.implementar(id,p.idVersionSistemaOperativo(),actor(u)).getId();}
+ @PostMapping("/scripts/implementaciones/{id}/versiones") @PreAuthorize("hasRole('ADMINISTRADOR')") public ScriptRespuesta.VersionScriptVista publicar(@PathVariable Integer id,@Valid @RequestBody VersionScriptPeticion p,@AuthenticationPrincipal UsuarioAutenticado u){return ScriptRespuesta.VersionScriptVista.de(servicio.publicar(id,p.contenido(),p.notasCambio(),p.parametros().stream().map(x->new ServicioCatalogoAutomatizacion.DatosParametro(x.nombre(),x.tipo(),x.obligatorio(),x.valorPorDefecto())).toList(),actor(u)));}
+ public record EstadoVersionPeticion(boolean habilitada){}
+ @PutMapping("/scripts/versiones/{id}/estado") @PreAuthorize("hasRole('ADMINISTRADOR')") public ScriptRespuesta.VersionScriptVista estado(@PathVariable Integer id,@RequestBody EstadoVersionPeticion p,@AuthenticationPrincipal UsuarioAutenticado u){return ScriptRespuesta.VersionScriptVista.de(servicio.habilitar(id,p.habilitada(),actor(u)));}
+ @GetMapping("/tareas") public PaginaRespuesta<TareaRespuesta> tareas(@PageableDefault(size=20)Pageable p){return PaginaRespuesta.de(servicio.tareas(p),TareaRespuesta::de);}
+ @PostMapping("/tareas") @PreAuthorize("hasRole('ADMINISTRADOR')") public TareaRespuesta crearTarea(@Valid @RequestBody TareaPeticion p,@AuthenticationPrincipal UsuarioAutenticado u){return guardar(null,p,u);}
+ @PutMapping("/tareas/{id}") @PreAuthorize("hasRole('ADMINISTRADOR')") public TareaRespuesta editarTarea(@PathVariable Integer id,@Valid @RequestBody TareaPeticion p,@AuthenticationPrincipal UsuarioAutenticado u){return guardar(id,p,u);}
+ private TareaRespuesta guardar(Integer id,TareaPeticion p,UsuarioAutenticado u){return TareaRespuesta.de(servicio.guardarTarea(id,new ServicioCatalogoAutomatizacion.DatosTarea(p.idScript(),p.nombre(),p.descripcion(),p.nivelAfectacion(),p.prioridad(),p.duracionEstimadaMinutos(),p.activo(),p.idsUmbrales()),actor(u)));}
+ private com.komainos.shared.model.Actor actor(UsuarioAutenticado u){return com.komainos.shared.model.Actor.usuario(u.id());}
+}

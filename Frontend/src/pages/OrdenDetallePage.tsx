@@ -1,3 +1,4 @@
+import { SeguimientoOrden } from '@/components/automatizacion/SeguimientoOrden'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarClock, CalendarX } from 'lucide-react'
@@ -204,6 +205,7 @@ export function OrdenDetallePage() {
           onConfirmar={async (motivo) => actualizar(await planificacionApi.cancelar(idOrden, { motivo }), 'Orden cancelada.')}
         />
       )}
+      <SeguimientoOrden id={idOrden} estado={r.estado!} onActualizar={orden.recargar}/>
     </div>
   )
 }

@@ -2,6 +2,13 @@
 
 Panel web de KomainOS. React 19, Vite, TypeScript y Tailwind CSS 4.
 
+**Automatización** reúne sala de operaciones, cola por servidor, KPI, scripts,
+tareas e incidencias. La matriz de políticas de cambio está en **Configuración**
+(`/configuracion/politicas-cambio`); la ruta anterior redirige a ella. La campana
+comparte contador de alertas sin leer con el historial y abre el detalle completo. Las órdenes incorporan MOP,
+autorizaciones, validaciones, métricas comparativas y descarga de bitácora.
+El recorrido local está en [la guía del componente](../Backend/AUTOMATIZACION.md).
+
 ## Uso
 
 ```bash

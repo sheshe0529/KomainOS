@@ -95,6 +95,8 @@ public class ServicioPlanificacion {
     private final PropiedadesPlanificacion propiedades;
     private final Clock reloj;
     private final TransactionTemplate transaccionNueva;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.komainos.mantenimiento.repository.ConfirmacionFueraVentanaRepositorio confirmaciones;
     private final PlanificadorVoraz planificador = new PlanificadorVoraz();
 
     public ServicioPlanificacion(OrdenRepositorio ordenes, OrdenDetalleRepositorio detalles,
@@ -144,6 +146,45 @@ public class ServicioPlanificacion {
                 .motivo(texto));
         return orden;
     }
+
+    /** RF31: prioridad alta; la ejecución sigue sujeta a política y exclusión por servidor. */
+    @Transactional
+    public Orden inmediata(Integer idServidor,Integer idGrupo,boolean confirmarFuera,String motivo,Integer evaluacionOrigen,Actor actor) {
+        bloquear();Objetivo objetivo=objetivo(idServidor,idGrupo);Instant ahora=Tiempo.ahora(reloj);
+        Duration duracion=Duration.ofMinutes(parametros.obtener().getMaxDuracionMopMinutos());
+        Optional<Intervalo> ventana=objetivo.ventana().proyectar(ahora.minus(Duration.ofDays(7)),ahora.plus(Duration.ofDays(8)),propiedades.zona()).stream().filter(v->!ahora.isBefore(v.inicio())&&ahora.isBefore(v.fin())).findFirst();
+        if(ventana.isEmpty()&&!confirmarFuera&&evaluacionOrigen==null)throw new ReglaNegocioException("El inicio queda fuera de la ventana permisiva: confirme expresamente la excepción");
+        // La condición crítica fuera de ventana espera la siguiente ventana: no concede una excepción implícita.
+        if(ventana.isEmpty()&&evaluacionOrigen!=null){
+            ResultadoPlanificacion r=planificador.planificar(solicitud(objetivo,ahora,ahora),reservas(ahora,ahora,null));
+            return crearOrdenCritica(objetivo,r,motivo,evaluacionOrigen,actor,ahora);
+        }
+        List<ResultadoPlanificacion.Tramo> tramos=new ArrayList<>();int posicion=0;
+        for(Servidor servidor:objetivo.integrantes()) {Instant inicio=objetivo.modo()==ModoEjecucion.SECUENCIAL?ahora.plus(duracion.multipliedBy(posicion)):ahora;tramos.add(new ResultadoPlanificacion.Tramo(servidor.getId(),++posicion,inicio,inicio.plus(duracion)));}
+        Instant fin=tramos.stream().map(ResultadoPlanificacion.Tramo::fin).max(Instant::compareTo).orElseThrow();
+        ResultadoPlanificacion resultado=new ResultadoPlanificacion(ahora,ahora,fin,ahora,ventana.orElse(new Intervalo(ahora,fin)),tramos);
+        Integer cuenta=objetivo.configuracion().getIdCuentaServicio()!=null?objetivo.configuracion().getIdCuentaServicio():parametros.obtener().getIdCuentaServicioPredeterminada();
+        Orden orden=Orden.nueva(ordenes.siguienteId(),objetivo.servidor(),objetivo.grupo(),objetivo.criticidad(),cuenta,actor.esSistema()?null:usuarioDe(actor),evaluacionOrigen==null?OrigenOrden.LANZAMIENTO_INMEDIATO:OrigenOrden.CONDICION_CRITICA,objetivo.modo(),programacion(resultado),ahora,motivo);
+        if(evaluacionOrigen!=null)orden.definirEvaluacionOrigen(evaluacionOrigen);
+        for(var t:tramos)orden.agregarDetalle(objetivo.integrantes().stream().filter(x->x.getId().equals(t.idServidor())).findFirst().orElseThrow(),t.posicion(),t.inicio(),t.fin());
+        ordenes.save(orden);
+        if(ventana.isEmpty()){var c=new com.komainos.mantenimiento.model.ConfirmacionFueraVentana();c.setOrden(orden);c.setUsuario(usuarioDe(actor));c.setFechaConfirmacion(ahora);c.setMotivo(motivo);confirmaciones.save(c);}
+        auditoria.registrar(actor,Operacion.de("LANZAMIENTO_INMEDIATO","orden",orden.getId()).sobreOrden(orden.getId()).motivo(motivo));return orden;
+    }
+    private Orden crearOrdenCritica(Objetivo objetivo,ResultadoPlanificacion r,String motivo,Integer evaluacion,Actor actor,Instant ahora){
+        Integer cuenta=objetivo.configuracion().getIdCuentaServicio()!=null?objetivo.configuracion().getIdCuentaServicio():parametros.obtener().getIdCuentaServicioPredeterminada();
+        Orden o=Orden.nueva(ordenes.siguienteId(),objetivo.servidor(),objetivo.grupo(),objetivo.criticidad(),cuenta,null,OrigenOrden.CONDICION_CRITICA,objetivo.modo(),programacion(r),ahora,motivo);o.definirEvaluacionOrigen(evaluacion);
+        for(var t:r.tramos())o.agregarDetalle(objetivo.integrantes().stream().filter(x->x.getId().equals(t.idServidor())).findFirst().orElseThrow(),t.posicion(),t.inicio(),t.fin());return ordenes.save(o);
+    }
+    @Transactional
+    public void reprogramarEnAutorizacion(Integer id,Instant inicio,String motivo,Actor actor){
+        bloquear();Orden orden=ordenes.findConDetalleById(id).orElseThrow();Objetivo objetivo=objetivoDeOrden(orden);Instant ahora=Tiempo.ahora(reloj);
+        ResultadoPlanificacion r=planificador.verificar(solicitud(objetivo,orden.getFechaObjetivo(),ahora),inicio,reservas(ahora,inicio,id));
+        orden.actualizarProgramacionAutorizacion(programacion(r),r.tramos().stream().map(t->new Orden.TramoDetalle(t.idServidor(),t.posicion(),t.inicio(),t.fin())).toList());
+        auditoria.registrar(actor,Operacion.de("ACEPTAR_FECHA_PROPUESTA","orden",id).sobreOrden(id).motivo(motivo));
+    }
+    @TransactionalEventListener
+    public void alCerrarMantenimiento(com.komainos.mantenimiento.event.CicloMantenimientoCerrado evento){planificarCiclosAutomaticos();}
 
     /** Propone el primer intervalo disponible sin crear la orden */
     @Transactional(readOnly = true)

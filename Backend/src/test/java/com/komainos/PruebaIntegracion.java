@@ -27,6 +27,11 @@ import java.util.List;
 @Import(PruebaIntegracion.ConfiguracionPruebas.class)
 public abstract class PruebaIntegracion {
 
+    // El espía pertenece al contexto común: evita recrear el esquema entre contextos que
+    // conservarían en JDBC los OID anteriores de los enumerados PostgreSQL.
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    protected com.komainos.ejecucion.service.AnsibleSimulado transporte;
+
     public static final Instant AHORA = Instant.parse("2026-09-28T14:00:00Z");
 
     @Autowired

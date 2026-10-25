@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ConectividadGrupo } from '@/components/automatizacion/ConectividadGrupo'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarPlus, Pencil, Power, PowerOff, Users, Wrench } from 'lucide-react'
 import { gruposApi } from '@/api/inventario'
@@ -184,6 +185,7 @@ export function FichaGrupoPage() {
       </Tarjeta>
 
       <OrdenesDelObjetivo idGrupo={idGrupo} version={versionOrdenes} />
+      <ConectividadGrupo id={idGrupo} />
 
       {dialogo === 'programar' && (
         <ProgramarModal

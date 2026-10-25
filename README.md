@@ -4,8 +4,13 @@ Sistema de información para la gestión automatizada del mantenimiento de servi
 
 ## Estado
 
-**Iteración 1 — Inventario y Planificación** (más las dependencias mínimas: autenticación, roles, catálogos y
-auditoría). El alcance, los requisitos cubiertos y el plan por bloques están en
+**Inventario, planificación, automatización y ejecución.** El objetivo 3 incorpora
+scripts versionados, tareas, políticas de cambio, MOP, cola, validaciones,
+incidencias, alertas y KPI. En Windows funciona en modo simulado por defecto,
+sin Docker ni conexiones remotas. El recorrido de prueba y la configuración
+están en [Automatización y ejecución](Backend/AUTOMATIZACION.md).
+
+El alcance inicial de inventario y planificación está en
 [`Documentos/Decisiones/00_Analisis_inicial_y_plan_Iteracion_1.md`](Documentos/Decisiones/00_Analisis_inicial_y_plan_Iteracion_1.md);
 cada decisión tomada ante un vacío o una contradicción de la documentación, en
 [`Registro_de_decisiones.md`](Documentos/Decisiones/Registro_de_decisiones.md).

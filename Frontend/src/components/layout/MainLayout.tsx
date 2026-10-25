@@ -2,13 +2,12 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { AlertasProvider } from '@/components/alertas/AlertasProvider'
 
 const SIDEBAR_COLLAPSED_KEY = 'komainos:sidebar-collapsed'
 
 export function MainLayout({ children }: { children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(
-    () => window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1',
-  )
+  const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1')
   const [mobileOpen, setMobileOpen] = useState(false)
 
   function toggleCollapsed() {
@@ -20,23 +19,25 @@ export function MainLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-dvh bg-canvas lg:flex">
-      <Sidebar
-        collapsed={collapsed}
-        onToggleCollapsed={toggleCollapsed}
-        mobileOpen={mobileOpen}
-        onCloseMobile={() => setMobileOpen(false)}
-      />
+    <AlertasProvider>
+      <div className="min-h-dvh bg-canvas lg:flex">
+        <Sidebar
+          collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
+        />
 
-      {/* min-w-0 evita que el contenido empuje el ancho de la fila flex en pantallas angostas */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onOpenMobileNav={() => setMobileOpen(true)} />
+        {/* min-w-0 evita que el contenido empuje el ancho de la fila flex en pantallas angostas */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar onOpenMobileNav={() => setMobileOpen(true)} />
 
-        {/* El contenido de página vive centrado acá y el sidebar queda fuera a propósito */}
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
-        </main>
+          {/* El contenido de página vive centrado acá y el sidebar queda fuera a propósito */}
+          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            <div className="mx-auto w-full max-w-7xl">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </AlertasProvider>
   )
 }

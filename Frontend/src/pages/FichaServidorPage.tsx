@@ -1,3 +1,4 @@
+import { AnalisisServidor } from '@/components/automatizacion/AnalisisServidor'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -194,6 +195,7 @@ export function FichaServidorPage() {
           }}
         />
       )}
+      <AnalisisServidor id={idServidor}/>
     </div>
   )
 }

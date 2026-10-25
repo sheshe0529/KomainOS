@@ -32,6 +32,7 @@
 
   /* Serie única de los gráficos: matiz del azul institucional validado con dataviz/validate_palette.js */
   --color-serie-1: #1859a7;
+  --color-serie-2: #0d9488;
 }
 
 /* Paleta oscura: mismas variables, así la clase .dark retematiza la interfaz sin tocar el JSX */
@@ -59,6 +60,7 @@
   --color-danger-soft: rgba(240, 104, 95, 0.12);
 
   --color-serie-1: #bcbcbc;
+  --color-serie-2: #858585;
 }
 
 @layer base {

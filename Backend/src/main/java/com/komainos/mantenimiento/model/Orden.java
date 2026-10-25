@@ -59,6 +59,9 @@ public class Orden implements Persistable<Integer> {
     @JoinColumn(name = "id_grupo_mantenimiento")
     private GrupoMantenimiento grupo;
 
+    @Column(name="id_evaluacion_origen")
+    private Integer idEvaluacionOrigen;
+
     /** Criticidad aplicada al generarse: no cambia con la configuración posterior */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_nivel_criticidad", nullable = false)
@@ -190,6 +193,11 @@ public class Orden implements Persistable<Integer> {
         cambiarEstado(EstadoOrden.PROGRAMADA, autor, motivo, ahora);
     }
 
+    public void actualizarProgramacionAutorizacion(Programacion nueva,List<TramoDetalle> tramos){
+        if(estado!=EstadoOrden.PENDIENTE_AUTORIZACION)throw new ReglaNegocioException("La orden no está en autorización");
+        aplicarProgramacion(nueva);for(var tramo:tramos)detalleDe(tramo.idServidor()).ifPresent(d->d.replanificar(tramo.posicion(),tramo.inicio(),tramo.fin()));
+    }
+
     public void cancelar(Usuario autor, String motivo, Instant ahora) {
         cambiarEstado(EstadoOrden.CANCELADA, autor, motivo, ahora);
         detalles.forEach(OrdenDetalle::marcarNoIniciadoSiPendiente);
@@ -199,6 +207,10 @@ public class Orden implements Persistable<Integer> {
     public void retirarServidor(Integer idServidor) {
         detalleDe(idServidor).ifPresent(OrdenDetalle::marcarNoIniciadoSiPendiente);
     }
+
+    public void fijarCuentaServicio(Integer idCuenta){if(idCuentaServicio==null && estado==EstadoOrden.EN_EVALUACION)idCuentaServicio=idCuenta;}
+
+    public void definirEvaluacionOrigen(Integer idEvaluacion) { if (origen != OrigenOrden.CONDICION_CRITICA) throw new IllegalStateException();idEvaluacionOrigen=idEvaluacion; }
 
     public boolean puedeCancelarse() {
         return estado.puedePasarA(EstadoOrden.CANCELADA);
