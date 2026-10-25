@@ -46,3 +46,17 @@ Después de regenerar, `npm run build` marca cualquier uso desalineado.
 
 Los colores son variables CSS semánticas en `src/index.css` (paleta clara y
 oscura). El tema se elige en *Configuración → Preferencias* (DEC-30).
+
+## Registro e importación del inventario
+
+Ambos recorridos tienen cinco etapas: datos o archivo, análisis, configuración
+de mantenimiento, modalidad de planificación y resumen. El análisis no guarda
+datos; solo el botón de confirmación final registra el inventario junto con
+sus frecuencias, cuenta de servicio y ventana permisiva. La modalidad puede
+ser Automática o Bajo demanda. En una importación se configuran los servidores
+individualmente y se pueden aplicar frecuencias, ventanas o modalidad a todos.
+Los archivos con errores deben corregirse y analizarse de nuevo antes de avanzar.
+
+Umbrales es una sección independiente en `/umbrales`, con las pestañas Umbrales,
+Métricas y Listas de referencia. Las rutas anteriores de Configuración redirigen
+a la sección nueva.

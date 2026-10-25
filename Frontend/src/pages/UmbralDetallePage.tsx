@@ -13,7 +13,7 @@ import { useConsulta } from '@/hooks/useConsulta'
 
 function VolverALosUmbrales() {
   return (
-    <Link to="/configuracion/umbrales" className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
+    <Link to="/umbrales" className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
       <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver a umbrales
     </Link>
   )
@@ -46,7 +46,7 @@ export function UmbralDetallePage() {
               onActualizado={umbral.reemplazar}
               onRecargar={umbral.recargar}
               onEditar={() => setEditando(true)}
-              onEliminado={() => navigate('/configuracion/umbrales')}
+              onEliminado={() => navigate('/umbrales')}
             />
             {editando && (
               <UmbralFormulario

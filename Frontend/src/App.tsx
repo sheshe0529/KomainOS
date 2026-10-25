@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { SesionProvider } from '@/auth/SesionProvider'
 import { RutaProtegida } from '@/auth/RutaProtegida'
@@ -26,6 +26,11 @@ import {
   UmbralesPage,
   UsuariosPage,
 } from '@/pages'
+
+function RedirigirUmbral() {
+  const { idUmbral } = useParams()
+  return <Navigate to={`/umbrales/${idUmbral}`} replace />
+}
 
 /** El menú y la barra superior se quedan mientras se descarga la pantalla */
 function DisposicionAutenticada() {
@@ -96,8 +101,10 @@ function App() {
                   </RutaProtegida>
                 }
               />
+              <Route path="/configuracion/umbrales" element={<Navigate to="/umbrales" replace />} />
+              <Route path="/configuracion/umbrales/:idUmbral" element={<RedirigirUmbral />} />
               <Route
-                path="/configuracion/umbrales"
+                path="/umbrales"
                 element={
                   <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
                     <UmbralesPage />
@@ -105,7 +112,7 @@ function App() {
                 }
               />
               <Route
-                path="/configuracion/umbrales/:idUmbral"
+                path="/umbrales/:idUmbral"
                 element={
                   <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
                     <UmbralDetallePage />

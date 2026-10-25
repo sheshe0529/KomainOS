@@ -55,6 +55,33 @@ class ServidorControllerTest {
     private final Usuario responsable = DatosPrueba.usuario(5, "m.herrera", Rol.RESPONSABLE);
 
     @Test
+    @DisplayName("RF09: el análisis individual devuelve 204 sin crear el servidor")
+    void analizaRegistro() throws Exception {
+        mockMvc.perform(post("/api/servidores/registro/analisis").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"hostname":"srv-01","direccionIp":"10.20.1.11","idVersionSistemaOperativo":1,
+                                 "idEntorno":1,"idNivelCriticidad":1,"idResponsable":5}
+                                """))
+                .andExpect(status().isNoContent());
+        org.mockito.Mockito.verify(servicio).analizarRegistro(any());
+        org.mockito.Mockito.verify(servicio, org.mockito.Mockito.never()).crear(any(), any());
+    }
+
+    @Test
+    @DisplayName("RF17-RF19: confirmar requiere configuración y al menos una ventana")
+    void registroIncompleto() throws Exception {
+        mockMvc.perform(post("/api/servidores/registro").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"servidor":{"hostname":"srv-01","direccionIp":"10.20.1.11","idVersionSistemaOperativo":1,
+                                 "idEntorno":1,"idNivelCriticidad":1,"idResponsable":5},
+                                 "mantenimiento":{"configuracion":{"modalidadPlanificacion":"BAJO_DEMANDA"},"ventanas":[]}}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        org.mockito.Mockito.verify(servicio, org.mockito.Mockito.never()).registrar(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("el listado devuelve la página con referencias legibles y sin datos sensibles")
     void listado() throws Exception {
         Servidor servidor = DatosPrueba.servidor(1, "srv-app-01", responsable);

@@ -289,6 +289,9 @@ export interface FilaAnalisisRespuesta {
   servidorExistente?: ReferenciaSimple
   sobrescribible?: boolean
   camposModificados?: string[]
+  idNivelCriticidad?: number
+  idVersionSistemaOperativo?: number
+  versionServidor?: string
 }
 
 export interface FilaImportacionRespuesta {
@@ -354,6 +357,11 @@ export interface ListaResumenRespuesta {
 export interface LoginPeticion {
   codigo: string
   contrasena: string
+}
+
+export interface MantenimientoRegistroPeticion {
+  configuracion: ConfiguracionPeticion
+  ventanas: VentanaPeticion[]
 }
 
 export interface MetricaPeticion {
@@ -484,6 +492,17 @@ export interface PerfilRespuesta {
   minutosSesion?: number
 }
 
+export interface PreparacionImportacionPeticion {
+  fila?: number
+  idServidorExistente?: number
+  versionServidor?: string
+  mantenimiento: MantenimientoRegistroPeticion
+}
+
+export interface PreparacionesImportacionPeticion {
+  servidores: PreparacionImportacionPeticion[]
+}
+
 export interface ProgramarOrdenPeticion {
   idServidor?: number
   idGrupo?: number
@@ -523,6 +542,11 @@ export interface ReautenticacionPeticion {
 export interface ReferenciaSimple {
   id?: number
   nombre?: string
+}
+
+export interface RegistroServidorPeticion {
+  servidor: ServidorPeticion
+  mantenimiento: MantenimientoRegistroPeticion
 }
 
 export interface ReprogramarOrdenPeticion {

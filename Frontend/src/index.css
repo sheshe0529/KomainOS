@@ -36,18 +36,18 @@
 
 /* Paleta oscura: mismas variables, así la clase .dark retematiza la interfaz sin tocar el JSX */
 .dark {
-  --color-canvas: #0b0f19;
-  --color-panel: #131826;
-  --color-panel-muted: #1a2032;
-  --color-line: #262e42;
-  --color-ink: #eef1f6;
-  --color-ink-soft: #97a2b8;
-  --color-ink-faint: #5d6780;
+  --color-canvas: #171717;
+  --color-panel: #222222;
+  --color-panel-muted: #2d2d2d;
+  --color-line: #414141;
+  --color-ink: #f2f2f2;
+  --color-ink-soft: #bcbcbc;
+  --color-ink-faint: #969696;
 
-  /* #063061 no se distingue sobre fondo oscuro: mismo matiz aclarado (7,2:1 sobre el panel) */
-  --color-accent: #74a9e7;
-  --color-accent-ink: #0b0f19;
-  --color-accent-soft: rgba(116, 169, 231, 0.16);
+  /* Acento neutro para mantener la interfaz nocturna en grises. */
+  --color-accent: #dedede;
+  --color-accent-ink: #202020;
+  --color-accent-soft: rgba(222, 222, 222, 0.12);
 
   --color-detail: #00dffb;
 
@@ -58,8 +58,7 @@
   --color-danger: #f0685f;
   --color-danger-soft: rgba(240, 104, 95, 0.12);
 
-  /* Validada con dataviz/validate_palette.js sobre el panel #131826 */
-  --color-serie-1: #518ad6;
+  --color-serie-1: #bcbcbc;
 }
 
 @layer base {

@@ -36,7 +36,7 @@ export function UmbralesTab({ esAdmin }: UmbralesTabProps) {
   const filtro = idMetrica ? Number(idMetrica) : undefined
   const umbrales = useConsulta(() => umbralesApi.umbrales(filtro), [idMetrica])
   const hayMetricaActiva = metricas.datos?.some((m) => m.activo)
-  const ruta = (u: UmbralRespuesta) => `/configuracion/umbrales/${u.id}`
+  const ruta = (u: UmbralRespuesta) => `/umbrales/${u.id}`
 
   return (
     <div className="flex flex-col gap-4">

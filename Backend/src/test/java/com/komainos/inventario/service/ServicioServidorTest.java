@@ -97,6 +97,24 @@ class ServicioServidorTest {
     class Alta {
 
         @Test
+        @DisplayName("RF09: el análisis valida las referencias sin persistir ni auditar")
+        void analisisSinEscrituras() {
+            servicio.analizarRegistro(datos("srv-nuevo-01", "10.20.1.50", 5));
+            verify(servidores, never()).save(any());
+            verify(auditoria, never()).registrar(any(), any());
+            verify(configuraciones, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("RF09: el análisis detecta duplicados antes de preparar el mantenimiento")
+        void analisisDuplicado() {
+            when(servidores.existsByHostnameIgnoreCase("srv-01")).thenReturn(true);
+            assertThatThrownBy(() -> servicio.analizarRegistro(datos("srv-01", "10.20.1.50", 5)))
+                    .isInstanceOf(ConflictoException.class);
+            verify(servidores, never()).save(any());
+        }
+
+        @Test
         @DisplayName("rechaza un hostname ya registrado")
         void rechazaHostnameDuplicado() {
             when(servidores.existsByHostnameIgnoreCase("srv-app-01")).thenReturn(true);

@@ -5,6 +5,7 @@ import com.komainos.inventario.dto.ConfiguracionPeticion;
 import com.komainos.inventario.dto.FichaServidorRespuesta;
 import com.komainos.inventario.dto.ResultadoBajaRespuesta;
 import com.komainos.inventario.dto.ServidorPeticion;
+import com.komainos.inventario.dto.RegistroServidorPeticion;
 import com.komainos.inventario.dto.ServidorResumenRespuesta;
 import com.komainos.inventario.dto.VentanasPeticion;
 import com.komainos.inventario.mapper.InventarioMapeador;
@@ -78,6 +79,26 @@ public class ServidorController {
                                         @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         Integer id = servicio.crear(peticion.aDatos(), alcance.actor()).getId();
+        return InventarioMapeador.ficha(servicio.ficha(id, alcance));
+    }
+
+    @PostMapping("/registro/analisis")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Analiza el alta individual sin registrar el servidor (RF09)")
+    public void analizarRegistro(@Valid @RequestBody ServidorPeticion peticion) {
+        servicio.analizarRegistro(peticion.aDatos());
+    }
+
+    @PostMapping("/registro")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Confirma el servidor con su configuración y ventana de mantenimiento (RF09, RF17-RF19)")
+    public FichaServidorRespuesta registrar(@Valid @RequestBody RegistroServidorPeticion peticion,
+                                           @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
+        Integer id = servicio.registrar(peticion.servidor().aDatos(), peticion.mantenimiento().aDatos(),
+                alcance.actor()).getId();
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 

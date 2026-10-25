@@ -130,6 +130,21 @@ public class ServicioServidor implements PuertoServidoresACargo {
 
     @Transactional
     public Servidor crear(DatosServidor datos, Actor actor) {
+        Servidor servidor = prepararAlta(datos);
+        servidores.save(servidor);
+        auditoria.registrar(actor, Operacion.de("CREAR_SERVIDOR", "servidor", servidor.getId())
+                .sobreServidor(servidor.getId())
+                .valores(null, instantanea(servidor)));
+        return servidor;
+    }
+
+    /** RF09: las mismas comprobaciones del alta, sin guardar ni auditar. */
+    @Transactional(readOnly = true)
+    public void analizarRegistro(DatosServidor datos) {
+        prepararAlta(datos);
+    }
+
+    private Servidor prepararAlta(DatosServidor datos) {
         DatosServidor limpio = normalizar(datos);
         if (servidores.existsByHostnameIgnoreCase(limpio.hostname())) {
             throw new ConflictoException("Ya existe un servidor con el hostname %s".formatted(limpio.hostname()));
@@ -137,11 +152,28 @@ public class ServicioServidor implements PuertoServidoresACargo {
         exigirDireccionesDisponibles(limpio, null);
         Servidor servidor = Servidor.nuevo();
         aplicar(limpio, servidor, true);
-        servidores.save(servidor);
-        auditoria.registrar(actor, Operacion.de("CREAR_SERVIDOR", "servidor", servidor.getId())
-                .sobreServidor(servidor.getId())
-                .valores(null, instantanea(servidor)));
         return servidor;
+    }
+
+    /** RF09, RF17-RF19: el servidor y su mantenimiento se confirman en una sola transacción. */
+    @Transactional
+    public Servidor registrar(DatosServidor datos, DatosAltaMantenimiento mantenimiento, Actor actor) {
+        Servidor servidor = crear(datos, actor);
+        aplicarMantenimientoRegistro(servidor.getId(), mantenimiento, actor);
+        return servidor;
+    }
+
+    @Transactional
+    public void aplicarMantenimientoRegistro(Integer id, DatosAltaMantenimiento datos, Actor actor) {
+        if (datos.ventanas() == null || datos.ventanas().isEmpty()) {
+            throw new ReglaNegocioException("Defina al menos un intervalo de mantenimiento");
+        }
+        reemplazarVentanas(id, datos.ventanas(), new AlcanceUsuario(actor.usuarioId(), Rol.ADMINISTRADOR));
+        configurar(id, datos.configuracion(), datos.versionEsperada(), actor);
+    }
+
+    public record DatosAltaMantenimiento(DatosConfiguracion configuracion, List<IntervaloSemanal> ventanas,
+                                         Instant versionEsperada) {
     }
 
     @Transactional

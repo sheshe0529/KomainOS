@@ -101,7 +101,7 @@ function FilaVistaPrevia({ fila, marcada, onAlternar }: { fila: FilaAnalisisResp
             ))}
           </ul>
         ) : (
-          'Se registrará como servidor nuevo, pendiente de configuración.'
+          'Servidor nuevo: se configurará su mantenimiento en la siguiente etapa.'
         )}
         {fila.sobrescribible && (fila.camposModificados?.length ?? 0) > 0 && (
           <p className="mt-1 text-ink">Cambiaría: {fila.camposModificados!.join(', ')}.</p>

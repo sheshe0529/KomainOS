@@ -1,5 +1,6 @@
 import { consulta, http } from './cliente'
 import type { EstadoServidor, Pagina } from './dominio'
+import type { RegistroServidorPeticion } from './types'
 import type {
   BajaPeticion,
   ConfiguracionGrupoPeticion,
@@ -43,6 +44,8 @@ export const servidoresApi = {
     ),
   ficha: (id: number) => http.get<FichaServidorRespuesta>(`/servidores/${id}`),
   crear: (datos: ServidorPeticion) => http.post<FichaServidorRespuesta>('/servidores', datos),
+  analizarRegistro: (datos: ServidorPeticion) => http.post<void>('/servidores/registro/analisis', datos),
+  registrar: (datos: RegistroServidorPeticion) => http.post<FichaServidorRespuesta>('/servidores/registro', datos),
   actualizar: (id: number, datos: ServidorPeticion) => http.put<FichaServidorRespuesta>(`/servidores/${id}`, datos),
   configurar: (id: number, datos: ConfiguracionPeticion) =>
     http.put<FichaServidorRespuesta>(`/servidores/${id}/configuracion`, datos),

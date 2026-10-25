@@ -15,7 +15,7 @@ import { ETIQUETA_TIPO_DATO } from '@/utils/umbrales'
 import { ListaFormulario } from './ListaFormulario'
 
 /** Listas de referencia: conjuntos esperados o permitidos con los que se comparan las métricas de lista */
-export function ListasTab() {
+export function ListasTab({ esAdmin = false }: { esAdmin?: boolean }) {
   const { avisar } = useAvisos()
   const listas = useConsulta(() => listasApi.listar(), [])
   const [editando, setEditando] = useState<ListaReferenciaRespuesta | 'nueva' | null>(null)
@@ -50,11 +50,11 @@ export function ListasTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+      {esAdmin && <div className="flex justify-end">
         <Boton variante="primario" icono={Plus} onClick={() => setEditando('nueva')}>
           Nueva lista
         </Boton>
-      </div>
+      </div>}
       <MensajeError error={listas.error} onReintentar={listas.recargar} />
       {listas.cargando && !listas.datos ? (
         <Cargando />
@@ -92,7 +92,7 @@ export function ListasTab() {
                     <StatusPill tone={l.activo ? 'success' : 'neutral'} label={l.activo ? 'Activa' : 'Inactiva'} />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
+                    {esAdmin && <div className="flex justify-end gap-1">
                       <BotonIcono icono={Pencil} etiqueta={`Editar ${l.nombre}`} onClick={() => setEditando(l)} />
                       <BotonIcono
                         icono={l.activo ? PowerOff : Power}
@@ -100,7 +100,7 @@ export function ListasTab() {
                         onClick={() => cambiarEstado(l)}
                       />
                       <BotonIcono icono={Trash2} etiqueta={`Eliminar ${l.nombre}`} onClick={() => setEliminando(l)} />
-                    </div>
+                    </div>}
                   </td>
                 </tr>
               ))}

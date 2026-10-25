@@ -4,10 +4,12 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { MetricasTab } from '@/components/umbrales/MetricasTab'
 import { ReglaDePrecedencia } from '@/components/umbrales/ReglaDePrecedencia'
 import { UmbralesTab } from '@/components/umbrales/UmbralesTab'
+import { ListasTab } from '@/components/catalogos/ListasTab'
 
 const PESTANAS = [
   { id: 'umbrales', etiqueta: 'Umbrales' },
   { id: 'metricas', etiqueta: 'Métricas' },
+  { id: 'listas', etiqueta: 'Listas de referencia' },
 ] as const
 
 type Pestana = (typeof PESTANAS)[number]['id']
@@ -42,6 +44,7 @@ export function UmbralesPage() {
       </div>
       {pestana === 'umbrales' && <UmbralesTab esAdmin={esAdmin} />}
       {pestana === 'metricas' && <MetricasTab esAdmin={esAdmin} />}
+      {pestana === 'listas' && <ListasTab esAdmin={esAdmin} />}
     </>
   )
 }

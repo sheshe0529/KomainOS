@@ -10,7 +10,7 @@ import { COLUMNAS_SERVIDORES, DEFINICIONES_SERVIDORES } from '@/components/inven
 import { ExportarModal } from '@/components/inventario/ExportarModal'
 import { FiltrosServidores } from '@/components/inventario/FiltrosServidores'
 import { ImportarModal } from '@/components/inventario/ImportarModal'
-import { ServidorFormulario } from '@/components/inventario/ServidorFormulario'
+import { RegistroServidorModal } from '@/components/inventario/registro/RegistroServidorModal'
 import { TablaServidores, type Orden } from '@/components/inventario/TablaServidores'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
@@ -51,7 +51,7 @@ export function ServidoresPage() {
 
   function alGuardar(servidor: FichaServidorRespuesta) {
     setFormularioAbierto(false)
-    avisar(`Servidor ${servidor.hostname} registrado. Complete su configuración de mantenimiento.`)
+    avisar(`Servidor ${servidor.hostname} registrado con su configuración de mantenimiento.`)
     navigate(`/servidores/${servidor.id}`)
   }
 
@@ -109,7 +109,7 @@ export function ServidoresPage() {
       />
 
       {formularioAbierto && catalogos.datos && (
-        <ServidorFormulario
+        <RegistroServidorModal
           abierto
           onCerrar={() => setFormularioAbierto(false)}
           onGuardado={alGuardar}

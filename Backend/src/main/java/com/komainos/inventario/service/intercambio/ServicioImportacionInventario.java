@@ -23,6 +23,7 @@ import com.komainos.shared.exception.ConflictoException;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.model.Actor;
+import com.komainos.shared.util.Concurrencia;
 import com.komainos.shared.util.archivo.ArchivoGenerado;
 import com.komainos.shared.util.archivo.ColumnaArchivo;
 import com.komainos.shared.util.archivo.EscritorTabular;
@@ -461,7 +462,20 @@ public class ServicioImportacionInventario {
 
     public ResultadoImportacion importar(String nombreArchivo, byte[] contenido, Set<Integer> sobrescribir,
                                          Actor actor) {
+        return importar(nombreArchivo, contenido, sobrescribir, null, actor);
+    }
+
+    public record PreparacionFila(Integer idServidorExistente, java.time.Instant versionServidor,
+                                  ServicioServidor.DatosAltaMantenimiento mantenimiento) {
+    }
+
+    /** RF12, RF17: cada fila confirma inventario y mantenimiento juntos, después de la revisión final. */
+    public ResultadoImportacion importar(String nombreArchivo, byte[] contenido, Set<Integer> sobrescribir,
+                                         Map<Integer, PreparacionFila> preparaciones, Actor actor) {
         AnalisisImportacion analisis = analizar(nombreArchivo, contenido);
+        if (preparaciones != null && analisis.contar(EstadoFila.ERRONEA) > 0) {
+            throw new ReglaNegocioException("El archivo contiene errores. Corríjalo y vuelva a analizarlo");
+        }
         Set<Integer> confirmadas = sobrescribir == null ? Set.of() : sobrescribir;
         TransactionTemplate porFila = new TransactionTemplate(transacciones);
         porFila.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -473,17 +487,27 @@ public class ServicioImportacionInventario {
                 case NUEVA -> aplicar(porFila, fila, Resultado.CREADO, () -> {
                     Servidor creado = servicioServidor.crear(fila.datos(), actor);
                     aplicarCredencial(fila, creado.getId(), actor);
+                    aplicarPreparacion(fila, creado.getId(), preparaciones, actor);
                     return creado.getId();
                 });
                 case DUPLICADA -> fila.sobrescribible() && confirmadas.contains(fila.numero())
                         ? aplicar(porFila, fila, Resultado.ACTUALIZADO, () -> {
                             Integer id = fila.existente().getId();
+                            if (preparaciones != null) {
+                                PreparacionFila preparacion = preparaciones.get(fila.numero());
+                                if (preparacion == null || !Objects.equals(preparacion.idServidorExistente(), id)) {
+                                    throw new ConflictoException("El servidor cambió desde el análisis; vuelva a analizar el archivo");
+                                }
+                                Concurrencia.exigirVersion(preparacion.versionServidor(),
+                                        servicioServidor.obtenerSinAlcance(id).getFechaActualizacion(), "el servidor");
+                            }
                             if (fila.cambiaServidor()) {
                                 servicioServidor.actualizar(id, fila.datos(), actor);
                             }
                             if (fila.cambiaCredencial()) {
                                 aplicarCredencial(fila, id, actor);
                             }
+                            aplicarPreparacion(fila, id, preparaciones, actor);
                             return id;
                         })
                         : resultado(fila, Resultado.OMITIDO, fila.existente() == null ? null : fila.existente().getId(),
@@ -503,6 +527,19 @@ public class ServicioImportacionInventario {
         porFila.executeWithoutResult(estado -> auditoria.registrar(actor,
                 Operacion.de("IMPORTAR_INVENTARIO", "servidor", null).valores(null, resumen)));
         return resultado;
+    }
+
+    private void aplicarPreparacion(AnalisisImportacion.Fila fila, Integer id,
+                                     Map<Integer, PreparacionFila> preparaciones, Actor actor) {
+        if (preparaciones == null) return; // Compatibilidad con las integraciones anteriores al asistente.
+        PreparacionFila preparacion = preparaciones.get(fila.numero());
+        if (preparacion == null || preparacion.mantenimiento() == null) {
+            throw new ReglaNegocioException("Falta la configuración de mantenimiento de la fila " + fila.numero());
+        }
+        if (fila.estado() == EstadoFila.NUEVA && preparacion.idServidorExistente() != null) {
+            throw new ConflictoException("El servidor cambió desde el análisis; vuelva a analizar el archivo");
+        }
+        servicioServidor.aplicarMantenimientoRegistro(id, preparacion.mantenimiento(), actor);
     }
 
     /** En la misma transacción que el servidor: si la credencial falla, la fila completa se rechaza */

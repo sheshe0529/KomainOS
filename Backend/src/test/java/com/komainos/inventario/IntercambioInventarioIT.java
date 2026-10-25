@@ -119,6 +119,125 @@ class IntercambioInventarioIT extends PruebaIntegracion {
             + "srv-malo,999.1.1.1,Ubuntu,24.04,Pruebas,Alta,nadie,,\n"                               // 5: erróneo
             + "srv-otro-01,10.30.0.5,Ubuntu,22.04,Producción,Media,resp2.imp,,\n";                  // 6: conflicto
 
+    private String mantenimiento(String modalidad, String horaFin, Integer cuenta) {
+        return """
+                {"configuracion":{"frecuenciaRevisionDias":3,"frecuenciaMantenimientoDias":21,
+                 "modalidadPlanificacion":"%s","idCuentaServicio":%s},
+                 "ventanas":[{"diaInicio":"SABADO","horaInicio":"01:00","diaFin":"SABADO","horaFin":"%s"}]}
+                """.formatted(modalidad, cuenta, horaFin);
+    }
+
+    private String datosRegistro(String hostname) {
+        var ficha = servidores.ficha(idExistente, new com.komainos.seguridad.model.AlcanceUsuario(comoAdmin.id(), Rol.ADMINISTRADOR));
+        return """
+                {"hostname":"%s","direccionIp":"10.30.0.25","idVersionSistemaOperativo":%d,
+                 "idEntorno":%d,"idNivelCriticidad":%d,"idResponsable":%d}
+                """.formatted(hostname, ficha.servidor().getVersionSistemaOperativo().getId(),
+                ficha.servidor().getEntorno().getId(), ficha.servidor().getNivelCriticidad().getId(),
+                ficha.servidor().getResponsable().getId());
+    }
+
+    @Test
+    @DisplayName("RF09/RF17: el análisis no escribe y la confirmación guarda servidor, configuración y ventana")
+    void registroPorEtapas() throws Exception {
+        String datos = datosRegistro("srv-asistente");
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/servidores/registro/analisis")
+                        .with(user(comoAdmin)).contentType("application/json").content(datos))
+                .andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("select count(*) from servidor where hostname = 'srv-asistente'", Integer.class)).isZero();
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/servidores/registro")
+                        .with(user(comoAdmin)).contentType("application/json")
+                        .content("{\"servidor\":" + datos + ",\"mantenimiento\":" + mantenimiento("BAJO_DEMANDA", "05:00", null) + "}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.estado").value("ACTIVO"))
+                .andExpect(jsonPath("$.configuracion.modalidadPlanificacion").value("BAJO_DEMANDA"))
+                .andExpect(jsonPath("$.configuracion.frecuenciaRevisionDias").value(3))
+                .andExpect(jsonPath("$.ventanas.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("RF09/RF17: si falla la cuenta de servicio se revierte también el servidor nuevo")
+    void registroRevierteTodo() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/servidores/registro")
+                        .with(user(comoAdmin)).contentType("application/json")
+                        .content("{\"servidor\":" + datosRegistro("srv-falla") + ",\"mantenimiento\":" + mantenimiento("AUTOMATICA", "05:00", 999999) + "}"))
+                .andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("select count(*) from servidor where hostname = 'srv-falla'", Integer.class)).isZero();
+    }
+
+    @Test
+    @DisplayName("RF12/RF17: cada fila confirma también su mantenimiento y un fallo revierte la fila completa")
+    void importaConMantenimientoPorFila() throws Exception {
+        String contenido = ENCABEZADO
+                + "srv-config-ok,10.30.0.25,Ubuntu,22.04,Producción,Alta,resp.imp,,\n"
+                + "srv-config-mal,10.30.0.26,Ubuntu,22.04,Producción,Alta,resp.imp,,\n";
+        String preparaciones = "{\"servidores\":[{\"fila\":2,\"mantenimiento\":" + mantenimiento("AUTOMATICA", "05:00", null)
+                + "},{\"fila\":3,\"mantenimiento\":" + mantenimiento("BAJO_DEMANDA", "00:00", null) + "}]}";
+        mockMvc.perform(multipart("/api/servidores/importacion").file(archivo("servidores.csv", contenido))
+                        .file(new MockMultipartFile("preparaciones", "", "application/json", preparaciones.getBytes(StandardCharsets.UTF_8)))
+                        .with(user(comoAdmin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.creados").value(1))
+                .andExpect(jsonPath("$.rechazados").value(1));
+        assertThat(jdbc.queryForObject("select estado::text from servidor where hostname = 'srv-config-ok'", String.class)).isEqualTo("ACTIVO");
+        assertThat(jdbc.queryForObject("select count(*) from servidor where hostname = 'srv-config-mal'", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select frecuencia_mantenimiento_dias from configuracion_mantenimiento cm join configuracion_servidor cs using (id_configuracion_mantenimiento) join servidor s using (id_servidor) where s.hostname = 'srv-config-ok'", Integer.class)).isEqualTo(21);
+    }
+
+    @Test
+    @DisplayName("RF12: se validan las configuraciones anidadas antes de escribir cualquier fila")
+    void validaPreparacionesAntesDeImportar() throws Exception {
+        String contenido = ENCABEZADO + "srv-config-vacio,10.30.0.25,Ubuntu,22.04,Producción,Alta,resp.imp,,\n";
+        mockMvc.perform(multipart("/api/servidores/importacion").file(archivo("servidores.csv", contenido))
+                        .file(new MockMultipartFile("preparaciones", "", "application/json",
+                                "{\"servidores\":[{\"fila\":2,\"mantenimiento\":{\"configuracion\":{\"modalidadPlanificacion\":\"AUTOMATICA\"},\"ventanas\":[]}}]}".getBytes(StandardCharsets.UTF_8)))
+                        .with(user(comoAdmin)))
+                .andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("select count(*) from servidor where hostname = 'srv-config-vacio'", Integer.class)).isZero();
+    }
+
+    @Test
+    @DisplayName("HU08 CA4: un duplicado confirmado actualiza datos y mantenimiento respetando su versión")
+    void duplicadoConMantenimiento() throws Exception {
+        String contenido = ENCABEZADO + "srv-exist-01,10.30.0.1,Ubuntu,22.04,Producción,Alta,resp.imp,Cambio confirmado,\n";
+        String cuerpo = mockMvc.perform(analisis(archivo("servidores.csv", contenido)).with(user(comoAdmin)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        String version = json.readTree(cuerpo).get("filas").get(0).get("versionServidor").asText();
+        String preparacion = "{\"servidores\":[{\"fila\":2,\"idServidorExistente\":" + idExistente
+                + ",\"versionServidor\":\"" + version + "\",\"mantenimiento\":" + mantenimiento("BAJO_DEMANDA", "05:00", null) + "}]}";
+        mockMvc.perform(multipart("/api/servidores/importacion").file(archivo("servidores.csv", contenido))
+                        .file(new MockMultipartFile("preparaciones", "", "application/json", preparacion.getBytes(StandardCharsets.UTF_8)))
+                        .param("sobrescribir", "2").with(user(comoAdmin)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.actualizados").value(1));
+        assertThat(jdbc.queryForObject("select descripcion from servidor where id_servidor = ?", String.class, idExistente)).isEqualTo("Cambio confirmado");
+        assertThat(jdbc.queryForObject("select estado::text from servidor where id_servidor = ?", String.class, idExistente)).isEqualTo("ACTIVO");
+    }
+
+    @Test
+    @DisplayName("HU08 CA4: una versión desactualizada rechaza la fila sin sobrescribir ni configurar")
+    void duplicadoCambioConcurrente() throws Exception {
+        String contenido = ENCABEZADO + "srv-exist-01,10.30.0.1,Ubuntu,22.04,Producción,Alta,resp.imp,No debe guardarse,\n";
+        String preparacion = "{\"servidores\":[{\"fila\":2,\"idServidorExistente\":" + idExistente
+                + ",\"versionServidor\":\"2025-01-01T00:00:00Z\",\"mantenimiento\":" + mantenimiento("AUTOMATICA", "05:00", null) + "}]}";
+        mockMvc.perform(multipart("/api/servidores/importacion").file(archivo("servidores.csv", contenido))
+                        .file(new MockMultipartFile("preparaciones", "", "application/json", preparacion.getBytes(StandardCharsets.UTF_8)))
+                        .param("sobrescribir", "2").with(user(comoAdmin)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.rechazados").value(1))
+                .andExpect(jsonPath("$.actualizados").value(0));
+        assertThat(jdbc.queryForObject("select descripcion from servidor where id_servidor = ?", String.class, idExistente)).isEqualTo("Registrado");
+        assertThat(jdbc.queryForObject("select count(*) from configuracion_servidor where id_servidor = ?", Integer.class, idExistente)).isZero();
+    }
+
+    @Test
+    @DisplayName("HU08: el asistente no confirma un archivo con errores aunque contenga filas nuevas válidas")
+    void analisisErroneoImpideConfirmacion() throws Exception {
+        mockMvc.perform(multipart("/api/servidores/importacion").file(archivo("servidores.csv", ARCHIVO_MIXTO))
+                        .file(new MockMultipartFile("preparaciones", "", "application/json", "{\"servidores\":[]}".getBytes(StandardCharsets.UTF_8)))
+                        .with(user(comoAdmin)))
+                .andExpect(status().isUnprocessableEntity());
+        assertThat(jdbc.queryForObject("select count(*) from servidor where hostname = 'srv-nuevo-01'", Integer.class)).isZero();
+    }
+
     @Test
     @DisplayName("HU08 CA2: la vista previa clasifica nuevos, duplicados y erróneos con su motivo, sin escribir")
     void vistaPrevia() throws Exception {

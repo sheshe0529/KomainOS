@@ -3,6 +3,8 @@ package com.komainos.inventario.controller;
 import com.komainos.inventario.dto.AnalisisImportacionRespuesta;
 import com.komainos.inventario.dto.ColumnaInventarioRespuesta;
 import com.komainos.inventario.dto.ResultadoImportacionRespuesta;
+import com.komainos.inventario.dto.PreparacionImportacionPeticion;
+import com.komainos.inventario.dto.PreparacionesImportacionPeticion;
 import com.komainos.inventario.mapper.IntercambioMapeador;
 import com.komainos.inventario.model.EstadoServidor;
 import com.komainos.inventario.model.FiltroServidores;
@@ -44,6 +46,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/servidores")
@@ -136,10 +140,20 @@ public class IntercambioInventarioController {
     public ResultadoImportacionRespuesta importar(
             @RequestPart("archivo") MultipartFile archivo,
             @RequestParam(required = false) List<Integer> sobrescribir,
+            @Valid @RequestPart(required = false) PreparacionesImportacionPeticion preparaciones,
             @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        Map<Integer, ServicioImportacionInventario.PreparacionFila> porFila = null;
+        if (preparaciones != null) {
+            if (preparaciones.servidores().stream().map(PreparacionImportacionPeticion::fila).distinct().count() != preparaciones.servidores().size()) {
+                throw new ReglaNegocioException("La configuración contiene filas repetidas");
+            }
+            porFila = preparaciones.servidores().stream().collect(Collectors.toMap(PreparacionImportacionPeticion::fila,
+                    p -> new ServicioImportacionInventario.PreparacionFila(p.idServidorExistente(),
+                            p.versionServidor(), p.mantenimiento().aDatos())));
+        }
         var resultado = importacion.importar(nombreDe(archivo), contenidoDe(archivo),
                 sobrescribir == null ? null : new HashSet<>(sobrescribir),
-                AlcanceUsuario.de(solicitante).actor());
+                porFila, AlcanceUsuario.de(solicitante).actor());
         return IntercambioMapeador.resultado(resultado);
     }
 

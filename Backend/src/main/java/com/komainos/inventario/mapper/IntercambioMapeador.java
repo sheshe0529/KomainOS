@@ -38,7 +38,10 @@ public final class IntercambioMapeador {
         ReferenciaSimple existente = f.existente() == null ? null
                 : new ReferenciaSimple(f.existente().getId(), f.existente().getHostname());
         return new FilaAnalisisRespuesta(f.numero(), f.estado(), f.hostname(), f.direccionIp(), f.motivos(),
-                existente, f.sobrescribible(), f.camposModificados());
+                existente, f.sobrescribible(), f.camposModificados(),
+                f.datos() == null ? null : f.datos().idNivelCriticidad(),
+                f.datos() == null ? null : f.datos().idVersionSistemaOperativo(),
+                f.existente() == null ? null : f.existente().getFechaActualizacion());
     }
 
     public static ResultadoImportacionRespuesta resultado(ResultadoImportacion r) {

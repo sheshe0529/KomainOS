@@ -20,6 +20,9 @@ interface ServidorFormularioProps {
   responsables: UsuarioRespuesta[]
   /** Si se indica edita ese servidor (RF10), si no registra uno nuevo (RF09) */
   servidor?: FichaServidorRespuesta
+  /** En el asistente solo prepara los datos; el guardado se hace al confirmar el resumen. */
+  onPreparado?: (datos: ServidorPeticion) => Promise<void>
+  sinModal?: boolean
 }
 
 /** Las direcciones IP se editan como lista aparte; la versión la pone el guardado */
@@ -55,7 +58,7 @@ function errorDeDirecciones(error: unknown): string | undefined {
 }
 
 /** Una o varias IP, una de ellas principal y ninguna de otro servidor (DEC-37) */
-export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, responsables, servidor }: ServidorFormularioProps) {
+export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, responsables, servidor, onPreparado, sinModal }: ServidorFormularioProps) {
   const [f, setF] = useState<Formulario>(() => inicial(servidor))
   // La principal va primero (así la devuelve el backend)
   const [ips, setIps] = useState<string[]>(() =>
@@ -118,6 +121,10 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
       hdVirtualGb: numero(f.hdVirtualGb),
     }
     try {
+      if (onPreparado) {
+        await onPreparado(peticion)
+        return
+      }
       const guardado = esEdicion
         ? await servidoresApi.actualizar(servidor!.id!, { ...peticion, versionEsperada: servidor!.fechaActualizacion })
         : await servidoresApi.crear(peticion)
@@ -150,26 +157,7 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
 
   const errorIps = errorDeDirecciones(error)
 
-  return (
-    <Modal
-      abierto={abierto}
-      onCerrar={onCerrar}
-      ancho="lg"
-      titulo={esEdicion ? `Editar ${servidor?.hostname}` : 'Registrar servidor'}
-      descripcion={
-        esEdicion
-          ? 'Los cambios quedan registrados en la auditoría.'
-          : 'El servidor queda pendiente de configuración hasta definir su configuración de mantenimiento.'
-      }
-      pie={
-        <>
-          <Boton onClick={onCerrar}>Cancelar</Boton>
-          <Boton type="submit" form="form-servidor" variante="primario" icono={Save} cargando={guardando}>
-            Guardar
-          </Boton>
-        </>
-      }
-    >
+  const contenido = (
       <form id="form-servidor" onSubmit={guardar} className="flex flex-col gap-5">
         {!tieneErroresDeCampo(error) && <MensajeError error={error} />}
         <div className="grid gap-4 sm:grid-cols-2">
@@ -282,6 +270,32 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
           <AreaTexto value={f.descripcion} onChange={(e) => cambiar('descripcion')(e.target.value)} />
         </Campo>
       </form>
+  )
+
+  if (sinModal) return contenido
+
+  return (
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      ancho="lg"
+      titulo={esEdicion ? `Editar ${servidor?.hostname}` : 'Registrar servidor'}
+      descripcion={
+        esEdicion
+          ? 'Los cambios quedan registrados en la auditoría.'
+          : 'El servidor queda pendiente de configuración hasta definir su configuración de mantenimiento.'
+      }
+      pie={
+        <>
+          <Boton onClick={onCerrar}>Cancelar</Boton>
+          <Boton type="submit" form="form-servidor" variante="primario" icono={Save} cargando={guardando}>
+            Guardar
+          </Boton>
+        </>
+      }
+    >
+      {contenido}
+
     </Modal>
   )
 }

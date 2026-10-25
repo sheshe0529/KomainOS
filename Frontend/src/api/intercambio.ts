@@ -1,5 +1,6 @@
 import { consulta, descargar, http } from './cliente'
 import type { FiltroServidores } from './inventario'
+import type { PreparacionImportacionPeticion } from './types'
 import type { AnalisisImportacionRespuesta, ColumnaInventarioRespuesta, ResultadoImportacionRespuesta } from './types'
 
 export type FormatoArchivo = 'XLSX' | 'CSV' | 'YAML' | 'JSON'
@@ -52,10 +53,11 @@ export const intercambioApi = {
   },
 
   /** Envía de nuevo el archivo con los duplicados cuya sobrescritura se confirmó (HU08 CA4) */
-  importar: (archivo: File, sobrescribir: number[]) => {
+  importar: (archivo: File, sobrescribir: number[], preparaciones: PreparacionImportacionPeticion[]) => {
     const formulario = new FormData()
     formulario.append('archivo', archivo)
     sobrescribir.forEach((fila) => formulario.append('sobrescribir', String(fila)))
+    formulario.append('preparaciones', new Blob([JSON.stringify({ servidores: preparaciones })], { type: 'application/json' }))
     return http.enviarArchivo<ResultadoImportacionRespuesta>('/servidores/importacion', formulario)
   },
 }

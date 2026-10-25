@@ -40,6 +40,7 @@ export function SeleccionObjetivoModal({ abierto, onCerrar, onElegir }: Seleccio
       abierto={abierto}
       onCerrar={onCerrar}
       titulo="Programar mantenimiento"
+      ancho="xl"
       descripcion="Solo servidores y grupos activos, con configuración de mantenimiento."
       pie={
         <>
@@ -50,7 +51,7 @@ export function SeleccionObjetivoModal({ abierto, onCerrar, onElegir }: Seleccio
         </>
       }
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex min-h-[min(28rem,55dvh)] flex-col gap-5">
         <MensajeError error={grupos.error} />
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Tipo de mantenimiento">
           {(['servidor', 'grupo'] as const).map((t) => (

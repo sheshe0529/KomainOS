@@ -84,6 +84,7 @@ export function ProgramarModal({ abierto, objetivo, idOrden, onCerrar, onGuardad
   return (
     <Modal
       abierto={abierto}
+      ancho="xl"
       onCerrar={onCerrar}
       titulo={reprogramando ? `Reprogramar mantenimiento de ${objetivo.nombre}` : `Programar mantenimiento de ${objetivo.nombre}`}
       descripcion="Se verifica la ventana permisiva, la concurrencia máxima y las órdenes existentes sobre los mismos servidores."

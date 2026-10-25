@@ -7,5 +7,7 @@ import java.util.List;
 
 public record FilaAnalisisRespuesta(int fila, EstadoFila estado, String hostname, String direccionIp,
                                     List<String> motivos, ReferenciaSimple servidorExistente,
-                                    boolean sobrescribible, List<String> camposModificados) {
+                                    boolean sobrescribible, List<String> camposModificados,
+                                    Integer idNivelCriticidad, Integer idVersionSistemaOperativo,
+                                    java.time.Instant versionServidor) {
 }

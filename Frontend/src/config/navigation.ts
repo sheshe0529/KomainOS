@@ -38,6 +38,7 @@ export const navigation: NavItem[] = [
   },
   // Catálogos es un apartado propio: rige el inventario y la planificación
   { id: 'catalogos', label: 'Catálogos', icon: BookOpen, path: '/catalogos', roles: ['ADMINISTRADOR'] },
+  { id: 'umbrales', label: 'Umbrales', icon: Gauge, path: '/umbrales', roles: ['ADMINISTRADOR', 'OPERADOR'] },
   {
     id: 'configuracion',
     label: 'Configuración',
@@ -50,13 +51,6 @@ export const navigation: NavItem[] = [
         icon: KeyRound,
         path: '/configuracion/cuentas-servicio',
         roles: ['ADMINISTRADOR'],
-      },
-      {
-        id: 'umbrales',
-        label: 'Umbrales',
-        icon: Gauge,
-        path: '/configuracion/umbrales',
-        roles: ['ADMINISTRADOR', 'OPERADOR'],
       },
       {
         id: 'parametros',

@@ -50,8 +50,8 @@ export function Modal({ abierto, titulo, descripcion, onCerrar, children, pie, a
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
-          <div className="overflow-y-auto px-5 py-4">{children}</div>
-          {pie && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{pie}</div>}
+          <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
+          {pie && <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-line px-5 py-3">{pie}</div>}
         </div>
       )}
     </dialog>

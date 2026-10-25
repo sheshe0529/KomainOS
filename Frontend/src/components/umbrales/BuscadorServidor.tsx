@@ -83,7 +83,7 @@ export function BuscadorServidor({ yaDefinidos = NINGUNO, estado, onElegir }: Bu
   return (
     <div
       ref={contenedor}
-      className="relative w-full max-w-md"
+      className="relative w-full"
       onBlur={(e) => {
         if (!contenedor.current?.contains(e.relatedTarget)) setAbierta(false)
       }}
