@@ -4,6 +4,8 @@ import com.komainos.inventario.model.ModalidadPlanificacion;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.Instant;
+
 /** Las frecuencias omitidas se copian del nivel de criticidad (HU11 CA2) */
 public record ConfiguracionPeticion(
         @Min(value = 1, message = "La frecuencia de revisión debe ser de al menos 1 día")
@@ -16,5 +18,8 @@ public record ConfiguracionPeticion(
         ModalidadPlanificacion modalidadPlanificacion,
 
         /** Nula: usa la cuenta predeterminada del sistema (RF05, RF06) */
-        Integer idCuentaServicio) {
+        Integer idCuentaServicio,
+
+        /** Al actualizar, la fechaActualizacion que leyó el formulario: si otro la cambió después, responde 409 */
+        Instant versionEsperada) {
 }

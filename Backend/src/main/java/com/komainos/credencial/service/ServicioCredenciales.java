@@ -16,6 +16,7 @@ import com.komainos.credencial.repository.CredencialSecretoRepositorio;
 import com.komainos.credencial.repository.CuentaServicioRepositorio;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.Servidor;
+import com.komainos.inventario.service.PuertoMantenimientos;
 import com.komainos.inventario.service.ServicioAsignacionCuentas.UsosCuentas;
 import com.komainos.inventario.service.ServicioAsignacionCuentas;
 import com.komainos.inventario.service.ServicioServidor;
@@ -57,6 +58,7 @@ public class ServicioCredenciales {
     private final CifradorCredenciales cifrador;
     private final ServicioServidor servidores;
     private final ServicioAsignacionCuentas asignaciones;
+    private final PuertoMantenimientos mantenimientos;
     private final ServicioReautenticacion reautenticacion;
     private final ServicioAuditoria auditoria;
     private final Clock reloj;
@@ -411,8 +413,14 @@ public class ServicioCredenciales {
         if (usos.esPredeterminada(cuenta.getId())) {
             enUso.add("es la cuenta predeterminada del sistema");
         }
+        // Revocar elimina el secreto: una orden ya generada con esta cuenta no podría ejecutarse
+        long pendientes = mantenimientos.ordenesPendientesConCuenta(cuenta.getId());
+        if (pendientes > 0) {
+            enUso.add("%d orden(es) pendiente(s) la usarán al ejecutarse".formatted(pendientes));
+        }
         if (!enUso.isEmpty()) {
-            throw new ReglaNegocioException("La cuenta de servicio %s está en uso (%s): reasígnela antes de revocarla"
+            throw new ReglaNegocioException(("La cuenta de servicio %s está en uso (%s): reasígnela, o espere a que "
+                    + "terminen o se cancelen esas órdenes, antes de revocarla")
                     .formatted(cuenta.getNombre(), String.join(", ", enUso)));
         }
     }

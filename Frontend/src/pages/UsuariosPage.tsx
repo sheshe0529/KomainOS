@@ -23,7 +23,7 @@ const ROLES: Rol[] = ['ADMINISTRADOR', 'OPERADOR', 'RESPONSABLE']
 export function UsuariosPage() {
   const { usuario: sesion } = useSesion()
   const { avisar } = useAvisos()
-  const usuarios = useConsulta(() => usuariosApi.listar(), [])
+  const usuarios = useConsulta(() => usuariosApi.listarTodos(), [])
   const [editando, setEditando] = useState<UsuarioRespuesta | 'nuevo' | null>(null)
   const [codigo, setCodigo] = useState('')
   const [nombre, setNombre] = useState('')
@@ -49,7 +49,7 @@ export function UsuariosPage() {
       if (editando === 'nuevo') {
         await usuariosApi.crear({ codigo: codigo.trim(), nombreCompleto: nombre.trim(), contrasena, rol })
       } else if (editando?.id) {
-        await usuariosApi.actualizar(editando.id, { nombreCompleto: nombre.trim(), rol })
+        await usuariosApi.actualizar(editando.id, { nombreCompleto: nombre.trim(), rol, versionEsperada: editando.fechaActualizacion })
       }
       setEditando(null)
       usuarios.recargar()
@@ -98,7 +98,7 @@ export function UsuariosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {usuarios.datos?.contenido?.map((u) => (
+              {usuarios.datos?.map((u) => (
                 <tr key={u.id} className="hover:bg-panel-muted">
                   <td className="px-4 py-3">
                     <p className="font-medium text-ink">{u.nombreCompleto}</p>

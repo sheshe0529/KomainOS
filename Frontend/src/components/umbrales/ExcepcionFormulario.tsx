@@ -4,14 +4,15 @@ import { Save } from 'lucide-react'
 import { listasApi, umbralesApi } from '@/api/umbrales'
 import type { ExcepcionUmbralRespuesta, UmbralRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
-import { AreaTexto, Campo, Entrada, Selector } from '@/components/ui/Campo'
+import { AreaTexto, Campo, Selector } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { useConsulta } from '@/hooks/useConsulta'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
-import { ETIQUETA_ALCANCE, formatearLimite, simbolo } from '@/utils/umbrales'
+import { aNumero, ETIQUETA_ALCANCE, formatearLimite, problemaDeValores, simbolo } from '@/utils/umbrales'
 import type { Destino } from './acciones'
 import { ListaChips } from './ListaChips'
+import { ValoresNumericos } from './ValoresNumericos'
 
 interface ExcepcionFormularioProps {
   umbral: UmbralRespuesta
@@ -22,7 +23,6 @@ interface ExcepcionFormularioProps {
   onGuardado: () => void
 }
 
-const aNumero = (texto: string) => (texto.trim() === '' ? undefined : Number(texto))
 const aTexto = (valor?: number) => (valor === undefined || valor === null ? '' : String(valor))
 
 /** La excepción reemplaza los valores del umbral para su alcance: los dos valores, o la lista. Un valor vacío no se evalúa */
@@ -41,9 +41,19 @@ export function ExcepcionFormulario({ umbral, destino, excepcion, onCerrar, onGu
   )
   const listaElegida = listasDelTipo.find((l) => l.id === idLista)
   const unidad = umbral.metrica?.unidad
+  // Mismas reglas que el umbral, con su operador (R2.4)
+  const problema = deLista
+    ? !idLista
+      ? 'Elija la lista de referencia'
+      : null
+    : problemaDeValores(umbral.metrica?.tipoDato, umbral.operador, aNumero(advertencia), aNumero(critico))
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault()
+    if (problema) {
+      setError(new Error(problema))
+      return
+    }
     setGuardando(true)
     setError(undefined)
     const valores = deLista
@@ -51,7 +61,8 @@ export function ExcepcionFormulario({ umbral, destino, excepcion, onCerrar, onGu
       : { valorAdvertencia: aNumero(advertencia), valorCritico: aNumero(critico) }
     const datos = { ...valores, motivo: motivo.trim() || undefined }
     try {
-      if (excepcion?.id) await umbralesApi.actualizarExcepcion(umbral.id!, excepcion.id, datos)
+      if (excepcion?.id)
+        await umbralesApi.actualizarExcepcion(umbral.id!, excepcion.id, { ...datos, versionEsperada: excepcion.fechaActualizacion })
       else await umbralesApi.crearExcepcion(umbral.id!, { ...datos, alcance: destino.alcance, idObjetivo: destino.id })
       onGuardado()
     } catch (e) {
@@ -98,14 +109,20 @@ export function ExcepcionFormulario({ umbral, destino, excepcion, onCerrar, onGu
           </>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Campo etiqueta={`Advertencia (${simbolo(umbral.operador)})`} error={errorDeCampo(error, 'valorAdvertencia')}>
-              <Entrada type="number" step="any" value={advertencia} onChange={(e) => setAdvertencia(e.target.value)} autoFocus />
-            </Campo>
-            <Campo etiqueta={`Crítico (${simbolo(umbral.operador)})`} error={errorDeCampo(error, 'valorCritico')}>
-              <Entrada type="number" step="any" value={critico} onChange={(e) => setCritico(e.target.value)} />
-            </Campo>
+            <ValoresNumericos
+              tipo={umbral.metrica?.tipoDato}
+              operador={umbral.operador}
+              advertencia={advertencia}
+              critico={critico}
+              onAdvertencia={setAdvertencia}
+              onCritico={setCritico}
+              errorAdvertencia={errorDeCampo(error, 'valorAdvertencia')}
+              errorCritico={errorDeCampo(error, 'valorCritico')}
+              autoFocus
+            />
           </div>
         )}
+        {problema && !deLista && !error && <p className="text-sm text-danger">{problema}</p>}
         <Campo etiqueta="Motivo" error={errorDeCampo(error, 'motivo')}>
           <AreaTexto value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} maxLength={500} />
         </Campo>

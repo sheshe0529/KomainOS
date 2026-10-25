@@ -204,4 +204,80 @@ class UmbralTest {
                     .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("es de tipo entero");
         }
     }
+
+    @Nested
+    @DisplayName("ingreso de datos: cada nivel debe poder informarse")
+    class Ingreso {
+
+        private final Metrica cpu = DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false);
+        private final Metrica servicioActivo = DatosPrueba.metrica("servicio_activo", TipoDato.BOOLEAN, false);
+
+        @Test
+        @DisplayName("CP203: advertencia y crítico iguales se rechazan, porque la advertencia nunca se informaría")
+        void valoresIguales() {
+            for (OperadorComparacion operador : List.of(OperadorComparacion.MAYOR, OperadorComparacion.MENOR_IGUAL,
+                    OperadorComparacion.IGUAL)) {
+                assertThatThrownBy(() -> Umbral.numerico(cpu, "Iguales", limites(operador, "80", "80.0"), AHORA))
+                        .isInstanceOf(ReglaNegocioException.class)
+                        .hasMessageContaining("no pueden ser iguales");
+            }
+            Umbral codigos = Umbral.numerico(cpu, "Códigos", limites(OperadorComparacion.IGUAL, "1", "2"), AHORA);
+            assertThat(codigos.getValorCritico()).isEqualByComparingTo("2");
+        }
+
+        @Test
+        @DisplayName("CP203: con ≠ solo un valor: con dos, toda medición alertaría")
+        void distintoUnSoloValor() {
+            assertThatThrownBy(() -> Umbral.numerico(cpu, "Distinto", limites(OperadorComparacion.DISTINTO, "1", "2"), AHORA))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessageContaining("indique un solo valor");
+            Umbral uno = Umbral.numerico(cpu, "Distinto", limites(OperadorComparacion.DISTINTO, null, "0"), AHORA);
+            assertThat(uno.getValorAdvertencia()).isNull();
+        }
+
+        @Test
+        @DisplayName("CP202: una métrica booleana se compara con = o ≠ y alerta con un solo valor, 0 o 1")
+        void booleana() {
+            assertThatThrownBy(() -> Umbral.numerico(servicioActivo, "Caído",
+                    limites(OperadorComparacion.MENOR, null, "1"), AHORA))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("se compara con = o ≠");
+            assertThatThrownBy(() -> Umbral.numerico(servicioActivo, "Caído",
+                    limites(OperadorComparacion.IGUAL, "1", "0"), AHORA))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("un solo valor");
+            assertThatThrownBy(() -> Umbral.numerico(servicioActivo, "Caído",
+                    limites(OperadorComparacion.IGUAL, null, "2"), AHORA))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("debe ser 0 o 1");
+
+            Umbral caido = Umbral.numerico(servicioActivo, "Caído", limites(OperadorComparacion.IGUAL, null, "0"), AHORA);
+            assertThat(caido.getOperador()).isEqualTo(OperadorComparacion.IGUAL);
+        }
+
+        @Test
+        @DisplayName("CP203: las mismas reglas rigen para los valores de una excepción")
+        void excepcion() {
+            Umbral umbral = Umbral.numerico(cpu, "CPU alta", limites(OperadorComparacion.MAYOR, "80", "90"), AHORA);
+            Entorno produccion = DatosPrueba.entorno(1, "Producción");
+
+            assertThatThrownBy(() -> umbral.agregarExcepcion(ObjetivoExcepcion.de(produccion),
+                    new ValoresExcepcion(n("85"), n("85"), null), null, AHORA))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("no pueden ser iguales");
+        }
+    }
+
+    @Nested
+    @DisplayName("unidad de la métrica")
+    class Unidad {
+
+        @Test
+        @DisplayName("CP201: una métrica de lista o booleana no lleva unidad; una numérica puede llevarla")
+        void soloMagnitudes() {
+            assertThatThrownBy(() -> Metrica.nueva("puertos", "Puertos", "puerto", TipoDato.INTEGER, true))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("de lista no lleva unidad");
+            assertThatThrownBy(() -> Metrica.nueva("activo", "Activo", "estado", TipoDato.BOOLEAN, false))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("booleana no lleva unidad");
+
+            assertThat(Metrica.nueva("cpu", "CPU", "%", TipoDato.DECIMAL, false).getUnidad()).isEqualTo("%");
+            assertThat(Metrica.nueva("puertos", "Puertos", null, TipoDato.INTEGER, true).getUnidad()).isNull();
+        }
+    }
 }

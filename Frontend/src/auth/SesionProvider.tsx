@@ -52,9 +52,12 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const cerrarSesion = useCallback(() => {
+    const token = leerToken()
     borrarToken()
     setExpirada(false)
     setUsuario(null)
+    // Sin esperar la respuesta: la sesión local ya terminó, y si el servidor no responde el token vence solo
+    if (token) autenticacionApi.cerrarSesion(token).catch(() => undefined)
   }, [])
 
   const tieneRol = useCallback((...roles: Rol[]) => !!usuario?.rol && roles.includes(usuario.rol), [usuario])

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
-import { gruposApi, servidoresApi } from '@/api/inventario'
+import { gruposApi } from '@/api/inventario'
 import { Boton } from '@/components/ui/Boton'
 import { Campo, Selector } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { BuscadorServidor } from '@/components/umbrales/BuscadorServidor'
 import { useConsulta } from '@/hooks/useConsulta'
 import type { ObjetivoProgramacion } from './ProgramarModal'
 
@@ -18,23 +19,20 @@ interface SeleccionObjetivoModalProps {
 export function SeleccionObjetivoModal({ abierto, onCerrar, onElegir }: SeleccionObjetivoModalProps) {
   const [tipo, setTipo] = useState<'servidor' | 'grupo'>('servidor')
   const [id, setId] = useState('')
-  const opciones = useConsulta(async () => {
-    const [servidores, grupos] = await Promise.all([
-      servidoresApi.listar({ estado: 'ACTIVO', tamano: 500, orden: 'hostname,asc' }),
-      gruposApi.listar(),
-    ])
-    return {
-      servidores: (servidores.contenido ?? []).map((s) => ({ id: s.id!, nombre: s.hostname! })),
-      grupos: grupos.filter((g) => g.estado === 'ACTIVO').map((g) => ({ id: g.id!, nombre: g.nombre! })),
-    }
-  }, [])
-
-  const lista = tipo === 'servidor' ? opciones.datos?.servidores : opciones.datos?.grupos
+  // El servidor se busca en el backend sobre todo el inventario; los grupos son pocos y se listan completos
+  const [servidor, setServidor] = useState<{ id: number; nombre: string } | null>(null)
+  const grupos = useConsulta(
+    async () => (await gruposApi.listar()).filter((g) => g.estado === 'ACTIVO').map((g) => ({ id: g.id!, nombre: g.nombre! })),
+    [],
+  )
 
   function continuar() {
-    const elegido = lista?.find((o) => o.id === Number(id))
-    if (!elegido) return
-    onElegir(tipo === 'servidor' ? { idServidor: elegido.id, nombre: elegido.nombre } : { idGrupo: elegido.id, nombre: elegido.nombre })
+    if (tipo === 'servidor') {
+      if (servidor) onElegir({ idServidor: servidor.id, nombre: servidor.nombre })
+      return
+    }
+    const elegido = grupos.datos?.find((o) => o.id === Number(id))
+    if (elegido) onElegir({ idGrupo: elegido.id, nombre: elegido.nombre })
   }
 
   return (
@@ -46,14 +44,14 @@ export function SeleccionObjetivoModal({ abierto, onCerrar, onElegir }: Seleccio
       pie={
         <>
           <Boton onClick={onCerrar}>Cancelar</Boton>
-          <Boton variante="primario" icono={ArrowRight} onClick={continuar} disabled={!id}>
+          <Boton variante="primario" icono={ArrowRight} onClick={continuar} disabled={tipo === 'servidor' ? !servidor : !id}>
             Continuar
           </Boton>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        <MensajeError error={opciones.error} />
+        <MensajeError error={grupos.error} />
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Tipo de mantenimiento">
           {(['servidor', 'grupo'] as const).map((t) => (
             <label
@@ -67,6 +65,7 @@ export function SeleccionObjetivoModal({ abierto, onCerrar, onElegir }: Seleccio
                 onChange={() => {
                   setTipo(t)
                   setId('')
+                  setServidor(null)
                 }}
                 className="accent-[var(--color-accent)]"
               />
@@ -74,13 +73,27 @@ export function SeleccionObjetivoModal({ abierto, onCerrar, onElegir }: Seleccio
             </label>
           ))}
         </div>
-        {opciones.cargando ? (
+        {tipo === 'servidor' ? (
+          <div className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink">
+              Servidor<span className="ml-0.5 text-danger">*</span>
+            </span>
+            {servidor ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2">
+                <span className="font-mono text-ink">{servidor.nombre}</span>
+                <Boton onClick={() => setServidor(null)}>Cambiar</Boton>
+              </div>
+            ) : (
+              <BuscadorServidor estado="ACTIVO" onElegir={setServidor} />
+            )}
+          </div>
+        ) : grupos.cargando ? (
           <Cargando />
         ) : (
-          <Campo etiqueta={tipo === 'servidor' ? 'Servidor' : 'Grupo de mantenimiento'} obligatorio>
+          <Campo etiqueta="Grupo de mantenimiento" obligatorio>
             <Selector value={id} onChange={(e) => setId(e.target.value)}>
               <option value="">Seleccione…</option>
-              {lista?.map((o) => (
+              {grupos.datos?.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.nombre}
                 </option>

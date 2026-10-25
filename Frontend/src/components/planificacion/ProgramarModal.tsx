@@ -109,7 +109,13 @@ export function ProgramarModal({ abierto, objetivo, idOrden, onCerrar, onGuardad
           <legend className="mb-1 text-sm font-medium text-ink">Fecha programada</legend>
           {(
             [
-              ['primer-intervalo', 'Primer intervalo disponible', 'El sistema elige el primer horario libre dentro de la ventana.'],
+              [
+                'primer-intervalo',
+                'Primer intervalo disponible',
+                reprogramando
+                  ? 'El sistema elige el primer horario libre dentro de la ventana, después de la programación actual.'
+                  : 'El sistema elige el primer horario libre dentro de la ventana.',
+              ],
               ['fecha', 'Fecha y hora específicas', 'Se verifica que el horario indicado sea factible.'],
             ] as [Modo, string, string][]
           ).map(([valor, titulo, ayuda]) => (

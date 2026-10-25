@@ -22,6 +22,11 @@ public enum OperadorComparacion {
         return simbolo;
     }
 
+    /** Mayor, menor y sus variantes: los que necesitan que los valores tengan orden */
+    public boolean ordena() {
+        return this != IGUAL && this != DISTINTO;
+    }
+
     /** Si la medición alcanza el límite: con MAYOR, 85 alcanza 80 */
     public boolean seCumple(BigDecimal medicion, BigDecimal limite) {
         int comparacion = medicion.compareTo(limite);

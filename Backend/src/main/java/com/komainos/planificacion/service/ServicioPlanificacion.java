@@ -77,6 +77,8 @@ import java.util.stream.Collectors;
 public class ServicioPlanificacion {
 
     public static final String PROCESO_AUTOMATICO = "PLANIFICACION_AUTOMATICA";
+    /** Identifica el bloqueo de la planificación entre los bloqueos consultivos de la base */
+    static final long BLOQUEO_PLANIFICACION = 0x4B4F4D41_504C414EL;
     private static final Set<EstadoOrden> OCUPAN = EstadoOrden.queOcupanCronograma();
 
     private final OrdenRepositorio ordenes;
@@ -123,6 +125,7 @@ public class ServicioPlanificacion {
     /** Con fecha la verifica, sin fecha toma el primer intervalo disponible (RF28, RF30) */
     @Transactional
     public Orden programar(Integer idServidor, Integer idGrupo, Instant inicio, String motivo, Actor actor) {
+        bloquear();
         Objetivo objetivo = objetivo(idServidor, idGrupo);
         Instant ahora = Tiempo.ahora(reloj);
         Instant fechaObjetivo = inicio != null ? inicio : ahora;
@@ -151,12 +154,16 @@ public class ServicioPlanificacion {
         return planificador.planificar(solicitud(objetivo, fechaObjetivo, ahora), reservas(ahora, fechaObjetivo, null));
     }
 
-    /** La auditoría conserva la programación anterior, sin fecha busca desde la fecha objetivo original (RF30) */
+    /**
+     * La auditoría conserva la programación anterior (RF30). Sin fecha busca el primer intervalo libre que empiece después
+     * de que termina la programación vigente: quien reprograma pide otro horario, y desde la fecha objetivo el algoritmo
+     * volvería a encontrar el mismo
+     */
     @Transactional
     public Orden reprogramar(Integer idOrden, Instant inicio, String motivo, Actor actor) {
         Orden orden = buscarOrden(idOrden);
         Map<String, Object> anterior = orden.instantaneaProgramacion();
-        reprogramarInterno(orden, inicio, motivo, usuarioDe(actor));
+        reprogramarInterno(orden, inicio, orden.getFechaFinProgramada(), motivo, usuarioDe(actor));
         auditoria.registrar(actor, Operacion.de("REPROGRAMAR_ORDEN", "orden", idOrden)
                 .sobreOrden(idOrden)
                 .valores(anterior, orden.instantaneaProgramacion())
@@ -228,7 +235,8 @@ public class ServicioPlanificacion {
             }
             try {
                 Map<String, Object> anterior = orden.instantaneaProgramacion();
-                reprogramarInterno(orden, null, "Cambio de ventana permisiva", autor);
+                // La programación vigente ya no está en la ventana: vale el primer intervalo desde la fecha objetivo
+                reprogramarInterno(orden, null, null, "Cambio de ventana permisiva", autor);
                 auditoria.registrar(evento.actor(), Operacion.de("REPROGRAMAR_ORDEN", "orden", orden.getId())
                         .sobreOrden(orden.getId()).sobreServidor(evento.idServidor())
                         .valores(anterior, orden.instantaneaProgramacion())
@@ -299,6 +307,7 @@ public class ServicioPlanificacion {
     }
 
     private Orden generarCiclo(Candidato candidato) {
+        bloquear();
         Instant ahora = Tiempo.ahora(reloj);
         // Se vuelve a comprobar dentro de la transacción: otra corrida pudo generar la orden mientras tanto
         boolean yaTieneOrden = candidato.idServidor() != null
@@ -322,7 +331,9 @@ public class ServicioPlanificacion {
         return orden;
     }
 
-    private void reprogramarInterno(Orden orden, Instant inicio, String motivo, Usuario autor) {
+    /** Sin inicio planifica desde la fecha objetivo y, si se indica, no antes de noAntesDe */
+    private void reprogramarInterno(Orden orden, Instant inicio, Instant noAntesDe, String motivo, Usuario autor) {
+        bloquear();
         if (!orden.getEstado().puedePasarA(EstadoOrden.REPROGRAMADA)) {
             throw new ReglaNegocioException("La orden %s está en estado %s y no puede reprogramarse"
                     .formatted(orden.getCodigo(), orden.getEstado()));
@@ -331,10 +342,12 @@ public class ServicioPlanificacion {
         Instant ahora = Tiempo.ahora(reloj);
         Instant fechaObjetivo = orden.getFechaObjetivo();
         SolicitudPlanificacion solicitud = solicitud(objetivo, fechaObjetivo, ahora);
-        List<Reserva> reservas = reservas(ahora, inicio != null ? inicio : fechaObjetivo, orden.getId());
+        Instant desde = inicio != null ? inicio
+                : noAntesDe != null && noAntesDe.isAfter(fechaObjetivo) ? noAntesDe : fechaObjetivo;
+        List<Reserva> reservas = reservas(ahora, desde, orden.getId());
         ResultadoPlanificacion resultado = inicio != null
                 ? planificador.verificar(solicitud, inicio, reservas)
-                : planificador.planificar(solicitud, reservas);
+                : planificador.planificar(solicitud, reservas, noAntesDe);
 
         List<Orden.TramoDetalle> tramos = resultado.tramos().stream()
                 .map(t -> new Orden.TramoDetalle(t.idServidor(), t.posicion(), t.inicio(), t.fin()))
@@ -455,6 +468,14 @@ public class ServicioPlanificacion {
     private static Programacion programacion(ResultadoPlanificacion r) {
         return new Programacion(r.fechaObjetivo(), r.inicio(), r.fin(), r.fechaEvaluacion(),
                 r.ventanaAplicada().inicio(), r.ventanaAplicada().fin());
+    }
+
+    /**
+     * Leer las reservas, elegir el hueco y crear o mover la orden es una sola decisión: se serializa para toda la
+     * planificación porque la concurrencia máxima es global (RF28, RF51). Es reentrante en la misma transacción.
+     */
+    private void bloquear() {
+        ordenes.bloquearTransaccion(BLOQUEO_PLANIFICACION);
     }
 
     private Orden buscarOrden(Integer id) {

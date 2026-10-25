@@ -37,7 +37,9 @@ import com.komainos.shared.exception.ConflictoException;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.model.Actor;
+import com.komainos.shared.util.Concurrencia;
 import com.komainos.shared.util.Tiempo;
+import com.komainos.shared.validation.ValidadorDireccionIp;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -50,7 +52,6 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -145,7 +146,14 @@ public class ServicioServidor implements PuertoServidoresACargo {
 
     @Transactional
     public Servidor actualizar(Integer id, DatosServidor datos, Actor actor) {
+        return actualizar(id, datos, null, actor);
+    }
+
+    /** versionEsperada: la fecha de actualización que leyó el formulario; si cambió, 409 en vez de sobrescribir */
+    @Transactional
+    public Servidor actualizar(Integer id, DatosServidor datos, Instant versionEsperada, Actor actor) {
         Servidor servidor = buscar(id);
+        Concurrencia.exigirVersion(versionEsperada, servidor.getFechaActualizacion(), "el servidor " + servidor.getHostname());
         servidor.exigirNoDadoDeBaja("editarlo");
         DatosServidor limpio = normalizar(datos);
         if (servidores.existsByHostnameIgnoreCaseAndIdNot(limpio.hostname(), id)) {
@@ -159,7 +167,7 @@ public class ServicioServidor implements PuertoServidoresACargo {
         aplicar(limpio, servidor, false);
         if (servidor.familia() != familiaAnterior) {
             configuraciones.findByServidorId(id).ifPresent(c ->
-                    cuentasServicio.validarCambio(null, c.getIdCuentaServicio(), servidor.familia()));
+                    cuentasServicio.validarCuentaEfectiva(c.getIdCuentaServicio(), servidor.familia()));
         }
         auditoria.registrar(actor, Operacion.de("ACTUALIZAR_SERVIDOR", "servidor", id)
                 .sobreServidor(id)
@@ -169,6 +177,11 @@ public class ServicioServidor implements PuertoServidoresACargo {
 
     @Transactional
     public ConfiguracionServidor configurar(Integer id, DatosConfiguracion datos, Actor actor) {
+        return configurar(id, datos, null, actor);
+    }
+
+    @Transactional
+    public ConfiguracionServidor configurar(Integer id, DatosConfiguracion datos, Instant versionEsperada, Actor actor) {
         Servidor servidor = buscar(id);
         servidor.exigirNoDadoDeBaja("configurarlo");
         NivelCriticidad criticidad = servidor.getNivelCriticidad();
@@ -178,9 +191,10 @@ public class ServicioServidor implements PuertoServidoresACargo {
                 ? datos.frecuenciaMantenimientoDias() : criticidad.getFrecuenciaMantenimientoDias();
 
         Optional<ConfiguracionServidor> existente = configuraciones.findByServidorId(id);
+        existente.ifPresent(c -> Concurrencia.exigirVersion(versionEsperada, c.getFechaActualizacion(),
+                "la configuración de mantenimiento de " + servidor.getHostname()));
         Map<String, Object> anterior = existente.map(ServicioServidor::instantanea).orElse(null);
-        cuentasServicio.validarCambio(existente.map(ConfiguracionServidor::getIdCuentaServicio).orElse(null),
-                datos.idCuentaServicio(), servidor.familia());
+        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicio(), servidor.familia());
         ConfiguracionServidor configuracion = existente.orElseGet(() ->
                 ConfiguracionServidor.nueva(servidor, revision, mantenimiento, datos.modalidad(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad());
@@ -396,9 +410,9 @@ public class ServicioServidor implements PuertoServidoresACargo {
                 d.cantidadCpu(), d.ramGb(), d.hdVirtualGb());
     }
 
-    /** Las IPv6 se comparan en minúsculas */
+    /** Forma canónica: dos escrituras de la misma IPv6 no pasan por direcciones distintas */
     private static String normalizarIp(String ip) {
-        return ip == null ? null : ip.trim().toLowerCase(Locale.ROOT);
+        return ValidadorDireccionIp.canonica(ip);
     }
 
     private void exigirDireccionesDisponibles(DatosServidor d, Integer idPropio) {

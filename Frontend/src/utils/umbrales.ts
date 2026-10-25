@@ -15,6 +15,60 @@ export function simbolo(operador?: OperadorComparacion): string {
   return OPERADORES.find((o) => o.valor === operador)?.simbolo ?? ''
 }
 
+const ORDENADOS: OperadorComparacion[] = ['MAYOR', 'MAYOR_IGUAL', 'MENOR', 'MENOR_IGUAL']
+
+/** Verdadero y falso no tienen orden: una métrica booleana solo se compara con = o ≠ */
+export function operadoresPara(tipo?: TipoDato) {
+  return tipo === 'BOOLEAN' ? OPERADORES.filter((o) => !ORDENADOS.includes(o.valor)) : OPERADORES
+}
+
+/**
+ * Las mismas reglas que Umbral.validarNumericos en el backend (HU12 CA2), para avisar antes de guardar: cada nivel que
+ * se indique debe poder informarse. Devuelve el motivo, o null si los valores son coherentes con el operador.
+ */
+export function problemaDeValores(
+  tipo: TipoDato | undefined,
+  operador: OperadorComparacion | undefined,
+  advertencia: number | undefined,
+  critico: number | undefined,
+): string | null {
+  if (advertencia === undefined && critico === undefined) return 'Indique el valor de advertencia, el crítico o ambos'
+  for (const [valor, campo] of [
+    [advertencia, 'de advertencia'],
+    [critico, 'crítico'],
+  ] as const) {
+    if (valor === undefined) continue
+    if (Number.isNaN(valor)) return `El valor ${campo} no es un número`
+    if (tipo === 'INTEGER' && !Number.isInteger(valor)) return `La métrica es entera: el valor ${campo} no puede tener decimales`
+    if (tipo === 'BOOLEAN' && valor !== 0 && valor !== 1) return `La métrica es booleana: el valor ${campo} debe ser 0 o 1`
+  }
+  if (tipo === 'BOOLEAN') {
+    if (operador && ORDENADOS.includes(operador)) return 'Una métrica booleana se compara con = o ≠: sus valores no tienen orden'
+    if (advertencia !== undefined && critico !== undefined) {
+      return 'Una métrica booleana alerta con un solo valor: indique la advertencia o el crítico, no ambos'
+    }
+  }
+  if (advertencia === undefined || critico === undefined || !operador) return null
+  if (operador === 'DISTINTO') {
+    return 'Con el operador ≠ indique un solo valor: con dos distintos toda medición alertaría, y con dos iguales la advertencia nunca se informaría'
+  }
+  if (advertencia === critico) {
+    return 'La advertencia y el crítico no pueden ser iguales: el crítico se evalúa primero y la advertencia nunca se informaría. Para un solo nivel, deje el otro vacío'
+  }
+  const haciaArriba = operador === 'MAYOR' || operador === 'MAYOR_IGUAL'
+  const haciaAbajo = operador === 'MENOR' || operador === 'MENOR_IGUAL'
+  if ((haciaArriba && critico < advertencia) || (haciaAbajo && critico > advertencia)) {
+    return `Los valores no son coherentes con el operador ${simbolo(operador)}: el crítico debe ser ${haciaArriba ? 'mayor' : 'menor'} que la advertencia`
+  }
+  return null
+}
+
+/** Texto del formulario a número: vacío es «no se evalúa» y una coma decimal se acepta */
+export function aNumero(texto: string): number | undefined {
+  const limpio = texto.trim().replace(',', '.')
+  return limpio === '' ? undefined : Number(limpio)
+}
+
 export const ETIQUETA_TIPO_DATO: Record<TipoDato, string> = {
   STRING: 'Texto',
   INTEGER: 'Entero',

@@ -286,4 +286,73 @@ class InventarioIT extends PruebaIntegracion {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
     }
+
+    @Test
+    @DisplayName("CP210: la misma IPv6 escrita de otra forma es un duplicado, y se guarda según RFC 5952")
+    void ipv6Canonica() throws Exception {
+        UsuarioAutenticado comoAdmin = new UsuarioAutenticado(admin);
+        String cuerpo = """
+                {"hostname":"%s","direccionIp":"%s","idVersionSistemaOperativo":%d,"idEntorno":%d,
+                 "idNivelCriticidad":%d,"idResponsable":%d}""";
+        mockMvc.perform(post("/api/servidores").with(user(comoAdmin)).contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpo.formatted("srv-v6-01", "2001:DB8:0:0:0:0:0:1", idVersion, idEntorno, idMedia,
+                                responsable.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.direccionIp").value("2001:db8::1"));
+
+        mockMvc.perform(post("/api/servidores").with(user(comoAdmin)).contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpo.formatted("srv-v6-02", "2001:0db8::0001", idVersion, idEntorno, idMedia,
+                                responsable.getId())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("srv-v6-01")));
+    }
+
+    @Test
+    @DisplayName("CP204: editar con la versión que se leyó guarda; con una anterior responde 409 sin sobrescribir")
+    void edicionConcurrente() throws Exception {
+        UsuarioAutenticado comoAdmin = new UsuarioAutenticado(admin);
+        Servidor servidor = crearServidor("srv-edicion-01", "10.70.0.1", idMedia, responsable);
+        em.flush();
+        String cuerpo = """
+                {"hostname":"srv-edicion-01","direccionIp":"10.70.0.1","idVersionSistemaOperativo":%d,"idEntorno":%d,
+                 "idNivelCriticidad":%d,"idResponsable":%d,"descripcion":"%s","versionEsperada":"%s"}""";
+
+        mockMvc.perform(put("/api/servidores/" + servidor.getId()).with(user(comoAdmin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpo.formatted(idVersion, idEntorno, idMedia, responsable.getId(), "Editada antes",
+                                AHORA.minusSeconds(60))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString(
+                        "Hubo otro cambio en el servidor srv-edicion-01")));
+        assertThat(jdbc.queryForObject("select descripcion from servidor where id_servidor = ?", String.class,
+                servidor.getId())).isNull();
+
+        mockMvc.perform(put("/api/servidores/" + servidor.getId()).with(user(comoAdmin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpo.formatted(idVersion, idEntorno, idMedia, responsable.getId(), "Vigente",
+                                servidor.getFechaActualizacion())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.descripcion").value("Vigente"));
+    }
+
+    @Test
+    @DisplayName("el responsable solo lista los grupos con algún servidor a su cargo")
+    void gruposVisibles() throws Exception {
+        Servidor propio = crearServidor("srv-grupo-01", "10.80.0.1", idMedia, responsable);
+        Servidor ajeno = crearServidor("srv-grupo-02", "10.80.0.2", idMedia, otroResponsable);
+        Integer idPropio = grupos.crear("Grupo propio IT", null, sistema).getId();
+        Integer idAjeno = grupos.crear("Grupo ajeno IT", null, sistema).getId();
+        grupos.reemplazarIntegrantes(idPropio, List.of(propio.getId()), sistema);
+        grupos.reemplazarIntegrantes(idAjeno, List.of(ajeno.getId()), sistema);
+        em.flush();
+        em.clear();
+
+        mockMvc.perform(get("/api/grupos").with(user(new UsuarioAutenticado(responsable))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].nombre").value("Grupo propio IT"));
+        mockMvc.perform(get("/api/grupos").with(user(new UsuarioAutenticado(admin))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
 }

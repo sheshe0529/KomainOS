@@ -15,9 +15,10 @@ import { useConsulta } from '@/hooks/useConsulta'
 import { formatearFechaHora } from '@/utils/formato'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
 
-type Formulario = Record<keyof ParametrosSistemaPeticion, string>
+type CampoParametro = Exclude<keyof ParametrosSistemaPeticion, 'versionEsperada'>
+type Formulario = Record<CampoParametro, string>
 
-const CAMPOS: { campo: keyof ParametrosSistemaPeticion; etiqueta: string; unidad: string; ayuda: string }[] = [
+const CAMPOS: { campo: CampoParametro; etiqueta: string; unidad: string; ayuda: string }[] = [
   {
     campo: 'maxEjecucionesConcurrentes',
     etiqueta: 'Concurrencia máxima',
@@ -83,6 +84,7 @@ export function ParametrosPage() {
         maxDuracionMopMinutos: Number(valores.maxDuracionMopMinutos),
         minCiclosRachaEstable: Number(valores.minCiclosRachaEstable),
         minutosExpiracionToken: Number(valores.minutosExpiracionToken),
+        versionEsperada: parametros.datos?.fechaActualizacion,
       })
       parametros.reemplazar(actualizados)
       setF(null)

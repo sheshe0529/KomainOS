@@ -42,12 +42,19 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static com.komainos.inventario.model.DiaSemana.DOMINGO;
 import static com.komainos.inventario.model.DiaSemana.SABADO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -216,6 +223,22 @@ class PlanificacionIT extends PruebaIntegracion {
     }
 
     @Test
+    @DisplayName("CP211: reprogramar sin fecha busca otro horario, después de la programación vigente")
+    void reprogramarAutomaticoCambiaHorario() {
+        Integer id = servidor("srv-reprog", "10.0.0.11", idMedia, responsable);
+        ventanas(id, ventana(SABADO, "01:00", SABADO, "09:00"));
+        configurar(id, ModalidadPlanificacion.BAJO_DEMANDA);
+        Orden orden = planificacion.programar(id, null, lima("2026-10-03T01:00"), null, actorAdmin);
+
+        planificacion.reprogramar(orden.getId(), null, "Congelamiento de cambios", actorAdmin);
+
+        Orden reprogramada = consulta.obtener(orden.getId(), alcanceAdmin);
+        // Sin la propia orden en las reservas, desde la fecha objetivo volvería a encontrar las 01:00
+        assertThat(reprogramada.getFechaInicioProgramada()).isEqualTo(lima("2026-10-03T05:00"));
+        assertThat(reprogramada.getFechaObjetivo()).isEqualTo(orden.getFechaObjetivo());
+    }
+
+    @Test
     @DisplayName("DEC-18: si cambia la ventana, la orden programada que queda fuera se reprograma")
     void cambioDeVentanaReprograma() {
         Integer id = servidor("srv-ventana", "10.0.0.5", idMedia, responsable);
@@ -294,5 +317,70 @@ class PlanificacionIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$.resumen.codigo").exists())
                 .andExpect(jsonPath("$.resumen.inicioProgramado").value("2026-10-10T06:00:00Z"))
                 .andExpect(jsonPath("$.detalles[0].servidor.nombre").value("srv-propio"));
+    }
+
+    @Test
+    @DisplayName("RF51: dos programaciones simultáneas del mismo horario no pasan las dos: la segunda ve la primera")
+    void programacionesSimultaneas() throws Exception {
+        Integer id = servidor("srv-carrera", "10.0.0.10", idMedia, responsable);
+        ventanas(id, ventana(SABADO, "01:00", SABADO, "09:00"));
+        configurar(id, ModalidadPlanificacion.BAJO_DEMANDA);
+        Instant inicio = lima("2026-10-03T01:00");
+        CountDownLatch largada = new CountDownLatch(1);
+        Callable<Object> programar = () -> {
+            largada.await();
+            try {
+                return planificacion.programar(id, null, inicio, "Simultánea", actorAdmin);
+            } catch (PlanificacionImposibleException ex) {
+                return ex;
+            }
+        };
+
+        ExecutorService hilos = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Object>> resultados = List.of(hilos.submit(programar), hilos.submit(programar));
+            largada.countDown();
+            List<Object> obtenidos = new java.util.ArrayList<>();
+            for (Future<Object> resultado : resultados) {
+                obtenidos.add(resultado.get(30, TimeUnit.SECONDS));
+            }
+
+            assertThat(obtenidos).filteredOn(Orden.class::isInstance).hasSize(1);
+            assertThat(obtenidos).filteredOn(PlanificacionImposibleException.class::isInstance).hasSize(1);
+        } finally {
+            hilos.shutdownNow();
+        }
+        assertThat(jdbc.queryForObject("select count(*) from orden where estado = 'PROGRAMADA'", Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("una orden histórica solo muestra al responsable los detalles de sus servidores actuales")
+    void detalleConAlcance() throws Exception {
+        Usuario nuevo = usuarios.crear("resp3.plan", "L. Campos", "clave-segura-4", Rol.RESPONSABLE, Actor.sistema("PRUEBA"));
+        Integer a = servidor("srv-hist-a", "10.0.1.1", idMedia, responsable);
+        Integer b = servidor("srv-hist-b", "10.0.1.2", idMedia, responsable);
+        for (Integer id : List.of(a, b)) {
+            ventanas(id, ventana(SABADO, "00:00", SABADO, "23:00"));
+            configurar(id, ModalidadPlanificacion.BAJO_DEMANDA);
+        }
+        Integer grupo = grupos.crear("Grupo histórico", null, actorAdmin).getId();
+        grupos.reemplazarIntegrantes(grupo, List.of(a, b), actorAdmin);
+        grupos.configurar(grupo, new ServicioGrupo.DatosConfiguracionGrupo(1, 1, ModalidadPlanificacion.BAJO_DEMANDA,
+                ModoEjecucion.SECUENCIAL), actorAdmin);
+        Orden grupal = planificacion.programar(null, grupo, null, null, actorAdmin);
+
+        // b sale del grupo y pasa a otro responsable: la orden lo conserva como parte de su historia
+        grupos.reemplazarIntegrantes(grupo, List.of(a), actorAdmin);
+        servidores.actualizar(b, new DatosServidor("srv-hist-b", "10.0.1.2", "DC-Norte", null, null, null, null,
+                idVersion, null, idEntorno, idMedia, nuevo.getId(), null, List.of(), null, null, null), actorAdmin);
+
+        mockMvc.perform(get("/api/ordenes/" + grupal.getId()).with(user(new UsuarioAutenticado(nuevo))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.detalles.length()").value(1))
+                .andExpect(jsonPath("$.detalles[0].servidor.nombre").value("srv-hist-b"));
+        mockMvc.perform(get("/api/ordenes/" + grupal.getId()).with(user(new UsuarioAutenticado(admin))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.detalles.length()").value(2));
     }
 }

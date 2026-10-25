@@ -28,6 +28,13 @@ export function MetricaFormulario({ metrica, onCerrar, onGuardado }: MetricaForm
   const [error, setError] = useState<unknown>()
 
   const tipos = esLista ? TIPOS_LISTA : TIPOS_ESCALAR
+  // Un conjunto de elementos o un verdadero/falso no son magnitudes: no llevan unidad
+  const llevaUnidad = !esLista && tipo !== 'BOOLEAN'
+  const ayudaTipo = esLista
+    ? 'Cada elemento que informe el script se interpreta con este tipo, y sus umbrales solo pueden usar listas de referencia del mismo tipo'
+    : tipo === 'BOOLEAN'
+      ? 'El script informa 1 (verdadero) o 0 (falso)'
+      : undefined
 
   function elegirClase(lista: boolean) {
     setEsLista(lista)
@@ -38,7 +45,7 @@ export function MetricaFormulario({ metrica, onCerrar, onGuardado }: MetricaForm
     evento.preventDefault()
     setGuardando(true)
     setError(undefined)
-    const comunes = { nombre: nombre.trim(), unidad: unidad.trim() || undefined, tipoDato: tipo, esLista }
+    const comunes = { nombre: nombre.trim(), unidad: llevaUnidad ? unidad.trim() || undefined : undefined, tipoDato: tipo, esLista }
     try {
       onGuardado(
         metrica?.id
@@ -89,7 +96,7 @@ export function MetricaFormulario({ metrica, onCerrar, onGuardado }: MetricaForm
               <option value="LISTA">Una lista de elementos</option>
             </Selector>
           </Campo>
-          <Campo etiqueta="Tipo" obligatorio error={errorDeCampo(error, 'tipoDato')}>
+          <Campo etiqueta={esLista ? 'Tipo de los elementos' : 'Tipo del valor'} obligatorio error={errorDeCampo(error, 'tipoDato')}>
             <Selector value={tipo} onChange={(e) => setTipo(e.target.value as TipoDato)} aria-label="Tipo de dato">
               {tipos.map((t) => (
                 <option key={t} value={t}>
@@ -99,9 +106,12 @@ export function MetricaFormulario({ metrica, onCerrar, onGuardado }: MetricaForm
             </Selector>
           </Campo>
         </div>
-        <Campo etiqueta="Unidad" error={errorDeCampo(error, 'unidad')}>
-          <Entrada value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder={esLista ? '' : '%'} />
-        </Campo>
+        {ayudaTipo && <p className="-mt-2 text-xs text-ink-faint">{ayudaTipo}</p>}
+        {llevaUnidad && (
+          <Campo etiqueta="Unidad" error={errorDeCampo(error, 'unidad')}>
+            <Entrada value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder="%" />
+          </Campo>
+        )}
       </form>
     </Modal>
   )

@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 /** El estado no se edita aquí: cambia con la configuración, la baja o la reactivación */
@@ -76,7 +77,10 @@ public record ServidorPeticion(
 
         @Positive(message = "El disco virtual debe ser mayor que 0")
         @Digits(integer = 8, fraction = 2, message = "El disco virtual admite hasta 8 enteros y 2 decimales (GB)")
-        BigDecimal hdVirtualGb) {
+        BigDecimal hdVirtualGb,
+
+        /** Al actualizar, la fechaActualizacion que leyó el formulario: si otro la cambió después, responde 409 */
+        Instant versionEsperada) {
 
     public DatosServidor aDatos() {
         return new DatosServidor(hostname, direccionIp, vdc, servidorFisico, vlan, cluster, dns,

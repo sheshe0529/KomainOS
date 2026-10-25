@@ -3,6 +3,7 @@ package com.komainos.mantenimiento.service;
 import com.komainos.inventario.service.PuertoCuentasServicio;
 import com.komainos.mantenimiento.model.FiltroOrdenes;
 import com.komainos.mantenimiento.model.Orden;
+import com.komainos.mantenimiento.model.OrdenDetalle;
 import com.komainos.mantenimiento.repository.EspecificacionesOrden;
 import com.komainos.mantenimiento.repository.OrdenRepositorio;
 import com.komainos.seguridad.model.AlcanceUsuario;
@@ -14,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -42,15 +44,23 @@ public class ServicioConsultaOrdenes {
         return orden;
     }
 
-    /** La cuenta es la que se resolvió al generar la orden: cambios posteriores de la configuración no la alteran */
+    /**
+     * La cuenta es la que se resolvió al generar la orden: cambios posteriores de la configuración no la alteran. El
+     * responsable solo recibe el detalle de sus servidores: si un integrante cambió de grupo o de responsable después de
+     * generarse la orden, ese tramo no se le muestra.
+     */
     @Transactional(readOnly = true)
     public DetalleOrden detalle(Integer id, AlcanceUsuario alcance) {
         Orden orden = obtener(id, alcance);
         Optional<String> cuenta = orden.getIdCuentaServicio() == null
                 ? Optional.empty() : cuentas.nombre(orden.getIdCuentaServicio());
-        return new DetalleOrden(orden, cuenta);
+        List<OrdenDetalle> visibles = orden.getDetalles().stream()
+                .filter(d -> alcance.veTodoElInventario() || d.getServidor().esVisiblePara(alcance.usuarioId()))
+                .toList();
+        return new DetalleOrden(orden, cuenta, visibles);
     }
 
-    public record DetalleOrden(Orden orden, Optional<String> cuentaServicio) {
+    /** detalles: los que el usuario puede ver, no necesariamente todos los de la orden */
+    public record DetalleOrden(Orden orden, Optional<String> cuentaServicio, List<OrdenDetalle> detalles) {
     }
 }

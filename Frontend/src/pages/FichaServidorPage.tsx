@@ -159,6 +159,7 @@ export function FichaServidorPage() {
                 frecuenciaMantenimientoDias: datos.frecuenciaMantenimientoDias,
                 modalidadPlanificacion: datos.modalidadPlanificacion,
                 idCuentaServicio: datos.idCuentaServicio,
+                versionEsperada: s.configuracion?.fechaActualizacion,
               }),
               'Configuración de mantenimiento guardada.',
             )

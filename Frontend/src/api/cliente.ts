@@ -1,5 +1,6 @@
 /** Concentra el token y el manejo de errores para que ninguna pantalla los resuelva por su cuenta */
 
+import type { Pagina } from './dominio'
 import type { ErrorRespuesta } from './types'
 
 // En desarrollo Vite reenvía /api al backend (vite.config.ts)
@@ -126,6 +127,23 @@ export async function descargar(ruta: string, porDefecto = 'archivo', opciones: 
   // Se libera después de que el navegador tomó el archivo
   setTimeout(() => URL.revokeObjectURL(url), 1000)
   return nombre
+}
+
+/** Tope de seguridad: un listado que no termina no cuelga el panel */
+const PAGINAS_MAXIMAS = 100
+
+/**
+ * Recorre todas las páginas de un listado. Para selectores que necesitan el conjunto completo: tomar solo la primera
+ * página omitiría en silencio lo que queda después
+ */
+export async function todasLasPaginas<T>(obtener: (pagina: number) => Promise<Pagina<T>>): Promise<T[]> {
+  const elementos: T[] = []
+  for (let pagina = 0; pagina < PAGINAS_MAXIMAS; pagina++) {
+    const leida = await obtener(pagina)
+    elementos.push(...(leida.contenido ?? []))
+    if (pagina + 1 >= (leida.totalPaginas ?? 0)) break
+  }
+  return elementos
 }
 
 export const http = {

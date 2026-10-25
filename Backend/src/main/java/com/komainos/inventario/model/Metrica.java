@@ -62,6 +62,7 @@ public class Metrica {
     /** El servicio impide cambiar el tipo cuando ya hay umbrales o mediciones que dependen de él */
     public void actualizar(String nombre, String unidad, TipoDato tipoDato, boolean esLista) {
         validarTipo(tipoDato, esLista);
+        validarUnidad(unidad, tipoDato, esLista);
         this.nombre = nombre;
         this.unidad = unidad;
         this.tipoDato = tipoDato;
@@ -84,6 +85,19 @@ public class Metrica {
             throw new ReglaNegocioException("La métrica %s ya se encuentra inactiva".formatted(nombre));
         }
         activo = false;
+    }
+
+    /** La unidad describe una magnitud: un conjunto de elementos o un verdadero/falso no la tienen */
+    private static void validarUnidad(String unidad, TipoDato tipoDato, boolean esLista) {
+        if (unidad == null) {
+            return;
+        }
+        if (esLista) {
+            throw new ReglaNegocioException("Una métrica de lista no lleva unidad: se comparan sus elementos, no una magnitud");
+        }
+        if (tipoDato == TipoDato.BOOLEAN) {
+            throw new ReglaNegocioException("Una métrica booleana no lleva unidad: su valor es 0 (falso) o 1 (verdadero)");
+        }
     }
 
     /** medicion_metrica.valor es numérico, y una lista de verdadero y falso no tiene sentido */

@@ -17,16 +17,21 @@ public class ServicioReautenticacion {
 
     private final UsuarioRepositorio usuarios;
     private final PasswordEncoder codificador;
+    private final LimitadorIntentos limitador;
 
-    /** 422 y no 401: un 401 haría que el panel cierre la sesión del usuario */
+    /** 422 y no 401: un 401 haría que el panel cierre la sesión del usuario. Tras varios fallos responde 429 */
     @Transactional(readOnly = true)
     public void exigir(Integer idUsuario, String contrasena) {
+        String clave = "reautenticacion:" + idUsuario;
+        limitador.exigirPermitido(clave);
         Usuario usuario = usuarios.findById(idUsuario).orElse(null);
         boolean valida = usuario != null && usuario.isActivo() && contrasena != null
                 && codificador.matches(contrasena, usuario.getHashContrasena());
         if (!valida) {
             log.warn("Reautenticación rechazada para el usuario {}", idUsuario);
+            limitador.registrarFallo(clave, LimitadorIntentos.FALLOS_POR_CUENTA);
             throw new ReglaNegocioException("La contraseña no es correcta");
         }
+        limitador.registrarExito(clave);
     }
 }

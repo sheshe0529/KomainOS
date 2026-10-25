@@ -2,11 +2,14 @@ package com.komainos.shared.controller;
 
 import com.komainos.shared.dto.ErrorRespuesta;
 import com.komainos.shared.exception.ConflictoException;
+import com.komainos.shared.exception.DemasiadosIntentosException;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
 import com.komainos.shared.exception.ReglaNegocioException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -41,6 +44,15 @@ public class ManejadorGlobalErrores {
     @ExceptionHandler(ConflictoException.class)
     public ResponseEntity<ErrorRespuesta> conflicto(ConflictoException ex, HttpServletRequest req) {
         return construir(HttpStatus.CONFLICT, "CONFLICTO", ex.getMessage(), req);
+    }
+
+    /** Retry-After le dice al cliente cuántos segundos esperar */
+    @ExceptionHandler(DemasiadosIntentosException.class)
+    public ResponseEntity<ErrorRespuesta> demasiadosIntentos(DemasiadosIntentosException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getSegundosEspera()))
+                .body(ErrorRespuesta.de(HttpStatus.TOO_MANY_REQUESTS.value(), "DEMASIADOS_INTENTOS", ex.getMessage(),
+                        req.getRequestURI()));
     }
 
     @ExceptionHandler(ReglaNegocioException.class)
@@ -111,7 +123,12 @@ public class ManejadorGlobalErrores {
 
     /** Lo inesperado no llega al cliente: el detalle va al log y la respuesta es genérica (RNF11) */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorRespuesta> inesperado(Exception ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorRespuesta> inesperado(Exception ex, HttpServletRequest req, HttpServletResponse res) {
+        if (res.isCommitted()) {
+            // Una descarga ya empezada que se cortó: no admite otra respuesta, y la exportación audita la interrupción
+            log.warn("Respuesta interrumpida en {}: {}", req.getRequestURI(), ex.getClass().getSimpleName());
+            return null;
+        }
         log.error("Error no controlado en {}", req.getRequestURI(), ex);
         return construir(HttpStatus.INTERNAL_SERVER_ERROR, "ERROR_INTERNO",
                 "Ocurrió un error inesperado. Consulte al administrador del sistema", req);

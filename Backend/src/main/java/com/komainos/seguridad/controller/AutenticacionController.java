@@ -9,20 +9,22 @@ import com.komainos.seguridad.model.Usuario;
 import com.komainos.seguridad.model.UsuarioAutenticado;
 import com.komainos.seguridad.service.PuertoParametrosSesion;
 import com.komainos.seguridad.service.PuertoServidoresACargo;
-import com.komainos.seguridad.service.ServicioJwt;
+import com.komainos.seguridad.service.ServicioAutenticacion;
+import com.komainos.seguridad.service.ServicioAutenticacion.Sesion;
 import com.komainos.seguridad.service.ServicioUsuario;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -31,24 +33,33 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Autenticación")
 public class AutenticacionController {
 
-    private final AuthenticationManager gestorAutenticacion;
-    private final ServicioJwt servicioJwt;
+    private static final String PREFIJO = "Bearer ";
+
+    private final ServicioAutenticacion autenticacion;
     private final PuertoParametrosSesion parametrosSesion;
     private final ServicioUsuario servicioUsuario;
     private final PuertoServidoresACargo servidoresACargo;
 
-    /** Credenciales inválidas o cuenta inactiva llegan como 401 genérico: no se distingue usuario inexistente de contraseña incorrecta (HU01) */
+    /**
+     * Credenciales inválidas o cuenta inactiva llegan como 401 genérico: no se distingue usuario inexistente de contraseña
+     * incorrecta (HU01). Tras varios fallos responde 429 hasta que pase la espera. El origen es la IP de la conexión: detrás
+     * de un proxy, este debe conservarla o aplicar su propio límite.
+     */
     @PostMapping("/login")
     @Operation(summary = "Inicia sesión y devuelve el token de acceso")
-    public TokenRespuesta login(@Valid @RequestBody LoginPeticion peticion) {
-        Authentication autenticacion = gestorAutenticacion.authenticate(
-                new UsernamePasswordAuthenticationToken(peticion.codigo(), peticion.contrasena()));
+    public TokenRespuesta login(@Valid @RequestBody LoginPeticion peticion, HttpServletRequest solicitud) {
+        Sesion sesion = autenticacion.iniciar(peticion.codigo(), peticion.contrasena(), solicitud.getRemoteAddr());
+        return TokenRespuesta.de(sesion.token(), sesion.minutos(), UsuarioSesion.de(sesion.usuario()));
+    }
 
-        UsuarioAutenticado usuario = (UsuarioAutenticado) autenticacion.getPrincipal();
-        long minutos = parametrosSesion.minutosExpiracionToken();
-        String token = servicioJwt.generar(usuario.getUsername(), usuario.rol().name(), minutos);
-
-        return TokenRespuesta.de(token, minutos, UsuarioSesion.de(usuario));
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Cierra la sesión: el token deja de valer en el servidor aunque no haya vencido (RF02)")
+    public void logout(HttpServletRequest solicitud) {
+        String cabecera = solicitud.getHeader(HttpHeaders.AUTHORIZATION);
+        if (cabecera != null && cabecera.startsWith(PREFIJO)) {
+            autenticacion.cerrar(cabecera.substring(PREFIJO.length()));
+        }
     }
 
     /** Se releen de la base para reflejar cambios hechos por el administrador durante la sesión */

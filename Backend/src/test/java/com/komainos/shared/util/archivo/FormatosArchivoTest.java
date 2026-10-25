@@ -1,12 +1,17 @@
 package com.komainos.shared.util.archivo;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.komainos.shared.exception.ReglaNegocioException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -126,5 +131,68 @@ class FormatosArchivoTest {
         assertThat(ClaveColumna.normalizar(" DIRECCION  IP ")).isEqualTo("direccion_ip");
         assertThat(ClaveColumna.normalizar("\uFEFFHostname")).isEqualTo("hostname");
         assertThat(ClaveColumna.normalizar("Versión")).isEqualTo("version");
+    }
+
+    @ParameterizedTest
+    @EnumSource(FormatoArchivo.class)
+    @DisplayName("CP209: un valor que empieza con apóstrofo o con un inicio de fórmula vuelve exactamente igual")
+    void escapeReversible(FormatoArchivo formato) {
+        List<String> valores = List.of("'=dato_ficticio", "'texto", "''doble", "=1+1", "+51 999", "-x", "@usuario",
+                "texto'final", "'");
+        List<Map<String, ?>> filas = valores.stream()
+                .<Map<String, ?>>map(v -> fila("srv-01", "10.0.0.1", v, null))
+                .toList();
+
+        TablaArchivo tabla = lector.leer(formato, escritor.escribir(formato, COLUMNAS, filas, "Servidores"));
+
+        assertThat(tabla.filas()).extracting(f -> f.literal("descripcion")).containsExactlyElementsOf(valores);
+    }
+
+    @Test
+    @DisplayName("CSV escrito a mano: el apóstrofo que precede a texto común no es un escape y se conserva")
+    void apostrofoManual() {
+        byte[] contenido = "Hostname,Descripción\nsrv-01,'Lima\nsrv-02,'=1+1\n".getBytes(StandardCharsets.UTF_8);
+
+        TablaArchivo tabla = lector.leer(FormatoArchivo.CSV, contenido);
+
+        assertThat(tabla.filas()).extracting(f -> f.literal("descripcion")).containsExactly("'Lima", "=1+1");
+    }
+
+    @Test
+    @DisplayName("un archivo ilegible se registra sin su contenido: puede traer secretos (RNF11)")
+    void logSinContenido() {
+        Logger registro = (Logger) LoggerFactory.getLogger(LectorTabular.class);
+        ListAppender<ILoggingEvent> eventos = new ListAppender<>();
+        eventos.start();
+        registro.addAppender(eventos);
+        try {
+            byte[] roto = "[{\"hostname\": \"srv-01\", \"contrasena\": ClaveFicticia123}]".getBytes(StandardCharsets.UTF_8);
+            assertThatThrownBy(() -> lector.leer(FormatoArchivo.JSON, roto))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessageNotContaining("ClaveFicticia123");
+
+            assertThat(eventos.list).singleElement().satisfies(e -> {
+                assertThat(e.getFormattedMessage()).contains("JSON", "línea 1").doesNotContain("ClaveFicticia123");
+                assertThat(e.getThrowableProxy()).isNull();
+            });
+        } finally {
+            registro.detachAppender(eventos);
+        }
+    }
+
+    @Test
+    @DisplayName("escribe fila por fila en la salida, sin cerrarla, con el mismo contenido que de una vez")
+    void escrituraPorPartes() throws Exception {
+        List<Map<String, ?>> filas = List.of(fila("srv-01", "10.0.0.1", "=1+1", "220"),
+                fila("srv-02", "10.0.0.2", null, null));
+        for (FormatoArchivo formato : List.of(FormatoArchivo.CSV, FormatoArchivo.JSON, FormatoArchivo.YAML)) {
+            ByteArrayOutputStream salida = new ByteArrayOutputStream();
+            escritor.escribir(formato, COLUMNAS, filas.iterator(), "Servidores", salida);
+            salida.write('!');
+
+            assertThat(salida.toByteArray()).as(formato.name())
+                    .startsWith(escritor.escribir(formato, COLUMNAS, filas, "Servidores"))
+                    .endsWith((byte) '!');
+        }
     }
 }

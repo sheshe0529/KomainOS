@@ -1,6 +1,7 @@
 package com.komainos.seguridad.dto;
 
 import com.komainos.seguridad.model.Rol;
+import com.komainos.shared.validation.MaximoBytes;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -16,6 +17,7 @@ public record CrearUsuarioPeticion(
 
         @NotBlank(message = "La contraseña es obligatoria")
         @Size(min = 8, max = 72, message = "La contraseña debe tener entre 8 y 72 caracteres")
+        @MaximoBytes(value = 72, message = "La contraseña no puede superar los 72 bytes: cada ñ o vocal con tilde ocupa dos")
         String contrasena,
 
         @NotNull(message = "El rol es obligatorio")

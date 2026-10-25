@@ -66,7 +66,7 @@ public class GrupoController {
     public FichaGrupoRespuesta actualizar(@PathVariable Integer id, @Valid @RequestBody GrupoPeticion peticion,
                                           @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
-        servicio.actualizar(id, peticion.nombre(), peticion.descripcion(), alcance.actor());
+        servicio.actualizar(id, peticion.nombre(), peticion.descripcion(), peticion.versionEsperada(), alcance.actor());
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 
@@ -90,7 +90,7 @@ public class GrupoController {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         servicio.configurar(id, new DatosConfiguracionGrupo(peticion.frecuenciaRevisionDias(),
                 peticion.frecuenciaMantenimientoDias(), peticion.modalidadPlanificacion(),
-                peticion.modoEjecucion(), peticion.idCuentaServicio()), alcance.actor());
+                peticion.modoEjecucion(), peticion.idCuentaServicio()), peticion.versionEsperada(), alcance.actor());
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 

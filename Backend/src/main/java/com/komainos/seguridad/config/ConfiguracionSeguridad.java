@@ -23,7 +23,6 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -59,7 +58,7 @@ public class ConfiguracionSeguridad {
                 .cors(cors -> cors.configurationSource(fuenteCors()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> req
-                        .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // El permiso fino se declara con @PreAuthorize en cada controlador
@@ -104,9 +103,10 @@ public class ConfiguracionSeguridad {
                 .orElseThrow(() -> new UsernameNotFoundException("Credenciales inválidas"));
     }
 
+    /** BCrypt que rechaza contraseñas de más de 72 bytes en vez de compararlas truncadas (CVE-2025-22228) */
     @Bean
     public PasswordEncoder codificadorContrasena() {
-        return new BCryptPasswordEncoder();
+        return new CodificadorContrasena();
     }
 
     @Bean

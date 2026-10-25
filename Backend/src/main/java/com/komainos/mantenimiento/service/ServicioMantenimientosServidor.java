@@ -34,6 +34,13 @@ public class ServicioMantenimientosServidor implements PuertoMantenimientos {
         return ordenes.existeDelServidorEnEstados(idServidor, EstadoOrden.enCurso());
     }
 
+    /** Las que aún ocupan el cronograma: programadas, en evaluación, en autorización, en cola o en ejecución */
+    @Override
+    @Transactional(readOnly = true)
+    public long ordenesPendientesConCuenta(Integer idCuentaServicio) {
+        return ordenes.countByIdCuentaServicioAndEstadoIn(idCuentaServicio, EstadoOrden.queOcupanCronograma());
+    }
+
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public int retirarPendientes(Integer idServidor, Usuario autor, String motivo, Instant ahora) {

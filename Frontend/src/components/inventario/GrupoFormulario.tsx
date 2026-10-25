@@ -28,7 +28,11 @@ export function GrupoFormulario({ abierto, grupo, onCerrar, onGuardado }: GrupoF
     setError(undefined)
     try {
       const datos = { nombre: nombre.trim(), descripcion: descripcion.trim() || undefined }
-      onGuardado(grupo?.id ? await gruposApi.actualizar(grupo.id, datos) : await gruposApi.crear(datos))
+      onGuardado(
+        grupo?.id
+          ? await gruposApi.actualizar(grupo.id, { ...datos, versionEsperada: grupo.fechaActualizacion })
+          : await gruposApi.crear(datos),
+      )
     } catch (e) {
       setError(e)
     } finally {

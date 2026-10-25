@@ -7,10 +7,10 @@ import java.time.Instant;
 
 /** Nunca incluye el hash de la contraseña (RNF11) */
 public record UsuarioRespuesta(Integer id, String codigo, String nombreCompleto, Rol rol,
-                               boolean activo, Instant fechaCreacion) {
+                               boolean activo, Instant fechaCreacion, Instant fechaActualizacion) {
 
     public static UsuarioRespuesta de(Usuario u) {
         return new UsuarioRespuesta(u.getId(), u.getCodigo(), u.getNombreCompleto(), u.getRol(),
-                u.isActivo(), u.getFechaCreacion());
+                u.isActivo(), u.getFechaCreacion(), u.getFechaActualizacion());
     }
 }

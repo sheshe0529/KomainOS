@@ -19,6 +19,13 @@ import java.util.Optional;
 
 public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpecificationExecutor<Orden> {
 
+    /**
+     * Bloqueo consultivo de la transacción: se libera solo al confirmar o deshacer. Quien lo toma ve las reservas que
+     * confirmó la transacción anterior, así dos planificaciones simultáneas no eligen el mismo hueco.
+     */
+    @Query(value = "select count(*) from pg_advisory_xact_lock(:clave)", nativeQuery = true)
+    long bloquearTransaccion(@Param("clave") long clave);
+
     /** Se pide antes de insertar porque el código de la orden incluye el id (DEC-07) */
     @Query(value = "select nextval('\"KomainOS\".orden_id_orden_seq')", nativeQuery = true)
     Integer siguienteId();
@@ -87,6 +94,8 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
     boolean existsByGrupoIdAndEstadoIn(Integer idGrupo, Collection<EstadoOrden> estados);
 
     boolean existsByServidorId(Integer idServidor);
+
+    long countByIdCuentaServicioAndEstadoIn(Integer idCuentaServicio, Collection<EstadoOrden> estados);
 
     boolean existsByGrupoId(Integer idGrupo);
 

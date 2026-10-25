@@ -34,6 +34,9 @@ public class ServicioUmbralesServidor {
 
     /** Lo que informa el usuario al probar: separado por comas, punto y coma o saltos de línea */
     private static final Pattern SEPARADORES = Pattern.compile("[,;\\r\\n]+");
+    /** Lo que se prueba es lo que informaría un script: se acota antes de procesarlo */
+    private static final int MAXIMO_CARACTERES = 20_000;
+    private static final int MAXIMO_ELEMENTOS = 1_000;
 
     private final ServicioServidor servidores;
     private final UmbralRepositorio umbrales;
@@ -90,14 +93,23 @@ public class ServicioUmbralesServidor {
         cargar(aplicado);
 
         if (umbral.esDeLista()) {
+            if (elementos != null && elementos.length() > MAXIMO_CARACTERES) {
+                throw new ReglaNegocioException("Los elementos a probar no pueden superar los %d caracteres"
+                        .formatted(MAXIMO_CARACTERES));
+            }
             List<String> informados = elementos == null ? List.of()
                     : Arrays.stream(SEPARADORES.split(elementos)).map(String::trim).filter(e -> !e.isEmpty()).toList();
+            if (informados.size() > MAXIMO_ELEMENTOS) {
+                throw new ReglaNegocioException("Se pueden probar hasta %d elementos".formatted(MAXIMO_ELEMENTOS));
+            }
             ResultadoLista resultado = aplicado.evaluarLista(informados);
             return new ResultadoPrueba(aplicado, resultado.nivel(), null, resultado.faltantes(), resultado.sobrantes());
         }
         if (valor == null) {
             throw new ReglaNegocioException("Indique el valor que quiere probar");
         }
+        // Mismo rango que una medición (numeric(20,6)) y que el tipo de la métrica: acota también el valor que se devuelve
+        umbral.getMetrica().getTipoDato().validarLimite(valor, "a probar");
         return new ResultadoPrueba(aplicado, aplicado.evaluar(valor), valor, List.of(), List.of());
     }
 

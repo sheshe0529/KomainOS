@@ -99,4 +99,22 @@ class TipoDatoTest {
         assertThat(OperadorComparacion.DISTINTO.esCoherente(new BigDecimal("10"), new BigDecimal("20"))).isTrue();
         assertThat(OperadorComparacion.MAYOR.esCoherente(null, new BigDecimal("20"))).isTrue();
     }
+
+    @Test
+    @DisplayName("Un exponente enorme se rechaza sin construir su forma plana, y un texto largo antes de convertirlo")
+    void expansionAcotada() {
+        long inicio = System.nanoTime();
+        assertThatThrownBy(() -> TipoDato.DECIMAL.canonico("1e100000", false))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("255 caracteres o menos");
+        assertThatThrownBy(() -> TipoDato.DECIMAL.canonico("-1e-300", false))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("255 caracteres o menos");
+        assertThatThrownBy(() -> TipoDato.INTEGER.canonico("9".repeat(256), false))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("supera los 255 caracteres");
+        // Sin materializar cien mil dígitos la validación es inmediata
+        assertThat(System.nanoTime() - inicio).isLessThan(1_000_000_000L);
+
+        assertThat(TipoDato.DECIMAL.canonico("1e3", false)).isEqualTo("1000");
+        assertThat(TipoDato.DECIMAL.canonico("1.5e-3", false)).isEqualTo("0.0015");
+        assertThat(TipoDato.DECIMAL.canonico("9".repeat(255), false)).hasSize(255);
+    }
 }

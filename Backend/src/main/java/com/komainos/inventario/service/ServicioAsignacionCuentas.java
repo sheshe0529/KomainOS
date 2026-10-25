@@ -58,10 +58,16 @@ public class ServicioAsignacionCuentas {
         return id == null ? Optional.empty() : cuentas.nombre(id).map(nombre -> new CuentaEfectiva(id, nombre, true));
     }
 
-    /** Solo se valida la cuenta cuando cambia, igual que las demás referencias de la configuración */
-    public void validarCambio(Integer actual, Integer nueva, FamiliaSistemaOperativo familia) {
-        if (nueva != null && !nueva.equals(actual)) {
-            cuentas.exigirAsignable(nueva, familia);
+    /**
+     * Valida la cuenta que de verdad usará la configuración: la propia o, si no tiene, la predeterminada. No basta con
+     * revisar la propia cuando cambia: un servidor que pasa a Windows y hereda una predeterminada con llave SSH quedaría
+     * con una cuenta que WinRM no admite (RF06, HU04 CA3).
+     */
+    @Transactional(readOnly = true)
+    public void validarCuentaEfectiva(Integer propia, FamiliaSistemaOperativo familia) {
+        Integer efectiva = propia != null ? propia : parametrosSistema().getIdCuentaServicioPredeterminada();
+        if (efectiva != null) {
+            cuentas.exigirAsignable(efectiva, familia);
         }
     }
 

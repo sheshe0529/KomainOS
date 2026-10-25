@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 /** Métrica numérica: operador y al menos un valor. Métrica de lista: lista y al menos un nivel (RF16, R2.4) */
 public record UmbralPeticion(
@@ -33,5 +34,8 @@ public record UmbralPeticion(
         NivelAlerta nivelFaltante,
 
         /** Nivel si aparece algún elemento que no está en la lista; nulo, no se evalúa */
-        NivelAlerta nivelSobrante) {
+        NivelAlerta nivelSobrante,
+
+        /** Al actualizar, la fechaActualizacion que leyó el formulario: si otro la cambió después, responde 409 */
+        Instant versionEsperada) {
 }

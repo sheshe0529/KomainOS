@@ -15,6 +15,7 @@ import com.komainos.shared.exception.ConflictoException;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.model.Actor;
+import com.komainos.shared.util.Concurrencia;
 import com.komainos.shared.util.Tiempo;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
@@ -78,7 +79,13 @@ public class ServicioListasReferencia {
     /** El tipo no cambia; los elementos quitados quedan con su fecha de baja y los nuevos con su fecha de alta */
     @Transactional
     public ListaReferencia actualizar(Integer id, DatosLista datos, Actor actor) {
+        return actualizar(id, datos, null, actor);
+    }
+
+    @Transactional
+    public ListaReferencia actualizar(Integer id, DatosLista datos, Instant versionEsperada, Actor actor) {
         ListaReferencia lista = buscar(id);
+        Concurrencia.exigirVersion(versionEsperada, lista.getFechaActualizacion(), "la lista " + lista.getNombre());
         if (datos.tipoDato() != null && datos.tipoDato() != lista.getTipoDato()) {
             throw new ReglaNegocioException(("El tipo de dato de la lista no se modifica: los umbrales que la usan dependen "
                     + "de que coincida con el de su métrica"));

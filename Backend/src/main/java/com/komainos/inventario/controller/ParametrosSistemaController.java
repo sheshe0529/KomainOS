@@ -40,6 +40,6 @@ public class ParametrosSistemaController {
     public ParametrosSistemaRespuesta actualizar(@Valid @RequestBody ParametrosSistemaPeticion peticion,
                                                  @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         return ParametrosSistemaRespuesta.de(servicio.actualizar(peticion.aDatos(),
-                AlcanceUsuario.de(solicitante).actor()), cuentasServicio.predeterminada());
+                peticion.versionEsperada(), AlcanceUsuario.de(solicitante).actor()), cuentasServicio.predeterminada());
     }
 }

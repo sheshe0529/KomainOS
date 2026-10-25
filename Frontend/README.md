@@ -9,6 +9,7 @@ npm install
 npm run dev       # http://localhost:5180, con /api reenviado al backend (http://localhost:8081)
 npm run build     # chequeo de tipos + build de producción
 npm run lint      # oxlint
+npm test          # Vitest: reglas del panel que no dependen del navegador (src/**/*.test.ts)
 ```
 
 El puerto es fijo (`strictPort`): si está ocupado, Vite falla en lugar de

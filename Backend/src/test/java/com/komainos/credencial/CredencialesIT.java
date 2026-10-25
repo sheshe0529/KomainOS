@@ -3,11 +3,16 @@ package com.komainos.credencial;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import com.komainos.PruebaIntegracion;
+import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
 import com.komainos.inventario.model.DatosServidor;
+import com.komainos.inventario.model.DiaSemana;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.NivelCriticidad.DatosNivelCriticidad;
 import com.komainos.inventario.service.ServicioCatalogos;
 import com.komainos.inventario.service.ServicioServidor;
+import com.komainos.mantenimiento.model.Orden;
+import com.komainos.planificacion.service.ServicioPlanificacion;
+import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.Rol;
 import com.komainos.seguridad.model.Usuario;
 import com.komainos.seguridad.model.UsuarioAutenticado;
@@ -25,6 +30,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +62,7 @@ class CredencialesIT extends PruebaIntegracion {
     @Autowired ServicioCatalogos catalogos;
     @Autowired ServicioUsuario usuarios;
     @Autowired ServicioServidor servidores;
+    @Autowired ServicioPlanificacion planificacion;
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper json;
     @Autowired EntityManager em;
@@ -319,6 +329,39 @@ class CredencialesIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$.mensaje").value(containsString("revocada")));
         mockMvc.perform(comoAdmin(post("/api/credenciales/{id}/revelado", svc)).content(cuerpo("contrasena", CLAVE_ADMIN)))
                 .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    @DisplayName("CP208: una cuenta que usará una orden pendiente no se revoca hasta que esa orden termine o se cancele")
+    void cuentaConOrdenesPendientes() throws Exception {
+        Integer svc = idDe(crearCuenta("svc-ansible", "ansible", "PASSWORD", "Clave-Svc-1"));
+        Integer otra = idDe(crearCuenta("svc-reemplazo", "ansible", "PASSWORD", "Clave-Svc-2"));
+        configurar(idLinux, svc).andExpect(status().isOk());
+        servidores.reemplazarVentanas(idLinux, List.of(new IntervaloSemanal(DiaSemana.SABADO, LocalTime.of(1, 0),
+                DiaSemana.SABADO, LocalTime.of(9, 0))), new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR));
+        Instant inicio = LocalDateTime.parse("2026-10-03T01:00").atZone(ZoneId.of("America/Lima")).toInstant();
+        Orden orden = planificacion.programar(idLinux, null, inicio, "Parche", Actor.usuario(admin.getId()));
+        // El servidor ya usa otra cuenta, pero la orden programada conserva la que tenía al planificarse
+        configurar(idLinux, otra).andExpect(status().isOk());
+
+        revocar(svc).andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.mensaje").value(containsString("1 orden(es) pendiente(s)")));
+
+        planificacion.cancelar(orden.getId(), "Servicio migrado", Actor.usuario(admin.getId()));
+        revocar(svc).andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("REVOCADA"));
+    }
+
+    @Test
+    @DisplayName("la cuenta heredada se valida aunque la configuración no elija una: la predeterminada debe servir")
+    void cuentaEfectivaHeredada() throws Exception {
+        Integer llave = idDe(crearCuenta("svc-llave", "ansible", "LLAVE_SSH", LLAVE_SSH));
+        configurar(idLinux, null).andExpect(status().isOk());
+        predeterminada(llave).andExpect(status().isOk());
+
+        // Windows no admite una llave SSH: heredar la predeterminada se rechaza igual que asignarla
+        configurar(idWindows, null)
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.mensaje").value(containsString("WinRM")));
     }
 
     @Test

@@ -87,7 +87,7 @@ public class ServidorController {
     public FichaServidorRespuesta actualizar(@PathVariable Integer id, @Valid @RequestBody ServidorPeticion peticion,
                                              @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
-        servicio.actualizar(id, peticion.aDatos(), alcance.actor());
+        servicio.actualizar(id, peticion.aDatos(), peticion.versionEsperada(), alcance.actor());
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 
@@ -100,7 +100,7 @@ public class ServidorController {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         servicio.configurar(id, new DatosConfiguracion(peticion.frecuenciaRevisionDias(),
                 peticion.frecuenciaMantenimientoDias(), peticion.modalidadPlanificacion(),
-                peticion.idCuentaServicio()), alcance.actor());
+                peticion.idCuentaServicio()), peticion.versionEsperada(), alcance.actor());
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 

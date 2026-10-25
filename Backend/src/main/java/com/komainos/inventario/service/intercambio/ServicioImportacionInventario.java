@@ -395,7 +395,7 @@ public class ServicioImportacionInventario {
         return Arrays.stream(SEPARADOR_DIRECCIONES.split(valor))
                 .map(String::trim)
                 .filter(texto -> !texto.isEmpty())
-                .map(texto -> texto.toLowerCase(Locale.ROOT))
+                .map(ValidadorDireccionIp::canonica)
                 .toList();
     }
 

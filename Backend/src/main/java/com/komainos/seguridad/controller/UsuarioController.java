@@ -70,7 +70,7 @@ public class UsuarioController {
     public UsuarioRespuesta actualizar(@PathVariable Integer id,
                                        @Valid @RequestBody ActualizarUsuarioPeticion peticion,
                                        @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        return UsuarioRespuesta.de(servicioUsuario.actualizar(id, peticion.nombreCompleto(), peticion.rol(),
+        return UsuarioRespuesta.de(servicioUsuario.actualizar(id, peticion.nombreCompleto(), peticion.rol(), peticion.versionEsperada(),
                 AlcanceUsuario.de(solicitante).actor()));
     }
 

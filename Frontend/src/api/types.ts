@@ -12,6 +12,7 @@ export interface ActualizarExcepcionUmbralPeticion {
   valorCritico?: number
   idListaReferencia?: number
   motivo?: string
+  versionEsperada?: string
 }
 
 export interface ActualizarMetricaPeticion {
@@ -24,6 +25,7 @@ export interface ActualizarMetricaPeticion {
 export interface ActualizarUsuarioPeticion {
   nombreCompleto: string
   rol: 'ADMINISTRADOR' | 'OPERADOR' | 'RESPONSABLE'
+  versionEsperada?: string
 }
 
 export interface AnalisisImportacionRespuesta {
@@ -71,6 +73,7 @@ export interface ConfiguracionGrupoPeticion {
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
   modoEjecucion: 'SECUENCIAL' | 'PARALELO'
   idCuentaServicio?: number
+  versionEsperada?: string
 }
 
 export interface ConfiguracionPeticion {
@@ -78,6 +81,7 @@ export interface ConfiguracionPeticion {
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
   idCuentaServicio?: number
+  versionEsperada?: string
 }
 
 export interface ConfiguracionRespuesta {
@@ -298,6 +302,7 @@ export interface FilaImportacionRespuesta {
 export interface GrupoPeticion {
   nombre: string
   descripcion?: string
+  versionEsperada?: string
 }
 
 export interface GrupoResumenRespuesta {
@@ -323,6 +328,7 @@ export interface ListaReferenciaPeticion {
   tipoDato: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
   ignoraMayusculas?: boolean
   elementos: string[]
+  versionEsperada?: string
 }
 
 export interface ListaReferenciaRespuesta {
@@ -453,6 +459,7 @@ export interface ParametrosSistemaPeticion {
   maxDuracionMopMinutos: number
   minCiclosRachaEstable: number
   minutosExpiracionToken: number
+  versionEsperada?: string
 }
 
 export interface ParametrosSistemaRespuesta {
@@ -599,6 +606,7 @@ export interface ServidorPeticion {
   cantidadCpu?: number
   ramGb?: number
   hdVirtualGb?: number
+  versionEsperada?: string
 }
 
 export interface ServidorResumenRespuesta {
@@ -680,6 +688,7 @@ export interface UmbralPeticion {
   idListaReferencia?: number
   nivelFaltante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
   nivelSobrante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  versionEsperada?: string
 }
 
 export interface UmbralRespuesta {
@@ -716,6 +725,7 @@ export interface UsuarioRespuesta {
   rol?: 'ADMINISTRADOR' | 'OPERADOR' | 'RESPONSABLE'
   activo?: boolean
   fechaCreacion?: string
+  fechaActualizacion?: string
 }
 
 export interface UsuarioSesion {

@@ -22,8 +22,8 @@ interface ServidorFormularioProps {
   servidor?: FichaServidorRespuesta
 }
 
-/** Las direcciones IP se editan como lista aparte */
-type CampoTexto = Exclude<keyof ServidorPeticion, 'direccionIp' | 'direccionesIpAdicionales'>
+/** Las direcciones IP se editan como lista aparte; la versión la pone el guardado */
+type CampoTexto = Exclude<keyof ServidorPeticion, 'direccionIp' | 'direccionesIpAdicionales' | 'versionEsperada'>
 type Formulario = Record<CampoTexto, string>
 
 /** La principal y hasta 20 adicionales */
@@ -119,7 +119,7 @@ export function ServidorFormulario({ abierto, onCerrar, onGuardado, catalogos, r
     }
     try {
       const guardado = esEdicion
-        ? await servidoresApi.actualizar(servidor!.id!, peticion)
+        ? await servidoresApi.actualizar(servidor!.id!, { ...peticion, versionEsperada: servidor!.fechaActualizacion })
         : await servidoresApi.crear(peticion)
       onGuardado(guardado)
     } catch (e) {

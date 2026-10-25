@@ -72,9 +72,24 @@ export function ProbarUmbralModal({ idServidor, umbral, grupos, onCerrar }: Prob
           <Campo etiqueta="Elementos encontrados" ayuda="Separados por coma, punto y coma o salto de línea">
             <AreaTexto value={elementos} onChange={(e) => setElementos(e.target.value)} rows={3} placeholder={EJEMPLO_ELEMENTOS[umbral.metrica?.tipoDato ?? 'STRING']} autoFocus />
           </Campo>
+        ) : umbral.metrica?.tipoDato === 'BOOLEAN' ? (
+          <Campo etiqueta="Valor informado" obligatorio>
+            <Selector value={valor} onChange={(e) => setValor(e.target.value)} aria-label="Valor informado">
+              <option value="">Elegir…</option>
+              <option value="1">Verdadero (1)</option>
+              <option value="0">Falso (0)</option>
+            </Selector>
+          </Campo>
         ) : (
           <Campo etiqueta={`Valor${umbral.metrica?.unidad ? ` (${umbral.metrica.unidad})` : ''}`} obligatorio>
-            <Entrada type="number" step="any" value={valor} onChange={(e) => setValor(e.target.value)} required autoFocus />
+            <Entrada
+              type="number"
+              step={umbral.metrica?.tipoDato === 'INTEGER' ? '1' : 'any'}
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              required
+              autoFocus
+            />
           </Campo>
         )}
         {grupos.length > 0 && (

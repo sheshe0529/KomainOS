@@ -217,17 +217,41 @@ public class Umbral {
         validarNumericos(operador, valores.advertencia(), valores.critico());
     }
 
+    /**
+     * Coherencia con el operador (HU12 CA2). Además de ck_umbral_coherencia, rechaza lo que dejaría un nivel sin efecto:
+     * el crítico se evalúa primero, así que una advertencia igual al crítico nunca se informaría.
+     */
     private void validarNumericos(OperadorComparacion operador, BigDecimal advertencia, BigDecimal critico) {
         if (advertencia == null && critico == null) {
             throw new ReglaNegocioException("Indique el valor de advertencia, el crítico o ambos");
         }
         metrica.getTipoDato().validarLimite(advertencia, "de advertencia");
         metrica.getTipoDato().validarLimite(critico, "crítico");
+        if (metrica.getTipoDato() == TipoDato.BOOLEAN) {
+            if (operador.ordena()) {
+                throw new ReglaNegocioException("Una métrica booleana se compara con = o ≠: sus valores no tienen orden");
+            }
+            if (advertencia != null && critico != null) {
+                throw new ReglaNegocioException(("Una métrica booleana alerta con un solo valor: indique la advertencia o "
+                        + "el crítico, no ambos"));
+            }
+        }
+        if (advertencia == null || critico == null) {
+            return;
+        }
+        if (operador == OperadorComparacion.DISTINTO) {
+            throw new ReglaNegocioException(("Con el operador ≠ indique un solo valor: con dos distintos toda medición "
+                    + "alertaría, y con dos iguales la advertencia nunca se informaría"));
+        }
+        if (advertencia.compareTo(critico) == 0) {
+            throw new ReglaNegocioException(("La advertencia y el crítico no pueden ser iguales: el crítico se evalúa "
+                    + "primero y la advertencia nunca se informaría. Para un solo nivel, deje el otro vacío"));
+        }
         if (!operador.esCoherente(advertencia, critico)) {
             throw new ReglaNegocioException(("Los valores no son coherentes con el operador %s: el crítico debe ser %s "
                     + "que la advertencia").formatted(operador.simbolo(),
                     operador == OperadorComparacion.MAYOR || operador == OperadorComparacion.MAYOR_IGUAL
-                            ? "mayor o igual" : "menor o igual"));
+                            ? "mayor" : "menor"));
         }
     }
 

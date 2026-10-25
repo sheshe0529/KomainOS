@@ -23,7 +23,7 @@ export function useCatalogos() {
 /** Solo el administrador puede listar usuarios: se carga únicamente cuando se necesita (DEC-24) */
 export function useResponsables(habilitado: boolean) {
   return useConsulta<UsuarioRespuesta[]>(
-    async () => (habilitado ? ((await usuariosApi.listar({ rol: 'RESPONSABLE', activo: true })).contenido ?? []) : []),
+    async () => (habilitado ? usuariosApi.listarTodos({ rol: 'RESPONSABLE', activo: true }) : []),
     [habilitado],
   )
 }

@@ -37,7 +37,7 @@ export function RevocarCredencialModal({ abierto, credencial, onCerrar, onConfir
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={`Revocar ${credencial.nombre}`}
-      descripcion="La credencial deja de poder usarse, editarse y revelarse. Sus versiones se conservan para el historial."
+      descripcion="La credencial deja de poder usarse, editarse y revelarse, y su secreto se elimina: no podrá recuperarse. Se conservan su registro (nombre, usuario, fechas y motivo) y la auditoría."
       pie={
         <>
           <Boton onClick={onCerrar}>Cancelar</Boton>

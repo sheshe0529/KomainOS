@@ -7,10 +7,12 @@ import com.komainos.inventario.repository.ParametrosSistemaRepositorio;
 import com.komainos.seguridad.service.PuertoParametrosSesion;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.model.Actor;
+import com.komainos.shared.util.Concurrencia;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Map;
 
 @Service
@@ -36,11 +38,17 @@ public class ServicioParametrosSistema implements PuertoParametrosSesion {
     /** Una MOP tiene al menos una tarea: la máxima por MOP no puede ser menor que la de tarea (RF22) */
     @Transactional
     public ParametrosSistema actualizar(DatosParametros datos, Actor actor) {
+        return actualizar(datos, null, actor);
+    }
+
+    @Transactional
+    public ParametrosSistema actualizar(DatosParametros datos, Instant versionEsperada, Actor actor) {
         if (datos.maxDuracionMopMinutos() < datos.maxDuracionTareaMinutos()) {
             throw new ReglaNegocioException(
                     "La duración máxima por MOP no puede ser menor que la duración máxima por tarea");
         }
         ParametrosSistema parametros = obtener();
+        Concurrencia.exigirVersion(versionEsperada, parametros.getFechaActualizacion(), "los parámetros del sistema");
         Map<String, Object> anterior = instantanea(parametros);
 
         parametros.setMaxEjecucionesConcurrentes(datos.maxEjecucionesConcurrentes());

@@ -4,6 +4,8 @@ import com.komainos.inventario.service.ServicioParametrosSistema.DatosParametros
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.Instant;
+
 public record ParametrosSistemaPeticion(
         @NotNull(message = "La concurrencia máxima es obligatoria")
         @Min(value = 1, message = "La concurrencia máxima debe ser de al menos 1 servidor")
@@ -23,7 +25,10 @@ public record ParametrosSistemaPeticion(
 
         @NotNull(message = "La vigencia de la sesión es obligatoria")
         @Min(value = 1, message = "La vigencia de la sesión debe ser de al menos 1 minuto")
-        Integer minutosExpiracionToken) {
+        Integer minutosExpiracionToken,
+
+        /** Al actualizar, la fechaActualizacion que leyó el formulario: si otro la cambió después, responde 409 */
+        Instant versionEsperada) {
 
     public DatosParametros aDatos() {
         return new DatosParametros(maxEjecucionesConcurrentes, maxDuracionTareaMinutos, maxDuracionMopMinutos,

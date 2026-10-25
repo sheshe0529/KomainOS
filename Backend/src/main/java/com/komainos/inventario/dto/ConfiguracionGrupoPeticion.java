@@ -5,6 +5,8 @@ import com.komainos.inventario.model.ModoEjecucion;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.Instant;
+
 /** Las frecuencias omitidas se toman de la criticidad efectiva del grupo */
 public record ConfiguracionGrupoPeticion(
         @Min(value = 1, message = "La frecuencia de revisión debe ser de al menos 1 día")
@@ -20,5 +22,8 @@ public record ConfiguracionGrupoPeticion(
         ModoEjecucion modoEjecucion,
 
         /** Nula: usa la cuenta predeterminada del sistema (RF05, RF06) */
-        Integer idCuentaServicio) {
+        Integer idCuentaServicio,
+
+        /** Al actualizar, la fechaActualizacion que leyó el formulario: si otro la cambió después, responde 409 */
+        Instant versionEsperada) {
 }

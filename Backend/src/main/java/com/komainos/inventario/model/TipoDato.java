@@ -54,9 +54,14 @@ public enum TipoDato {
         if (valor.isEmpty()) {
             throw new ReglaNegocioException("Los elementos de la lista no pueden estar vacíos");
         }
+        // Antes de convertir: el texto de entrada nunca supera el largo de la columna
+        if (valor.length() > LARGO_MAXIMO) {
+            throw new ReglaNegocioException("El elemento «%s…» supera los %d caracteres"
+                    .formatted(valor.substring(0, 20), LARGO_MAXIMO));
+        }
         String canonico = switch (this) {
             case INTEGER -> entero(valor).toString();
-            case DECIMAL -> decimal(valor).stripTrailingZeros().toPlainString();
+            case DECIMAL -> planoAcotado(decimal(valor).stripTrailingZeros(), valor);
             case STRING -> {
                 if (valor.matches(".*[,;\\r\\n].*")) {
                     throw new ReglaNegocioException("El elemento «%s» no puede contener comas, punto y coma ni saltos de línea"
@@ -103,6 +108,21 @@ public enum TipoDato {
         } catch (NumberFormatException ex) {
             throw new ReglaNegocioException("El elemento «%s» no es un número entero".formatted(valor));
         }
+    }
+
+    /**
+     * Un exponente grande (1e100000) cabe en pocos caracteres pero su forma plana tiene cien mil: se calcula el largo con
+     * la precisión y la escala, sin materializar la cadena, y se rechaza si no cabe en la columna.
+     */
+    private static String planoAcotado(BigDecimal numero, String original) {
+        long enteros = (long) numero.precision() - numero.scale();
+        long decimales = Math.max(numero.scale(), 0);
+        long largo = Math.max(enteros, 1) + decimales + (decimales > 0 ? 1 : 0) + (numero.signum() < 0 ? 1 : 0);
+        if (largo > LARGO_MAXIMO) {
+            throw new ReglaNegocioException("El elemento «%s» no se puede escribir con %d caracteres o menos"
+                    .formatted(original.length() > 20 ? original.substring(0, 20) + "…" : original, LARGO_MAXIMO));
+        }
+        return numero.toPlainString();
     }
 
     private static BigDecimal decimal(String valor) {

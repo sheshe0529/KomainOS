@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Save, Search } from 'lucide-react'
 import { servidoresApi } from '@/api/inventario'
 import type { ServidorResumenRespuesta } from '@/api/types'
@@ -8,51 +8,72 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { useConsulta } from '@/hooks/useConsulta'
 
+const RESULTADOS = 50
+const ESPERA_MS = 250
+
 interface IntegrantesModalProps {
   abierto: boolean
   nombreGrupo: string
-  actuales: number[]
+  actuales: ServidorResumenRespuesta[]
   onCerrar: () => void
   onGuardar: (ids: number[]) => Promise<void>
 }
 
-/** Solo ayuda visual, el backend vuelve a verificarlo (RF20) */
-function incompatibilidad(candidato: ServidorResumenRespuesta, referencia?: ServidorResumenRespuesta): string | null {
-  if (!referencia) return null
-  if (candidato.responsable?.id !== referencia.responsable?.id) return 'Otro responsable'
-  if (candidato.entorno?.id !== referencia.entorno?.id) return 'Otro entorno'
-  if (candidato.sistemaOperativo?.id !== referencia.sistemaOperativo?.id) return 'Otro sistema operativo'
-  return null
-}
-
+/**
+ * La búsqueda la resuelve el backend sobre todo el inventario, no sobre una primera página. Con un integrante elegido se
+ * piden solo los compatibles (mismo responsable, entorno y sistema operativo); el backend lo vuelve a verificar (RF20).
+ */
 export function IntegrantesModal({ abierto, nombreGrupo, actuales, onCerrar, onGuardar }: IntegrantesModalProps) {
-  const [seleccion, setSeleccion] = useState<number[]>(actuales)
+  const [seleccion, setSeleccion] = useState(() => new Map(actuales.map((s) => [s.id!, s])))
   const [texto, setTexto] = useState('')
+  const [busqueda, setBusqueda] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
 
-  // Pueden integrar grupos todos menos los dados de baja
-  const servidores = useConsulta(async () => {
-    const pagina = await servidoresApi.listar({ tamano: 500, orden: 'hostname,asc' })
-    return (pagina.contenido ?? []).filter((s) => s.estado !== 'DADO_DE_BAJA')
-  }, [])
+  useEffect(() => {
+    const temporizador = window.setTimeout(() => setBusqueda(texto.trim()), ESPERA_MS)
+    return () => window.clearTimeout(temporizador)
+  }, [texto])
 
-  const porId = useMemo(() => new Map((servidores.datos ?? []).map((s) => [s.id, s])), [servidores.datos])
-  const referencia = seleccion.length > 0 ? porId.get(seleccion[0]) : undefined
-  const visibles = (servidores.datos ?? []).filter((s) => {
-    const t = texto.trim().toLowerCase()
-    return !t || s.hostname?.toLowerCase().includes(t) || s.direccionIp?.includes(t)
-  })
+  const referencia = seleccion.values().next().value
+  const idResponsable = referencia?.responsable?.id
+  const idEntorno = referencia?.entorno?.id
+  const idSistemaOperativo = referencia?.sistemaOperativo?.id
 
-  function alternar(id: number) {
-    setSeleccion((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  const encontrados = useConsulta(async () => {
+    const pagina = await servidoresApi.listar({
+      texto: busqueda || undefined,
+      idResponsable,
+      idEntorno,
+      idSistemaOperativo,
+      tamano: RESULTADOS,
+      orden: 'hostname,asc',
+    })
+    // Pueden integrar grupos todos menos los dados de baja
+    return { items: (pagina.contenido ?? []).filter((s) => s.estado !== 'DADO_DE_BAJA'), total: pagina.totalElementos ?? 0 }
+  }, [busqueda, idResponsable, idEntorno, idSistemaOperativo])
+
+  // Los elegidos siempre a la vista, aunque la búsqueda actual no los incluya
+  const visibles = useMemo(
+    () => [...seleccion.values(), ...(encontrados.datos?.items ?? []).filter((s) => !seleccion.has(s.id!))],
+    [seleccion, encontrados.datos],
+  )
+  const restantes = (encontrados.datos?.total ?? 0) - (encontrados.datos?.items.length ?? 0)
+
+  function alternar(servidor: ServidorResumenRespuesta) {
+    setSeleccion((previa) => {
+      const nueva = new Map(previa)
+      if (nueva.has(servidor.id!)) nueva.delete(servidor.id!)
+      else nueva.set(servidor.id!, servidor)
+      return nueva
+    })
   }
 
   async function guardar() {
     setGuardando(true)
     setError(undefined)
     try {
-      await onGuardar(seleccion)
+      await onGuardar([...seleccion.keys()])
     } catch (e) {
       setError(e)
     } finally {
@@ -69,7 +90,7 @@ export function IntegrantesModal({ abierto, nombreGrupo, actuales, onCerrar, onG
       descripcion="Solo se admiten servidores con el mismo responsable, entorno y sistema operativo. Las órdenes ya generadas conservan sus integrantes."
       pie={
         <>
-          <span className="mr-auto self-center text-sm text-ink-soft">{seleccion.length} seleccionados</span>
+          <span className="mr-auto self-center text-sm text-ink-soft">{seleccion.size} seleccionados</span>
           <Boton onClick={onCerrar}>Cancelar</Boton>
           <Boton variante="primario" icono={Save} cargando={guardando} onClick={guardar}>
             Guardar integrantes
@@ -78,7 +99,7 @@ export function IntegrantesModal({ abierto, nombreGrupo, actuales, onCerrar, onG
       }
     >
       <div className="flex flex-col gap-3">
-        <MensajeError error={error ?? servidores.error} />
+        <MensajeError error={error ?? encontrados.error} />
         <div className="flex items-center gap-2 rounded-lg border border-line px-3 py-2">
           <Search className="h-4 w-4 text-ink-faint" aria-hidden="true" />
           <input
@@ -90,36 +111,41 @@ export function IntegrantesModal({ abierto, nombreGrupo, actuales, onCerrar, onG
             className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
           />
         </div>
-        {servidores.cargando ? (
+        {referencia && (
+          <p className="text-xs text-ink-soft">
+            Se muestran solo los compatibles con <span className="font-mono">{referencia.hostname}</span>:{' '}
+            {referencia.responsable?.nombre} · {referencia.entorno?.nombre} · {referencia.sistemaOperativo?.nombre}.
+          </p>
+        )}
+        {encontrados.cargando && !encontrados.datos ? (
           <Cargando />
         ) : (
           <ul className="flex max-h-[45dvh] flex-col divide-y divide-line overflow-y-auto rounded-lg border border-line">
-            {visibles.map((s) => {
-              const marcado = seleccion.includes(s.id!)
-              const motivo = marcado ? null : incompatibilidad(s, referencia)
-              return (
-                <li key={s.id}>
-                  <label className={`flex items-center gap-3 px-3 py-2 text-sm ${motivo ? 'opacity-50' : 'cursor-pointer hover:bg-panel-muted'}`}>
-                    <input
-                      type="checkbox"
-                      checked={marcado}
-                      disabled={!!motivo}
-                      onChange={() => alternar(s.id!)}
-                      className="accent-[var(--color-accent)]"
-                    />
-                    <span className="flex-1">
-                      <span className="font-mono text-ink">{s.hostname}</span>
-                      <span className="ml-2 font-mono text-xs text-ink-faint">{s.direccionIp}</span>
-                      <span className="block text-xs text-ink-soft">
-                        {s.responsable?.nombre} · {s.entorno?.nombre} · {s.versionSistemaOperativo?.nombre}
-                      </span>
+            {visibles.map((s) => (
+              <li key={s.id}>
+                <label className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-panel-muted">
+                  <input
+                    type="checkbox"
+                    checked={seleccion.has(s.id!)}
+                    onChange={() => alternar(s)}
+                    className="accent-[var(--color-accent)]"
+                  />
+                  <span className="flex-1">
+                    <span className="font-mono text-ink">{s.hostname}</span>
+                    <span className="ml-2 font-mono text-xs text-ink-faint">{s.direccionIp}</span>
+                    <span className="block text-xs text-ink-soft">
+                      {s.responsable?.nombre} · {s.entorno?.nombre} · {s.versionSistemaOperativo?.nombre}
                     </span>
-                    {motivo && <span className="text-xs text-ink-faint">{motivo}</span>}
-                  </label>
-                </li>
-              )
-            })}
+                  </span>
+                </label>
+              </li>
+            ))}
             {visibles.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-soft">No hay servidores disponibles.</li>}
+            {restantes > 0 && (
+              <li className="px-3 py-2 text-center text-xs text-ink-faint">
+                {restantes} servidor(es) más coinciden: escriba parte del hostname o la IP para acotar.
+              </li>
+            )}
           </ul>
         )}
       </div>

@@ -209,7 +209,7 @@ export function FichaGrupoPage() {
         <IntegrantesModal
           abierto
           nombreGrupo={g.nombre ?? ''}
-          actuales={(g.integrantes ?? []).map((s) => s.id!)}
+          actuales={g.integrantes ?? []}
           onCerrar={() => setDialogo(null)}
           onGuardar={async (ids) => actualizar(await gruposApi.reemplazarIntegrantes(idGrupo, ids), 'Integrantes actualizados.')}
         />
@@ -231,6 +231,7 @@ export function FichaGrupoPage() {
                 modalidadPlanificacion: datos.modalidadPlanificacion,
                 modoEjecucion: datos.modoEjecucion ?? 'SECUENCIAL',
                 idCuentaServicio: datos.idCuentaServicio,
+                versionEsperada: g.configuracion?.fechaActualizacion,
               }),
               'Configuración del grupo guardada.',
             )

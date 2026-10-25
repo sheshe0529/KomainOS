@@ -1,5 +1,6 @@
 package com.komainos.shared.util.archivo;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,16 +57,17 @@ public class LectorTabular {
         }
         try {
             return switch (formato) {
-                case XLSX -> desdeCeldas(leerHoja(contenido));
-                case CSV -> desdeCeldas(leerCsv(contenido));
+                case XLSX -> desdeCeldas(leerHoja(contenido), false);
+                case CSV -> desdeCeldas(leerCsv(contenido), true);
                 case JSON -> desdeArbol(json.readTree(contenido));
                 case YAML -> desdeArbol(yaml.readTree(contenido));
             };
         } catch (ReglaNegocioException ex) {
             throw ex;
         } catch (IOException | RuntimeException ex) {
-            // El detalle técnico queda en el log, al usuario le basta saber que el contenido no corresponde al formato
-            log.info("Archivo {} ilegible: {}", formato, ex.toString());
+            // Solo el tipo de error y la posición: el mensaje de un parser puede citar el contenido, y el archivo puede
+            // traer secretos (RNF11). Al usuario le basta saber que el contenido no corresponde al formato
+            log.info("Archivo {} ilegible: {}{}", formato, ex.getClass().getSimpleName(), posicion(ex));
             throw new ReglaNegocioException("No se pudo leer el archivo como %s. Verifique que el contenido corresponda al formato"
                     .formatted(formato.name()));
         }
@@ -144,7 +146,15 @@ public class LectorTabular {
         return elegido;
     }
 
-    private static TablaArchivo desdeCeldas(List<FilaCeldas> filas) {
+    private static String posicion(Throwable ex) {
+        if (ex instanceof JsonProcessingException j && j.getLocation() != null) {
+            return " en la línea %d, columna %d".formatted(j.getLocation().getLineNr(), j.getLocation().getColumnNr());
+        }
+        return "";
+    }
+
+    /** desescapar: solo el CSV lleva el apóstrofo que neutraliza fórmulas (EscritorTabular); XLSX, JSON y YAML no */
+    private static TablaArchivo desdeCeldas(List<FilaCeldas> filas, boolean desescapar) {
         Iterator<FilaCeldas> it = filas.stream().filter(f -> !estaVacia(f.celdas())).iterator();
         if (!it.hasNext()) {
             throw new ReglaNegocioException("El archivo no contiene registros");
@@ -158,10 +168,12 @@ public class LectorTabular {
             Map<String, String> valores = new HashMap<>();
             Map<String, String> literales = new HashMap<>();
             for (int c = 0; c < Math.min(encabezado.size(), fila.celdas().size()); c++) {
-                String valor = limpiar(fila.celdas().get(c));
+                String crudo = fila.celdas().get(c);
+                String literal = desescapar ? desescapar(crudo) : crudo;
+                String valor = limpiar(literal);
                 if (!encabezado.get(c).isEmpty() && valor != null) {
                     valores.put(encabezado.get(c), valor);
-                    literales.put(encabezado.get(c), literal(fila.celdas().get(c)));
+                    literales.put(encabezado.get(c), literal);
                 }
             }
             registros.add(new FilaArchivo(fila.numero(), valores, literales, List.of()));
@@ -225,7 +237,7 @@ public class LectorTabular {
                     String texto = limpiar(valor.asText());
                     if (texto != null) {
                         valores.put(clave, texto);
-                        literales.put(clave, literal(valor.asText()));
+                        literales.put(clave, valor.asText());
                     }
                 }
             }
@@ -234,21 +246,22 @@ public class LectorTabular {
         return new TablaArchivo(List.copyOf(columnas), registros);
     }
 
-    /** Descarta el apóstrofo que neutraliza una fórmula al exportar para reimportar el archivo tal cual */
     static String limpiar(String valor) {
         if (valor == null) {
             return null;
         }
         String texto = valor.trim();
-        if (texto.length() > 1 && texto.charAt(0) == '\'' && EscritorTabular.iniciaComoFormula(texto.substring(1))) {
-            texto = texto.substring(1);
-        }
         return texto.isEmpty() ? null : texto;
     }
 
-    /** Como limpiar pero sin recortar: solo retira el apóstrofo que neutraliza una fórmula */
-    static String literal(String valor) {
-        if (valor.length() > 1 && valor.charAt(0) == '\'' && EscritorTabular.iniciaComoFormula(valor.substring(1))) {
+    /**
+     * Inverso exacto de EscritorTabular.escaparCsv: retira un apóstrofo solo si precede a lo que el escritor escapa (un
+     * inicio de fórmula u otro apóstrofo). Así un valor que ya empezaba con apóstrofo vuelve igual, y un CSV escrito a
+     * mano conserva el apóstrofo que precede a texto común.
+     */
+    static String desescapar(String valor) {
+        if (valor != null && valor.length() > 1 && valor.charAt(0) == '\''
+                && EscritorTabular.requiereEscape(valor.substring(1))) {
             return valor.substring(1);
         }
         return valor;

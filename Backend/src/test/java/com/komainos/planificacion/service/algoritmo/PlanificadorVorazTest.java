@@ -71,6 +71,17 @@ class PlanificadorVorazTest {
         }
 
         @Test
+        @DisplayName("RF30: al reprogramar sin fecha no empieza antes de que termine la programación vigente")
+        void noAntesDeLaVigente() {
+            var s = individual(ventana(SABADO, "01:00", SABADO, "06:00"), AHORA, 10);
+
+            assertThat(planificador.planificar(s, List.of(), null).inicio()).isEqualTo(lima("2026-10-03T01:00"));
+            // Termina a las 05:00: cuatro horas más no caben en la ventana de ese sábado
+            assertThat(planificador.planificar(s, List.of(), lima("2026-10-03T05:00")).inicio())
+                    .isEqualTo(lima("2026-10-10T01:00"));
+        }
+
+        @Test
         @DisplayName("no busca antes de la fecha objetivo")
         void respetaFechaObjetivo() {
             var r = planificador.planificar(

@@ -18,10 +18,18 @@ public final class PlanificadorVoraz {
 
     /** Busca el primer intervalo: modo automático y reprogramación sin fecha */
     public ResultadoPlanificacion planificar(SolicitudPlanificacion s, List<Reserva> reservas) {
+        return planificar(s, reservas, null);
+    }
+
+    /**
+     * noAntesDe acota además el inicio: al reprogramar sin fecha, la búsqueda empieza donde termina la programación
+     * vigente, porque sin la propia orden en las reservas el primer intervalo libre volvería a ser el mismo
+     */
+    public ResultadoPlanificacion planificar(SolicitudPlanificacion s, List<Reserva> reservas, Instant noAntesDe) {
         Forma forma = Forma.de(s);
         Duration total = forma.total();
-        Instant inicioMasTemprano = redondearAlMinuto(
-                max(s.fechaObjetivo(), s.ahora().plus(s.plazoAutorizacion())));
+        Instant base = max(s.fechaObjetivo(), s.ahora().plus(s.plazoAutorizacion()));
+        Instant inicioMasTemprano = redondearAlMinuto(noAntesDe == null ? base : max(base, noAntesDe));
 
         List<Intervalo> ventanas = s.ventana().proyectar(
                 inicioMasTemprano, inicioMasTemprano.plus(s.horizonte()).plus(total), s.zona());

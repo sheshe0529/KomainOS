@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -14,6 +15,8 @@ import java.util.Set;
 public interface ConfiguracionGrupoRepositorio extends JpaRepository<ConfiguracionGrupo, Integer> {
 
     Optional<ConfiguracionGrupo> findByGrupoId(Integer idGrupo);
+
+    List<ConfiguracionGrupo> findByGrupoIdIn(Collection<Integer> idsGrupos);
 
     List<ConfiguracionGrupo> findByModalidadPlanificacion(ModalidadPlanificacion modalidad);
 

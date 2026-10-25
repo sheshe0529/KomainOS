@@ -20,6 +20,15 @@ public interface GrupoMantenimientoRepositorio extends JpaRepository<GrupoManten
             "integrantes.servidor.responsable", "integrantes.servidor.versionSistemaOperativo.sistemaOperativo"})
     List<GrupoMantenimiento> findAllByOrderByNombreAsc();
 
+    /** El alcance del responsable en la consulta: los grupos con al menos un integrante a su cargo */
+    @EntityGraph(attributePaths = {"integrantes.servidor.nivelCriticidad", "integrantes.servidor.entorno",
+            "integrantes.servidor.responsable", "integrantes.servidor.versionSistemaOperativo.sistemaOperativo"})
+    @Query("""
+            select g from GrupoMantenimiento g
+            where exists (select 1 from GrupoServidor i where i.grupo = g and i.servidor.responsable.id = :idResponsable)
+            order by g.nombre""")
+    List<GrupoMantenimiento> findVisiblesPara(@Param("idResponsable") Integer idResponsable);
+
     @Query("select distinct g from GrupoMantenimiento g join g.integrantes i where i.servidor.id = :idServidor order by g.nombre")
     List<GrupoMantenimiento> findDelServidor(@Param("idServidor") Integer idServidor);
 

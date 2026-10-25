@@ -29,6 +29,7 @@ import com.komainos.shared.exception.ConflictoException;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.model.Actor;
+import com.komainos.shared.util.Concurrencia;
 import com.komainos.shared.util.Tiempo;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
@@ -100,7 +101,13 @@ public class ServicioUmbrales {
     /** La métrica no cambia; el operador tampoco mientras haya excepciones */
     @Transactional
     public Umbral actualizar(Integer id, DatosUmbral datos, Actor actor) {
+        return actualizar(id, datos, null, actor);
+    }
+
+    @Transactional
+    public Umbral actualizar(Integer id, DatosUmbral datos, Instant versionEsperada, Actor actor) {
         Umbral umbral = cargado(id);
+        Concurrencia.exigirVersion(versionEsperada, umbral.getFechaActualizacion(), "el umbral " + umbral.getNombre());
         if (datos.idMetrica() != null && !datos.idMetrica().equals(umbral.getMetrica().getId())) {
             throw new ReglaNegocioException("La métrica de un umbral no se modifica: registre otro umbral");
         }
@@ -163,8 +170,16 @@ public class ServicioUmbrales {
     /** Cambia los valores o la lista y el motivo; el alcance no cambia */
     @Transactional
     public UmbralExcepcion actualizarExcepcion(Integer idUmbral, Integer idExcepcion, DatosExcepcion datos, Actor actor) {
+        return actualizarExcepcion(idUmbral, idExcepcion, datos, null, actor);
+    }
+
+    @Transactional
+    public UmbralExcepcion actualizarExcepcion(Integer idUmbral, Integer idExcepcion, DatosExcepcion datos,
+                                               Instant versionEsperada, Actor actor) {
         Umbral umbral = cargado(idUmbral);
         UmbralExcepcion excepcion = excepcionDe(umbral, idExcepcion);
+        Concurrencia.exigirVersion(versionEsperada, excepcion.getFechaActualizacion(),
+                "la excepción del umbral " + umbral.getNombre());
         if (datos.alcance() != null && (datos.alcance() != excepcion.alcance()
                 || !excepcion.idObjetivo().equals(datos.idObjetivo()))) {
             throw new ReglaNegocioException("El alcance de una excepción no se modifica: registre otra excepción");

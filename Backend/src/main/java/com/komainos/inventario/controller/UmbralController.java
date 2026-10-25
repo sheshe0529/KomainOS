@@ -74,7 +74,7 @@ public class UmbralController {
     @Operation(summary = "Modifica el valor global de un umbral; el operador no cambia si tiene excepciones")
     public UmbralRespuesta actualizar(@PathVariable Integer id, @Valid @RequestBody UmbralPeticion peticion,
                                       @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        return UmbralMapeador.detalle(servicio.actualizar(id, datos(peticion), actor(solicitante)));
+        return UmbralMapeador.detalle(servicio.actualizar(id, datos(peticion), peticion.versionEsperada(), actor(solicitante)));
     }
 
     @PostMapping("/umbrales/{id}/activacion")
@@ -119,7 +119,7 @@ public class UmbralController {
                                                         @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         return UmbralMapeador.excepcion(servicio.actualizarExcepcion(id, idExcepcion, new DatosExcepcion(null, null,
                 peticion.valorAdvertencia(), peticion.valorCritico(), peticion.idListaReferencia(), peticion.motivo()),
-                actor(solicitante)));
+                peticion.versionEsperada(), actor(solicitante)));
     }
 
     @PostMapping("/umbrales/{id}/excepciones/{idExcepcion}/activacion")

@@ -10,8 +10,9 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { useConsulta } from '@/hooks/useConsulta'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
-import { describirMetrica, OPERADORES } from '@/utils/umbrales'
+import { aNumero, describirMetrica, operadoresPara, problemaDeValores } from '@/utils/umbrales'
 import { ListaChips } from './ListaChips'
+import { ValoresNumericos } from './ValoresNumericos'
 
 interface UmbralFormularioProps {
   /** Vacío al crear */
@@ -29,7 +30,6 @@ const NIVELES: { valor: '' | NivelAlerta; etiqueta: string }[] = [
   { valor: 'CRITICO', etiqueta: 'Crítico' },
 ]
 
-const aNumero = (texto: string) => (texto.trim() === '' ? undefined : Number(texto))
 const aTexto = (valor?: number) => (valor === undefined || valor === null ? '' : String(valor))
 
 /** La métrica decide la modalidad: operador y valores si es numérica, lista y niveles si es de lista (RF16, R2.4) */
@@ -37,7 +37,9 @@ export function UmbralFormulario({ umbral, metricas, idMetricaInicial, onCerrar,
   const activas = metricas.filter((m) => m.activo || m.id === umbral?.metrica?.id)
   const [idMetrica, setIdMetrica] = useState<number | undefined>(umbral?.metrica?.id ?? idMetricaInicial ?? activas[0]?.id)
   const [nombre, setNombre] = useState(umbral?.nombre ?? '')
-  const [operador, setOperador] = useState<OperadorComparacion>(umbral?.operador ?? 'MAYOR_IGUAL')
+  const [operador, setOperador] = useState<OperadorComparacion>(
+    () => umbral?.operador ?? operadoresPara(activas.find((m) => m.id === idMetrica)?.tipoDato)[0].valor,
+  )
   const [advertencia, setAdvertencia] = useState(aTexto(umbral?.valorAdvertencia))
   const [critico, setCritico] = useState(aTexto(umbral?.valorCritico))
   const [idLista, setIdLista] = useState<number | undefined>(umbral?.lista?.id)
@@ -54,17 +56,43 @@ export function UmbralFormulario({ umbral, metricas, idMetricaInicial, onCerrar,
     (l) => l.tipoDato === metrica?.tipoDato && (l.activo || l.id === umbral?.lista?.id),
   )
   const listaElegida = listasDelTipo.find((l) => l.id === idLista)
+  const operadores = operadoresPara(metrica?.tipoDato)
+  const escrito = advertencia.trim() !== '' || critico.trim() !== ''
+  // Lo mismo que rechazaría el backend, avisado mientras se escribe
+  const problema = deLista
+    ? !idLista
+      ? 'Elija la lista de referencia'
+      : !faltante && !sobrante
+        ? 'Indique el nivel para los elementos faltantes, para los sobrantes o ambos'
+        : null
+    : problemaDeValores(metrica?.tipoDato, operador, aNumero(advertencia), aNumero(critico))
+
+  function elegirMetrica(id: number) {
+    setIdMetrica(id)
+    setIdLista(undefined)
+    const nueva = activas.find((m) => m.id === id)
+    // Al pasar a una booleana, un operador de orden ya no aplica
+    if (!operadoresPara(nueva?.tipoDato).some((o) => o.valor === operador)) setOperador('IGUAL')
+  }
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault()
     if (!idMetrica) return
+    if (problema) {
+      setError(new Error(problema))
+      return
+    }
     setGuardando(true)
     setError(undefined)
     const datos: UmbralPeticion = deLista
       ? { idMetrica, nombre: nombre.trim(), idListaReferencia: idLista, nivelFaltante: faltante || undefined, nivelSobrante: sobrante || undefined }
       : { idMetrica, nombre: nombre.trim(), operador, valorAdvertencia: aNumero(advertencia), valorCritico: aNumero(critico) }
     try {
-      onGuardado(umbral?.id ? await umbralesApi.actualizarUmbral(umbral.id, datos) : await umbralesApi.crearUmbral(datos))
+      onGuardado(
+        umbral?.id
+          ? await umbralesApi.actualizarUmbral(umbral.id, { ...datos, versionEsperada: umbral.fechaActualizacion })
+          : await umbralesApi.crearUmbral(datos),
+      )
     } catch (e) {
       setError(e)
     } finally {
@@ -93,10 +121,7 @@ export function UmbralFormulario({ umbral, metricas, idMetricaInicial, onCerrar,
           <Campo etiqueta="Métrica" obligatorio ayuda={metrica ? describirMetrica(metrica) : undefined}>
             <Selector
               value={idMetrica ?? ''}
-              onChange={(e) => {
-                setIdMetrica(Number(e.target.value))
-                setIdLista(undefined)
-              }}
+              onChange={(e) => elegirMetrica(Number(e.target.value))}
               disabled={!!umbral}
               aria-label="Métrica"
             >
@@ -158,21 +183,25 @@ export function UmbralFormulario({ umbral, metricas, idMetricaInicial, onCerrar,
                 disabled={!!umbral?.cantidadExcepciones}
                 aria-label="Operador"
               >
-                {OPERADORES.map((o) => (
+                {operadores.map((o) => (
                   <option key={o.valor} value={o.valor}>
                     {o.simbolo} {o.etiqueta}
                   </option>
                 ))}
               </Selector>
             </Campo>
-            <Campo etiqueta="Advertencia" error={errorDeCampo(error, 'valorAdvertencia')}>
-              <Entrada type="number" step="any" value={advertencia} onChange={(e) => setAdvertencia(e.target.value)} placeholder="80" />
-            </Campo>
-            <Campo etiqueta="Crítico" error={errorDeCampo(error, 'valorCritico')}>
-              <Entrada type="number" step="any" value={critico} onChange={(e) => setCritico(e.target.value)} placeholder="90" />
-            </Campo>
+            <ValoresNumericos
+              tipo={metrica?.tipoDato}
+              advertencia={advertencia}
+              critico={critico}
+              onAdvertencia={setAdvertencia}
+              onCritico={setCritico}
+              errorAdvertencia={errorDeCampo(error, 'valorAdvertencia')}
+              errorCritico={errorDeCampo(error, 'valorCritico')}
+            />
           </div>
         )}
+        {problema && (deLista || escrito) && !error && <p className="text-sm text-danger">{problema}</p>}
       </form>
     </Modal>
   )

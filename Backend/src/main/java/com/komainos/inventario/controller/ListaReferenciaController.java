@@ -63,7 +63,7 @@ public class ListaReferenciaController {
     @Operation(summary = "Modifica nombre y elementos; los elementos quitados quedan con su fecha de baja")
     public ListaReferenciaRespuesta actualizar(@PathVariable Integer id, @Valid @RequestBody ListaReferenciaPeticion peticion,
                                                @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        servicio.actualizar(id, datos(peticion), actor(solicitante));
+        servicio.actualizar(id, datos(peticion), peticion.versionEsperada(), actor(solicitante));
         return ListaReferenciaRespuesta.de(servicio.obtener(id));
     }
 

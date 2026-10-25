@@ -40,7 +40,7 @@ public final class OrdenMapeador {
                 detalle.cuentaServicio().map(nombre -> new ReferenciaSimple(o.getIdCuentaServicio(), nombre)).orElse(null),
                 o.getInicioVentanaAplicada(),
                 o.getFinVentanaAplicada(),
-                o.getDetalles().stream()
+                detalle.detalles().stream()
                         .map(d -> new OrdenDetalleRespuesta.Detalle(d.getId(),
                                 new ReferenciaSimple(d.getServidor().getId(), d.getServidor().getHostname()),
                                 d.getServidor().getDireccionIp(), d.getPosicionEjecucion(), d.isEsServidorPiloto(),

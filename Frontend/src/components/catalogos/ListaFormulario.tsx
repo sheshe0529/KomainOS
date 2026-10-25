@@ -49,7 +49,11 @@ export function ListaFormulario({ lista, onCerrar, onGuardado }: ListaFormulario
     setError(undefined)
     const datos = { nombre: nombre.trim(), tipoDato: tipo, ignoraMayusculas: tipo === 'STRING' && ignoraMayusculas, elementos }
     try {
-      onGuardado(lista?.id ? await listasApi.actualizar(lista.id, datos) : await listasApi.crear(datos))
+      onGuardado(
+        lista?.id
+          ? await listasApi.actualizar(lista.id, { ...datos, versionEsperada: lista.fechaActualizacion })
+          : await listasApi.crear(datos),
+      )
     } catch (e) {
       setError(e)
     } finally {

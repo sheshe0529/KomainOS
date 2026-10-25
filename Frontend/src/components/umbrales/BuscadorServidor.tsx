@@ -2,20 +2,25 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { LoaderCircle, Search } from 'lucide-react'
 import { servidoresApi } from '@/api/inventario'
+import type { EstadoServidor } from '@/api/dominio'
 import type { ServidorResumenRespuesta } from '@/api/types'
 
 const MINIMO_CARACTERES = 2
 const RESULTADOS_MAXIMOS = 8
 const ESPERA_MS = 250
 
+const NINGUNO: ReadonlySet<number> = new Set()
+
 interface BuscadorServidorProps {
-  /** Servidores que ya tienen excepción: se muestran, pero no se pueden volver a elegir */
-  yaDefinidos: ReadonlySet<number>
+  /** Servidores ya elegidos (por ejemplo, con excepción): se muestran, pero no se pueden volver a elegir */
+  yaDefinidos?: ReadonlySet<number>
+  /** Solo los servidores en ese estado; sin él, todos menos los dados de baja */
+  estado?: EstadoServidor
   onElegir: (servidor: { id: number; nombre: string }) => void
 }
 
 /** Caja de búsqueda con lista desplegable: el inventario no se carga completo, solo lo que coincide con lo escrito */
-export function BuscadorServidor({ yaDefinidos, onElegir }: BuscadorServidorProps) {
+export function BuscadorServidor({ yaDefinidos = NINGUNO, estado, onElegir }: BuscadorServidorProps) {
   const idLista = useId()
   const contenedor = useRef<HTMLDivElement>(null)
   const [texto, setTexto] = useState('')
@@ -33,10 +38,10 @@ export function BuscadorServidor({ yaDefinidos, onElegir }: BuscadorServidorProp
     let vigente = true
     const temporizador = window.setTimeout(() => {
       servidoresApi
-        .listar({ texto: consulta, tamano: RESULTADOS_MAXIMOS, orden: 'hostname,asc' })
+        .listar({ texto: consulta, estado, tamano: RESULTADOS_MAXIMOS, orden: 'hostname,asc' })
         .then((pagina) => {
           if (!vigente) return
-          // Un servidor dado de baja no admite excepciones
+          // Un servidor dado de baja no admite excepciones ni mantenimientos
           setEncontrados({ consulta, items: (pagina.contenido ?? []).filter((s) => s.estado !== 'DADO_DE_BAJA') })
           setActivo(0)
         })
@@ -46,7 +51,7 @@ export function BuscadorServidor({ yaDefinidos, onElegir }: BuscadorServidorProp
       vigente = false
       window.clearTimeout(temporizador)
     }
-  }, [consulta, suficiente])
+  }, [consulta, suficiente, estado])
 
   const vigentes = suficiente && encontrados.consulta === consulta
   const visibles = vigentes ? encontrados.items : []

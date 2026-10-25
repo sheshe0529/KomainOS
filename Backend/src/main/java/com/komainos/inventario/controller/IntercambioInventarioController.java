@@ -14,9 +14,14 @@ import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.UsuarioAutenticado;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.util.archivo.ArchivoGenerado;
+import com.komainos.shared.util.archivo.DestinoArchivo;
 import com.komainos.shared.util.archivo.FormatoArchivo;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
@@ -59,7 +64,10 @@ public class IntercambioInventarioController {
 
     @GetMapping("/exportacion")
     @Operation(summary = "Exporta el inventario visible con el filtro del listado (RF13)")
-    public ResponseEntity<byte[]> exportar(
+    @ApiResponse(responseCode = "200", description = "El archivo, escrito a medida que se lee el inventario",
+            content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                    schema = @Schema(type = "string", format = "binary")))
+    public void exportar(
             @RequestParam FormatoArchivo formato,
             @RequestParam(required = false) List<String> columnas,
             @RequestParam(required = false) String texto,
@@ -69,20 +77,24 @@ public class IntercambioInventarioController {
             @RequestParam(required = false) Integer idSistemaOperativo,
             @RequestParam(required = false) Integer idResponsable,
             @RequestParam(required = false) String vdc,
-            @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+            @AuthenticationPrincipal UsuarioAutenticado solicitante,
+            HttpServletResponse respuesta) throws IOException {
         var filtro = new FiltroServidores(texto, estado, idEntorno, idNivelCriticidad, idSistemaOperativo,
                 idResponsable, vdc);
         List<ColumnaInventario> elegidas = columnas == null ? List.of() : columnas.stream()
                 .map(IntercambioInventarioController::columnaDe)
                 .toList();
-        return descarga(exportacion.exportar(filtro, elegidas, formato, AlcanceUsuario.de(solicitante)));
+        exportacion.exportar(filtro, elegidas, formato, AlcanceUsuario.de(solicitante), descarga(respuesta, false));
     }
 
     /** POST y no GET: la contraseña viaja en el cuerpo y el archivo no debe quedar en ninguna caché */
     @PostMapping("/exportacion/con-credencial")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(summary = "Exporta el inventario con la credencial principal de cada servidor, previa reautenticación (RF13, HU05)")
-    public ResponseEntity<byte[]> exportarConCredencial(
+    @ApiResponse(responseCode = "200", description = "El archivo, escrito a medida que se lee el inventario",
+            content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                    schema = @Schema(type = "string", format = "binary")))
+    public void exportarConCredencial(
             @RequestParam FormatoArchivo formato,
             @RequestParam(required = false) List<String> columnas,
             @RequestParam(required = false) String texto,
@@ -93,14 +105,15 @@ public class IntercambioInventarioController {
             @RequestParam(required = false) Integer idResponsable,
             @RequestParam(required = false) String vdc,
             @Valid @RequestBody ReautenticacionPeticion peticion,
-            @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+            @AuthenticationPrincipal UsuarioAutenticado solicitante,
+            HttpServletResponse respuesta) throws IOException {
         var filtro = new FiltroServidores(texto, estado, idEntorno, idNivelCriticidad, idSistemaOperativo,
                 idResponsable, vdc);
         List<ColumnaInventario> elegidas = columnas == null ? List.of() : columnas.stream()
                 .map(IntercambioInventarioController::columnaDe)
                 .toList();
-        return sinCache(descarga(exportacion.exportarConCredencial(filtro, elegidas, formato,
-                AlcanceUsuario.de(solicitante), peticion.contrasena())));
+        exportacion.exportarConCredencial(filtro, elegidas, formato, AlcanceUsuario.de(solicitante),
+                peticion.contrasena(), descarga(respuesta, true));
     }
 
     @GetMapping("/importacion/plantilla")
@@ -153,21 +166,30 @@ public class IntercambioInventarioController {
         }
     }
 
-    private static ResponseEntity<byte[]> sinCache(ResponseEntity<byte[]> respuesta) {
-        return ResponseEntity.status(respuesta.getStatusCode())
-                .headers(respuesta.getHeaders())
-                .cacheControl(CacheControl.noStore())
-                .body(respuesta.getBody());
+    /**
+     * Las cabeceras se fijan recién al abrir el destino, cuando el servicio ya validó: si antes falla algo, la respuesta
+     * es el error de siempre y no una descarga
+     */
+    private static DestinoArchivo descarga(HttpServletResponse respuesta, boolean sinCache) {
+        return (nombre, formato) -> {
+            respuesta.setContentType(formato.tipoContenido());
+            respuesta.setHeader(HttpHeaders.CONTENT_DISPOSITION, disposicion(nombre));
+            if (sinCache) {
+                respuesta.setHeader(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().getHeaderValue());
+            }
+            return respuesta.getOutputStream();
+        };
+    }
+
+    /** Los nombres generados son ASCII: basta el filename simple */
+    private static String disposicion(String nombre) {
+        return ContentDisposition.attachment().filename(nombre).build().toString();
     }
 
     private static ResponseEntity<byte[]> descarga(ArchivoGenerado archivo) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(archivo.formato().tipoContenido()))
-                // Los nombres generados son ASCII: basta el filename simple
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                        .filename(archivo.nombre())
-                        .build()
-                        .toString())
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposicion(archivo.nombre()))
                 .body(archivo.contenido());
     }
 }

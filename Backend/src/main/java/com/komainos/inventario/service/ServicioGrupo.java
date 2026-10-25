@@ -21,6 +21,7 @@ import com.komainos.shared.exception.ConflictoException;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.model.Actor;
+import com.komainos.shared.util.Concurrencia;
 import com.komainos.shared.util.Tiempo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -52,10 +53,15 @@ public class ServicioGrupo {
     /** Para el responsable, los grupos de sus servidores: todos los integrantes comparten responsable (RF20) */
     @Transactional(readOnly = true)
     public List<FichaGrupo> listar(AlcanceUsuario alcance) {
+        // El alcance se aplica en la consulta: el responsable no carga los grupos ajenos ni sus configuraciones
+        List<GrupoMantenimiento> visibles = alcance.veTodoElInventario() ? grupos.findAllByOrderByNombreAsc()
+                : grupos.findVisiblesPara(alcance.usuarioId());
         Map<Integer, ConfiguracionGrupo> configuracionPorGrupo = new HashMap<>();
-        configuraciones.findAll().forEach(c -> configuracionPorGrupo.put(c.getGrupo().getId(), c));
-        return grupos.findAllByOrderByNombreAsc().stream()
-                .filter(g -> esVisible(g, alcance))
+        if (!visibles.isEmpty()) {
+            configuraciones.findByGrupoIdIn(visibles.stream().map(GrupoMantenimiento::getId).toList())
+                    .forEach(c -> configuracionPorGrupo.put(c.getGrupo().getId(), c));
+        }
+        return visibles.stream()
                 .map(g -> new FichaGrupo(g, Optional.ofNullable(configuracionPorGrupo.get(g.getId())),
                         Optional.empty(), g.criticidadEfectiva(), null))
                 .toList();
@@ -87,7 +93,14 @@ public class ServicioGrupo {
 
     @Transactional
     public GrupoMantenimiento actualizar(Integer id, String nombre, String descripcion, Actor actor) {
+        return actualizar(id, nombre, descripcion, null, actor);
+    }
+
+    @Transactional
+    public GrupoMantenimiento actualizar(Integer id, String nombre, String descripcion, Instant versionEsperada,
+                                         Actor actor) {
         GrupoMantenimiento grupo = buscar(id);
+        Concurrencia.exigirVersion(versionEsperada, grupo.getFechaActualizacion(), "el grupo " + grupo.getNombre());
         String limpio = nombre.trim();
         if (grupos.existsByNombreIgnoreCaseAndIdNot(limpio, id)) {
             throw new ConflictoException("Ya existe otro grupo con el nombre %s".formatted(limpio));
@@ -141,6 +154,11 @@ public class ServicioGrupo {
 
     @Transactional
     public ConfiguracionGrupo configurar(Integer id, DatosConfiguracionGrupo datos, Actor actor) {
+        return configurar(id, datos, null, actor);
+    }
+
+    @Transactional
+    public ConfiguracionGrupo configurar(Integer id, DatosConfiguracionGrupo datos, Instant versionEsperada, Actor actor) {
         GrupoMantenimiento grupo = buscar(id);
         Optional<NivelCriticidad> criticidad = grupo.criticidadEfectiva();
         if ((datos.frecuenciaRevisionDias() == null || datos.frecuenciaMantenimientoDias() == null)
@@ -154,9 +172,10 @@ public class ServicioGrupo {
                 ? datos.frecuenciaMantenimientoDias() : criticidad.orElseThrow().getFrecuenciaMantenimientoDias();
 
         Optional<ConfiguracionGrupo> existente = configuraciones.findByGrupoId(id);
+        existente.ifPresent(c -> Concurrencia.exigirVersion(versionEsperada, c.getFechaActualizacion(),
+                "la configuración de mantenimiento del grupo " + grupo.getNombre()));
         Map<String, Object> anterior = existente.map(ServicioGrupo::instantanea).orElse(null);
-        cuentasServicio.validarCambio(existente.map(ConfiguracionGrupo::getIdCuentaServicio).orElse(null),
-                datos.idCuentaServicio(), familia(grupo));
+        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicio(), familia(grupo));
         ConfiguracionGrupo configuracion = existente.orElseGet(() -> ConfiguracionGrupo.nueva(
                 grupo, revision, mantenimiento, datos.modalidad(), datos.modoEjecucion(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad(), datos.modoEjecucion());
