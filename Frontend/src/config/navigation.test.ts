@@ -10,7 +10,9 @@ describe('Selección y ubicación del menú', () => {
   it.each([
     ['/automatizacion', 'sala'],
     ['/automatizacion/scripts', 'scripts'],
+    ['/automatizacion/scripts/4/publicar', 'scripts'],
     ['/automatizacion/tareas', 'tareas'],
+    ['/automatizacion/ejecuciones', 'ejecuciones'],
     ['/automatizacion/incidencias', 'incidencias'],
     ['/configuracion/politicas-cambio', 'politicas'],
     ['/servidores/12', 'servidores'],

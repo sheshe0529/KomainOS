@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -15,6 +16,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ServicioGraficosAutomatizacion {
+
     private final JdbcTemplate jdbc;
     private final Clock reloj;
 
@@ -56,12 +58,15 @@ public class ServicioGraficosAutomatizacion {
                     count(*) filter (where t.estado = 'FINALIZADA' and t.advertencia),
                     count(*) filter (where t.estado = 'FALLIDA')
                 from dias d left join tareas t using(dia) group by d.dia order by d.dia
-                """, (rs, fila) -> new EjecucionDia(rs.getString(1),rs.getLong(2),rs.getLong(3),rs.getLong(4)),
+                """, (rs, fila) -> new EjecucionDia(rs.getString(1), rs.getLong(2), rs.getLong(3), rs.getLong(4)),
                 Timestamp.from(inicioDias), Timestamp.from(ahora), Timestamp.from(inicioDias), fin);
         return new ResumenGraficos(ahora, recursos, ejecuciones);
     }
 
-    public record ResumenGraficos(Instant fechaActualizacion, List<RecursoHora> recursos, List<EjecucionDia> ejecuciones) {}
-    public record RecursoHora(String hora, Double cpu, Double memoria, long servidores) {}
-    public record EjecucionDia(String fecha, long exito, long advertencia, long error) {}
+    public record ResumenGraficos(Instant fechaActualizacion, List<RecursoHora> recursos, List<EjecucionDia> ejecuciones) {
+    }
+    public record RecursoHora(String hora, Double cpu, Double memoria, long servidores) {
+    }
+    public record EjecucionDia(String fecha, long exito, long advertencia, long error) {
+    }
 }

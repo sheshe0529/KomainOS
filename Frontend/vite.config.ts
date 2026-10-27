@@ -24,6 +24,8 @@ export default defineConfig({
               name: 'graficos',
               test: /node_modules[\\/](recharts|victory-vendor|d3-[a-z-]+|internmap|@reduxjs|react-redux|redux|redux-thunk|immer|reselect|es-toolkit|decimal\.js-light|eventemitter3|tiny-invariant)[\\/]/,
             },
+            // El editor de scripts solo se descarga al abrir un script
+            { name: 'editor', test: /node_modules[\\/](codemirror|@codemirror|@lezer|crelt|style-mod|w3c-keyname)[\\/]/ },
           ],
         },
       },

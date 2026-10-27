@@ -1,372 +1,287 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Download, Play, ScanSearch } from 'lucide-react'
-import { automatizacionApi } from '@/api/automatizacion'
-import type { EstadoOrden } from '@/api/dominio'
-import { Tarjeta } from '@/components/common/Tarjeta'
-import { Boton } from '@/components/ui/Boton'
-import { Campo, AreaTexto, Entrada } from '@/components/ui/Campo'
-import { Modal } from '@/components/ui/Modal'
-import { MensajeError } from '@/components/ui/MensajeError'
-import { useConsulta } from '@/hooks/useConsulta'
+import { Check, Download, FileJson, FlaskConical, Play, ScanSearch, X } from 'lucide-react'
+import { cicloApi, operacionApi } from '@/api/automatizacion'
+import type { EstadoOrden, EtapaOrden } from '@/api/dominio'
 import { useSesion } from '@/auth/sesion-context'
+import { useAvisos } from '@/components/ui/avisos-context'
+import { Boton } from '@/components/ui/Boton'
+import { Cargando } from '@/components/ui/Cargando'
+import { MensajeError } from '@/components/ui/MensajeError'
+import { StatusPill } from '@/components/ui/StatusPill'
+import { useConsulta } from '@/hooks/useConsulta'
+import { descargarTexto, ESTADO_INCIDENCIA, ORIGEN_INCIDENCIA } from '@/utils/automatizacion'
+import { bitacoraCsv } from '@/utils/bitacora'
 import { formatearFechaHora } from '@/utils/formato'
-import { compararMetricas } from '@/utils/compararMetricas'
-type Accion = 'aprobar' | 'rechazar' | 'proponer' | 'conforme' | 'no-conforme' | 'cerrar'
-export function SeguimientoOrden({
-  id,
-  estado,
-  onActualizar,
-}: {
-  id: number
-  estado: EstadoOrden
-  onActualizar: () => void
-}) {
-  const { usuario, tieneRol } = useSesion()
-  const admin = tieneRol('ADMINISTRADOR')
-  const informe = useConsulta(() => automatizacionApi.ficha(id), [id])
-  const [pestana, setPestana] = useState('mop')
-  const [accion, setAccion] = useState<Accion>()
-  const [motivo, setMotivo] = useState('')
-  const [fecha, setFecha] = useState('')
-  const [error, setError] = useState<unknown>()
+import { AccionOrdenModal } from './ciclo/AccionOrdenModal'
+import type { AccionOrden } from './ciclo/AccionOrdenModal'
+import { Autorizaciones } from './ciclo/Autorizaciones'
+import { EtapasOrden } from './ciclo/EtapasOrden'
+import { PlanesMop } from './ciclo/PlanesMop'
+import { ReporteComparativo } from './ciclo/ReporteComparativo'
+import { Validaciones } from './ciclo/Validaciones'
+
+interface SeguimientoOrdenProps {
+  idOrden: number
+  /** Se llama cuando la orden cambia de estado, para refrescar los datos de planificación de la página */
+  onCambioEstado: () => void
+}
+
+type Pestana = 'mop' | 'analisis' | 'autorizacion' | 'validacion' | 'incidencias'
+
+/** Mientras la orden avanza sola, la ficha se consulta seguido; en los demás estados espera una acción */
+const EN_CURSO: EstadoOrden[] = ['EN_EVALUACION', 'AUTORIZADA', 'EN_COLA', 'EN_EJECUCION']
+const REFRESCO_MS = 4000
+
+const PESTANA_DE_ETAPA: Record<EtapaOrden, Pestana> = {
+  PLANIFICACION: 'analisis',
+  EVALUACION: 'analisis',
+  AUTORIZACION: 'mop',
+  EJECUCION: 'mop',
+  VALIDACION: 'validacion',
+  INCIDENCIA: 'incidencias',
+  CIERRE: 'analisis',
+}
+
+/**
+ * Seguimiento del ciclo de una orden (HU25-HU28): en qué etapa está, qué espera para avanzar, lo que el usuario
+ * puede decidir ahora y la bitácora completa (RF53) con el reporte comparativo (RF54)
+ */
+export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenProps) {
+  const { avisar } = useAvisos()
+  const { tieneRol } = useSesion()
+  // El responsable ve sus incidencias aquí; la gestión de incidencias es del administrador y el operador
+  const gestionaIncidencias = tieneRol('ADMINISTRADOR') || tieneRol('OPERADOR')
+  const ficha = useConsulta(() => cicloApi.ficha(idOrden), [idOrden])
+  const [pestana, setPestana] = useState<Pestana>()
+  const [accion, setAccion] = useState<AccionOrden>()
   const [trabajando, setTrabajando] = useState(false)
+  const [error, setError] = useState<unknown>()
+
+  const f = ficha.datos
+  const estado = f?.orden?.estado
+  const { recargar } = ficha
+
   useEffect(() => {
-    if (estado === 'CERRADA') return
-    const timer = window.setInterval(() => {
-      informe.recargar()
-      onActualizar()
-    }, 5000)
-    return () => window.clearInterval(timer)
-  }, [estado, informe.recargar, onActualizar])
-  async function ejecutar(fn: () => Promise<unknown>) {
+    if (!estado || !EN_CURSO.includes(estado)) return
+    const t = window.setInterval(() => {
+      if (document.visibilityState === 'visible') recargar()
+    }, REFRESCO_MS)
+    return () => window.clearInterval(t)
+  }, [estado, recargar])
+
+  // La página de la orden muestra datos de planificación que también cambian con el estado
+  const estadoAnterior = useRef(estado)
+  useEffect(() => {
+    if (estadoAnterior.current && estado && estadoAnterior.current !== estado) onCambioEstado()
+    estadoAnterior.current = estado
+  }, [estado, onCambioEstado])
+
+  if (ficha.cargando && !f) return <Cargando texto="Cargando el ciclo de mantenimiento…" />
+  if (!f || !f.orden) return <MensajeError error={ficha.error} onReintentar={ficha.recargar} />
+
+  const a = f.acciones ?? {}
+  const actual: Pestana = pestana ?? PESTANA_DE_ETAPA[f.orden.etapa ?? 'PLANIFICACION']
+  const propuesta = f.autorizaciones
+    ?.at(-1)
+    ?.decisiones?.find((d) => d.estado === 'FECHA_PROPUESTA')?.fechaPropuesta
+  const incidencias = f.incidencias ?? []
+  const abiertas = incidencias.filter((i) => i.estado !== 'CERRADA').length
+
+  async function ejecutar(fn: () => Promise<string>) {
     setTrabajando(true)
     setError(undefined)
     try {
-      await fn()
-      setAccion(undefined)
-      informe.recargar()
-      onActualizar()
+      avisar(await fn())
+      recargar()
+      onCambioEstado()
     } catch (e) {
       setError(e)
     } finally {
       setTrabajando(false)
     }
   }
-  function abrir(a: Accion) {
-    setAccion(a)
-    setMotivo('')
-    setFecha('')
-    setError(undefined)
+
+  const evaluar = () =>
+    ejecutar(async () => {
+      const r = await cicloApi.evaluar(idOrden)
+      return r.mensaje
+    })
+
+  const despachar = () =>
+    ejecutar(async () => {
+      const r = await operacionApi.ejecutarCola()
+      return r.mensaje ?? `${r.despachados} servidores despachados.`
+    })
+
+  const exportar = (formato: 'json' | 'csv') => {
+    const nombre = `bitacora_${f.orden?.codigo ?? idOrden}`
+    if (formato === 'json') descargarTexto(`${nombre}.json`, JSON.stringify(f, null, 2), 'application/json')
+    else descargarTexto(`${nombre}.csv`, bitacoraCsv(f), 'text/csv')
   }
-  async function confirmar() {
-    await ejecutar(() =>
-      accion === 'conforme' || accion === 'no-conforme'
-        ? automatizacionApi.validar(id, accion === 'conforme', motivo)
-        : accion === 'cerrar'
-          ? automatizacionApi.cerrar(id, motivo)
-          : automatizacionApi.decidir(id, {
-              decision: accion === 'aprobar' ? 'APROBADA' : accion === 'rechazar' ? 'RECHAZADA' : 'FECHA_PROPUESTA',
-              motivo,
-              fechaPropuesta: accion === 'proponer' ? new Date(fecha).toISOString() : undefined,
-            }),
-    )
-  }
-  const f = informe.datos
-  const ronda = f?.autorizaciones?.at(-1)
-  const pendiente = ronda?.decisiones?.find((d) => d.estado === 'PENDIENTE')
-  const propuesta = ronda?.decisiones?.find((d) => d.estado === 'FECHA_PROPUESTA')
-  const puedeDecidir =
-    estado === 'PENDIENTE_AUTORIZACION' &&
-    ((admin && pendiente?.tipo === 'ADMINISTRADOR') || (tieneRol('RESPONSABLE') && pendiente?.tipo === 'RESPONSABLE'))
-  const validacion = f?.validaciones?.find((v) => v.idResponsable === usuario?.id && v.estado === 'PENDIENTE')
-  function descargar() {
-    const blob = new Blob([JSON.stringify(f, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `bitacora_orden_${id}.json`
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
+
+  const pestanas: [Pestana, string][] = [
+    ['mop', `MOP y ejecución${f.mops?.length ? ` (${f.mops.length})` : ''}`],
+    ['analisis', 'Análisis y reporte comparativo'],
+    ['autorizacion', `Autorizaciones${f.autorizaciones?.length ? ` (${f.autorizaciones.length})` : ''}`],
+    ['validacion', 'Validaciones'],
+    ['incidencias', `Incidencias${incidencias.length ? ` (${abiertas} abiertas de ${incidencias.length})` : ''}`],
+  ]
+
+  const hayAcciones =
+    a.evaluar || a.decidir || a.proponerFecha || a.decidirPropuesta || a.validar || a.cerrarSinImplementacion || a.procesarCola
+
   return (
-    <Tarjeta
-      titulo="Automatización, MOP y bitácora"
-      className="mt-6"
-      acciones={
-        <Boton icono={Download} onClick={descargar} disabled={!f}>
-          Descargar bitácora
-        </Boton>
-      }
-    >
-      {f?.simulado && (
-        <p className="mb-4 rounded-lg bg-panel-muted p-3 text-sm text-ink-soft">
-          Resultados simulados para pruebas locales. Ansible real está desactivado.
+    <section className="flex flex-col gap-5 rounded-xl border border-line bg-panel p-5" aria-label="Ciclo de mantenimiento">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-ink">Ciclo de mantenimiento</h3>
+          {f.simulado && (
+            <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-warning">
+              <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
+              Modo simulado: los resultados no provienen de los servidores
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Boton variante="fantasma" icono={Download} onClick={() => exportar('csv')}>
+            Bitácora CSV
+          </Boton>
+          <Boton variante="fantasma" icono={FileJson} onClick={() => exportar('json')}>
+            JSON
+          </Boton>
+        </div>
+      </div>
+
+      <EtapasOrden
+        etapa={f.orden.etapa ?? 'PLANIFICACION'}
+        estado={f.orden.estado ?? 'PROGRAMADA'}
+        recorrido={(f.historial ?? []).flatMap((h) => (h.estadoNuevo ? [h.estadoNuevo] : []))}
+      />
+
+      <div className="flex flex-col gap-3 rounded-lg bg-accent-soft px-4 py-3 sm:flex-row sm:items-center">
+        <p className="flex-1 text-sm text-ink">
+          <span className="font-medium">Siguiente paso: </span>
+          {f.siguientePaso}
         </p>
-      )}
-      <MensajeError error={error ?? informe.error} />
-      <div className="mb-4 flex flex-wrap gap-2">
-        {admin && estado === 'PROGRAMADA' && (
-          <Boton icono={ScanSearch} cargando={trabajando} onClick={() => ejecutar(() => automatizacionApi.evaluar(id))}>
-            Evaluar mantenimiento
-          </Boton>
-        )}
-        {admin && ['AUTORIZADA', 'EN_COLA', 'EN_EJECUCION'].includes(estado) && (
-          <Boton icono={Play} cargando={trabajando} onClick={() => ejecutar(automatizacionApi.ejecutar)}>
-            Procesar cola
-          </Boton>
-        )}
-        {puedeDecidir && !propuesta && (
-          <>
-            <Boton variante="primario" onClick={() => abrir('aprobar')}>
-              Aprobar
-            </Boton>
-            <Boton onClick={() => abrir('rechazar')}>Rechazar</Boton>
-            {tieneRol('RESPONSABLE') && <Boton onClick={() => abrir('proponer')}>Proponer otra fecha</Boton>}
-          </>
-        )}
-        {admin && propuesta && estado === 'PENDIENTE_AUTORIZACION' && (
-          <Boton cargando={trabajando} onClick={() => ejecutar(() => automatizacionApi.aceptarFecha(id))}>
-            Aceptar fecha propuesta y renovar solicitudes
-          </Boton>
-        )}
-        {validacion && estado === 'PENDIENTE_VALIDACION' && (
-          <>
-            <Boton variante="primario" onClick={() => abrir('conforme')}>
-              Validar conforme
-            </Boton>
-            <Boton onClick={() => abrir('no-conforme')}>Reportar no conformidad</Boton>
-          </>
-        )}
-        {admin && estado === 'SIN_IMPLEMENTACION' && (
-          <Boton onClick={() => abrir('cerrar')}>Cerrar sin intervención</Boton>
+        {hayAcciones && (
+          <div className="flex flex-wrap gap-2">
+            {a.evaluar && (
+              <Boton variante="primario" icono={ScanSearch} cargando={trabajando} onClick={evaluar}>
+                Evaluar ahora
+              </Boton>
+            )}
+            {a.decidir && (
+              <>
+                <Boton variante="primario" icono={Check} onClick={() => setAccion('aprobar')}>
+                  Aprobar
+                </Boton>
+                <Boton icono={X} onClick={() => setAccion('rechazar')}>
+                  Rechazar
+                </Boton>
+              </>
+            )}
+            {a.proponerFecha && <Boton onClick={() => setAccion('proponer')}>Proponer otra fecha</Boton>}
+            {a.decidirPropuesta && (
+              <>
+                <Boton variante="primario" onClick={() => setAccion('aceptar-fecha')}>
+                  Aceptar fecha propuesta
+                </Boton>
+                <Boton onClick={() => setAccion('rechazar-propuesta')}>No aceptar</Boton>
+              </>
+            )}
+            {a.validar && (
+              <>
+                <Boton variante="primario" icono={Check} onClick={() => setAccion('conforme')}>
+                  Validar conforme
+                </Boton>
+                <Boton icono={X} onClick={() => setAccion('no-conforme')}>
+                  No conforme
+                </Boton>
+              </>
+            )}
+            {a.cerrarSinImplementacion && (
+              <Boton variante="peligro" onClick={() => setAccion('cerrar-sin-implementacion')}>
+                Cerrar sin intervenir
+              </Boton>
+            )}
+            {a.procesarCola && (
+              <Boton icono={Play} cargando={trabajando} onClick={despachar}>
+                Despachar cola
+              </Boton>
+            )}
+          </div>
         )}
       </div>
-      <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label="Seguimiento de mantenimiento">
-        {[
-          ['mop', 'MOP y tareas'],
-          ['comparativo', 'Métricas antes y después'],
-          ['aprobaciones', 'Autorizaciones y validaciones'],
-          ['incidencias', 'Incidencias'],
-        ].map(([id, t]) => (
+
+      <MensajeError error={error} />
+
+      <div role="tablist" aria-label="Detalle del ciclo" className="flex flex-wrap gap-2">
+        {pestanas.map(([clave, etiqueta]) => (
           <button
-            key={id}
-            type="button"
+            key={clave}
             role="tab"
-            aria-selected={pestana === id}
-            onClick={() => setPestana(id)}
-            className={`rounded-full px-4 py-2 text-sm ${pestana === id ? 'bg-accent text-accent-ink' : 'bg-panel-muted text-ink-soft'}`}
+            type="button"
+            aria-selected={actual === clave}
+            onClick={() => setPestana(clave)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              actual === clave ? 'bg-accent text-accent-ink' : 'bg-panel-muted text-ink-soft hover:text-ink'
+            }`}
           >
-            {t}
+            {etiqueta}
           </button>
         ))}
       </div>
-      {pestana === 'mop' && (
-        <div className="flex flex-col gap-4">
-          {!f?.mops?.length && (
-            <p className="text-sm text-ink-soft">La MOP estará disponible después de la evaluación previa.</p>
-          )}
-          {f?.mops?.map((m) => (
-            <section key={m.id} className="rounded-lg border border-line p-4">
-              <h4 className="mb-3 font-medium">
-                {m.servidor} · {m.duracionMinutos} min {m.piloto && '· Servidor piloto'}
-              </h4>
-              {m.superaDuracionMaxima && (
-                <p className="mb-3 text-sm text-warning">
-                  La duración estimada supera el máximo por MOP configurado. Revise las tareas antes de autorizar.
-                </p>
-              )}
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[660px] text-left text-sm">
-                  <thead className="text-xs text-ink-soft">
-                    <tr>
-                      {['Tarea', 'Prioridad', 'Versión fijada', 'Cuenta', 'Estado', 'Resultado'].map((t) => (
-                        <th className="p-2 font-medium" key={t}>
-                          {t}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {m.tareas?.map((t) => (
-                      <tr key={t.id}>
-                        <td className="p-2">
-                          {t.tarea}
-                          <span className="block text-xs text-ink-soft">
-                            {t.duracionMinutos} min · {t.afectacion?.replaceAll('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="p-2">{t.prioridad}</td>
-                        <td className="p-2">
-                          {t.idVersion ? `v${t.numeroVersion} · #${t.idVersion}` : 'Sin implementación compatible'}
-                        </td>
-                        <td className="p-2">#{t.idCuentaServicio}</td>
-                        <td className="p-2">{t.estado?.replaceAll('_', ' ')}</td>
-                        <td className="p-2">
-                          <span className="text-danger">{t.error}</span>
-                          {t.salida && (
-                            <details>
-                              <summary className="cursor-pointer text-accent">Ver salida</summary>
-                              <pre className="mt-2 max-h-44 max-w-md overflow-auto whitespace-pre-wrap rounded bg-panel-muted p-2 text-xs">
-                                {t.salida}
-                              </pre>
-                            </details>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          ))}
-        </div>
+
+      {actual === 'mop' && <PlanesMop mops={f.mops ?? []} />}
+      {actual === 'analisis' && <ReporteComparativo reporte={f.reporte ?? []} evaluaciones={f.evaluaciones ?? []} />}
+      {actual === 'autorizacion' && <Autorizaciones rondas={f.autorizaciones ?? []} />}
+      {actual === 'validacion' && (
+        <Validaciones tecnicas={f.validacionesTecnicas ?? []} funcional={f.validacionFuncional} />
       )}
-      {pestana === 'comparativo' && (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px] text-left text-sm">
-              <thead className="text-xs text-ink-soft">
-                <tr>
-                  {['Servidor', 'Métrica / instancia', 'Antes', 'Después', 'Estado posterior'].map((t) => (
-                    <th key={t} className="p-2 font-medium">
-                      {t}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {compararMetricas(f?.evaluaciones ?? []).map((m) => (
-                  <tr key={m.clave}>
-                    <td className="p-2 font-mono">{m.servidor}</td>
-                    <td className="p-2">
-                      {m.nombre}
-                      <span className="ml-1 text-xs text-ink-soft">{m.instancia}</span>
-                    </td>
-                    <td className="p-2">{m.antes}</td>
-                    <td className="p-2">{m.despues}</td>
-                    <td className="p-2">{m.nivel}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {f?.evaluaciones?.map((e) => (
-            <p key={e.id} className="mt-2 text-xs text-ink-soft">
-              {e.servidor} · {e.tipo} · {e.estado} · script #{e.idVersion} · {formatearFechaHora(e.fechaInicio)}{' '}
-              {e.error && <span className="text-danger">· {e.error}</span>}
-            </p>
-          ))}
-        </>
-      )}
-      {pestana === 'aprobaciones' && (
-        <div className="flex flex-col gap-4">
-          {f?.validacionesTecnicas?.map((v) => (
-            <div key={v.idDetalle} className="rounded-lg bg-panel-muted p-3 text-sm">
-              <strong>Validación técnica · Detalle #{v.idDetalle}</strong>
-              <p>
-                {v.resultado?.replaceAll('_', ' ')} · {formatearFechaHora(v.fecha)}
-              </p>
-              <p className="text-ink-soft">{v.observaciones}</p>
-            </div>
-          ))}
-          {f?.autorizaciones?.map((s) => (
-            <section key={s.id} className="rounded-lg border border-line p-4">
-              <h4 className="mb-2 font-medium">
-                Ronda {s.ronda} · {s.entorno} · {s.afectacion?.replaceAll('_', ' ')}
-              </h4>
-              <p className="mb-3 text-sm text-ink-soft">Plazo compartido: {formatearFechaHora(s.fechaLimite)}</p>
-              {s.decisiones?.length === 0 && <p className="text-sm">Autorización automática.</p>}
-              {s.decisiones?.map((d) => (
-                <div key={d.id} className="mb-2 rounded bg-panel-muted p-3 text-sm">
-                  {d.secuencia}. {d.tipo} · {d.estado?.replaceAll('_', ' ')}
-                  <p className="text-xs text-ink-soft">
-                    {d.usuario} {d.motivo}{' '}
-                    {d.fechaPropuesta && `· Fecha propuesta: ${formatearFechaHora(d.fechaPropuesta)}`}
-                  </p>
+      {actual === 'incidencias' &&
+        (incidencias.length === 0 ? (
+          <p className="text-sm text-ink-soft">Sin incidencias.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {incidencias.map((i) => (
+              <li key={i.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-line px-4 py-3 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-ink">{i.origen ? ORIGEN_INCIDENCIA[i.origen] : 'Incidencia'}</span>
+                    <span className="font-mono text-ink-soft">{i.servidor}</span>
+                    {i.estado && <StatusPill tone={ESTADO_INCIDENCIA[i.estado].tono} label={ESTADO_INCIDENCIA[i.estado].etiqueta} />}
+                  </div>
+                  {i.error && <p className="mt-1 line-clamp-2 text-ink-soft">{i.error}</p>}
+                  <p className="mt-1 text-xs text-ink-faint">Abierta {formatearFechaHora(i.fechaApertura)}</p>
                 </div>
-              ))}
-            </section>
-          ))}
-          {f?.validaciones?.map((v) => (
-            <div key={v.id} className="rounded-lg border border-line p-4 text-sm">
-              <strong>Validación funcional · {v.responsable}</strong>
-              <p>
-                {v.estado} · Hasta {formatearFechaHora(v.fechaLimite)}
-              </p>
-              <p className="text-ink-soft">{v.observaciones}</p>
-            </div>
-          ))}
-        </div>
-      )}
-      {pestana === 'incidencias' && (
-        <div className="flex flex-col gap-3">
-          {f?.incidencias?.length === 0 && <p className="text-sm text-ink-soft">Sin incidencias registradas.</p>}
-          {f?.incidencias?.map((i) => (
-            <div key={i.id} className="rounded-lg border border-line p-4 text-sm">
-              <strong>
-                {i.servidor} · {i.estado}
-              </strong>
-              <p>
-                {i.origen?.replaceAll('_', ' ')} · {i.error}
-              </p>
-              <p className="text-ink-soft">
-                {i.diagnostico} {i.resultado}
-              </p>
-              {admin && i.estado !== 'CERRADA' && (
-                <Link className="mt-2 inline-block text-accent" to="/automatizacion/incidencias">
-                  Atender incidencia
-                </Link>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+                {gestionaIncidencias && (
+                  <Link
+                    to={`/automatizacion/incidencias?incidencia=${i.id}`}
+                    className="text-sm font-medium text-accent hover:underline"
+                  >
+                    {i.estado === 'CERRADA' || !tieneRol('ADMINISTRADOR') ? 'Ver' : 'Atender'}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        ))}
+
       {accion && (
-        <Modal
-          abierto
-          titulo={
-            {
-              aprobar: 'Aprobar mantenimiento',
-              rechazar: 'Rechazar mantenimiento',
-              proponer: 'Proponer otra fecha',
-              conforme: 'Conformidad funcional',
-              'no-conforme': 'Registrar no conformidad',
-              cerrar: 'Cerrar sin intervención',
-            }[accion]
-          }
+        <AccionOrdenModal
+          idOrden={idOrden}
+          accion={accion}
+          fechaPropuesta={propuesta}
           onCerrar={() => setAccion(undefined)}
-          pie={
-            <>
-              <Boton onClick={() => setAccion(undefined)}>Cancelar</Boton>
-              <Boton
-                variante="primario"
-                cargando={trabajando}
-                disabled={!motivo.trim() || (accion === 'proponer' && !fecha)}
-                onClick={confirmar}
-              >
-                Confirmar
-              </Boton>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            <MensajeError error={error} />
-            {accion === 'proponer' && (
-              <Campo
-                etiqueta="Fecha propuesta"
-                obligatorio
-                ayuda="El administrador verificará ventana, capacidad y conflictos antes de aceptarla."
-              >
-                <Entrada type="datetime-local" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-              </Campo>
-            )}
-            <Campo etiqueta="Motivo u observaciones" obligatorio>
-              <AreaTexto value={motivo} maxLength={1000} onChange={(e) => setMotivo(e.target.value)} />
-            </Campo>
-          </div>
-        </Modal>
+          onHecho={(mensaje) => {
+            setAccion(undefined)
+            avisar(mensaje)
+            recargar()
+            onCambioEstado()
+          }}
+        />
       )}
-    </Tarjeta>
+    </section>
   )
 }

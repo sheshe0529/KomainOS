@@ -1,10 +1,10 @@
-import { AnalisisServidor } from '@/components/automatizacion/AnalisisServidor'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { servidoresApi } from '@/api/inventario'
 import type { FichaServidorRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
+import { AnalisisServidor } from '@/components/automatizacion/AnalisisServidor'
 import { Tarjeta } from '@/components/common/Tarjeta'
 import { CredencialesDocumentales } from '@/components/credenciales/CredencialesDocumentales'
 import { AvisosServidor } from '@/components/inventario/AvisosServidor'
@@ -195,7 +195,7 @@ export function FichaServidorPage() {
           }}
         />
       )}
-      <AnalisisServidor id={idServidor}/>
+      <AnalisisServidor idServidor={idServidor} />
     </div>
   )
 }

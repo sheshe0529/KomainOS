@@ -7,27 +7,30 @@ import { AvisosProvider } from '@/components/ui/AvisosProvider'
 import { Cargando } from '@/components/ui/Cargando'
 import { MainLayout } from '@/components/layout/MainLayout'
 import {
-  AutomatizacionPage,
-  ScriptsPage,
-  TareasPage,
-  PoliticasCambioPage,
-  IncidenciasPage,
   AlertasPage,
+  AutomatizacionPage,
   CatalogosPage,
   CronogramaDiaPage,
   CronogramaPage,
   CuentasServicioPage,
+  EjecucionesPage,
   FichaGrupoPage,
   FichaServidorPage,
   GruposPage,
+  IncidenciasPage,
   LoginPage,
   MiCuentaPage,
   NoEncontradoPage,
   OrdenDetallePage,
   OrdenesPage,
   ParametrosPage,
+  PoliticasCambioPage,
   PreferenciasPage,
+  PublicarVersionPage,
+  ScriptDetallePage,
+  ScriptsPage,
   ServidoresPage,
+  TareasPage,
   UmbralDetallePage,
   UmbralesPage,
   UsuariosPage,
@@ -81,6 +84,30 @@ function App() {
                 element={
                   <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
                     <ScriptsPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/automatizacion/scripts/:id"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <ScriptDetallePage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/automatizacion/scripts/:id/publicar"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR']}>
+                    <PublicarVersionPage />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/automatizacion/ejecuciones"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <EjecucionesPage />
                   </RutaProtegida>
                 }
               />

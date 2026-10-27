@@ -1,4 +1,3 @@
-import { SeguimientoOrden } from '@/components/automatizacion/SeguimientoOrden'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarClock, CalendarX } from 'lucide-react'
@@ -6,6 +5,7 @@ import type { EstadoOrden } from '@/api/dominio'
 import { planificacionApi } from '@/api/planificacion'
 import type { OrdenDetalleRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
+import { SeguimientoOrden } from '@/components/automatizacion/SeguimientoOrden'
 import { Dato, Tarjeta } from '@/components/common/Tarjeta'
 import { CancelarModal } from '@/components/planificacion/CancelarModal'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
@@ -15,6 +15,7 @@ import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { TONO_ESTADO_ORDEN } from '@/utils/automatizacion'
 import { ETIQUETA_ESTADO_DETALLE, ETIQUETA_ESTADO_ORDEN, ETIQUETA_ETAPA, ETIQUETA_MODO, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
 import { formatearFechaHora } from '@/utils/formato'
 
@@ -64,7 +65,7 @@ export function OrdenDetallePage() {
             </Link>
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {r.estado && <StatusPill tone="neutral" label={ETIQUETA_ESTADO_ORDEN[r.estado]} />}
+            {r.estado && <StatusPill tone={TONO_ESTADO_ORDEN[r.estado]} label={ETIQUETA_ESTADO_ORDEN[r.estado]} />}
             <StatusPill tone="neutral" label={`Criticidad ${r.criticidad?.nombre ?? ''}`} />
             {r.etapa && <StatusPill tone="neutral" label={`Etapa: ${ETIQUETA_ETAPA[r.etapa]}`} />}
             {r.prioridad === 'ALTA' && <StatusPill tone="danger" label="Prioridad alta" />}
@@ -85,6 +86,8 @@ export function OrdenDetallePage() {
           </div>
         )}
       </div>
+
+      <SeguimientoOrden idOrden={idOrden} onCambioEstado={orden.recargar} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Tarjeta titulo="Información general">
@@ -205,7 +208,6 @@ export function OrdenDetallePage() {
           onConfirmar={async (motivo) => actualizar(await planificacionApi.cancelar(idOrden, { motivo }), 'Orden cancelada.')}
         />
       )}
-      <SeguimientoOrden id={idOrden} estado={r.estado!} onActualizar={orden.recargar}/>
     </div>
   )
 }

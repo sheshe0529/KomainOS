@@ -3,6 +3,10 @@ package com.komainos.mantenimiento.repository;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.OrdenDetalle;
+import com.komainos.mantenimiento.model.OrigenOrden;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,15 +14,29 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface OrdenDetalleRepositorio extends JpaRepository<OrdenDetalle, Integer> {
- @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"orden.nivelCriticidad","servidor"})
- @org.springframework.data.jpa.repository.Query("select d from OrdenDetalle d where d.estado in :estados order by case when d.orden.origen in :altas then 0 else 1 end,d.orden.nivelCriticidad.prioridad,d.orden.fechaInicioProgramada,d.posicionEjecucion")
- org.springframework.data.domain.Page<OrdenDetalle> cola(@org.springframework.data.repository.query.Param("estados") java.util.Set<EstadoDetalleOrden> estados,@org.springframework.data.repository.query.Param("altas")java.util.Set<com.komainos.mantenimiento.model.OrigenOrden> altas,org.springframework.data.domain.Pageable p);
 
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"orden","servidor"})
-    java.util.List<OrdenDetalle> findByEstado(EstadoDetalleOrden estado);
+    /**
+     * Cola de ejecución (RF35): prioridad alta primero, luego la criticidad, el inicio programado y la posición en el
+     * grupo. Los enumerados van como parámetro (DEC-26).
+     */
+    @EntityGraph(attributePaths = {"orden.nivelCriticidad", "servidor"})
+    @Query("""
+            select d from OrdenDetalle d
+            where d.estado in :estados
+            order by case when d.orden.origen in :altas then 0 else 1 end, d.orden.nivelCriticidad.prioridad,
+                d.orden.fechaInicioProgramada, d.posicionEjecucion
+            """)
+    Page<OrdenDetalle> cola(@Param("estados") Collection<EstadoDetalleOrden> estados,
+                            @Param("altas") Collection<OrigenOrden> altas, Pageable pagina);
 
+    @EntityGraph(attributePaths = {"orden", "servidor"})
+    List<OrdenDetalle> findByEstado(EstadoDetalleOrden estado);
+
+    @EntityGraph(attributePaths = {"orden", "servidor"})
+    Optional<OrdenDetalle> findConOrdenById(Integer id);
 
     /** Los enumerados van como parámetro (DEC-26) */
     @Query("""

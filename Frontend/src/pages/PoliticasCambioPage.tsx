@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Bell, BellOff, Check, LoaderCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { automatizacionApi } from '@/api/automatizacion'
+import { politicasApi } from '@/api/automatizacion'
 import { catalogosApi } from '@/api/catalogos'
 import type { PoliticaCambioPeticion, PoliticaCambioRespuesta } from '@/api/types'
 import { PageHeader } from '@/components/common/PageHeader'
@@ -59,7 +59,7 @@ function CeldaPolitica({
     setGuardada(false)
     setError(undefined)
     try {
-      const nueva = await automatizacionApi.guardarPolitica(regla?.id, {
+      const nueva = await politicasApi.guardar(regla?.id, {
         idEntorno,
         nivelAfectacion: afectacion,
         activo: regla?.activo ?? true,
@@ -181,7 +181,7 @@ function CeldaPolitica({
 }
 export function PoliticasCambioPage() {
   const { tieneRol } = useSesion()
-  const lista = useConsulta(automatizacionApi.todasPoliticas, [])
+  const lista = useConsulta(() => politicasApi.listar(), [])
   const catalogos = useCatalogos()
   const parametros = useConsulta(catalogosApi.parametros, [])
   const entornos =

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { automatizacionApi } from '@/api/automatizacion'
+import { alertasApi } from '@/api/automatizacion'
 import type { AlertaRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
 import { Modal } from '@/components/ui/Modal'
@@ -30,7 +30,7 @@ export function AlertasProvider({ children }: { children: ReactNode }) {
     if (!usuario?.id) return
     let vigente = true
     setCargando(true)
-    Promise.all([automatizacionApi.alertas(0, 8), automatizacionApi.alertasPendientes()])
+    Promise.all([alertasApi.listar(0, 8), alertasApi.pendientes()])
       .then(([lista, contador]) => {
         if (vigente) {
           setRecientes(lista.contenido ?? [])
@@ -62,7 +62,7 @@ export function AlertasProvider({ children }: { children: ReactNode }) {
   }, [recargar])
 
   async function marcarLeida(id: number) {
-    await automatizacionApi.leerAlerta(id)
+    await alertasApi.leer(id)
     setDetalle((d) => (d?.id === id ? { ...d, leida: true } : d))
     recargar()
   }
@@ -73,7 +73,7 @@ export function AlertasProvider({ children }: { children: ReactNode }) {
     setErrorDetalle(undefined)
     setConsultando(true)
     try {
-      const dato = await automatizacionApi.alerta(id)
+      const dato = await alertasApi.obtener(id)
       if (idAbierto.current !== id) return
       setDetalle(dato)
       if (!dato.leida) await marcarLeida(id)

@@ -1,6 +1,7 @@
 package com.komainos.mantenimiento.model;
 
 import com.komainos.inventario.model.Servidor;
+import com.komainos.shared.exception.ReglaNegocioException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -74,14 +75,35 @@ public class OrdenDetalle {
         return detalle;
     }
 
-    public void marcarPiloto() { esServidorPiloto = true; }
-    public void cambiarEstado(EstadoDetalleOrden nuevo, Instant ahora) {
-        if (!estado.puedePasarA(nuevo)) throw new com.komainos.shared.exception.ReglaNegocioException("Transición de detalle no permitida: " + estado + " → " + nuevo);
-        estado = nuevo;
-        if (nuevo == EstadoDetalleOrden.EN_EJECUCION) fechaRealInicio = ahora;
-        if (nuevo == EstadoDetalleOrden.FINALIZADO || nuevo == EstadoDetalleOrden.FALLIDO) fechaRealFin = ahora;
+    /** RF58: en un grupo paralelo, el servidor con más tareas se ejecuta primero */
+    public void marcarPiloto() {
+        esServidorPiloto = true;
     }
-    public void omitirSiPendiente() { marcarNoIniciadoSiPendiente(); }
+
+    /** Transiciones de la tabla 7 de R2.1; registra las horas reales de inicio y fin */
+    public void cambiarEstado(EstadoDetalleOrden nuevo, Instant ahora) {
+        if (!estado.puedePasarA(nuevo)) {
+            throw new ReglaNegocioException("El servidor %s de la orden no puede pasar de %s a %s"
+                    .formatted(servidor.getHostname(), estado, nuevo));
+        }
+        estado = nuevo;
+        if (nuevo == EstadoDetalleOrden.EN_EJECUCION) {
+            fechaRealInicio = ahora;
+        }
+        if (nuevo == EstadoDetalleOrden.FINALIZADO || nuevo == EstadoDetalleOrden.FALLIDO) {
+            fechaRealFin = ahora;
+        }
+    }
+
+    /** RF59: un servidor que aún no empezó no se inicia; queda como historial */
+    public void omitirSiPendiente() {
+        marcarNoIniciadoSiPendiente();
+    }
+
+    public boolean estaTerminado() {
+        return estado == EstadoDetalleOrden.FINALIZADO || estado == EstadoDetalleOrden.FALLIDO
+                || estado == EstadoDetalleOrden.NO_INICIADO;
+    }
 
     void replanificar(int posicion, Instant inicio, Instant fin) {
         posicionEjecucion = posicion;

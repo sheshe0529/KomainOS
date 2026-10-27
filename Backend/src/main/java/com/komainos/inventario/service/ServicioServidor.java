@@ -296,9 +296,11 @@ public class ServicioServidor implements PuertoServidoresACargo {
     /** RF72: al cerrar el último mantenimiento se completa la solicitud pendiente de baja. */
     @Transactional
     public void aplicarBajaPendiente(Integer id) {
-        if (mantenimientos.tieneMantenimientoEnCurso(id)) return;
+        if (mantenimientos.tieneMantenimientoEnCurso(id)) {
+            return;
+        }
         solicitudesBaja.findFirstByServidorIdAndEstado(id, EstadoSolicitudBaja.PENDIENTE).ifPresent(s ->
-                aplicarBaja(buscar(id),s,s.getSolicitante(),Actor.sistema("CIERRE_MANTENIMIENTO"),Tiempo.ahora(reloj)));
+                aplicarBaja(buscar(id), s, s.getSolicitante(), Actor.sistema("CIERRE_MANTENIMIENTO"), Tiempo.ahora(reloj)));
     }
 
     private int aplicarBaja(Servidor servidor, SolicitudBaja solicitud, Usuario autor, Actor actor, Instant ahora) {

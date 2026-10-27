@@ -8,3 +8,9 @@ spring:
 logging:
   level:
     com.komainos: DEBUG
+
+komainos:
+  automatizacion:
+    simulacion:
+      # En desarrollo cada operación simulada tarda un poco, así se ven las etapas en el panel
+      retardo-ms: ${KOMAINOS_SIMULACION_RETARDO_MS:800}

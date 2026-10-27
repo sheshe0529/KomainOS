@@ -22,7 +22,9 @@ import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
 import com.komainos.inventario.service.ServicioGrupo;
 import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.mantenimiento.event.CicloMantenimientoCerrado;
 import com.komainos.mantenimiento.model.CierreOrden;
+import com.komainos.mantenimiento.model.ConfirmacionFueraVentana;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.Orden;
@@ -30,6 +32,7 @@ import com.komainos.mantenimiento.model.OrdenDetalle;
 import com.komainos.mantenimiento.model.OrigenOrden;
 import com.komainos.mantenimiento.model.Programacion;
 import com.komainos.mantenimiento.repository.CierreOrdenRepositorio;
+import com.komainos.mantenimiento.repository.ConfirmacionFueraVentanaRepositorio;
 import com.komainos.mantenimiento.repository.OrdenDetalleRepositorio;
 import com.komainos.mantenimiento.repository.OrdenRepositorio;
 import com.komainos.planificacion.config.PropiedadesPlanificacion;
@@ -95,8 +98,7 @@ public class ServicioPlanificacion {
     private final PropiedadesPlanificacion propiedades;
     private final Clock reloj;
     private final TransactionTemplate transaccionNueva;
-    @org.springframework.beans.factory.annotation.Autowired
-    private com.komainos.mantenimiento.repository.ConfirmacionFueraVentanaRepositorio confirmaciones;
+    private final ConfirmacionFueraVentanaRepositorio confirmaciones;
     private final PlanificadorVoraz planificador = new PlanificadorVoraz();
 
     public ServicioPlanificacion(OrdenRepositorio ordenes, OrdenDetalleRepositorio detalles,
@@ -106,7 +108,8 @@ public class ServicioPlanificacion {
                                  ConfiguracionGrupoRepositorio configuracionesGrupo,
                                  ServicioParametrosSistema parametros, UsuarioRepositorio usuarios,
                                  ServicioAuditoria auditoria, PropiedadesPlanificacion propiedades, Clock reloj,
-                                 PlatformTransactionManager transacciones) {
+                                 PlatformTransactionManager transacciones,
+                                 ConfirmacionFueraVentanaRepositorio confirmaciones) {
         this.ordenes = ordenes;
         this.detalles = detalles;
         this.cierres = cierres;
@@ -122,6 +125,7 @@ public class ServicioPlanificacion {
         this.reloj = reloj;
         this.transaccionNueva = new TransactionTemplate(transacciones);
         this.transaccionNueva.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.confirmaciones = confirmaciones;
     }
 
     /** Con fecha la verifica, sin fecha toma el primer intervalo disponible (RF28, RF30) */
@@ -147,44 +151,81 @@ public class ServicioPlanificacion {
         return orden;
     }
 
-    /** RF31: prioridad alta; la ejecución sigue sujeta a política y exclusión por servidor. */
+    /**
+     * RF31, RF40: orden de prioridad alta que empieza ahora y sigue sujeta a la política de cambio y a la exclusión por
+     * servidor. Fuera de la ventana exige la confirmación expresa del administrador, que queda registrada (HU19 CA3).
+     * La condición crítica fuera de ventana no recibe esa excepción: espera el primer intervalo disponible.
+     *
+     * @param idEvaluacionOrigen la revisión que detectó la condición crítica; nula en un lanzamiento inmediato
+     */
     @Transactional
-    public Orden inmediata(Integer idServidor,Integer idGrupo,boolean confirmarFuera,String motivo,Integer evaluacionOrigen,Actor actor) {
-        bloquear();Objetivo objetivo=objetivo(idServidor,idGrupo);Instant ahora=Tiempo.ahora(reloj);
-        Duration duracion=Duration.ofMinutes(parametros.obtener().getMaxDuracionMopMinutos());
-        Optional<Intervalo> ventana=objetivo.ventana().proyectar(ahora.minus(Duration.ofDays(7)),ahora.plus(Duration.ofDays(8)),propiedades.zona()).stream().filter(v->!ahora.isBefore(v.inicio())&&ahora.isBefore(v.fin())).findFirst();
-        if(ventana.isEmpty()&&!confirmarFuera&&evaluacionOrigen==null)throw new ReglaNegocioException("El inicio queda fuera de la ventana permisiva: confirme expresamente la excepción");
-        // La condición crítica fuera de ventana espera la siguiente ventana: no concede una excepción implícita.
-        if(ventana.isEmpty()&&evaluacionOrigen!=null){
-            ResultadoPlanificacion r=planificador.planificar(solicitud(objetivo,ahora,ahora),reservas(ahora,ahora,null));
-            return crearOrdenCritica(objetivo,r,motivo,evaluacionOrigen,actor,ahora);
+    public Orden inmediata(Integer idServidor, Integer idGrupo, boolean confirmarFueraVentana, String motivo,
+                           Integer idEvaluacionOrigen, Actor actor) {
+        bloquear();
+        Objetivo objetivo = objetivo(idServidor, idGrupo);
+        Instant ahora = Tiempo.ahora(reloj);
+        boolean critica = idEvaluacionOrigen != null;
+        Optional<Intervalo> ventana = ventanaVigente(objetivo, ahora);
+        ResultadoPlanificacion resultado;
+        if (ventana.isPresent() || (!critica && confirmarFueraVentana)) {
+            resultado = desdeAhora(objetivo, ahora, ventana);
+        } else if (critica) {
+            resultado = planificador.planificar(solicitud(objetivo, ahora, ahora), reservas(ahora, ahora, null));
+        } else {
+            throw new ReglaNegocioException(
+                    "El inicio queda fuera de la ventana permisiva: confirme expresamente la excepción para lanzar ahora");
         }
-        List<ResultadoPlanificacion.Tramo> tramos=new ArrayList<>();int posicion=0;
-        for(Servidor servidor:objetivo.integrantes()) {Instant inicio=objetivo.modo()==ModoEjecucion.SECUENCIAL?ahora.plus(duracion.multipliedBy(posicion)):ahora;tramos.add(new ResultadoPlanificacion.Tramo(servidor.getId(),++posicion,inicio,inicio.plus(duracion)));}
-        Instant fin=tramos.stream().map(ResultadoPlanificacion.Tramo::fin).max(Instant::compareTo).orElseThrow();
-        ResultadoPlanificacion resultado=new ResultadoPlanificacion(ahora,ahora,fin,ahora,ventana.orElse(new Intervalo(ahora,fin)),tramos);
-        Integer cuenta=objetivo.configuracion().getIdCuentaServicio()!=null?objetivo.configuracion().getIdCuentaServicio():parametros.obtener().getIdCuentaServicioPredeterminada();
-        Orden orden=Orden.nueva(ordenes.siguienteId(),objetivo.servidor(),objetivo.grupo(),objetivo.criticidad(),cuenta,actor.esSistema()?null:usuarioDe(actor),evaluacionOrigen==null?OrigenOrden.LANZAMIENTO_INMEDIATO:OrigenOrden.CONDICION_CRITICA,objetivo.modo(),programacion(resultado),ahora,motivo);
-        if(evaluacionOrigen!=null)orden.definirEvaluacionOrigen(evaluacionOrigen);
-        for(var t:tramos)orden.agregarDetalle(objetivo.integrantes().stream().filter(x->x.getId().equals(t.idServidor())).findFirst().orElseThrow(),t.posicion(),t.inicio(),t.fin());
-        ordenes.save(orden);
-        if(ventana.isEmpty()){var c=new com.komainos.mantenimiento.model.ConfirmacionFueraVentana();c.setOrden(orden);c.setUsuario(usuarioDe(actor));c.setFechaConfirmacion(ahora);c.setMotivo(motivo);confirmaciones.save(c);}
-        auditoria.registrar(actor,Operacion.de("LANZAMIENTO_INMEDIATO","orden",orden.getId()).sobreOrden(orden.getId()).motivo(motivo));return orden;
+        String texto = textoOPorDefecto(motivo, critica ? "Condición crítica" : "Lanzamiento inmediato");
+        Usuario solicitante = usuarioDe(actor);
+        Orden orden = crearOrden(objetivo, resultado,
+                critica ? OrigenOrden.CONDICION_CRITICA : OrigenOrden.LANZAMIENTO_INMEDIATO, solicitante, texto, ahora,
+                idEvaluacionOrigen);
+        boolean excepcion = ventana.isEmpty() && !critica;
+        if (excepcion) {
+            confirmaciones.save(ConfirmacionFueraVentana.de(orden, solicitante, texto, ahora));
+        }
+        auditoria.registrar(actor, Operacion.de(critica ? "GENERAR_ORDEN_CONDICION_CRITICA" : "LANZAMIENTO_INMEDIATO",
+                        "orden", orden.getId())
+                .sobreOrden(orden.getId()).sobreServidor(idServidor).sobreGrupo(idGrupo)
+                .valores(null, instantanea(resultado))
+                .motivo(excepcion ? texto + " (inicio fuera de ventana confirmado)" : texto));
+        return orden;
     }
-    private Orden crearOrdenCritica(Objetivo objetivo,ResultadoPlanificacion r,String motivo,Integer evaluacion,Actor actor,Instant ahora){
-        Integer cuenta=objetivo.configuracion().getIdCuentaServicio()!=null?objetivo.configuracion().getIdCuentaServicio():parametros.obtener().getIdCuentaServicioPredeterminada();
-        Orden o=Orden.nueva(ordenes.siguienteId(),objetivo.servidor(),objetivo.grupo(),objetivo.criticidad(),cuenta,null,OrigenOrden.CONDICION_CRITICA,objetivo.modo(),programacion(r),ahora,motivo);o.definirEvaluacionOrigen(evaluacion);
-        for(var t:r.tramos())o.agregarDetalle(objetivo.integrantes().stream().filter(x->x.getId().equals(t.idServidor())).findFirst().orElseThrow(),t.posicion(),t.inicio(),t.fin());return ordenes.save(o);
+
+    /** RF48, CP122: la fecha propuesta debe caber en la ventana efectiva, sin conflictos y con capacidad */
+    @Transactional(readOnly = true)
+    public void verificarFecha(Integer idOrden, Instant inicio) {
+        Orden orden = buscarOrden(idOrden);
+        Objetivo objetivo = objetivoDeOrden(orden);
+        Instant ahora = Tiempo.ahora(reloj);
+        planificador.verificar(solicitud(objetivo, orden.getFechaObjetivo(), ahora), inicio,
+                reservas(ahora, inicio, idOrden));
     }
+
+    /** RF48: aplica la fecha propuesta aceptada; la orden sigue en autorización con una ronda nueva */
     @Transactional
-    public void reprogramarEnAutorizacion(Integer id,Instant inicio,String motivo,Actor actor){
-        bloquear();Orden orden=ordenes.findConDetalleById(id).orElseThrow();Objetivo objetivo=objetivoDeOrden(orden);Instant ahora=Tiempo.ahora(reloj);
-        ResultadoPlanificacion r=planificador.verificar(solicitud(objetivo,orden.getFechaObjetivo(),ahora),inicio,reservas(ahora,inicio,id));
-        orden.actualizarProgramacionAutorizacion(programacion(r),r.tramos().stream().map(t->new Orden.TramoDetalle(t.idServidor(),t.posicion(),t.inicio(),t.fin())).toList());
-        auditoria.registrar(actor,Operacion.de("ACEPTAR_FECHA_PROPUESTA","orden",id).sobreOrden(id).motivo(motivo));
+    public void reprogramarEnAutorizacion(Integer idOrden, Instant inicio, String motivo, Actor actor) {
+        bloquear();
+        Orden orden = buscarOrden(idOrden);
+        Map<String, Object> anterior = orden.instantaneaProgramacion();
+        Objetivo objetivo = objetivoDeOrden(orden);
+        Instant ahora = Tiempo.ahora(reloj);
+        ResultadoPlanificacion resultado = planificador.verificar(solicitud(objetivo, orden.getFechaObjetivo(), ahora),
+                inicio, reservas(ahora, inicio, idOrden));
+        orden.reprogramarEnAutorizacion(programacion(resultado), resultado.tramos().stream()
+                .map(t -> new Orden.TramoDetalle(t.idServidor(), t.posicion(), t.inicio(), t.fin()))
+                .toList());
+        auditoria.registrar(actor, Operacion.de("ACEPTAR_FECHA_PROPUESTA", "orden", idOrden)
+                .sobreOrden(idOrden)
+                .valores(anterior, orden.instantaneaProgramacion())
+                .motivo(motivo));
     }
+
+    /** RF29: al cerrar un ciclo se genera el siguiente de los objetivos en modalidad automática */
     @TransactionalEventListener
-    public void alCerrarMantenimiento(com.komainos.mantenimiento.event.CicloMantenimientoCerrado evento){planificarCiclosAutomaticos();}
+    public void alCerrarMantenimiento(CicloMantenimientoCerrado evento) {
+        planificarCiclosAutomaticos();
+    }
 
     /** Propone el primer intervalo disponible sin crear la orden */
     @Transactional(readOnly = true)
@@ -493,17 +534,51 @@ public class ServicioPlanificacion {
 
     private Orden crearOrden(Objetivo o, ResultadoPlanificacion r, OrigenOrden origen, Usuario solicitante,
                              String motivo, Instant ahora) {
+        return crearOrden(o, r, origen, solicitante, motivo, ahora, null);
+    }
+
+    /** ck_orden_evaluacion_origen: la evaluación de origen se asigna antes de insertar */
+    private Orden crearOrden(Objetivo o, ResultadoPlanificacion r, OrigenOrden origen, Usuario solicitante,
+                             String motivo, Instant ahora, Integer idEvaluacionOrigen) {
         Integer idCuenta = o.configuracion().getIdCuentaServicio() != null
                 ? o.configuracion().getIdCuentaServicio()
                 : parametros.obtener().getIdCuentaServicioPredeterminada();
         Orden orden = Orden.nueva(ordenes.siguienteId(), o.servidor(), o.grupo(), o.criticidad(), idCuenta,
                 solicitante, origen, o.modo(), programacion(r), ahora, motivo);
+        if (idEvaluacionOrigen != null) {
+            orden.definirEvaluacionOrigen(idEvaluacionOrigen);
+        }
         Map<Integer, Servidor> porId = new HashMap<>();
         o.integrantes().forEach(s -> porId.put(s.getId(), s));
         for (ResultadoPlanificacion.Tramo t : r.tramos()) {
             orden.agregarDetalle(porId.get(t.idServidor()), t.posicion(), t.inicio(), t.fin());
         }
         return ordenes.save(orden);
+    }
+
+    /** El intervalo de la ventana efectiva que contiene el momento actual, si lo hay */
+    private Optional<Intervalo> ventanaVigente(Objetivo objetivo, Instant ahora) {
+        return objetivo.ventana()
+                .proyectar(ahora.minus(Duration.ofDays(7)), ahora.plus(Duration.ofDays(8)), propiedades.zona())
+                .stream()
+                .filter(v -> !ahora.isBefore(v.inicio()) && ahora.isBefore(v.fin()))
+                .findFirst();
+    }
+
+    /**
+     * Tramos desde ahora con la duración máxima por MOP (DEC-08): en paralelo todos inician juntos y en secuencial uno
+     * detrás de otro. La exclusión por servidor la aplica el orquestador al ejecutar (RF51).
+     */
+    private ResultadoPlanificacion desdeAhora(Objetivo objetivo, Instant ahora, Optional<Intervalo> ventana) {
+        Duration duracion = Duration.ofMinutes(parametros.obtener().getMaxDuracionMopMinutos());
+        List<ResultadoPlanificacion.Tramo> tramos = new ArrayList<>();
+        int posicion = 0;
+        for (Servidor servidor : objetivo.integrantes()) {
+            Instant inicio = objetivo.modo() == ModoEjecucion.SECUENCIAL ? ahora.plus(duracion.multipliedBy(posicion)) : ahora;
+            tramos.add(new ResultadoPlanificacion.Tramo(servidor.getId(), ++posicion, inicio, inicio.plus(duracion)));
+        }
+        Instant fin = tramos.stream().map(ResultadoPlanificacion.Tramo::fin).max(Instant::compareTo).orElseThrow();
+        return new ResultadoPlanificacion(ahora, ahora, fin, ahora, ventana.orElse(new Intervalo(ahora, fin)), tramos);
     }
 
     private static Programacion programacion(ResultadoPlanificacion r) {

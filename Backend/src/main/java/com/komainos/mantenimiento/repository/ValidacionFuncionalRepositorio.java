@@ -1,8 +1,14 @@
 package com.komainos.mantenimiento.repository;
-import com.komainos.mantenimiento.model.*;
-import com.komainos.catalogo.model.NivelAfectacion;
-import org.springframework.data.jpa.repository.*;
-import org.springframework.data.repository.query.Param;
-import org.springframework.data.domain.*;
-import java.util.*;
-public interface ValidacionFuncionalRepositorio extends JpaRepository<ValidacionFuncional,Integer> { List<ValidacionFuncional> findByOrdenId(Integer id); }
+
+import com.komainos.mantenimiento.model.ValidacionFuncional;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface ValidacionFuncionalRepositorio extends JpaRepository<ValidacionFuncional, Integer> {
+
+    /** Una por orden (uq_validacion_funcional_orden): un grupo tiene un único responsable */
+    @EntityGraph(attributePaths = {"responsable"})
+    Optional<ValidacionFuncional> findByOrdenId(Integer idOrden);
+}

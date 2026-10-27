@@ -33,6 +33,13 @@
   /* Serie única de los gráficos: matiz del azul institucional validado con dataviz/validate_palette.js */
   --color-serie-1: #1859a7;
   --color-serie-2: #0d9488;
+
+  /* Resaltado de código de los scripts: cada color supera 4,5:1 sobre el panel */
+  --color-codigo-clave: #6d28d9;
+  --color-codigo-texto: #047857;
+  --color-codigo-variable: #b45309;
+  --color-codigo-numero: #1d4ed8;
+  --color-codigo-comando: #0e7490;
 }
 
 /* Paleta oscura: mismas variables, así la clase .dark retematiza la interfaz sin tocar el JSX */
@@ -61,6 +68,12 @@
 
   --color-serie-1: #bcbcbc;
   --color-serie-2: #858585;
+
+  --color-codigo-clave: #c4b5fd;
+  --color-codigo-texto: #6ee7b7;
+  --color-codigo-variable: #fcd34d;
+  --color-codigo-numero: #93c5fd;
+  --color-codigo-comando: #67e8f9;
 }
 
 @layer base {

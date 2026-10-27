@@ -1,8 +1,9 @@
 package com.komainos.mantenimiento.repository;
-import com.komainos.mantenimiento.model.*;
-import com.komainos.catalogo.model.NivelAfectacion;
-import org.springframework.data.jpa.repository.*;
-import org.springframework.data.repository.query.Param;
-import org.springframework.data.domain.*;
-import java.util.*;
-public interface ConfirmacionFueraVentanaRepositorio extends JpaRepository<ConfirmacionFueraVentana,Integer> { boolean existsByOrdenId(Integer id); }
+
+import com.komainos.mantenimiento.model.ConfirmacionFueraVentana;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ConfirmacionFueraVentanaRepositorio extends JpaRepository<ConfirmacionFueraVentana, Integer> {
+
+    boolean existsByOrdenId(Integer idOrden);
+}

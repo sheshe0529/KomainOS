@@ -80,8 +80,28 @@ komainos:
       intervalo: PT15M
 
   automatizacion:
-    # Ansible real desactivado por defecto, compatible con el desarrollo local en Windows.
+    # SIMULADO responde sin conectarse a los servidores; REAL invoca ansible-playbook (solo en un controlador Linux)
     modo: ${KOMAINOS_AUTOMATIZACION_MODO:SIMULADO}
+    # Revisiones periódicas, evaluaciones previas, vencimientos y cola de ejecución (EA02-EA06)
     proceso-habilitado: ${KOMAINOS_AUTOMATIZACION_PROCESO_HABILITADO:true}
-    intervalo-ms: 30000
-    ejecutable: ${KOMAINOS_ANSIBLE_EJECUTABLE:ansible-playbook}
+    intervalo-ms: ${KOMAINOS_AUTOMATIZACION_INTERVALO_MS:30000}
+    # Conexiones remotas abiertas a la vez entre análisis y tareas (RNF08)
+    max-conexiones-simultaneas: ${KOMAINOS_AUTOMATIZACION_MAX_CONEXIONES:10}
+    ansible:
+      ejecutable: ${KOMAINOS_ANSIBLE_EJECUTABLE:ansible-playbook}
+      timeout-conexion-segundos: ${KOMAINOS_ANSIBLE_TIMEOUT_CONEXION:30}
+      ssh:
+        puerto: ${KOMAINOS_ANSIBLE_SSH_PUERTO:22}
+        # Desactivar solo en laboratorio: sin verificación no se detecta un servidor suplantado
+        verificar-clave-host: ${KOMAINOS_ANSIBLE_SSH_VERIFICAR_CLAVE_HOST:true}
+        archivo-known-hosts: ${KOMAINOS_ANSIBLE_SSH_KNOWN_HOSTS:}
+      winrm:
+        puerto: ${KOMAINOS_ANSIBLE_WINRM_PUERTO:5986}
+        esquema: ${KOMAINOS_ANSIBLE_WINRM_ESQUEMA:https}
+        # ntlm para cuentas locales, kerberos para cuentas de dominio
+        transporte: ${KOMAINOS_ANSIBLE_WINRM_TRANSPORTE:ntlm}
+        # Desactivar solo en laboratorio con certificados autofirmados
+        validar-certificado: ${KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO:true}
+    simulacion:
+      # Pausa por operación simulada para observar los estados intermedios en el panel
+      retardo-ms: ${KOMAINOS_SIMULACION_RETARDO_MS:0}

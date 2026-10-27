@@ -22,8 +22,12 @@ public class AdaptadorCuentasServicio implements PuertoCuentasServicio {
 
     private final CuentaServicioRepositorio cuentas;
 
+    /**
+     * Es una comprobación: quien la usa para decidir (por ejemplo, la preparación de un servidor) captura la excepción,
+     * y su transacción no debe quedar marcada para deshacerse por ella.
+     */
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, noRollbackFor = {ReglaNegocioException.class, RecursoNoEncontradoException.class})
     public void exigirAsignable(Integer idCuenta, FamiliaSistemaOperativo familia) {
         CuentaServicio cuenta = cuentas.findConSecretoById(idCuenta)
                 .orElseThrow(() -> RecursoNoEncontradoException.de("la cuenta de servicio", idCuenta));

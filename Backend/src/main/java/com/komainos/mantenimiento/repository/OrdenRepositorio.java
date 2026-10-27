@@ -19,7 +19,7 @@ import java.util.Optional;
 
 public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpecificationExecutor<Orden> {
 
-    @EntityGraph(attributePaths={"nivelCriticidad", "servidor", "grupo"})
+    @EntityGraph(attributePaths = {"nivelCriticidad", "servidor", "grupo"})
     List<Orden> findByEstadoInOrderByFechaInicioProgramadaAsc(Collection<EstadoOrden> estados);
 
     /**

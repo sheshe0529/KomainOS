@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { TooltipContentProps } from 'recharts'
-import { automatizacionApi } from '@/api/automatizacion'
+import { operacionApi } from '@/api/automatizacion'
 import { useConsulta } from '@/hooks/useConsulta'
 import { ChartCard } from '@/components/dashboard/ChartCard'
 import { ChartLegend } from '@/components/dashboard/ChartLegend'
@@ -27,7 +27,7 @@ function TooltipRecursos({ active, payload, label }: TooltipContentProps) {
   )
 }
 export function GraficosAutomatizacion() {
-  const informe = useConsulta(automatizacionApi.graficos, [])
+  const informe = useConsulta(operacionApi.graficos, [])
   const id = useId().replaceAll(':', '')
   const recursos = informe.datos?.recursos ?? []
   const hayMuestras = recursos.some((r) => r.cpu != null || r.memoria != null)

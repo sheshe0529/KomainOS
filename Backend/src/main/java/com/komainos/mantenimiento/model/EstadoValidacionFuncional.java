@@ -1,2 +1,9 @@
 package com.komainos.mantenimiento.model;
-public enum EstadoValidacionFuncional { PENDIENTE, CONFORME, RECHAZADA, VENCIDA }
+
+/** Respuesta del responsable (RF57); VENCIDA no presume conformidad */
+public enum EstadoValidacionFuncional {
+    PENDIENTE,
+    CONFORME,
+    RECHAZADA,
+    VENCIDA
+}

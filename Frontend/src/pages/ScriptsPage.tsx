@@ -1,384 +1,225 @@
-import { Link } from 'react-router-dom'
 import { useState } from 'react'
-import { Plus, Save } from 'lucide-react'
-import { automatizacionApi } from '@/api/automatizacion'
-import type { ScriptRespuesta, VersionScriptPeticion } from '@/api/types'
-import { PageHeader } from '@/components/common/PageHeader'
-import { ModoAutomatizacion } from '@/components/automatizacion/ModoAutomatizacion'
-import { TablaAutomatizacion, celda } from '@/components/automatizacion/TablaAutomatizacion'
-import { Boton } from '@/components/ui/Boton'
-import { Campo, Entrada, AreaTexto, Selector } from '@/components/ui/Campo'
-import { Modal } from '@/components/ui/Modal'
-import { MensajeError } from '@/components/ui/MensajeError'
-import { useConsulta } from '@/hooks/useConsulta'
-import { useCatalogos } from '@/hooks/useCatalogos'
+import { Link, useNavigate } from 'react-router-dom'
+import { ChevronRight, Plus } from 'lucide-react'
+import { scriptsApi } from '@/api/automatizacion'
+import type { TipoScript } from '@/api/dominio'
+import type { ImplementacionResumen } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
+import { PageHeader } from '@/components/common/PageHeader'
+import { ScriptFormulario } from '@/components/automatizacion/ScriptFormulario'
 import { useAvisos } from '@/components/ui/avisos-context'
+import { Boton } from '@/components/ui/Boton'
+import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
+import { Selector } from '@/components/ui/Campo'
+import { Cargando } from '@/components/ui/Cargando'
+import { MensajeError } from '@/components/ui/MensajeError'
+import { Paginacion } from '@/components/ui/Paginacion'
+import { StatusPill } from '@/components/ui/StatusPill'
+import { useConsulta } from '@/hooks/useConsulta'
+import { useTextoDiferido } from '@/hooks/useTextoDiferido'
+import { ETIQUETA_TIPO_SCRIPT } from '@/utils/automatizacion'
+import { formatearFecha } from '@/utils/formato'
+
+const TIPOS: { valor: TipoScript | ''; etiqueta: string }[] = [
+  { valor: '', etiqueta: 'Todos' },
+  { valor: 'ANALISIS', etiqueta: 'Análisis' },
+  { valor: 'MANTENIMIENTO', etiqueta: 'Mantenimiento' },
+]
+
+/** Una implementación sin versión habilitada no puede fijarse en una MOP: se marca para que se note */
+function Compatibilidad({ implementacion: i }: { implementacion: ImplementacionResumen }) {
+  const sinVigente = !i.versionVigente
+  return (
+    <span
+      title={sinVigente ? 'Todas sus versiones están deshabilitadas' : `${i.totalVersiones} versiones publicadas`}
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs ${
+        sinVigente ? 'border-warning/40 bg-warning-soft text-warning' : 'border-line bg-panel-muted text-ink'
+      }`}
+    >
+      {i.sistemaOperativo}
+      <span className="font-mono text-ink-soft">{sinVigente ? 'sin versión' : `v${i.versionVigente}`}</span>
+    </span>
+  )
+}
+
+/** Catálogo de scripts (RF22): compatibilidad por sistema operativo y versión vigente de cada implementación */
 export function ScriptsPage() {
   const { tieneRol } = useSesion()
-  const admin = tieneRol('ADMINISTRADOR')
+  const esAdmin = tieneRol('ADMINISTRADOR')
+  const navigate = useNavigate()
   const { avisar } = useAvisos()
+
+  const [busqueda, setBusqueda] = useState('')
+  const texto = useTextoDiferido(busqueda)
+  const [tipo, setTipo] = useState<TipoScript | ''>('')
+  const [estado, setEstado] = useState('true')
   const [pagina, setPagina] = useState(0)
-  const scripts = useConsulta(() => automatizacionApi.scripts(pagina), [pagina])
-  const catalogos = useCatalogos()
-  const [editando, setEditando] = useState<ScriptRespuesta | 'nuevo'>()
-  const [nombre, setNombre] = useState('')
-  const [tipo, setTipo] = useState<'ANALISIS' | 'MANTENIMIENTO'>('ANALISIS')
-  const [descripcion, setDescripcion] = useState('')
-  const [activo, setActivo] = useState(true)
-  const [historial, setHistorial] = useState<number>()
-  const [paginaUsos, setPaginaUsos] = useState(0)
-  const usos = useConsulta(
-    () => (historial ? automatizacionApi.usosVersion(historial, paginaUsos) : Promise.resolve({ contenido: [] })),
-    [historial, paginaUsos],
+  const [creando, setCreando] = useState(false)
+
+  const scripts = useConsulta(
+    () => scriptsApi.listar({ texto, tipo, activo: estado === '' ? undefined : estado === 'true' }, pagina),
+    [texto, tipo, estado, pagina],
   )
-  const [detalle, setDetalle] = useState<ScriptRespuesta>()
-  const [so, setSo] = useState('')
-  const [impl, setImpl] = useState<number>()
-  const [contenido, setContenido] = useState('')
-  const [notas, setNotas] = useState('')
-  const [parametros, setParametros] = useState('[]')
-  const [error, setError] = useState<unknown>()
-  const [guardando, setGuardando] = useState(false)
-  function editar(s: ScriptRespuesta | 'nuevo') {
-    setEditando(s)
-    setNombre(s === 'nuevo' ? '' : (s.nombre ?? ''))
-    setTipo(s === 'nuevo' ? 'ANALISIS' : (s.tipo ?? 'ANALISIS'))
-    setDescripcion(s === 'nuevo' ? '' : (s.descripcion ?? ''))
-    setActivo(s === 'nuevo' || !!s.activo)
-    setError(undefined)
-  }
-  async function accion(fn: () => Promise<unknown>, mensaje: string) {
-    setGuardando(true)
-    setError(undefined)
-    try {
-      await fn()
-      scripts.recargar()
-      avisar(mensaje)
-    } catch (e) {
-      setError(e)
-    } finally {
-      setGuardando(false)
-    }
-  }
-  function version(id: number, codigo = '', parametros = '[]') {
-    setImpl(id)
-    setContenido(codigo)
-    setNotas('')
-    setParametros(parametros)
-    setError(undefined)
-  }
+  const filas = scripts.datos?.contenido ?? []
+  const conFiltros = !!(texto || tipo || estado !== 'true')
+  const ruta = (id?: number) => `/automatizacion/scripts/${id}`
+
   return (
     <>
       <PageHeader
-        title="Scripts de análisis y mantenimiento"
-        description="Implemente cada script por sistema operativo y publique versiones inmutables."
+        title="Scripts"
+        description="Análisis que recogen métricas y mantenimientos que las corrigen, escritos para cada sistema operativo."
         actions={
-          admin && (
-            <Boton variante="primario" icono={Plus} onClick={() => editar('nuevo')}>
+          esAdmin && (
+            <Boton variante="primario" icono={Plus} onClick={() => setCreando(true)}>
               Nuevo script
             </Boton>
           )
         }
       />
-      <ModoAutomatizacion />
-      <MensajeError error={scripts.error} />
-      <TablaAutomatizacion
-        pagina={scripts.datos}
-        onPagina={setPagina}
-        cabeceras={['Script', 'Tipo', 'Compatibilidad', 'Estado', 'Acciones']}
-        fila={(s) => (
-          <tr key={s.id}>
-            <td className={celda}>
-              <strong>{s.nombre}</strong>
-              <p className="text-xs text-ink-soft">{s.descripcion}</p>
-            </td>
-            <td className={celda}>{s.tipo === 'ANALISIS' ? 'Análisis' : 'Mantenimiento'}</td>
-            <td className={celda}>
-              {s.implementaciones?.map((i) => (
-                <span key={i.id} className="block text-xs">
-                  {i.sistemaOperativo} · {i.versiones?.filter((v) => v.habilitada).length ?? 0} versiones habilitadas
-                </span>
-              ))}
-            </td>
-            <td className={celda}>{s.activo ? 'Activo' : 'Inactivo'}</td>
-            <td className={celda}>
-              <div className="flex gap-2">
-                <Boton
-                  onClick={() => {
-                    setDetalle(s)
-                    setSo('')
-                    setError(undefined)
-                  }}
-                >
-                  Implementaciones y versiones
-                </Boton>
-                {admin && <Boton onClick={() => editar(s)}>Editar</Boton>}
-              </div>
-            </td>
-          </tr>
-        )}
-      />
-      {editando && (
-        <Modal
-          abierto
-          titulo={editando === 'nuevo' ? 'Nuevo script' : 'Editar script'}
-          onCerrar={() => setEditando(undefined)}
-          pie={
-            <>
-              <Boton onClick={() => setEditando(undefined)}>Cancelar</Boton>
-              <Boton
-                variante="primario"
-                icono={Save}
-                cargando={guardando}
-                disabled={!nombre.trim()}
-                onClick={() =>
-                  accion(async () => {
-                    await automatizacionApi.guardarScript(editando === 'nuevo' ? undefined : editando.id, {
-                      nombre,
-                      tipo,
-                      descripcion,
-                      activo,
-                    })
-                    setEditando(undefined)
-                  }, 'Script guardado.')
-                }
-              >
-                Guardar
-              </Boton>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            <MensajeError error={error} />
-            <Campo etiqueta="Nombre" obligatorio>
-              <Entrada value={nombre} maxLength={255} onChange={(e) => setNombre(e.target.value)} />
-            </Campo>
-            <Campo etiqueta="Tipo">
-              <Selector
-                value={tipo}
-                disabled={editando !== 'nuevo'}
-                onChange={(e) => setTipo(e.target.value as typeof tipo)}
-              >
-                <option value="ANALISIS">Análisis</option>
-                <option value="MANTENIMIENTO">Mantenimiento</option>
-              </Selector>
-            </Campo>
-            <Campo etiqueta="Descripción">
-              <AreaTexto value={descripcion} maxLength={500} onChange={(e) => setDescripcion(e.target.value)} />
-            </Campo>
-            <label className="flex gap-2 text-sm">
-              <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} />
-              Activo
-            </label>
-          </div>
-        </Modal>
-      )}
-      {detalle && (
-        <Modal abierto ancho="xl" titulo={detalle.nombre ?? 'Implementaciones'} onCerrar={() => setDetalle(undefined)}>
-          <div className="flex flex-col gap-5">
-            <MensajeError error={error} />
-            <p className="text-sm text-ink-soft">
-              La última versión habilitada se fija al generar la MOP. Las nuevas publicaciones conservan las versiones
-              de los mantenimientos anteriores.
-            </p>
-            {admin && (
-              <div className="flex items-end gap-2">
-                <Campo etiqueta="Sistema operativo y versión" className="flex-1">
-                  <Selector value={so} onChange={(e) => setSo(e.target.value)}>
-                    <option value="">Seleccione…</option>
-                    {catalogos.datos?.sistemasOperativos
-                      .filter((s) => s.activo)
-                      .flatMap((s) =>
-                        s.versiones
-                          ?.filter((v) => v.activo)
-                          .map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {s.nombre} {v.version}
-                            </option>
-                          )),
-                      )}
-                  </Selector>
-                </Campo>
-                <Boton
-                  disabled={!so}
-                  cargando={guardando}
-                  onClick={() =>
-                    accion(async () => {
-                      const id = await automatizacionApi.implementar(detalle.id!, Number(so))
-                      setDetalle({
-                        ...detalle,
-                        implementaciones: [
-                          ...(detalle.implementaciones ?? []),
-                          {
-                            id,
-                            idVersionSistemaOperativo: Number(so),
-                            sistemaOperativo: 'Nueva implementación',
-                            versiones: [],
-                          },
-                        ],
-                      })
-                      setSo('')
-                    }, 'Implementación registrada.')
-                  }
-                >
-                  Agregar implementación
-                </Boton>
-              </div>
-            )}
-            {detalle.implementaciones?.map((i) => (
-              <section key={i.id} className="rounded-xl border border-line p-4">
-                <div className="mb-3 flex justify-between gap-3">
-                  <h4 className="font-semibold">{i.sistemaOperativo}</h4>
-                  {admin && (
-                    <Boton
-                      icono={Plus}
-                      onClick={() =>
-                        version(
-                          i.id!,
-                          i.versiones?.[0]?.contenido,
-                          JSON.stringify(i.versiones?.[0]?.parametros ?? [], null, 2),
-                        )
-                      }
-                    >
-                      Publicar versión
-                    </Boton>
-                  )}
-                </div>
-                {i.versiones?.map((v) => (
-                  <details key={v.id} className="border-t border-line py-3">
-                    <summary className="cursor-pointer text-sm">
-                      Versión {v.numero} · {v.habilitada ? 'Habilitada' : 'Deshabilitada'} · {v.notasCambio}
-                    </summary>
-                    <pre className="my-3 max-h-72 overflow-auto rounded-lg bg-panel-muted p-3 text-xs">
-                      {v.contenido}
-                    </pre>
-                    {v.parametros?.length ? (
-                      <pre className="mb-3 overflow-auto text-xs text-ink-soft">
-                        {JSON.stringify(v.parametros, null, 2)}
-                      </pre>
-                    ) : null}
-                    <Boton
-                      onClick={() => {
-                        setHistorial(v.id)
-                        setPaginaUsos(0)
-                      }}
-                    >
-                      Ver tareas con esta versión
-                    </Boton>
-                    {admin && (
-                      <Boton
-                        onClick={() =>
-                          accion(async () => {
-                            await automatizacionApi.habilitarVersion(v.id!, !v.habilitada)
-                            setDetalle({
-                              ...detalle,
-                              implementaciones: detalle.implementaciones?.map((x) =>
-                                x.id === i.id
-                                  ? {
-                                      ...x,
-                                      versiones: x.versiones?.map((y) =>
-                                        y.id === v.id ? { ...y, habilitada: !v.habilitada } : y,
-                                      ),
-                                    }
-                                  : x,
-                              ),
-                            })
-                          }, 'Estado actualizado.')
-                        }
-                      >
-                        {v.habilitada ? 'Deshabilitar' : 'Habilitar'}
-                      </Boton>
-                    )}
-                  </details>
-                ))}
-              </section>
-            ))}
-          </div>
-        </Modal>
-      )}
-      {impl && (
-        <Modal
-          abierto
-          ancho="xl"
-          titulo="Publicar nueva versión"
-          onCerrar={() => setImpl(undefined)}
-          pie={
-            <>
-              <Boton onClick={() => setImpl(undefined)}>Cancelar</Boton>
-              <Boton
-                variante="primario"
-                cargando={guardando}
-                disabled={!contenido.trim()}
-                onClick={() =>
-                  accion(async () => {
-                    const datos: VersionScriptPeticion = {
-                      contenido,
-                      notasCambio: notas,
-                      parametros: JSON.parse(parametros),
-                    }
-                    await automatizacionApi.publicar(impl, datos)
-                    setImpl(undefined)
-                    setDetalle(undefined)
-                  }, 'Versión publicada sin alterar las anteriores.')
-                }
-              >
-                Publicar versión
-              </Boton>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            <MensajeError error={error} />
-            <Campo
-              etiqueta="Código ejecutable"
-              obligatorio
-              ayuda="Bash para Linux o PowerShell para Windows. Los análisis deben devolver el contrato JSON de métricas."
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <CampoBusqueda
+          valor={busqueda}
+          onCambiar={(t) => {
+            setBusqueda(t)
+            setPagina(0)
+          }}
+          placeholder="Buscar por nombre o descripción"
+          aria-label="Buscar scripts"
+        />
+        <div role="radiogroup" aria-label="Tipo de script" className="flex gap-1 rounded-lg bg-panel-muted p-1">
+          {TIPOS.map((t) => (
+            <button
+              key={t.valor}
+              type="button"
+              role="radio"
+              aria-checked={tipo === t.valor}
+              onClick={() => {
+                setTipo(t.valor)
+                setPagina(0)
+              }}
+              className={`rounded-md px-3 py-1 text-sm transition-colors ${
+                tipo === t.valor ? 'bg-panel font-medium text-ink shadow-sm' : 'text-ink-soft hover:text-ink'
+              }`}
             >
-              <AreaTexto
-                className="min-h-72 font-mono text-xs"
-                value={contenido}
-                maxLength={131072}
-                onChange={(e) => setContenido(e.target.value)}
-              />
-            </Campo>
-            <Campo etiqueta="Notas del cambio">
-              <Entrada value={notas} maxLength={1000} onChange={(e) => setNotas(e.target.value)} />
-            </Campo>
-            <Campo
-              etiqueta="Parámetros (JSON)"
-              ayuda={'Ejemplo: [{"nombre":"dias","tipo":"INTEGER","obligatorio":true,"valorPorDefecto":"7"}]'}
-            >
-              <AreaTexto
-                className="font-mono text-xs"
-                value={parametros}
-                onChange={(e) => setParametros(e.target.value)}
-              />
-            </Campo>
+              {t.etiqueta}
+            </button>
+          ))}
+        </div>
+        <Selector
+          aria-label="Filtrar por estado"
+          className="!w-auto"
+          value={estado}
+          onChange={(e) => {
+            setEstado(e.target.value)
+            setPagina(0)
+          }}
+        >
+          <option value="true">Activos</option>
+          <option value="false">Inactivos</option>
+          <option value="">Activos e inactivos</option>
+        </Selector>
+      </div>
+
+      <MensajeError error={scripts.error} onReintentar={scripts.recargar} />
+
+      {scripts.cargando && !scripts.datos ? (
+        <Cargando />
+      ) : filas.length === 0 ? (
+        <div className="rounded-xl border border-line bg-panel px-5 py-10 text-center text-sm text-ink-soft">
+          {conFiltros ? (
+            'Ningún script coincide con los filtros.'
+          ) : (
+            <>
+              Aún no hay scripts.{' '}
+              {esAdmin && 'Cree el primero o cargue los de demostración desde la sala de operaciones.'}
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-line bg-panel">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-5 py-3 font-medium">Script</th>
+                  <th className="px-3 py-3 font-medium">Tipo</th>
+                  <th className="px-3 py-3 font-medium">Sistemas operativos · versión vigente</th>
+                  <th className="px-3 py-3 font-medium">Última publicación</th>
+                  <th className="px-3 py-3 font-medium">Estado</th>
+                  <th className="w-10 px-3 py-3">
+                    <span className="sr-only">Detalle</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {filas.map((s) => {
+                  const implementaciones = s.implementaciones ?? []
+                  const ultima = implementaciones
+                    .map((i) => i.fechaUltimaVersion)
+                    .filter(Boolean)
+                    .sort()
+                    .at(-1)
+                  return (
+                    <tr
+                      key={s.id}
+                      onClick={() => navigate(ruta(s.id))}
+                      className={`cursor-pointer hover:bg-panel-muted ${s.activo ? '' : 'text-ink-faint'}`}
+                    >
+                      <td className="max-w-sm px-5 py-3">
+                        <Link
+                          to={ruta(s.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium text-ink hover:text-accent hover:underline"
+                        >
+                          {s.nombre}
+                        </Link>
+                        {s.descripcion && <p className="line-clamp-2 text-xs text-ink-soft">{s.descripcion}</p>}
+                      </td>
+                      <td className="px-3 py-3 text-ink-soft">{ETIQUETA_TIPO_SCRIPT[s.tipo ?? 'MANTENIMIENTO']}</td>
+                      <td className="px-3 py-3">
+                        {implementaciones.length === 0 ? (
+                          <StatusPill tone="warning" label="Sin implementaciones" />
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {implementaciones.map((i) => (
+                              <Compatibilidad key={i.id} implementacion={i} />
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-ink-soft">{formatearFecha(ultima)}</td>
+                      <td className="px-3 py-3">
+                        <StatusPill tone={s.activo ? 'success' : 'neutral'} label={s.activo ? 'Activo' : 'Inactivo'} />
+                      </td>
+                      <td className="px-3 py-3 text-ink-faint">
+                        <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-        </Modal>
-      )}
-      {historial && (
-        <Modal abierto ancho="xl" titulo={`Uso de la versión #${historial}`} onCerrar={() => setHistorial(undefined)}>
-          <MensajeError error={usos.error} />
-          <TablaAutomatizacion
-            pagina={usos.datos}
-            onPagina={setPaginaUsos}
-            cabeceras={['Orden', 'Servidor', 'Tarea', 'Estado']}
-            fila={(t) => (
-              <tr key={`${t.idOrden}/${t.servidor}/${t.tarea}`}>
-                <td className={celda}>
-                  <Link className="text-accent" to={`/ordenes/${t.idOrden}`}>
-                    {t.orden}
-                  </Link>
-                </td>
-                <td className={celda}>{t.servidor}</td>
-                <td className={celda}>{t.tarea}</td>
-                <td className={celda}>{t.estado?.replaceAll('_', ' ')}</td>
-              </tr>
-            )}
+          <Paginacion
+            pagina={pagina}
+            totalPaginas={scripts.datos?.totalPaginas ?? 0}
+            totalElementos={scripts.datos?.totalElementos ?? 0}
+            onCambiar={setPagina}
           />
-        </Modal>
+        </div>
+      )}
+
+      {creando && (
+        <ScriptFormulario
+          onCerrar={() => setCreando(false)}
+          onGuardado={(s) => {
+            setCreando(false)
+            avisar(`Script «${s.nombre}» creado. Agregue ahora su código para un sistema operativo.`)
+            navigate(ruta(s.id))
+          }}
+        />
       )}
     </>
   )

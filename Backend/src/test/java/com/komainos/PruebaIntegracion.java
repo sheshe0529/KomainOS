@@ -1,5 +1,6 @@
 package com.komainos;
 
+import com.komainos.ejecucion.service.AnsibleSimulado;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer;
 import org.springframework.boot.sql.init.DatabaseInitializationMode;
@@ -12,6 +13,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
@@ -27,10 +29,12 @@ import java.util.List;
 @Import(PruebaIntegracion.ConfiguracionPruebas.class)
 public abstract class PruebaIntegracion {
 
-    // El espía pertenece al contexto común: evita recrear el esquema entre contextos que
-    // conservarían en JDBC los OID anteriores de los enumerados PostgreSQL.
-    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
-    protected com.komainos.ejecucion.service.AnsibleSimulado transporte;
+    /**
+     * Espía del adaptador simulado en el contexto común: un contexto distinto recrearía el esquema y conservaría en JDBC
+     * los OID anteriores de los enumerados de PostgreSQL. Las pruebas lo usan para detener o fallar una operación.
+     */
+    @MockitoSpyBean
+    protected AnsibleSimulado transporte;
 
     public static final Instant AHORA = Instant.parse("2026-09-28T14:00:00Z");
 

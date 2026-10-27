@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,7 +28,7 @@ public interface UmbralRepositorio extends JpaRepository<Umbral, Integer> {
     @Query("select u from Umbral u where u.activo = true and u.metrica.activo = true order by u.metrica.nombre, u.nombre")
     List<Umbral> findAplicables();
 
-    long countByIdIn(java.util.Collection<Integer> ids);
+    long countByIdIn(Collection<Integer> ids);
 
     boolean existsByMetricaIdAndNombreIgnoreCase(Integer idMetrica, String nombre);
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { GraficosAutomatizacion } from './GraficosAutomatizacion'
-import { automatizacionApi } from '@/api/automatizacion'
+import { operacionApi } from '@/api/automatizacion'
 import { Boton } from '@/components/ui/Boton'
 import { Campo, Entrada } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
@@ -12,7 +12,7 @@ export function IndicadoresMantenimiento() {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [periodo, setPeriodo] = useState<{ desde?: string; hasta?: string }>({})
-  const informe = useConsulta(() => automatizacionApi.kpis(periodo.desde, periodo.hasta), [periodo])
+  const informe = useConsulta(() => operacionApi.kpis(periodo.desde, periodo.hasta), [periodo])
 
   function aplicar() {
     const inicio = desde ? new Date(`${desde}T00:00:00`) : undefined

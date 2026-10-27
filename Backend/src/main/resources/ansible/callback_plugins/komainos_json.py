@@ -1,25 +1,47 @@
-from ansible.plugins.callback import CallbackBase
+# Callback de salida de KomainOS: imprime una sola línea KOMAINOS_JSON= con el resultado de la tarea
+# komainos_resultado. Solo incluye estado, código de retorno, salida y mensaje: nunca argumentos, variables
+# ni inventario, porque el inventario contiene la contraseña de la cuenta de servicio.
+from __future__ import annotations
+
 import json
+
+from ansible.plugins.callback import CallbackBase
+
+DOCUMENTATION = '''
+    name: komainos_json
+    type: stdout
+    short_description: Resultado estructurado para KomainOS
+    description:
+      - Emite una línea KOMAINOS_JSON con el estado de la tarea komainos_resultado.
+'''
+
 
 class CallbackModule(CallbackBase):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = 'stdout'
     CALLBACK_NAME = 'komainos_json'
 
-    def _emitir(self, result, fallo=False):
+    def _emitir(self, result, estado):
         if result._task.get_name() != 'komainos_resultado':
             return
         r = result._result
-        # Solo el contrato de salida; nunca argumentos, variables o inventario.
-        salida = {'rc': r.get('rc', 1 if fallo else 0), 'stdout': r.get('stdout', ''),
-                  'error': r.get('stderr') or r.get('msg') or ('Ejecución fallida' if fallo else '')}
-        self._display.display('KOMAINOS_JSON=' + json.dumps(salida, ensure_ascii=True))
+        salida = {
+            'estado': estado,
+            'rc': r.get('rc'),
+            'stdout': r.get('stdout', ''),
+            'stderr': r.get('stderr', ''),
+            'msg': r.get('msg', ''),
+        }
+        self._display.display('KOMAINOS_JSON=' + json.dumps(salida, ensure_ascii=True, default=str))
 
     def v2_runner_on_ok(self, result):
-        self._emitir(result)
+        self._emitir(result, 'ok')
 
     def v2_runner_on_failed(self, result, ignore_errors=False):
-        self._emitir(result, True)
+        self._emitir(result, 'failed')
 
     def v2_runner_on_unreachable(self, result):
-        self._emitir(result, True)
+        self._emitir(result, 'unreachable')
+
+    def v2_runner_on_skipped(self, result):
+        self._emitir(result, 'skipped')

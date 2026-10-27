@@ -3,10 +3,12 @@
 API REST del sistema de gestión automatizada del mantenimiento de servidores
 virtuales. Java 21, Spring Boot 3.5, PostgreSQL 18.
 
-El componente de automatización funciona en modo **SIMULADO** por defecto.
-La [guía de automatización](AUTOMATIZACION.md) explica el ciclo completo, los
-ejemplos, las pruebas y el adaptador Ansible real que permanece desactivado.
-Se ejecuta directamente en Windows con PostgreSQL local, sin Docker.
+El componente de automatización funciona en modo **SIMULADO** por defecto, con
+respuestas genéricas calculadas desde los umbrales de cada servidor. La [guía de
+automatización](AUTOMATIZACION.md) explica el ciclo completo, cómo escribir
+scripts, las variables de entorno y los pasos para habilitar Ansible real en un
+controlador Linux. Se ejecuta directamente en Windows con PostgreSQL local, sin
+Docker.
 
 ## Puesta en marcha
 

@@ -23,8 +23,13 @@ komainos:
   automatizacion:
     modo: SIMULADO
     proceso-habilitado: false
+    # Comportamiento simulado por hostname para recorrer cada rama del ciclo (EscenarioSimulado)
     escenarios:
       srv-fallo: FALLO_TAREA
       srv-no-conforme: NO_CONFORME
       srv-critico: CRITICO
+      srv-saludable: SALUDABLE
+      srv-advertencia: ADVERTENCIA
       srv-sin-conexion: SIN_CONEXION
+      srv-sin-autenticacion: SIN_AUTENTICACION
+      srv-sin-permisos: SIN_PERMISOS

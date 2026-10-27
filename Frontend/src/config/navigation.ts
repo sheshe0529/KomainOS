@@ -15,9 +15,11 @@ import {
   Workflow,
   Terminal,
   ListChecks,
+  ShieldAlert,
   ShieldCheck,
   Activity,
   Bell,
+  History,
 } from 'lucide-react'
 import type { Rol } from '@/api/dominio'
 
@@ -74,9 +76,16 @@ export const navigation: NavItem[] = [
         roles: ['ADMINISTRADOR', 'OPERADOR'],
       },
       {
+        id: 'ejecuciones',
+        label: 'Historial de ejecución',
+        icon: History,
+        path: '/automatizacion/ejecuciones',
+        roles: ['ADMINISTRADOR', 'OPERADOR'],
+      },
+      {
         id: 'incidencias',
         label: 'Incidencias',
-        icon: Activity,
+        icon: ShieldAlert,
         path: '/automatizacion/incidencias',
         roles: ['ADMINISTRADOR', 'OPERADOR'],
       },

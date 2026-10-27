@@ -20,6 +20,9 @@ public interface UsuarioRepositorio extends JpaRepository<Usuario, Integer>, Jpa
 
     boolean existsByRolAndActivoTrue(Rol rol);
 
+    /** Destinatarios de las alertas dirigidas a un rol (RF69) */
+    List<Usuario> findByRolAndActivoTrue(Rol rol);
+
     /** FOR UPDATE: dos cambios simultáneos sobre administradores se serializan y el segundo ve el resultado del primero */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from Usuario u where u.rol = :rol and u.activo = true order by u.id")

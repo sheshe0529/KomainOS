@@ -59,7 +59,8 @@ public class Orden implements Persistable<Integer> {
     @JoinColumn(name = "id_grupo_mantenimiento")
     private GrupoMantenimiento grupo;
 
-    @Column(name="id_evaluacion_origen")
+    /** Revisión que detectó la condición crítica; obligatoria solo con ese origen (ck_orden_evaluacion_origen, RF40) */
+    @Column(name = "id_evaluacion_origen")
     private Integer idEvaluacionOrigen;
 
     /** Criticidad aplicada al generarse: no cambia con la configuración posterior */
@@ -193,9 +194,18 @@ public class Orden implements Persistable<Integer> {
         cambiarEstado(EstadoOrden.PROGRAMADA, autor, motivo, ahora);
     }
 
-    public void actualizarProgramacionAutorizacion(Programacion nueva,List<TramoDetalle> tramos){
-        if(estado!=EstadoOrden.PENDIENTE_AUTORIZACION)throw new ReglaNegocioException("La orden no está en autorización");
-        aplicarProgramacion(nueva);for(var tramo:tramos)detalleDe(tramo.idServidor()).ifPresent(d->d.replanificar(tramo.posicion(),tramo.inicio(),tramo.fin()));
+    /**
+     * RF48: el administrador acepta la fecha propuesta por el responsable. La orden sigue en autorización y se abre una
+     * nueva ronda con el plazo que vence en el nuevo inicio (RF75).
+     */
+    public void reprogramarEnAutorizacion(Programacion nueva, List<TramoDetalle> tramos) {
+        if (estado != EstadoOrden.PENDIENTE_AUTORIZACION) {
+            throw new ReglaNegocioException("La orden %s no está pendiente de autorización".formatted(codigo));
+        }
+        aplicarProgramacion(nueva);
+        for (TramoDetalle tramo : tramos) {
+            detalleDe(tramo.idServidor()).ifPresent(d -> d.replanificar(tramo.posicion(), tramo.inicio(), tramo.fin()));
+        }
     }
 
     public void cancelar(Usuario autor, String motivo, Instant ahora) {
@@ -208,9 +218,24 @@ public class Orden implements Persistable<Integer> {
         detalleDe(idServidor).ifPresent(OrdenDetalle::marcarNoIniciadoSiPendiente);
     }
 
-    public void fijarCuentaServicio(Integer idCuenta){if(idCuentaServicio==null && estado==EstadoOrden.EN_EVALUACION)idCuentaServicio=idCuenta;}
+    /** La cuenta con la que se evaluó queda fijada para la MOP y la ejecución (RF52) */
+    public void fijarCuentaServicio(Integer idCuenta) {
+        if (idCuentaServicio == null && estado == EstadoOrden.EN_EVALUACION) {
+            idCuentaServicio = idCuenta;
+        }
+    }
 
-    public void definirEvaluacionOrigen(Integer idEvaluacion) { if (origen != OrigenOrden.CONDICION_CRITICA) throw new IllegalStateException();idEvaluacionOrigen=idEvaluacion; }
+    public void definirEvaluacionOrigen(Integer idEvaluacion) {
+        if (origen != OrigenOrden.CONDICION_CRITICA) {
+            throw new IllegalStateException("Solo una orden por condición crítica tiene evaluación de origen");
+        }
+        idEvaluacionOrigen = idEvaluacion;
+    }
+
+    /** RF31, RF40: el plazo de autorización corre desde la primera solicitud y no hasta el inicio programado */
+    public boolean esInmediata() {
+        return origen == OrigenOrden.LANZAMIENTO_INMEDIATO || origen == OrigenOrden.CONDICION_CRITICA;
+    }
 
     public boolean puedeCancelarse() {
         return estado.puedePasarA(EstadoOrden.CANCELADA);

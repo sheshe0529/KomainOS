@@ -1,2 +1,8 @@
 package com.komainos.mantenimiento.model;
-public enum EstadoEvaluacion { EN_CURSO, FINALIZADA, FALLIDA }
+
+/** Ejecución de un script de análisis: termina con métricas o con el error que lo impidió */
+public enum EstadoEvaluacion {
+    EN_CURSO,
+    FINALIZADA,
+    FALLIDA
+}

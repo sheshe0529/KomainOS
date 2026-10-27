@@ -12,11 +12,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /** RF66, KPI-01 a KPI-05. Cada detalle representa un mantenimiento de un servidor en un ciclo. */
 @Service
 @RequiredArgsConstructor
 public class ServicioIndicadoresMantenimiento {
+
     private final JdbcTemplate jdbc;
     private final Clock reloj;
 
@@ -25,10 +27,14 @@ public class ServicioIndicadoresMantenimiento {
         Instant actualizacion = Tiempo.ahora(reloj);
         Instant fin = hasta == null ? actualizacion.plusSeconds(1) : hasta;
         Instant inicio = desde == null ? fin.minus(Duration.ofDays(30)) : desde;
-        if (!inicio.isBefore(fin)) throw new ReglaNegocioException("El inicio del periodo debe ser anterior al final");
-        if (Duration.between(inicio, fin).compareTo(Duration.ofDays(3660)) > 0)
+        if (!inicio.isBefore(fin)) {
+            throw new ReglaNegocioException("El inicio del periodo debe ser anterior al final");
+        }
+        if (Duration.between(inicio, fin).compareTo(Duration.ofDays(3660)) > 0) {
             throw new ReglaNegocioException("Seleccione un periodo de hasta diez años");
-        Timestamp a = Timestamp.from(inicio), z = Timestamp.from(fin);
+        }
+        Timestamp a = Timestamp.from(inicio);
+        Timestamp z = Timestamp.from(fin);
 
         var inventario = jdbc.queryForMap("""
                 select count(*) filter (where estado = 'ACTIVO') as numerador, count(*) as denominador
@@ -92,15 +98,20 @@ public class ServicioIndicadoresMantenimiento {
                 desde, hasta, desde, hasta, desde, hasta, desde, hasta);
     }
 
-    private IndicadorKpi porcentaje(String codigo, String nombre, java.util.Map<String, Object> fila, double meta) {
-        long n = ((Number) fila.get("numerador")).longValue(), d = ((Number) fila.get("denominador")).longValue();
+    private IndicadorKpi porcentaje(String codigo, String nombre, Map<String, Object> fila, double meta) {
+        long n = ((Number) fila.get("numerador")).longValue();
+        long d = ((Number) fila.get("denominador")).longValue();
         return new IndicadorKpi(codigo, nombre, "%", (double) n, d, d == 0 ? null : 100.0 * n / d, meta);
     }
 
     public record InformeKpi(Instant desde, Instant hasta, Instant fechaActualizacion, List<IndicadorKpi> indicadores,
-                             List<EstadoInventario> inventario, List<ActividadDiaria> actividadDiaria) {}
+                             List<EstadoInventario> inventario, List<ActividadDiaria> actividadDiaria) {
+    }
     public record IndicadorKpi(String codigo, String nombre, String unidad, Double numerador, long denominador,
-                               Double valor, Double meta) {}
-    public record EstadoInventario(String estado, long cantidad) {}
-    public record ActividadDiaria(String fecha, long altas, long mantenimientos, long incidencias) {}
+                               Double valor, Double meta) {
+    }
+    public record EstadoInventario(String estado, long cantidad) {
+    }
+    public record ActividadDiaria(String fecha, long altas, long mantenimientos, long incidencias) {
+    }
 }

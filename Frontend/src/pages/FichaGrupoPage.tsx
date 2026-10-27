@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { ConectividadGrupo } from '@/components/automatizacion/ConectividadGrupo'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarPlus, Pencil, Power, PowerOff, Users, Wrench } from 'lucide-react'
 import { gruposApi } from '@/api/inventario'
 import type { FichaGrupoRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
+import { ConectividadGrupo } from '@/components/automatizacion/ConectividadGrupo'
 import { Dato, Tarjeta } from '@/components/common/Tarjeta'
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
 import { GrupoFormulario } from '@/components/inventario/GrupoFormulario'
@@ -185,7 +185,7 @@ export function FichaGrupoPage() {
       </Tarjeta>
 
       <OrdenesDelObjetivo idGrupo={idGrupo} version={versionOrdenes} />
-      <ConectividadGrupo id={idGrupo} />
+      <ConectividadGrupo idGrupo={idGrupo} />
 
       {dialogo === 'programar' && (
         <ProgramarModal

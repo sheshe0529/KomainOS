@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** En esta iteración solo lo lee la planificación: el cierre lo registra el ciclo de mantenimiento */
+/** Cierre del ciclo (RF63): lo registra el ciclo de mantenimiento y la planificación lo usa para el siguiente (RF29) */
 @Entity
 @Table(name = "cierre_orden")
 @Getter
@@ -52,8 +52,18 @@ public class CierreOrden {
     @Column(name = "observaciones", length = 1000)
     private String observaciones;
 
-    public static CierreOrden nuevo(Orden orden,Integer idFactor,int periodicidad,BigDecimal factor,Instant ahora,String observaciones) {
-        CierreOrden c=new CierreOrden();c.orden=orden;c.idFactorCiclo=idFactor;c.periodicidadBaseDias=periodicidad;c.factorAplicado=factor;c.fechaCierre=ahora;c.observaciones=observaciones;return c;
+    /** RF63, RF64: conserva la periodicidad y el factor con que se calculará la fecha objetivo del siguiente ciclo */
+    public static CierreOrden nuevo(Orden orden, Integer idFactor, int periodicidad, BigDecimal factor, Instant ahora,
+                                    String observaciones) {
+        CierreOrden cierre = new CierreOrden();
+        cierre.orden = orden;
+        cierre.idFactorCiclo = idFactor;
+        cierre.periodicidadBaseDias = periodicidad;
+        cierre.factorAplicado = factor;
+        cierre.fechaCierre = ahora;
+        cierre.observaciones = observaciones == null || observaciones.length() <= 1000
+                ? observaciones : observaciones.substring(0, 999) + "…";
+        return cierre;
     }
 
     public void enlazarSiguiente(Orden siguiente) {
