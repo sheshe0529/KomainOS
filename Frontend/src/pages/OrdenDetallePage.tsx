@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarClock, CalendarX } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowRight, CalendarClock, CalendarDays, CalendarX } from 'lucide-react'
 import type { EstadoOrden } from '@/api/dominio'
 import { planificacionApi } from '@/api/planificacion'
 import type { OrdenDetalleRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
 import { SeguimientoOrden } from '@/components/automatizacion/SeguimientoOrden'
+import { PageHeader } from '@/components/common/PageHeader'
 import { Dato, Tarjeta } from '@/components/common/Tarjeta'
 import { CancelarModal } from '@/components/planificacion/CancelarModal'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
@@ -13,20 +14,49 @@ import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { TONO_ESTADO_ORDEN } from '@/utils/automatizacion'
 import { ETIQUETA_ESTADO_DETALLE, ETIQUETA_ESTADO_ORDEN, ETIQUETA_ETAPA, ETIQUETA_MODO, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
-import { formatearFechaHora } from '@/utils/formato'
+import { formatearDuracion, formatearFechaHora, formatearFechaLarga, formatearHora } from '@/utils/formato'
 
 /** Estados desde los que la tabla 6 permite reprogramar y cancelar */
 const REPROGRAMABLES: EstadoOrden[] = ['PROGRAMADA', 'EN_COLA']
 const CANCELABLES: EstadoOrden[] = ['PROGRAMADA', 'AUTORIZADA', 'EN_COLA']
 
+/** Inicio y fin en una línea, como se lee en una agenda; el fin lleva fecha solo si cae otro día */
+function Programacion({ inicio, fin, evaluacion }: { inicio?: string; fin?: string; evaluacion?: string }) {
+  if (!inicio) return <p className="text-sm text-ink-soft">Sin programación.</p>
+  const desde = new Date(inicio)
+  const hasta = fin ? new Date(fin) : undefined
+  const mismoDia = hasta && desde.toDateString() === hasta.toDateString()
+  const minutos = hasta ? Math.round((hasta.getTime() - desde.getTime()) / 60000) : undefined
+  return (
+    <div className="flex items-start gap-4">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+        <CalendarDays className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div className="flex flex-col gap-1">
+        <p className="text-base font-semibold text-ink">{formatearFechaLarga(desde)}</p>
+        <p className="flex flex-wrap items-center gap-2 font-mono text-lg tabular-nums text-ink">
+          {formatearHora(desde)}
+          <ArrowRight className="h-4 w-4 text-ink-faint" aria-hidden="true" />
+          {hasta ? (mismoDia ? formatearHora(hasta) : formatearFechaHora(fin)) : '—'}
+          {minutos !== undefined && <span className="font-sans text-sm text-ink-soft">({formatearDuracion(minutos)})</span>}
+        </p>
+        <p className="text-xs text-ink-soft">
+          Inicio programado y fin previsto{evaluacion && ` · el análisis previo corre el ${formatearFechaHora(evaluacion)}`}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function OrdenDetallePage() {
   const { id } = useParams()
   const idOrden = Number(id)
-  const navigate = useNavigate()
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
   const { avisar } = useAvisos()
@@ -34,6 +64,7 @@ export function OrdenDetallePage() {
   const orden = useConsulta(() => planificacionApi.orden(idOrden), [idOrden])
   const o = orden.datos
   const r = o?.resumen
+  const detalles = usePaginacionLocal(o?.detalles ?? [], 'orden-detalles')
 
   function actualizar(nueva: OrdenDetalleRespuesta, mensaje: string) {
     orden.reemplazar(nueva)
@@ -51,41 +82,44 @@ export function OrdenDetallePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver
-      </button>
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="font-mono text-2xl font-semibold text-ink">{r.codigo}</h2>
-          <p className="mt-1 text-sm text-ink-soft">
+      <PageHeader
+        className=""
+        volver={{ a: '/ordenes', texto: 'Volver', atras: true }}
+        mono
+        title={r.codigo}
+        description={
+          <>
             {grupal ? 'Mantenimiento grupal de ' : 'Mantenimiento de '}
             <Link to={enlaceObjetivo} className="text-accent hover:underline">
               {r.objetivo?.nombre}
             </Link>
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          </>
+        }
+        meta={
+          <>
             {r.estado && <StatusPill tone={TONO_ESTADO_ORDEN[r.estado]} label={ETIQUETA_ESTADO_ORDEN[r.estado]} />}
             <StatusPill tone="neutral" label={`Criticidad ${r.criticidad?.nombre ?? ''}`} />
             {r.etapa && <StatusPill tone="neutral" label={`Etapa: ${ETIQUETA_ETAPA[r.etapa]}`} />}
             {r.prioridad === 'ALTA' && <StatusPill tone="danger" label="Prioridad alta" />}
-          </div>
-        </div>
-        {esAdmin && (
-          <div className="flex gap-2">
-            {r.estado && REPROGRAMABLES.includes(r.estado) && (
-              <Boton icono={CalendarClock} onClick={() => setDialogo('reprogramar')}>
-                Reprogramar
-              </Boton>
-            )}
-            {r.estado && CANCELABLES.includes(r.estado) && (
-              <Boton icono={CalendarX} variante="fantasma" onClick={() => setDialogo('cancelar')}>
-                Cancelar orden
-              </Boton>
-            )}
-          </div>
-        )}
-      </div>
+          </>
+        }
+        actions={
+          esAdmin && (
+            <>
+              {r.estado && REPROGRAMABLES.includes(r.estado) && (
+                <Boton icono={CalendarClock} onClick={() => setDialogo('reprogramar')}>
+                  Reprogramar
+                </Boton>
+              )}
+              {r.estado && CANCELABLES.includes(r.estado) && (
+                <Boton icono={CalendarX} variante="fantasma" onClick={() => setDialogo('cancelar')}>
+                  Cancelar orden
+                </Boton>
+              )}
+            </>
+          )
+        }
+      />
 
       <SeguimientoOrden idOrden={idOrden} onCambioEstado={orden.recargar} />
 
@@ -101,17 +135,8 @@ export function OrdenDetallePage() {
             <Dato etiqueta="Creada" valor={formatearFechaHora(r.fechaCreacion)} />
           </dl>
         </Tarjeta>
-        <Tarjeta titulo="Programación vigente">
-          <dl className="grid gap-4 sm:grid-cols-2">
-            <Dato etiqueta="Fecha objetivo" valor={formatearFechaHora(r.fechaObjetivo)} />
-            <Dato etiqueta="Inicio programado" valor={formatearFechaHora(r.inicioProgramado)} />
-            <Dato etiqueta="Fin previsto" valor={formatearFechaHora(r.finProgramado)} />
-            <Dato etiqueta="Evaluación previa" valor={formatearFechaHora(r.fechaEvaluacion)} />
-            <Dato
-              etiqueta="Ventana permisiva aplicada"
-              valor={`${formatearFechaHora(o.inicioVentanaAplicada)} – ${formatearFechaHora(o.finVentanaAplicada)}`}
-            />
-          </dl>
+        <Tarjeta titulo="Programación">
+          <Programacion inicio={r.inicioProgramado} fin={r.finProgramado} evaluacion={r.fechaEvaluacion} />
         </Tarjeta>
       </div>
 
@@ -128,7 +153,7 @@ export function OrdenDetallePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {o.detalles?.map((d) => (
+              {detalles.filas.map((d) => (
                 <tr key={d.id}>
                   <td className="py-2 pr-4 font-mono tabular-nums text-ink-soft">
                     {d.posicionEjecucion}
@@ -151,6 +176,9 @@ export function OrdenDetallePage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="-mx-5 -mb-5 mt-2">
+          <Paginacion {...detalles.controles} />
         </div>
       </Tarjeta>
 

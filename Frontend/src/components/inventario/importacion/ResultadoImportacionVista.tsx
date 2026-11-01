@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'
 import type { ResultadoImportacionRespuesta } from '@/api/types'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { RESULTADO_IMPORTACION } from '@/utils/etiquetas'
 import { Contador } from './Contador'
 
 /** HU08 CA3: cada fila con lo que se hizo, y el motivo si se rechazó u omitió */
 export function ResultadoImportacionVista({ resultado }: { resultado: ResultadoImportacionRespuesta }) {
+  const tabla = usePaginacionLocal(resultado.filas ?? [], 'importacion-resultado')
   return (
     <>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -25,7 +28,7 @@ export function ResultadoImportacionVista({ resultado }: { resultado: ResultadoI
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {resultado.filas?.map((f) => {
+            {tabla.filas.map((f) => {
               const r = f.resultado ? RESULTADO_IMPORTACION[f.resultado] : undefined
               const aplicado = f.resultado === 'CREADO' || f.resultado === 'ACTUALIZADO'
               return (
@@ -48,6 +51,7 @@ export function ResultadoImportacionVista({ resultado }: { resultado: ResultadoI
           </tbody>
         </table>
       </div>
+      <Paginacion {...tabla.controles} />
     </>
   )
 }

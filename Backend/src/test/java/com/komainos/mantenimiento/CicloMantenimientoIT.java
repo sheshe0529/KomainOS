@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -92,6 +93,29 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
                 .andExpect(status().isNoContent());
         assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
         assertThat(contar("select count(*) from cierre_orden where id_orden = ?", id)).isEqualTo(1);
+
+        // RF53: la bitácora del servidor resume el ciclo y se exporta con cada evento
+        mvc.perform(get("/api/servidores/{id}/bitacora", servidor.getId()).with(como(responsable)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.objetivo").value(servidor.getHostname()))
+                .andExpect(jsonPath("$.mantenimientos[0].idOrden").value(id))
+                .andExpect(jsonPath("$.mantenimientos[0].resultado").value("EXITOSO"))
+                .andExpect(jsonPath("$.mantenimientos[0].validacionFuncional").value("CONFORME"))
+                .andExpect(jsonPath("$.mantenimientos[0].servidores[0].nivelAntes").value("ADVERTENCIA"))
+                .andExpect(jsonPath("$.mantenimientos[0].servidores[0].nivelDespues").value("NORMAL"))
+                .andExpect(jsonPath("$.mantenimientos[0].servidores[0].tareas.length()").value(2));
+        String csv = mvc.perform(get("/api/servidores/{id}/bitacora/exportacion", servidor.getId())
+                        .param("formato", "CSV").with(como(responsable)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition",
+                        org.hamcrest.Matchers.containsString("bitacora_" + servidor.getHostname())))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv).contains("Fecha,Orden,Evento", "Liberar archivos temporales", "Validación funcional",
+                "Conformidad del responsable");
+        mvc.perform(get("/api/ordenes/{id}/bitacora/exportacion", id).param("formato", "XLSX").with(como(admin)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")));
     }
 
     @Test

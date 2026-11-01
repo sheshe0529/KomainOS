@@ -12,8 +12,10 @@ import { Campo, Entrada, Selector } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { ETIQUETA_ROL } from '@/utils/etiquetas'
 import { formatearFecha } from '@/utils/formato'
 import { errorDeCampo, textoDeError, tieneErroresDeCampo } from '@/utils/errores'
@@ -24,6 +26,7 @@ export function UsuariosPage() {
   const { usuario: sesion } = useSesion()
   const { avisar } = useAvisos()
   const usuarios = useConsulta(() => usuariosApi.listarTodos(), [])
+  const tabla = usePaginacionLocal(usuarios.datos ?? [], 'usuarios')
   const [editando, setEditando] = useState<UsuarioRespuesta | 'nuevo' | null>(null)
   const [codigo, setCodigo] = useState('')
   const [nombre, setNombre] = useState('')
@@ -86,41 +89,44 @@ export function UsuariosPage() {
       {usuarios.cargando && !usuarios.datos ? (
         <Cargando />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-panel">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="px-4 py-3 font-medium">Usuario</th>
-                <th className="px-4 py-3 font-medium">Rol</th>
-                <th className="px-4 py-3 font-medium">Alta</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 text-right font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {usuarios.datos?.map((u) => (
-                <tr key={u.id} className="hover:bg-panel-muted">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-ink">{u.nombreCompleto}</p>
-                    <p className="font-mono text-xs text-ink-faint">{u.codigo}</p>
-                  </td>
-                  <td className="px-4 py-3 text-ink-soft">{u.rol ? ETIQUETA_ROL[u.rol] : ''}</td>
-                  <td className="px-4 py-3 text-ink-soft">{formatearFecha(u.fechaCreacion)}</td>
-                  <td className="px-4 py-3">
-                    <StatusPill tone={u.activo ? 'success' : 'neutral'} label={u.activo ? 'Activa' : 'Desactivada'} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <BotonIcono icono={Pencil} etiqueta="Editar" onClick={() => abrir(u)} />
-                      {u.id !== sesion?.id && (
-                        <BotonIcono icono={u.activo ? PowerOff : Power} etiqueta={u.activo ? 'Desactivar' : 'Activar'} onClick={() => cambiarEstado(u)} />
-                      )}
-                    </div>
-                  </td>
+        <div className="overflow-hidden rounded-xl border border-line bg-panel">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-4 py-3 font-medium">Usuario</th>
+                  <th className="px-4 py-3 font-medium">Rol</th>
+                  <th className="px-4 py-3 font-medium">Alta</th>
+                  <th className="px-4 py-3 font-medium">Estado</th>
+                  <th className="px-4 py-3 text-right font-medium">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {tabla.filas.map((u) => (
+                  <tr key={u.id} className="transition-colors hover:bg-panel-muted">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-ink">{u.nombreCompleto}</p>
+                      <p className="font-mono text-xs text-ink-faint">{u.codigo}</p>
+                    </td>
+                    <td className="px-4 py-3 text-ink-soft">{u.rol ? ETIQUETA_ROL[u.rol] : ''}</td>
+                    <td className="px-4 py-3 text-ink-soft">{formatearFecha(u.fechaCreacion)}</td>
+                    <td className="px-4 py-3">
+                      <StatusPill tone={u.activo ? 'success' : 'neutral'} label={u.activo ? 'Activa' : 'Desactivada'} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <BotonIcono icono={Pencil} etiqueta="Editar" onClick={() => abrir(u)} />
+                        {u.id !== sesion?.id && (
+                          <BotonIcono icono={u.activo ? PowerOff : Power} etiqueta={u.activo ? 'Desactivar' : 'Activar'} onClick={() => cambiarEstado(u)} />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Paginacion {...tabla.controles} />
         </div>
       )}
 

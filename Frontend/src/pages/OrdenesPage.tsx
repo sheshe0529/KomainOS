@@ -10,11 +10,12 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
+import { guardarTamano, leerTamanoGuardado } from '@/hooks/usePaginacion'
 import { ETIQUETA_ESTADO_ORDEN } from '@/utils/etiquetas'
 
 export function OrdenesPage() {
   const [codigo, setCodigo] = useState('')
-  const [filtro, setFiltro] = useState<FiltroOrdenes>({ estado: '', pagina: 0, tamano: 20 })
+  const [filtro, setFiltro] = useState<FiltroOrdenes>({ estado: '', pagina: 0, tamano: leerTamanoGuardado('ordenes') })
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const catalogos = useCatalogos()
@@ -101,6 +102,11 @@ export function OrdenesPage() {
           totalPaginas={pagina?.totalPaginas ?? 0}
           totalElementos={pagina?.totalElementos ?? 0}
           onCambiar={(p) => setFiltro((f) => ({ ...f, pagina: p }))}
+          tamano={filtro.tamano}
+          onTamano={(t) => {
+            guardarTamano('ordenes', t)
+            setFiltro((f) => ({ ...f, tamano: t, pagina: 0 }))
+          }}
         />
       </div>
     </>

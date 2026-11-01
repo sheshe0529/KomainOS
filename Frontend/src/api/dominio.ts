@@ -1,5 +1,6 @@
 /** Se derivan de los tipos generados: no pueden desalinearse del backend */
 import type {
+  MantenimientoBitacora,
   AlertaRespuesta,
   AnalisisRespuesta,
   Comprobacion,
@@ -62,6 +63,7 @@ export type EstadoIncidencia = NonNullable<IncidenciaRespuesta['estado']>
 export type OrigenIncidencia = NonNullable<IncidenciaRespuesta['origen']>
 export type TipoAlerta = NonNullable<AlertaRespuesta['tipo']>
 export type EstadoComprobacion = NonNullable<Comprobacion['estado']>
+export type ResultadoMantenimiento = NonNullable<MantenimientoBitacora['resultado']>
 
 export const DIAS_SEMANA: DiaSemana[] = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
 

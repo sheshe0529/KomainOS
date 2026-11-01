@@ -8,8 +8,10 @@ import { Boton } from '@/components/ui/Boton'
 import { Selector } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { formatearLimite, simbolo } from '@/utils/umbrales'
 import { UmbralFormulario } from './UmbralFormulario'
 
@@ -35,6 +37,7 @@ export function UmbralesTab({ esAdmin }: UmbralesTabProps) {
   const metricas = useConsulta(() => umbralesApi.metricas(), [])
   const filtro = idMetrica ? Number(idMetrica) : undefined
   const umbrales = useConsulta(() => umbralesApi.umbrales(filtro), [idMetrica])
+  const tabla = usePaginacionLocal(umbrales.datos ?? [], 'umbrales')
   const hayMetricaActiva = metricas.datos?.some((m) => m.activo)
   const ruta = (u: UmbralRespuesta) => `/umbrales/${u.id}`
 
@@ -66,73 +69,76 @@ export function UmbralesTab({ esAdmin }: UmbralesTabProps) {
           {esAdmin && !hayMetricaActiva ? 'Sin umbrales. Registre primero una métrica.' : 'Sin umbrales'}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-panel">
-          <table className="w-full min-w-[680px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="px-5 py-3 font-medium">Umbral</th>
-                <th className="px-3 py-3 font-medium">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-warning" aria-hidden="true" /> Advertencia
-                  </span>
-                </th>
-                <th className="px-3 py-3 font-medium">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-danger" aria-hidden="true" /> Crítico
-                  </span>
-                </th>
-                <th className="px-3 py-3 font-medium">Excepciones</th>
-                <th className="px-3 py-3 font-medium">Estado</th>
-                <th className="w-10 px-3 py-3">
-                  <span className="sr-only">Detalle</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {umbrales.datos?.map((u) => (
-                <tr
-                  key={u.id}
-                  onClick={() => navigate(ruta(u))}
-                  className={`cursor-pointer hover:bg-panel-muted ${u.activo && u.metrica?.activo ? '' : 'text-ink-faint'}`}
-                >
-                  <td className="px-5 py-3">
-                    <Link to={ruta(u)} onClick={(e) => e.stopPropagation()} className="font-medium text-ink hover:text-accent hover:underline">
-                      {u.nombre}
-                    </Link>
-                    <div className="text-xs text-ink-faint">{u.metrica?.nombre}</div>
-                  </td>
-                  {u.lista ? (
-                    <td colSpan={2} className="px-3 py-3" title={u.lista.elementos?.join(', ')}>
-                      <span className="text-ink">{u.lista.nombre}</span>{' '}
-                      <span className="font-mono text-xs tabular-nums text-ink-faint">· {u.lista.elementos?.length ?? 0}</span>
-                    </td>
-                  ) : (
-                    <>
-                      <td className="px-3 py-3 font-mono tabular-nums">
-                        <Limite umbral={u} valor={u.valorAdvertencia} />
-                      </td>
-                      <td className="px-3 py-3 font-mono tabular-nums">
-                        <Limite umbral={u} valor={u.valorCritico} />
-                      </td>
-                    </>
-                  )}
-                  <td className="px-3 py-3 tabular-nums text-ink-soft">
-                    {u.cantidadExcepciones ? `${u.excepcionesActivas}/${u.cantidadExcepciones}` : '—'}
-                  </td>
-                  <td className="px-3 py-3">
-                    {!u.metrica?.activo ? (
-                      <StatusPill tone="warning" label="Métrica inactiva" />
-                    ) : (
-                      <StatusPill tone={u.activo ? 'success' : 'neutral'} label={u.activo ? 'Activo' : 'Inactivo'} />
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-ink-faint">
-                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                  </td>
+        <div className="overflow-hidden rounded-xl border border-line bg-panel">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-5 py-3 font-medium">Umbral</th>
+                  <th className="px-3 py-3 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-warning" aria-hidden="true" /> Advertencia
+                    </span>
+                  </th>
+                  <th className="px-3 py-3 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-danger" aria-hidden="true" /> Crítico
+                    </span>
+                  </th>
+                  <th className="px-3 py-3 font-medium">Excepciones</th>
+                  <th className="px-3 py-3 font-medium">Estado</th>
+                  <th className="w-10 px-3 py-3">
+                    <span className="sr-only">Detalle</span>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {tabla.filas.map((u) => (
+                  <tr
+                    key={u.id}
+                    onClick={() => navigate(ruta(u))}
+                    className={`cursor-pointer hover:bg-panel-muted ${u.activo && u.metrica?.activo ? '' : 'text-ink-faint'}`}
+                  >
+                    <td className="px-5 py-3">
+                      <Link to={ruta(u)} onClick={(e) => e.stopPropagation()} className="font-medium text-ink hover:text-accent hover:underline">
+                        {u.nombre}
+                      </Link>
+                      <div className="text-xs text-ink-faint">{u.metrica?.nombre}</div>
+                    </td>
+                    {u.lista ? (
+                      <td colSpan={2} className="px-3 py-3" title={u.lista.elementos?.join(', ')}>
+                        <span className="text-ink">{u.lista.nombre}</span>{' '}
+                        <span className="font-mono text-xs tabular-nums text-ink-faint">· {u.lista.elementos?.length ?? 0}</span>
+                      </td>
+                    ) : (
+                      <>
+                        <td className="px-3 py-3 font-mono tabular-nums">
+                          <Limite umbral={u} valor={u.valorAdvertencia} />
+                        </td>
+                        <td className="px-3 py-3 font-mono tabular-nums">
+                          <Limite umbral={u} valor={u.valorCritico} />
+                        </td>
+                      </>
+                    )}
+                    <td className="px-3 py-3 tabular-nums text-ink-soft">
+                      {u.cantidadExcepciones ? `${u.excepcionesActivas}/${u.cantidadExcepciones}` : '—'}
+                    </td>
+                    <td className="px-3 py-3">
+                      {!u.metrica?.activo ? (
+                        <StatusPill tone="warning" label="Métrica inactiva" />
+                      ) : (
+                        <StatusPill tone={u.activo ? 'success' : 'neutral'} label={u.activo ? 'Activo' : 'Inactivo'} />
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-ink-faint">
+                      <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Paginacion {...tabla.controles} />
         </div>
       )}
 

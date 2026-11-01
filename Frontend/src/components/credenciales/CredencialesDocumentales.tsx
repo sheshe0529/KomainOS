@@ -8,8 +8,10 @@ import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION, ETIQUETA_TIPO_USUARIO } from '@/utils/etiquetas'
 import { textoDeError } from '@/utils/errores'
 import { formatearFecha, formatearFechaHora } from '@/utils/formato'
@@ -54,6 +56,7 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
   }
 
   const lista = credenciales.datos ?? []
+  const tabla = usePaginacionLocal(lista, 'credenciales')
 
   return (
     <Tarjeta
@@ -78,75 +81,80 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
           Sin credenciales registradas para este servidor.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="py-2 pr-4 font-medium">Credencial</th>
-                <th className="py-2 pr-4 font-medium">Usuario</th>
-                <th className="py-2 pr-4 font-medium">Acceso</th>
-                <th className="py-2 pr-4 font-medium">Secreto</th>
-                <th className="py-2 pr-4 font-medium">Estado</th>
-                <th className="py-2 text-right font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {lista.map((c) => {
-                const vigente = c.estado === 'VIGENTE'
-                const estado = c.estado ? ESTADO_CREDENCIAL[c.estado] : undefined
-                return (
-                  <tr key={c.id} className={vigente ? '' : 'text-ink-soft'}>
-                    <td className="py-3 pr-4">
-                      <p className={`flex items-center gap-2 font-medium ${vigente ? 'text-ink' : ''}`}>
-                        {c.nombre}
-                        {c.principal && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
-                            <Star className="h-3 w-3 fill-current" aria-hidden="true" /> Principal
-                          </span>
-                        )}
-                      </p>
-                      {c.descripcion && <p className="line-clamp-2 max-w-xs text-xs text-ink-faint">{c.descripcion}</p>}
-                    </td>
-                    <td className="py-3 pr-4 font-mono">{c.usuarioAcceso}</td>
-                    <td className="py-3 pr-4">
-                      <p>{c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}</p>
-                      {c.tipoUsuario && (
-                        <p className="flex items-center gap-1.5 text-xs text-ink-soft">
-                          {ETIQUETA_TIPO_USUARIO[c.tipoUsuario]}
-                          {c.conSu && <span className="rounded bg-panel-muted px-1 font-mono text-[10px] text-ink">su</span>}
-                        </p>
-                      )}
-                    </td>
-                    <td className="py-3 pr-4 text-xs text-ink-soft">
-                      {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}
-                    </td>
-                    <td className="py-3 pr-4">
-                      {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
-                      {c.fechaRevocacion && (
-                        <span className="mt-1 block text-xs text-ink-faint">{formatearFechaHora(c.fechaRevocacion)}</span>
-                      )}
-                    </td>
-                    <td className="py-3">
-                      {vigente && (
-                        <div className="flex justify-end gap-1">
-                          <BotonIcono icono={Eye} etiqueta="Ver secreto" onClick={() => setDialogo({ tipo: 'revelar', credencial: c })} />
-                          {editable && (
-                            <>
-                              {!c.principal && <BotonIcono icono={Star} etiqueta="Marcar como principal" onClick={() => marcarPrincipal(c)} />}
-                              <BotonIcono icono={Pencil} etiqueta="Editar datos" onClick={() => setDialogo({ tipo: 'datos', credencial: c })} />
-                              <BotonIcono icono={KeyRound} etiqueta="Nuevo secreto" onClick={() => setDialogo({ tipo: 'secreto', credencial: c })} />
-                              <BotonIcono icono={Ban} etiqueta="Revocar" onClick={() => setDialogo({ tipo: 'revocar', credencial: c })} />
-                            </>
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="py-2 pr-4 font-medium">Credencial</th>
+                  <th className="py-2 pr-4 font-medium">Usuario</th>
+                  <th className="py-2 pr-4 font-medium">Acceso</th>
+                  <th className="py-2 pr-4 font-medium">Secreto</th>
+                  <th className="py-2 pr-4 font-medium">Estado</th>
+                  <th className="py-2 text-right font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {tabla.filas.map((c) => {
+                  const vigente = c.estado === 'VIGENTE'
+                  const estado = c.estado ? ESTADO_CREDENCIAL[c.estado] : undefined
+                  return (
+                    <tr key={c.id} className={vigente ? '' : 'text-ink-soft'}>
+                      <td className="py-3 pr-4">
+                        <p className={`flex items-center gap-2 font-medium ${vigente ? 'text-ink' : ''}`}>
+                          {c.nombre}
+                          {c.principal && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
+                              <Star className="h-3 w-3 fill-current" aria-hidden="true" /> Principal
+                            </span>
                           )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                        </p>
+                        {c.descripcion && <p className="line-clamp-2 max-w-xs text-xs text-ink-faint">{c.descripcion}</p>}
+                      </td>
+                      <td className="py-3 pr-4 font-mono">{c.usuarioAcceso}</td>
+                      <td className="py-3 pr-4">
+                        <p>{c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}</p>
+                        {c.tipoUsuario && (
+                          <p className="flex items-center gap-1.5 text-xs text-ink-soft">
+                            {ETIQUETA_TIPO_USUARIO[c.tipoUsuario]}
+                            {c.conSu && <span className="rounded bg-panel-muted px-1 font-mono text-[10px] text-ink">su</span>}
+                          </p>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-xs text-ink-soft">
+                        {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
+                        {c.fechaRevocacion && (
+                          <span className="mt-1 block text-xs text-ink-faint">{formatearFechaHora(c.fechaRevocacion)}</span>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        {vigente && (
+                          <div className="flex justify-end gap-1">
+                            <BotonIcono icono={Eye} etiqueta="Ver secreto" onClick={() => setDialogo({ tipo: 'revelar', credencial: c })} />
+                            {editable && (
+                              <>
+                                {!c.principal && <BotonIcono icono={Star} etiqueta="Marcar como principal" onClick={() => marcarPrincipal(c)} />}
+                                <BotonIcono icono={Pencil} etiqueta="Editar datos" onClick={() => setDialogo({ tipo: 'datos', credencial: c })} />
+                                <BotonIcono icono={KeyRound} etiqueta="Nuevo secreto" onClick={() => setDialogo({ tipo: 'secreto', credencial: c })} />
+                                <BotonIcono icono={Ban} etiqueta="Revocar" onClick={() => setDialogo({ tipo: 'revocar', credencial: c })} />
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="-mx-5 -mb-5 mt-2">
+            <Paginacion {...tabla.controles} />
+          </div>
+        </>
       )}
 
       {dialogo?.tipo === 'nueva' && (

@@ -4,6 +4,7 @@ import type { Pagina } from '@/api/dominio'
 import type { ServidorResumenRespuesta } from '@/api/types'
 import { BotonIcono } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
+import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { Paginacion } from '@/components/ui/Paginacion'
 import type { ColumnaServidor, ContextoColumna } from './columnasServidores'
 
@@ -20,12 +21,26 @@ interface TablaServidoresProps {
   orden: Orden
   onOrdenar: (propiedad: string) => void
   onPagina: (pagina: number) => void
+  tamano: number
+  onTamano: (tamano: number) => void
   esAdmin: boolean
   /** Cambia el mensaje de la tabla vacía */
   conFiltros: boolean
 }
 
-export function TablaServidores({ columnas, contexto, pagina, cargando, orden, onOrdenar, onPagina, esAdmin, conFiltros }: TablaServidoresProps) {
+export function TablaServidores({
+  columnas,
+  contexto,
+  pagina,
+  cargando,
+  orden,
+  onOrdenar,
+  onPagina,
+  tamano,
+  onTamano,
+  esAdmin,
+  conFiltros,
+}: TablaServidoresProps) {
   const navigate = useNavigate()
   const totalColumnas = columnas.length + 1
 
@@ -50,7 +65,7 @@ export function TablaServidores({ columnas, contexto, pagina, cargando, orden, o
               </tr>
             ) : (
               pagina?.contenido?.map((s) => (
-                <tr key={s.id} className="transition-colors hover:bg-panel-muted">
+                <FilaNavegable key={s.id} a={`/servidores/${s.id}`}>
                   {columnas.map((c) => (
                     <td key={c.id} className="px-4 py-3">
                       {c.celda(s, contexto)}
@@ -64,7 +79,7 @@ export function TablaServidores({ columnas, contexto, pagina, cargando, orden, o
                       )}
                     </div>
                   </td>
-                </tr>
+                </FilaNavegable>
               ))
             )}
             {!cargando && pagina?.contenido?.length === 0 && (
@@ -82,6 +97,8 @@ export function TablaServidores({ columnas, contexto, pagina, cargando, orden, o
         totalPaginas={pagina?.totalPaginas ?? 0}
         totalElementos={pagina?.totalElementos ?? 0}
         onCambiar={onPagina}
+        tamano={tamano}
+        onTamano={onTamano}
       />
     </div>
   )

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { CheckCheck } from 'lucide-react'
 import { alertasApi } from '@/api/automatizacion'
 import { PageHeader } from '@/components/common/PageHeader'
@@ -11,19 +10,20 @@ import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { formatearFechaHora } from '@/utils/formato'
 
 /** Notificaciones dirigidas al usuario: autorizaciones, validaciones, incidencias y cierres (RF50, RF59, RF75) */
 export function AlertasPage() {
   const alertas = useAlertas()
   const { avisar } = useAvisos()
-  const [pagina, setPagina] = useState(0)
+  const { pagina, tamano, setPagina, setTamano } = usePaginacion('alertas')
   const [soloNoLeidas, setSoloNoLeidas] = useState(false)
   const [marcando, setMarcando] = useState(false)
   const [error, setError] = useState<unknown>()
   const lista = useConsulta(
-    () => alertasApi.listar(pagina, 20, soloNoLeidas),
-    [pagina, soloNoLeidas, alertas.version],
+    () => alertasApi.listar(pagina, tamano, soloNoLeidas),
+    [pagina, tamano, soloNoLeidas, alertas.version],
   )
   const filas = lista.datos?.contenido ?? []
 
@@ -88,7 +88,17 @@ export function AlertasPage() {
         <div className="overflow-hidden rounded-xl border border-line bg-panel">
           <ul className="divide-y divide-line">
             {filas.map((a) => (
-              <li key={a.id} className={`flex flex-wrap items-start gap-x-4 gap-y-2 px-5 py-4 ${a.leida ? '' : 'bg-accent-soft/50'}`}>
+              <li
+                key={a.id}
+                onClick={(e) => {
+                  // Toda la alerta se abre al hacer clic; el detalle lleva a la orden, el servidor o la incidencia
+                  if ((e.target as HTMLElement).closest('button')) return
+                  alertas.abrir(a.id!)
+                }}
+                className={`flex cursor-pointer flex-wrap items-start gap-x-4 gap-y-2 px-5 py-4 transition-colors hover:bg-panel-muted ${
+                  a.leida ? '' : 'bg-accent-soft/50'
+                }`}
+              >
                 <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${colorAlerta(a.tipo)}`} aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-ink-soft">
@@ -103,23 +113,6 @@ export function AlertasPage() {
                     {a.titulo}
                   </button>
                   <p className="mt-0.5 line-clamp-2 text-sm text-ink-soft">{a.mensaje}</p>
-                  <div className="mt-1 flex flex-wrap gap-x-4 text-sm">
-                    {a.idOrden && (
-                      <Link to={`/ordenes/${a.idOrden}`} className="text-accent hover:underline">
-                        Ver orden
-                      </Link>
-                    )}
-                    {a.idIncidencia && (
-                      <Link to={`/automatizacion/incidencias?incidencia=${a.idIncidencia}`} className="text-accent hover:underline">
-                        Ver incidencia
-                      </Link>
-                    )}
-                    {a.idServidor && (
-                      <Link to={`/servidores/${a.idServidor}`} className="text-accent hover:underline">
-                        Ver servidor
-                      </Link>
-                    )}
-                  </div>
                 </div>
                 {!a.leida && (
                   <Boton
@@ -143,6 +136,8 @@ export function AlertasPage() {
             totalPaginas={lista.datos?.totalPaginas ?? 0}
             totalElementos={lista.datos?.totalElementos ?? 0}
             onCambiar={setPagina}
+            tamano={tamano}
+            onTamano={setTamano}
           />
         </div>
       )}

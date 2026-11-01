@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Activity,
   Archive,
@@ -20,7 +20,6 @@ import type { ResumenProcesoRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
 import { PageHeader } from '@/components/common/PageHeader'
 import { DiagnosticoAutomatizacion } from '@/components/automatizacion/DiagnosticoAutomatizacion'
-import { IndicadoresMantenimiento } from '@/components/automatizacion/IndicadoresMantenimiento'
 import type { ObjetivoProgramacion } from '@/components/planificacion/ProgramarModal'
 import { SeleccionObjetivoModal } from '@/components/planificacion/SeleccionObjetivoModal'
 import { useAvisos } from '@/components/ui/avisos-context'
@@ -28,12 +27,15 @@ import { Boton } from '@/components/ui/Boton'
 import { AreaTexto, Campo, Selector } from '@/components/ui/Campo'
 import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
 import { Cargando } from '@/components/ui/Cargando'
+import { ENLACE_FILA } from '@/components/ui/estilos'
+import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { useTextoDiferido } from '@/hooks/useTextoDiferido'
 import { TONO_ESTADO_DETALLE, TONO_ESTADO_ORDEN } from '@/utils/automatizacion'
 import { ETIQUETA_ESTADO_DETALLE, ETIQUETA_ESTADO_ORDEN, ETIQUETA_ETAPA, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
@@ -49,12 +51,14 @@ const ETAPAS: { etapa: EtapaOrden; icono: LucideIcon; detalle: string }[] = [
   { etapa: 'CIERRE', icono: Archive, detalle: 'Ciclos terminados' },
 ]
 
-type Vista = 'ordenes' | 'cola' | 'indicadores'
+type Vista = 'ordenes' | 'cola'
+
+const ETAPAS_VALIDAS = new Set<string>(ETAPAS.map((e) => e.etapa))
 
 /** La sala se actualiza sola mientras está a la vista */
 const REFRESCO_MS = 10_000
 
-/** Sala de operaciones (HU22): el ciclo de mantenimiento de un vistazo, la cola por servidor y los indicadores */
+/** Sala de operaciones (HU22): el ciclo de mantenimiento de un vistazo y la cola por servidor. Los indicadores están en el dashboard */
 export function AutomatizacionPage() {
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
@@ -62,22 +66,31 @@ export function AutomatizacionPage() {
   const { avisar } = useAvisos()
   const catalogos = useCatalogos()
 
+  const [parametros] = useSearchParams()
   const [vista, setVista] = useState<Vista>('ordenes')
   const [busqueda, setBusqueda] = useState('')
   const texto = useTextoDiferido(busqueda)
-  const [etapa, setEtapa] = useState<EtapaOrden | ''>('')
+  // El dashboard enlaza cada etapa con la sala ya filtrada
+  const [etapa, setEtapa] = useState<EtapaOrden | ''>(() => {
+    const inicial = parametros.get('etapa') ?? ''
+    return ETAPAS_VALIDAS.has(inicial) ? (inicial as EtapaOrden) : ''
+  })
   const [idEntorno, setIdEntorno] = useState('')
   const [idCriticidad, setIdCriticidad] = useState('')
-  const [pagina, setPagina] = useState(0)
-  const [paginaCola, setPaginaCola] = useState(0)
+  const paginacion = usePaginacion('sala')
+  const paginacionCola = usePaginacion('cola')
+  const { pagina, tamano, setPagina } = paginacion
 
   const diagnostico = useConsulta(() => operacionApi.diagnostico(), [])
   const indicadores = useConsulta(() => operacionApi.indicadores(), [])
   const sala = useConsulta(
-    () => operacionApi.sala({ etapa, idEntorno, idCriticidad, texto }, pagina),
-    [etapa, idEntorno, idCriticidad, texto, pagina],
+    () => operacionApi.sala({ etapa, idEntorno, idCriticidad, texto }, pagina, tamano),
+    [etapa, idEntorno, idCriticidad, texto, pagina, tamano],
   )
-  const cola = useConsulta(() => operacionApi.cola(paginaCola), [paginaCola])
+  const cola = useConsulta(
+    () => operacionApi.cola(paginacionCola.pagina, paginacionCola.tamano),
+    [paginacionCola.pagina, paginacionCola.tamano],
+  )
 
   const [trabajando, setTrabajando] = useState<'procesar' | 'cola' | 'demo' | 'lanzar'>()
   const [error, setError] = useState<unknown>()
@@ -178,8 +191,13 @@ export function AutomatizacionPage() {
             </Link>
             {esAdmin && (
               <>
-                <Boton icono={RefreshCw} cargando={trabajando === 'procesar'} onClick={procesar}>
-                  Procesar ciclo ahora
+                <Boton
+                  icono={RefreshCw}
+                  cargando={trabajando === 'procesar'}
+                  onClick={procesar}
+                  title="El sistema hace esta revisión solo cada pocos segundos: vence plazos, inicia las evaluaciones que llegaron a su fecha y las revisiones periódicas pendientes, y despacha la cola. Este botón la adelanta."
+                >
+                  Ejecutar proceso automático
                 </Boton>
                 <Boton variante="primario" icono={Zap} onClick={() => setEligiendo(true)}>
                   Lanzamiento inmediato
@@ -199,7 +217,7 @@ export function AutomatizacionPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-ink">
-                {resumen.ejecutado ? 'Ciclo procesado' : 'El ciclo ya se estaba procesando'}
+                {resumen.ejecutado ? 'Proceso automático ejecutado' : 'El proceso automático ya estaba en curso'}
               </h3>
               <p className="mt-0.5 text-sm text-ink-soft">
                 {resumen.evaluadas} evaluaciones iniciadas · {resumen.revisadas} servidores revisados ·{' '}
@@ -255,7 +273,6 @@ export function AutomatizacionPage() {
           [
             ['ordenes', 'Órdenes'],
             ['cola', `Cola por servidor${cola.datos?.totalElementos ? ` (${cola.datos.totalElementos})` : ''}`],
-            ['indicadores', 'Indicadores de gestión'],
           ] as [Vista, string][]
         ).map(([clave, etiqueta]) => (
           <button
@@ -358,13 +375,9 @@ export function AutomatizacionPage() {
                   </thead>
                   <tbody className="divide-y divide-line">
                     {filasSala.map((o) => (
-                      <tr key={o.id} onClick={() => navigate(`/ordenes/${o.id}`)} className="cursor-pointer hover:bg-panel-muted">
+                      <FilaNavegable key={o.id} a={`/ordenes/${o.id}`}>
                         <td className="px-5 py-3">
-                          <Link
-                            to={`/ordenes/${o.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="font-mono font-medium text-ink hover:text-accent hover:underline"
-                          >
+                          <Link to={`/ordenes/${o.id}`} className={`font-mono ${ENLACE_FILA}`}>
                             {o.codigo}
                           </Link>
                           {o.prioridad === 'ALTA' && (
@@ -385,7 +398,7 @@ export function AutomatizacionPage() {
                         <td className="px-3 py-3 text-ink-soft">{o.origen ? ETIQUETA_ORIGEN[o.origen] : '—'}</td>
                         <td className="px-3 py-3 whitespace-nowrap text-ink-soft">{formatearFechaHora(o.inicioProgramado)}</td>
                         <td className="px-3 py-3 text-ink-soft">{o.criticidad?.nombre}</td>
-                      </tr>
+                      </FilaNavegable>
                     ))}
                   </tbody>
                 </table>
@@ -395,6 +408,8 @@ export function AutomatizacionPage() {
                 totalPaginas={sala.datos?.totalPaginas ?? 0}
                 totalElementos={sala.datos?.totalElementos ?? 0}
                 onCambiar={setPagina}
+                tamano={tamano}
+                onTamano={paginacion.setTamano}
               />
             </div>
           )}
@@ -437,10 +452,10 @@ export function AutomatizacionPage() {
                   </thead>
                   <tbody className="divide-y divide-line">
                     {filasCola.map((d) => (
-                      <tr key={d.idDetalle}>
+                      <FilaNavegable key={d.idDetalle} a={`/ordenes/${d.idOrden}`}>
                         <td className="px-5 py-3 text-right font-mono tabular-nums text-ink-soft">{d.posicion}</td>
                         <td className="px-3 py-3">
-                          <Link to={`/servidores/${d.idServidor}`} className="font-mono text-ink hover:text-accent hover:underline">
+                          <Link to={`/servidores/${d.idServidor}`} className={`font-mono ${ENLACE_FILA}`}>
                             {d.servidor}
                           </Link>
                           {d.piloto && (
@@ -448,7 +463,7 @@ export function AutomatizacionPage() {
                           )}
                         </td>
                         <td className="px-3 py-3">
-                          <Link to={`/ordenes/${d.idOrden}`} className="font-mono text-accent hover:underline">
+                          <Link to={`/ordenes/${d.idOrden}`} className={`font-mono ${ENLACE_FILA}`}>
                             {d.orden}
                           </Link>
                           {d.prioridad === 'ALTA' && <span className="ml-2 text-xs font-medium text-danger">Alta</span>}
@@ -460,23 +475,23 @@ export function AutomatizacionPage() {
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap text-ink-soft">{formatearFechaHora(d.inicioPrevisto)}</td>
                         <td className="px-3 py-3 whitespace-nowrap text-ink-soft">{formatearFechaHora(d.inicioReal)}</td>
-                      </tr>
+                      </FilaNavegable>
                     ))}
                   </tbody>
                 </table>
               </div>
               <Paginacion
-                pagina={paginaCola}
+                pagina={paginacionCola.pagina}
                 totalPaginas={cola.datos?.totalPaginas ?? 0}
                 totalElementos={cola.datos?.totalElementos ?? 0}
-                onCambiar={setPaginaCola}
+                onCambiar={paginacionCola.setPagina}
+                tamano={paginacionCola.tamano}
+                onTamano={paginacionCola.setTamano}
               />
             </div>
           )}
         </>
       )}
-
-      {vista === 'indicadores' && <IndicadoresMantenimiento />}
 
       {esAdmin && diagnostico.datos?.simulado && (
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-line px-5 py-4 text-sm text-ink-soft">

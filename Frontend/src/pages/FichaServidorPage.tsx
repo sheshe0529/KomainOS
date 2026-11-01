@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { useParams } from 'react-router-dom'
 import { servidoresApi } from '@/api/inventario'
 import type { FichaServidorRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
 import { AnalisisServidor } from '@/components/automatizacion/AnalisisServidor'
+import { BitacoraMantenimiento } from '@/components/automatizacion/BitacoraMantenimiento'
+import { EnlaceVolver } from '@/components/common/PageHeader'
 import { Tarjeta } from '@/components/common/Tarjeta'
 import { CredencialesDocumentales } from '@/components/credenciales/CredencialesDocumentales'
 import { AvisosServidor } from '@/components/inventario/AvisosServidor'
@@ -19,7 +20,6 @@ import { ServidorFormulario } from '@/components/inventario/ServidorFormulario'
 import { UmbralesServidorTarjeta } from '@/components/inventario/UmbralesServidorTarjeta'
 import { VentanaPermisivaTarjeta } from '@/components/inventario/VentanaPermisivaTarjeta'
 import { VentanasModal } from '@/components/inventario/VentanasModal'
-import { OrdenesDelObjetivo } from '@/components/planificacion/OrdenesDelObjetivo'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Cargando } from '@/components/ui/Cargando'
@@ -27,14 +27,6 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { useCatalogos, useResponsables } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { textoDeError } from '@/utils/errores'
-
-function VolverAlInventario() {
-  return (
-    <Link to="/servidores" className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
-      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al inventario
-    </Link>
-  )
-}
 
 export function FichaServidorPage() {
   const { id } = useParams()
@@ -77,7 +69,7 @@ export function FichaServidorPage() {
   if (ficha.error && !s) {
     return (
       <div className="flex flex-col gap-4">
-        <VolverAlInventario />
+        <EnlaceVolver a="/servidores" texto="Volver al inventario" />
         <MensajeError error={ficha.error} onReintentar={ficha.recargar} />
       </div>
     )
@@ -89,7 +81,6 @@ export function FichaServidorPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <VolverAlInventario />
       <EncabezadoFichaServidor
         servidor={s}
         esAdmin={esAdmin}
@@ -116,12 +107,13 @@ export function FichaServidorPage() {
         vacio="Sin ventana definida: el servidor no puede planificarse."
         onEditar={puedeEditarVentana && !dadoDeBaja ? () => setDialogo('ventanas') : undefined}
       />
-      <UmbralesServidorTarjeta idServidor={idServidor} grupos={s.grupos ?? []} />
       <HistorialBajasServidor servidor={s} />
       {esAdmin && (
         <CredencialesDocumentales idServidor={idServidor} hostname={s.hostname ?? ''} familia={s.familiaSistemaOperativo} editable={!dadoDeBaja} />
       )}
-      <OrdenesDelObjetivo idServidor={idServidor} version={versionOrdenes} />
+      <BitacoraMantenimiento idServidor={idServidor} version={versionOrdenes} />
+      <AnalisisServidor idServidor={idServidor} />
+      <UmbralesServidorTarjeta idServidor={idServidor} />
 
       {dialogo === 'programar' && (
         <ProgramarModal
@@ -195,7 +187,6 @@ export function FichaServidorPage() {
           }}
         />
       )}
-      <AnalisisServidor idServidor={idServidor} />
     </div>
   )
 }

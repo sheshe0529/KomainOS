@@ -12,8 +12,10 @@ import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION } from '@/utils/etiquetas'
 import { formatearFecha } from '@/utils/formato'
 import { textoDeError } from '@/utils/errores'
@@ -37,6 +39,7 @@ export function CuentasServicioPage() {
   const [dialogo, setDialogo] = useState<Dialogo>(null)
 
   const lista = cuentas.datos ?? []
+  const tabla = usePaginacionLocal(lista, 'cuentas-servicio')
   const predeterminada = lista.find((c) => c.predeterminada)
 
   function listo(mensaje: string) {
@@ -75,71 +78,74 @@ export function CuentasServicioPage() {
       {cuentas.cargando && !cuentas.datos ? (
         <Cargando />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-panel">
-          <table className="w-full min-w-[860px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="px-4 py-3 font-medium">Cuenta</th>
-                <th className="px-4 py-3 font-medium">Usuario</th>
-                <th className="px-4 py-3 font-medium">Mecanismo</th>
-                <th className="px-4 py-3 font-medium">Secreto</th>
-                <th className="px-4 py-3 font-medium">Uso</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 text-right font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {lista.map((c) => {
-                const vigente = c.estado === 'VIGENTE'
-                const estado = c.estado ? ESTADO_CREDENCIAL[c.estado] : undefined
-                return (
-                  <tr key={c.id} className={`hover:bg-panel-muted ${vigente ? '' : 'text-ink-soft'}`}>
-                    <td className="px-4 py-3">
-                      <p className={`flex items-center gap-2 font-medium ${vigente ? 'text-ink' : ''}`}>
-                        {c.nombre}
-                        {c.predeterminada && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
-                            <Star className="h-3 w-3 fill-current" aria-hidden="true" /> Predeterminada
-                          </span>
-                        )}
-                      </p>
-                      {c.descripcion && <p className="line-clamp-2 max-w-xs text-xs text-ink-faint">{c.descripcion}</p>}
-                    </td>
-                    <td className="px-4 py-3 font-mono">{c.usuarioAcceso}</td>
-                    <td className="px-4 py-3">{c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}</td>
-                    <td className="px-4 py-3 text-xs text-ink-soft">
-                      {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-ink-soft">{textoUso(c)}</td>
-                    <td className="px-4 py-3">{estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}</td>
-                    <td className="px-4 py-3">
-                      {vigente && (
-                        <div className="flex justify-end gap-1">
-                          <BotonIcono icono={Eye} etiqueta="Ver secreto" onClick={() => setDialogo({ tipo: 'revelar', cuenta: c })} />
-                          <BotonIcono icono={Server} etiqueta="Asignar a servidores" onClick={() => setDialogo({ tipo: 'asignar', cuenta: c })} />
-                          {c.predeterminada ? (
-                            <BotonIcono icono={StarOff} etiqueta="Quitar como predeterminada" onClick={() => cambiarPredeterminada(null)} />
-                          ) : (
-                            <BotonIcono icono={Star} etiqueta="Usar como predeterminada" onClick={() => cambiarPredeterminada(c)} />
+        <div className="overflow-hidden rounded-xl border border-line bg-panel">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-4 py-3 font-medium">Cuenta</th>
+                  <th className="px-4 py-3 font-medium">Usuario</th>
+                  <th className="px-4 py-3 font-medium">Mecanismo</th>
+                  <th className="px-4 py-3 font-medium">Secreto</th>
+                  <th className="px-4 py-3 font-medium">Uso</th>
+                  <th className="px-4 py-3 font-medium">Estado</th>
+                  <th className="px-4 py-3 text-right font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {tabla.filas.map((c) => {
+                  const vigente = c.estado === 'VIGENTE'
+                  const estado = c.estado ? ESTADO_CREDENCIAL[c.estado] : undefined
+                  return (
+                    <tr key={c.id} className={`hover:bg-panel-muted ${vigente ? '' : 'text-ink-soft'}`}>
+                      <td className="px-4 py-3">
+                        <p className={`flex items-center gap-2 font-medium ${vigente ? 'text-ink' : ''}`}>
+                          {c.nombre}
+                          {c.predeterminada && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
+                              <Star className="h-3 w-3 fill-current" aria-hidden="true" /> Predeterminada
+                            </span>
                           )}
-                          <BotonIcono icono={Pencil} etiqueta="Editar datos" onClick={() => setDialogo({ tipo: 'datos', cuenta: c })} />
-                          <BotonIcono icono={KeyRound} etiqueta="Nuevo secreto" onClick={() => setDialogo({ tipo: 'secreto', cuenta: c })} />
-                          <BotonIcono icono={Ban} etiqueta="Revocar" onClick={() => setDialogo({ tipo: 'revocar', cuenta: c })} />
-                        </div>
-                      )}
+                        </p>
+                        {c.descripcion && <p className="line-clamp-2 max-w-xs text-xs text-ink-faint">{c.descripcion}</p>}
+                      </td>
+                      <td className="px-4 py-3 font-mono">{c.usuarioAcceso}</td>
+                      <td className="px-4 py-3">{c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}</td>
+                      <td className="px-4 py-3 text-xs text-ink-soft">
+                        {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-ink-soft">{textoUso(c)}</td>
+                      <td className="px-4 py-3">{estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}</td>
+                      <td className="px-4 py-3">
+                        {vigente && (
+                          <div className="flex justify-end gap-1">
+                            <BotonIcono icono={Eye} etiqueta="Ver secreto" onClick={() => setDialogo({ tipo: 'revelar', cuenta: c })} />
+                            <BotonIcono icono={Server} etiqueta="Asignar a servidores" onClick={() => setDialogo({ tipo: 'asignar', cuenta: c })} />
+                            {c.predeterminada ? (
+                              <BotonIcono icono={StarOff} etiqueta="Quitar como predeterminada" onClick={() => cambiarPredeterminada(null)} />
+                            ) : (
+                              <BotonIcono icono={Star} etiqueta="Usar como predeterminada" onClick={() => cambiarPredeterminada(c)} />
+                            )}
+                            <BotonIcono icono={Pencil} etiqueta="Editar datos" onClick={() => setDialogo({ tipo: 'datos', cuenta: c })} />
+                            <BotonIcono icono={KeyRound} etiqueta="Nuevo secreto" onClick={() => setDialogo({ tipo: 'secreto', cuenta: c })} />
+                            <BotonIcono icono={Ban} etiqueta="Revocar" onClick={() => setDialogo({ tipo: 'revocar', cuenta: c })} />
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+                {lista.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
+                      Aún no hay cuentas de servicio registradas.
                     </td>
                   </tr>
-                )
-              })}
-              {lista.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
-                    Aún no hay cuentas de servicio registradas.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Paginacion {...tabla.controles} />
         </div>
       )}
 

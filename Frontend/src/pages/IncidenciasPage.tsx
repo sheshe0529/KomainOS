@@ -17,6 +17,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { useTextoDiferido } from '@/hooks/useTextoDiferido'
 import { ESTADO_INCIDENCIA, ORIGEN_INCIDENCIA } from '@/utils/automatizacion'
 import { errorDeCampo } from '@/utils/errores'
@@ -172,11 +173,11 @@ export function IncidenciasPage() {
   const texto = useTextoDiferido(busqueda)
   const [estado, setEstado] = useState<EstadoIncidencia | ''>('')
   const [origen, setOrigen] = useState<OrigenIncidencia | ''>('')
-  const [pagina, setPagina] = useState(0)
+  const { pagina, tamano, setPagina, setTamano } = usePaginacion('incidencias')
 
   const lista = useConsulta(
-    () => incidenciasApi.listar({ estado, origen, texto }, pagina),
-    [estado, origen, texto, pagina],
+    () => incidenciasApi.listar({ estado, origen, texto }, pagina, tamano),
+    [estado, origen, texto, pagina, tamano],
   )
   const filas = lista.datos?.contenido ?? []
   const abierta = Number(busquedaUrl.get('incidencia')) || undefined
@@ -266,7 +267,7 @@ export function IncidenciasPage() {
               </thead>
               <tbody className="divide-y divide-line">
                 {filas.map((i) => (
-                  <tr key={i.id} onClick={() => abrir(i.id)} className="cursor-pointer align-top hover:bg-panel-muted">
+                  <tr key={i.id} onClick={() => abrir(i.id)} className="cursor-pointer align-top transition-colors hover:bg-panel-muted">
                     <td className="max-w-sm px-5 py-3">
                       <span className="font-mono font-medium text-ink">{codigo(i.id)}</span>
                       {i.error && <p className="line-clamp-2 text-xs text-ink-soft">{i.error}</p>}
@@ -299,6 +300,8 @@ export function IncidenciasPage() {
             totalPaginas={lista.datos?.totalPaginas ?? 0}
             totalElementos={lista.datos?.totalElementos ?? 0}
             onCambiar={setPagina}
+            tamano={tamano}
+            onTamano={setTamano}
           />
         </div>
       )}

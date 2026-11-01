@@ -3,19 +3,21 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, Plus } from 'lucide-react'
 import { scriptsApi } from '@/api/automatizacion'
 import type { TipoScript } from '@/api/dominio'
-import type { ImplementacionResumen } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
 import { PageHeader } from '@/components/common/PageHeader'
 import { ScriptFormulario } from '@/components/automatizacion/ScriptFormulario'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
-import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
 import { Selector } from '@/components/ui/Campo'
+import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
 import { Cargando } from '@/components/ui/Cargando'
+import { ENLACE_FILA } from '@/components/ui/estilos'
+import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { useTextoDiferido } from '@/hooks/useTextoDiferido'
 import { ETIQUETA_TIPO_SCRIPT } from '@/utils/automatizacion'
 import { formatearFecha } from '@/utils/formato'
@@ -26,23 +28,15 @@ const TIPOS: { valor: TipoScript | ''; etiqueta: string }[] = [
   { valor: 'MANTENIMIENTO', etiqueta: 'Mantenimiento' },
 ]
 
-/** Una implementación sin versión habilitada no puede fijarse en una MOP: se marca para que se note */
-function Compatibilidad({ implementacion: i }: { implementacion: ImplementacionResumen }) {
-  const sinVigente = !i.versionVigente
-  return (
-    <span
-      title={sinVigente ? 'Todas sus versiones están deshabilitadas' : `${i.totalVersiones} versiones publicadas`}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs ${
-        sinVigente ? 'border-warning/40 bg-warning-soft text-warning' : 'border-line bg-panel-muted text-ink'
-      }`}
-    >
-      {i.sistemaOperativo}
-      <span className="font-mono text-ink-soft">{sinVigente ? 'sin versión' : `v${i.versionVigente}`}</span>
-    </span>
-  )
+const LARGO_DESCRIPCION = 100
+
+/** Los primeros caracteres de la descripción; el texto completo queda en el título de la celda */
+function resumirDescripcion(texto?: string): string {
+  if (!texto) return '—'
+  return texto.length > LARGO_DESCRIPCION ? `${texto.slice(0, LARGO_DESCRIPCION).trimEnd()}…` : texto
 }
 
-/** Catálogo de scripts (RF22): compatibilidad por sistema operativo y versión vigente de cada implementación */
+/** Catálogo de scripts (RF22): qué hace cada uno y quién lo registró; la compatibilidad se ve en su ficha */
 export function ScriptsPage() {
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
@@ -53,12 +47,12 @@ export function ScriptsPage() {
   const texto = useTextoDiferido(busqueda)
   const [tipo, setTipo] = useState<TipoScript | ''>('')
   const [estado, setEstado] = useState('true')
-  const [pagina, setPagina] = useState(0)
+  const { pagina, tamano, setPagina, setTamano } = usePaginacion('scripts')
   const [creando, setCreando] = useState(false)
 
   const scripts = useConsulta(
-    () => scriptsApi.listar({ texto, tipo, activo: estado === '' ? undefined : estado === 'true' }, pagina),
-    [texto, tipo, estado, pagina],
+    () => scriptsApi.listar({ texto, tipo, activo: estado === '' ? undefined : estado === 'true' }, pagina, tamano),
+    [texto, tipo, estado, pagina, tamano],
   )
   const filas = scripts.datos?.contenido ?? []
   const conFiltros = !!(texto || tipo || estado !== 'true')
@@ -140,12 +134,13 @@ export function ScriptsPage() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-panel">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[860px] text-left text-sm">
               <thead>
                 <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
                   <th className="px-5 py-3 font-medium">Script</th>
                   <th className="px-3 py-3 font-medium">Tipo</th>
-                  <th className="px-3 py-3 font-medium">Sistemas operativos · versión vigente</th>
+                  <th className="px-3 py-3 font-medium">Descripción</th>
+                  <th className="px-3 py-3 font-medium">Creado por</th>
                   <th className="px-3 py-3 font-medium">Última publicación</th>
                   <th className="px-3 py-3 font-medium">Estado</th>
                   <th className="w-10 px-3 py-3">
@@ -162,41 +157,28 @@ export function ScriptsPage() {
                     .sort()
                     .at(-1)
                   return (
-                    <tr
-                      key={s.id}
-                      onClick={() => navigate(ruta(s.id))}
-                      className={`cursor-pointer hover:bg-panel-muted ${s.activo ? '' : 'text-ink-faint'}`}
-                    >
-                      <td className="max-w-sm px-5 py-3">
-                        <Link
-                          to={ruta(s.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-medium text-ink hover:text-accent hover:underline"
-                        >
+                    <FilaNavegable key={s.id} a={ruta(s.id)} className={s.activo ? '' : 'text-ink-faint'}>
+                      <td className="px-5 py-3">
+                        <Link to={ruta(s.id)} className={ENLACE_FILA}>
                           {s.nombre}
                         </Link>
-                        {s.descripcion && <p className="line-clamp-2 text-xs text-ink-soft">{s.descripcion}</p>}
-                      </td>
-                      <td className="px-3 py-3 text-ink-soft">{ETIQUETA_TIPO_SCRIPT[s.tipo ?? 'MANTENIMIENTO']}</td>
-                      <td className="px-3 py-3">
-                        {implementaciones.length === 0 ? (
-                          <StatusPill tone="warning" label="Sin implementaciones" />
-                        ) : (
-                          <div className="flex flex-wrap gap-1.5">
-                            {implementaciones.map((i) => (
-                              <Compatibilidad key={i.id} implementacion={i} />
-                            ))}
-                          </div>
+                        {implementaciones.length === 0 && (
+                          <span className="mt-0.5 block text-xs text-warning">Sin código todavía</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-ink-soft">{formatearFecha(ultima)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-ink-soft">{ETIQUETA_TIPO_SCRIPT[s.tipo ?? 'MANTENIMIENTO']}</td>
+                      <td className="max-w-md px-3 py-3 text-ink-soft" title={s.descripcion}>
+                        {resumirDescripcion(s.descripcion)}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-ink-soft">{s.creadoPor ?? '—'}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-ink-soft">{formatearFecha(ultima)}</td>
                       <td className="px-3 py-3">
                         <StatusPill tone={s.activo ? 'success' : 'neutral'} label={s.activo ? 'Activo' : 'Inactivo'} />
                       </td>
                       <td className="px-3 py-3 text-ink-faint">
                         <ChevronRight className="h-4 w-4" aria-hidden="true" />
                       </td>
-                    </tr>
+                    </FilaNavegable>
                   )
                 })}
               </tbody>
@@ -207,6 +189,8 @@ export function ScriptsPage() {
             totalPaginas={scripts.datos?.totalPaginas ?? 0}
             totalElementos={scripts.datos?.totalElementos ?? 0}
             onCambiar={setPagina}
+            tamano={tamano}
+            onTamano={setTamano}
           />
         </div>
       )}

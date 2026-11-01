@@ -7,9 +7,13 @@ import com.komainos.inventario.model.TipoDato;
 import java.time.Instant;
 import java.util.List;
 
-/** Script con todas sus implementaciones y versiones, incluido el código de las anteriores (RF26, HU17 CA5) */
+/**
+ * Script con todas sus implementaciones y versiones, incluido el código de las anteriores (RF26, HU17 CA5)
+ *
+ * @param creadoPor quien registró el script según la auditoría; nulo si se cargó fuera del sistema
+ */
 public record ScriptRespuesta(Integer id, String nombre, TipoScript tipo, String descripcion, boolean activo,
-                              long tareasActivas, List<ImplementacionRespuesta> implementaciones) {
+                              String creadoPor, long tareasActivas, List<ImplementacionRespuesta> implementaciones) {
 
     /** @param lenguaje bash o powershell, para el editor */
     public record ImplementacionRespuesta(Integer id, Integer idVersionSistemaOperativo, String sistemaOperativo,

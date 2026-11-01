@@ -26,6 +26,8 @@ import com.komainos.inventario.repository.MetricaRepositorio;
 import com.komainos.inventario.repository.UmbralRepositorio;
 import com.komainos.inventario.service.ServicioCatalogos;
 import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.seguridad.model.Usuario;
+import com.komainos.seguridad.repository.UsuarioRepositorio;
 import com.komainos.shared.exception.ConflictoException;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
 import com.komainos.shared.exception.ReglaNegocioException;
@@ -74,6 +76,7 @@ public class ServicioCatalogoAutomatizacion {
     private final MetricaRepositorio metricas;
     private final UmbralRepositorio umbrales;
     private final ServicioAuditoria auditoria;
+    private final UsuarioRepositorio usuarios;
     private final ObjectMapper json;
     private final Clock reloj;
 
@@ -84,6 +87,21 @@ public class ServicioCatalogoAutomatizacion {
         Page<Script> resultado = scripts.findAll(especificacion(filtro), pagina);
         resultado.forEach(ServicioCatalogoAutomatizacion::cargar);
         return resultado;
+    }
+
+    /** Quién registró cada script, según la auditoría (RNF06): el catálogo no guarda el autor en la tabla */
+    @Transactional(readOnly = true)
+    public Map<Integer, String> creadores(Collection<Integer> idsScript) {
+        Map<Integer, Integer> autores = auditoria.autores("script", "REGISTRAR_SCRIPT", idsScript);
+        Map<Integer, String> nombres = usuarios.findAllById(new HashSet<>(autores.values())).stream()
+                .collect(Collectors.toMap(Usuario::getId, Usuario::getNombreCompleto));
+        Map<Integer, String> creadores = new LinkedHashMap<>();
+        autores.forEach((idScript, idUsuario) -> {
+            if (nombres.containsKey(idUsuario)) {
+                creadores.put(idScript, nombres.get(idUsuario));
+            }
+        });
+        return creadores;
     }
 
     @Transactional(readOnly = true)

@@ -10,11 +10,13 @@ import { SalidaTerminal } from '../SalidaTerminal'
 
 interface PlanesMopProps {
   mops: PlanMop[]
+  /** El plan muestra qué se hará; la ejecución, además, el resultado y la salida de cada tarea */
+  modo?: 'plan' | 'ejecucion'
 }
 
-function FilaTarea({ tarea: t }: { tarea: TareaMopRespuesta }) {
+function FilaTarea({ tarea: t, plan }: { tarea: TareaMopRespuesta; plan: boolean }) {
   const [abierta, setAbierta] = useState(false)
-  const conSalida = !!(t.salida || t.error)
+  const conSalida = !plan && !!(t.salida || t.error)
   const estado = t.estado ? ESTADO_TAREA_MOP[t.estado] : undefined
 
   return (
@@ -39,19 +41,19 @@ function FilaTarea({ tarea: t }: { tarea: TareaMopRespuesta }) {
             )}
             {t.cuenta && <> · cuenta {t.cuenta}</>} · prioridad {t.prioridad}
           </span>
-          {t.error && !abierta && <span className="mt-1 line-clamp-1 block text-xs text-danger">{t.error}</span>}
+          {!plan && t.error && !abierta && <span className="mt-1 line-clamp-1 block text-xs text-danger">{t.error}</span>}
         </span>
         <span className="hidden text-xs text-ink-soft sm:block">
           {t.afectacion && <StatusPill tone={AFECTACION[t.afectacion].tono} label={AFECTACION[t.afectacion].etiqueta} />}
         </span>
         <span className="hidden text-xs tabular-nums text-ink-soft sm:block">
           <Clock className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
-          {t.duracionSegundos !== undefined && t.duracionSegundos !== null
+          {!plan && t.duracionSegundos !== undefined && t.duracionSegundos !== null
             ? `${formatearSegundos(t.duracionSegundos)} / ${formatearDuracion(t.duracionMinutos)}`
             : formatearDuracion(t.duracionMinutos)}
         </span>
         <span className="flex items-center gap-2">
-          {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
+          {!plan && estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
           {conSalida && (
             <ChevronRight
               className={`h-4 w-4 text-ink-faint transition-transform ${abierta ? 'rotate-90' : ''}`}
@@ -74,11 +76,12 @@ function FilaTarea({ tarea: t }: { tarea: TareaMopRespuesta }) {
 }
 
 /** MOP de cada servidor (RF41, RF42): tareas en orden de ejecución, versión fijada, cuenta y resultado */
-export function PlanesMop({ mops }: PlanesMopProps) {
+export function PlanesMop({ mops, modo = 'ejecucion' }: PlanesMopProps) {
+  const plan = modo === 'plan'
   if (mops.length === 0) {
     return (
       <p className="text-sm text-ink-soft">
-        La MOP se genera en la evaluación previa, con las tareas que activen los umbrales de cada servidor.
+        El plan se arma en la evaluación previa, con las tareas que activen los umbrales de cada servidor.
       </p>
     )
   }
@@ -92,7 +95,7 @@ export function PlanesMop({ mops }: PlanesMopProps) {
               {m.servidor}
             </Link>
             {m.piloto && <span className="rounded bg-accent-soft px-1.5 py-0.5 text-xs text-ink">Piloto</span>}
-            {m.estadoServidor && (
+            {!plan && m.estadoServidor && (
               <StatusPill tone={TONO_ESTADO_DETALLE[m.estadoServidor]} label={ETIQUETA_ESTADO_DETALLE[m.estadoServidor]} />
             )}
             {m.afectacion && (
@@ -110,11 +113,11 @@ export function PlanesMop({ mops }: PlanesMopProps) {
           ) : (
             <ol>
               {m.tareas?.map((t) => (
-                <FilaTarea key={t.id} tarea={t} />
+                <FilaTarea key={t.id} tarea={t} plan={plan} />
               ))}
             </ol>
           )}
-          {(m.inicioReal || m.finReal) && (
+          {!plan && (m.inicioReal || m.finReal) && (
             <p className="border-t border-line px-4 py-2 text-xs text-ink-soft">
               Ejecutada {formatearFechaHora(m.inicioReal)} – {formatearFechaHora(m.finReal)}
             </p>

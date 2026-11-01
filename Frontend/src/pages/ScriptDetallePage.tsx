@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CopyPlus, FlaskConical, Pencil, Plus, Power, PowerOff } from 'lucide-react'
+import { CopyPlus, FlaskConical, Pencil, Plus, Power, PowerOff } from 'lucide-react'
 import { scriptsApi } from '@/api/automatizacion'
 import type { ImplementacionRespuesta, ScriptRespuesta, VersionRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
-import { PageHeader } from '@/components/common/PageHeader'
+import { EnlaceVolver, PageHeader } from '@/components/common/PageHeader'
 import { DiferenciasCodigo } from '@/components/automatizacion/DiferenciasCodigo'
 import { EditorCodigo } from '@/components/automatizacion/EditorCodigo'
 import { EditorParametros } from '@/components/automatizacion/EditorParametros'
@@ -14,11 +14,14 @@ import { VistaPreviaScript } from '@/components/automatizacion/VistaPreviaScript
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
+import { ENLACE_FILA } from '@/components/ui/estilos'
+import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { ESTADO_TAREA_MOP, ETIQUETA_TIPO_SCRIPT } from '@/utils/automatizacion'
 import { formatearFechaHora } from '@/utils/formato'
 import { editables } from '@/utils/parametrosScript'
@@ -32,8 +35,8 @@ function lenguajeDe(i?: ImplementacionRespuesta): Lenguaje {
 
 /** RF26: tareas de MOP que fijaron o ejecutaron la versión */
 function UsoVersion({ idVersion }: { idVersion: number }) {
-  const [pagina, setPagina] = useState(0)
-  const usos = useConsulta(() => scriptsApi.usosVersion(idVersion, pagina), [idVersion, pagina])
+  const { pagina, tamano, setPagina, setTamano } = usePaginacion('usos-version')
+  const usos = useConsulta(() => scriptsApi.usosVersion(idVersion, pagina, tamano), [idVersion, pagina, tamano])
   const filas = usos.datos?.contenido ?? []
 
   if (usos.cargando && !usos.datos) return <Cargando />
@@ -57,9 +60,9 @@ function UsoVersion({ idVersion }: { idVersion: number }) {
           </thead>
           <tbody className="divide-y divide-line">
             {filas.map((u) => (
-              <tr key={u.idTareaMop}>
+              <FilaNavegable key={u.idTareaMop} a={`/ordenes/${u.idOrden}`}>
                 <td className="px-3 py-2">
-                  <Link to={`/ordenes/${u.idOrden}`} className="font-mono text-accent hover:underline">
+                  <Link to={`/ordenes/${u.idOrden}`} className={`font-mono ${ENLACE_FILA}`}>
                     {u.orden}
                   </Link>
                 </td>
@@ -69,7 +72,7 @@ function UsoVersion({ idVersion }: { idVersion: number }) {
                   {u.estado && <StatusPill tone={ESTADO_TAREA_MOP[u.estado].tono} label={ESTADO_TAREA_MOP[u.estado].etiqueta} />}
                 </td>
                 <td className="px-3 py-2 text-ink-soft">{formatearFechaHora(u.inicio)}</td>
-              </tr>
+              </FilaNavegable>
             ))}
           </tbody>
         </table>
@@ -79,6 +82,8 @@ function UsoVersion({ idVersion }: { idVersion: number }) {
         totalPaginas={usos.datos?.totalPaginas ?? 0}
         totalElementos={usos.datos?.totalElementos ?? 0}
         onCambiar={setPagina}
+        tamano={tamano}
+        onTamano={setTamano}
       />
     </div>
   )
@@ -217,7 +222,14 @@ export function ScriptDetallePage() {
 
   const s = script.datos
   if (script.cargando && !s) return <Cargando />
-  if (!s) return <MensajeError error={script.error} onReintentar={script.recargar} />
+  if (!s) {
+    return (
+      <div className="flex flex-col gap-4">
+        <EnlaceVolver a="/automatizacion/scripts" texto="Volver a scripts" />
+        <MensajeError error={script.error} onReintentar={script.recargar} />
+      </div>
+    )
+  }
 
   const implementaciones = s.implementaciones ?? []
   const implementacion =
@@ -253,13 +265,11 @@ export function ScriptDetallePage() {
   return (
     <>
       <PageHeader
+        volver={{ a: '/automatizacion/scripts', texto: 'Volver a scripts' }}
         title={s.nombre ?? 'Script'}
         description={s.descripcion || DESCRIPCION_VACIA}
         actions={
           <>
-            <Boton icono={ArrowLeft} onClick={() => navigate('/automatizacion/scripts')}>
-              Scripts
-            </Boton>
             {esAdmin && (
               <>
                 <Boton icono={Pencil} onClick={() => setEditando(true)}>
@@ -279,6 +289,9 @@ export function ScriptDetallePage() {
           Tipo: <span className="font-medium text-ink">{ETIQUETA_TIPO_SCRIPT[s.tipo ?? 'MANTENIMIENTO']}</span>
         </span>
         <StatusPill tone={s.activo ? 'success' : 'neutral'} label={s.activo ? 'Activo' : 'Inactivo'} />
+        <span>
+          Creado por: <span className="font-medium text-ink">{s.creadoPor ?? 'sin registro'}</span>
+        </span>
         {s.tipo === 'MANTENIMIENTO' && (
           <span>
             <Link to="/automatizacion/tareas" className="text-accent hover:underline">

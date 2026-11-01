@@ -9,13 +9,16 @@ import { AreaTexto, Campo, Entrada } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { errorDeCampo, textoDeError, tieneErroresDeCampo } from '@/utils/errores'
 
 export function EntornosTab() {
   const { avisar } = useAvisos()
   const entornos = useConsulta(() => catalogosApi.entornos(), [])
+  const tabla = usePaginacionLocal(entornos.datos ?? [], 'entornos')
   const [editando, setEditando] = useState<EntornoRespuesta | 'nuevo' | null>(null)
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
@@ -68,41 +71,44 @@ export function EntornosTab() {
       {entornos.cargando && !entornos.datos ? (
         <Cargando />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-panel">
-          <table className="w-full min-w-[560px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="px-4 py-3 font-medium">Entorno</th>
-                <th className="px-4 py-3 font-medium">Descripción</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 text-right font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {entornos.datos?.map((e) => (
-                <tr key={e.id} className="hover:bg-panel-muted">
-                  <td className="px-4 py-3 font-medium text-ink">{e.nombre}</td>
-                  <td className="px-4 py-3 text-ink-soft">{e.descripcion ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <StatusPill tone={e.activo ? 'success' : 'neutral'} label={e.activo ? 'Activo' : 'Inactivo'} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <BotonIcono icono={Pencil} etiqueta="Editar" onClick={() => abrir(e)} />
-                      <BotonIcono icono={e.activo ? PowerOff : Power} etiqueta={e.activo ? 'Desactivar' : 'Activar'} onClick={() => cambiarEstado(e)} />
-                    </div>
-                  </td>
+        <div className="overflow-hidden rounded-xl border border-line bg-panel">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-4 py-3 font-medium">Entorno</th>
+                  <th className="px-4 py-3 font-medium">Descripción</th>
+                  <th className="px-4 py-3 font-medium">Estado</th>
+                  <th className="px-4 py-3 text-right font-medium">Acciones</th>
                 </tr>
-              ))}
-              {entornos.datos?.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-ink-soft">
-                    No hay entornos registrados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {tabla.filas.map((e) => (
+                  <tr key={e.id} className="transition-colors hover:bg-panel-muted">
+                    <td className="px-4 py-3 font-medium text-ink">{e.nombre}</td>
+                    <td className="px-4 py-3 text-ink-soft">{e.descripcion ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <StatusPill tone={e.activo ? 'success' : 'neutral'} label={e.activo ? 'Activo' : 'Inactivo'} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <BotonIcono icono={Pencil} etiqueta="Editar" onClick={() => abrir(e)} />
+                        <BotonIcono icono={e.activo ? PowerOff : Power} etiqueta={e.activo ? 'Desactivar' : 'Activar'} onClick={() => cambiarEstado(e)} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {entornos.datos?.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-ink-soft">
+                      No hay entornos registrados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Paginacion {...tabla.controles} />
         </div>
       )}
 

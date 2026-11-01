@@ -10,11 +10,15 @@ import { GrupoFormulario } from '@/components/inventario/GrupoFormulario'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
+import { ENLACE_FILA } from '@/components/ui/estilos'
+import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { MensajeError } from '@/components/ui/MensajeError'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { SelectorColumnas } from '@/components/ui/SelectorColumnas'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useColumnasVisibles, type DefinicionColumna } from '@/hooks/useColumnasVisibles'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { ESTADO_GRUPO, ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
 
 interface Contexto {
@@ -33,7 +37,7 @@ const COLUMNAS: ColumnaGrupo[] = [
     fija: true,
     celda: (g, { ve }) => (
       <>
-        <Link to={`/grupos/${g.id}`} className="font-medium text-ink hover:text-accent">
+        <Link to={`/grupos/${g.id}`} className={ENLACE_FILA}>
           {g.nombre}
         </Link>
         {/* Si la descripción no tiene columna propia, se resume bajo el nombre */}
@@ -92,6 +96,7 @@ export function GruposPage() {
   const [creando, setCreando] = useState(false)
   const grupos = useConsulta(() => gruposApi.listar(), [])
   const columnas = useColumnasVisibles('grupos', DEFINICIONES)
+  const { filas, controles } = usePaginacionLocal(grupos.datos ?? [], 'grupos')
 
   const visibles = COLUMNAS.filter((c) => columnas.ve(c.id))
   const contexto: Contexto = { ve: columnas.ve }
@@ -138,8 +143,8 @@ export function GruposPage() {
                   </td>
                 </tr>
               )}
-              {grupos.datos?.map((g) => (
-                <tr key={g.id} className="transition-colors hover:bg-panel-muted">
+              {filas.map((g) => (
+                <FilaNavegable key={g.id} a={`/grupos/${g.id}`}>
                   {visibles.map((c) => (
                     <td key={c.id} className="px-4 py-3">
                       {c.celda(g, contexto)}
@@ -148,7 +153,7 @@ export function GruposPage() {
                   <td className="px-4 py-3 text-right">
                     <BotonIcono icono={Eye} etiqueta="Ver grupo" onClick={() => navigate(`/grupos/${g.id}`)} />
                   </td>
-                </tr>
+                </FilaNavegable>
               ))}
               {grupos.datos?.length === 0 && (
                 <tr>
@@ -160,6 +165,7 @@ export function GruposPage() {
             </tbody>
           </table>
         </div>
+        <Paginacion {...controles} />
       </div>
 
       {creando && (

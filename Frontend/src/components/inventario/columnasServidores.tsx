@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { ServidorResumenRespuesta } from '@/api/types'
+import { ENLACE_FILA } from '@/components/ui/estilos'
 import { StatusPill } from '@/components/ui/StatusPill'
 import type { DefinicionColumna } from '@/hooks/useColumnasVisibles'
 import { ESTADO_SERVIDOR } from '@/utils/etiquetas'
@@ -35,7 +36,7 @@ export const COLUMNAS_SERVIDORES: ColumnaServidor[] = [
     orden: 'hostname',
     celda: (s) => (
       <>
-        <Link to={`/servidores/${s.id}`} className="font-mono text-sm font-medium text-ink hover:text-accent">
+        <Link to={`/servidores/${s.id}`} className={`font-mono text-sm ${ENLACE_FILA}`}>
           {s.hostname}
         </Link>
         <p className="font-mono text-xs text-ink-faint">

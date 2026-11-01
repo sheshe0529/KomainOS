@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { umbralesApi } from '@/api/umbrales'
 import { useSesion } from '@/auth/sesion-context'
+import { EnlaceVolver } from '@/components/common/PageHeader'
 import { ReglaDePrecedencia } from '@/components/umbrales/ReglaDePrecedencia'
 import { UmbralDetalle } from '@/components/umbrales/UmbralDetalle'
 import { UmbralFormulario } from '@/components/umbrales/UmbralFormulario'
@@ -10,14 +10,6 @@ import { useAvisos } from '@/components/ui/avisos-context'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { useConsulta } from '@/hooks/useConsulta'
-
-function VolverALosUmbrales() {
-  return (
-    <Link to="/umbrales" className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
-      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver a umbrales
-    </Link>
-  )
-}
 
 /** Detalle de un umbral: el administrador define las excepciones, el operador las consulta (RF16) */
 export function UmbralDetallePage() {
@@ -32,7 +24,7 @@ export function UmbralDetallePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <VolverALosUmbrales />
+      <EnlaceVolver a="/umbrales" texto="Volver a umbrales" />
       <MensajeError error={umbral.error} onReintentar={umbral.recargar} />
       {umbral.cargando && !umbral.datos ? (
         <Cargando />

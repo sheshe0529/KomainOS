@@ -3,9 +3,11 @@ import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { SesionProvider } from '@/auth/SesionProvider'
 import { RutaProtegida } from '@/auth/RutaProtegida'
+import { useSesion } from '@/auth/sesion-context'
 import { AvisosProvider } from '@/components/ui/AvisosProvider'
 import { Cargando } from '@/components/ui/Cargando'
 import { MainLayout } from '@/components/layout/MainLayout'
+import { inicioPara } from '@/config/navigation'
 import {
   AlertasPage,
   AutomatizacionPage,
@@ -13,6 +15,7 @@ import {
   CronogramaDiaPage,
   CronogramaPage,
   CuentasServicioPage,
+  DashboardPage,
   EjecucionesPage,
   FichaGrupoPage,
   FichaServidorPage,
@@ -39,6 +42,12 @@ import {
 function RedirigirUmbral() {
   const { idUmbral } = useParams()
   return <Navigate to={`/umbrales/${idUmbral}`} replace />
+}
+
+/** El administrador y el operador entran al dashboard; el responsable, a su cronograma */
+function Inicio() {
+  const { usuario } = useSesion()
+  return <Navigate to={inicioPara(usuario?.rol)} replace />
 }
 
 /** El menú y la barra superior se quedan mientras se descarga la pantalla */
@@ -70,7 +79,15 @@ function App() {
               }
             />
             <Route element={<DisposicionAutenticada />}>
-              <Route path="/" element={<Navigate to="/cronograma" replace />} />
+              <Route path="/" element={<Inicio />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
+                    <DashboardPage />
+                  </RutaProtegida>
+                }
+              />
               <Route
                 path="/automatizacion"
                 element={

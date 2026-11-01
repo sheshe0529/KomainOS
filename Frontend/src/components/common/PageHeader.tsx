@@ -1,19 +1,64 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 
-interface PageHeaderProps {
-  title: string
-  description?: string
-  actions?: ReactNode
+export interface Volver {
+  /** Destino si no hay una pantalla anterior a la que regresar */
+  a: string
+  texto: string
+  /** Regresa a la pantalla anterior (una orden se abre desde la sala, el cronograma o una ficha) */
+  atras?: boolean
+  /** Se ejecuta antes de salir; si llama a preventDefault, no se sale (por ejemplo, para confirmar cambios sin guardar) */
+  alSalir?: (evento: MouseEvent<HTMLAnchorElement>) => void
 }
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+/** La misma flecha sobre el título en todas las pantallas de detalle */
+export function EnlaceVolver({ a, texto, atras, alSalir }: Volver) {
+  const navigate = useNavigate()
+
+  function alHacerClic(evento: MouseEvent<HTMLAnchorElement>) {
+    alSalir?.(evento)
+    if (evento.defaultPrevented) return
+    // BrowserRouter guarda la posición en el historial: idx 0 es la primera pantalla de la sesión
+    const posicion = (window.history.state as { idx?: number } | null)?.idx ?? 0
+    if (atras && posicion > 0) {
+      evento.preventDefault()
+      navigate(-1)
+    }
+  }
+
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h2 className="text-xl font-semibold text-ink sm:text-2xl">{title}</h2>
-        {description && <p className="mt-1 text-sm text-ink-soft">{description}</p>}
+    <Link to={a} onClick={alHacerClic} className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {texto}
+    </Link>
+  )
+}
+
+interface PageHeaderProps {
+  title: ReactNode
+  description?: ReactNode
+  /** Etiquetas de estado bajo el título */
+  meta?: ReactNode
+  actions?: ReactNode
+  volver?: Volver
+  /** Hostnames y códigos van en monoespaciada */
+  mono?: boolean
+  className?: string
+}
+
+/** Las acciones quedan siempre a la derecha, también cuando no caben junto al título y bajan de línea */
+export function PageHeader({ title, description, meta, actions, volver, mono, className = 'mb-6' }: PageHeaderProps) {
+  return (
+    <div className={`flex flex-col gap-4 ${className}`}>
+      {volver && <EnlaceVolver {...volver} />}
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="min-w-0 flex-1 basis-80">
+          <h2 className={`text-xl font-semibold text-ink sm:text-2xl ${mono ? 'font-mono' : ''}`}>{title}</h2>
+          {description && <div className="mt-1 text-sm text-ink-soft">{description}</div>}
+          {meta && <div className="mt-3 flex flex-wrap gap-2">{meta}</div>}
+        </div>
+        {actions && <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   )
 }

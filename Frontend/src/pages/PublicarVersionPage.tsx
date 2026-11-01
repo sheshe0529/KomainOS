@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, FileCode2, Send, Sparkles } from 'lucide-react'
+import { FileCode2, Send, Sparkles } from 'lucide-react'
 import { scriptsApi } from '@/api/automatizacion'
 import type { FamiliaSistemaOperativo } from '@/api/dominio'
 import type { RevisionSalidaRespuesta, ScriptPreparadoRespuesta } from '@/api/types'
@@ -207,7 +207,8 @@ export function PublicarVersionPage() {
     }
   }
 
-  const volver = () => navigate(`/automatizacion/scripts/${idScript}${idImplementacion ? `?implementacion=${idImplementacion}` : ''}`)
+  const rutaScript = `/automatizacion/scripts/${idScript}${idImplementacion ? `?implementacion=${idImplementacion}` : ''}`
+  const volver = () => navigate(rutaScript)
 
   if (script.cargando && !s) return <Cargando />
   if (!s) return <MensajeError error={script.error} onReintentar={script.recargar} />
@@ -227,15 +228,19 @@ export function PublicarVersionPage() {
   return (
     <>
       <PageHeader
+        volver={{
+          a: rutaScript,
+          texto: 'Volver al script',
+          alSalir: (evento) => {
+            if (!cambiado) return
+            evento.preventDefault()
+            setSaliendo(true)
+          },
+        }}
         title={implementacion ? `Nueva versión ${siguienteNumero}` : 'Nueva implementación'}
         description={`${s.nombre} · ${ETIQUETA_TIPO_SCRIPT[tipo]}${
           implementacion ? ` · ${implementacion.sistemaOperativo}` : ''
         }`}
-        actions={
-          <Boton icono={ArrowLeft} onClick={() => (cambiado ? setSaliendo(true) : volver())}>
-            Volver al script
-          </Boton>
-        }
       />
 
       <div className="flex flex-col gap-6">

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { AnalisisImportacionRespuesta, FilaAnalisisRespuesta } from '@/api/types'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { ESTADO_FILA_IMPORTACION } from '@/utils/etiquetas'
 import { Contador } from './Contador'
 
@@ -18,6 +20,7 @@ export function VistaPreviaImportacion({ analisis, sobrescribir, onSobrescribir 
   const [filtro, setFiltro] = useState<FiltroFila>('TODAS')
   const sobrescribibles = analisis.filas?.filter((f) => f.sobrescribible).map((f) => f.fila!) ?? []
   const visibles = analisis.filas?.filter((f) => filtro === 'TODAS' || f.estado === filtro) ?? []
+  const tabla = usePaginacionLocal(visibles, 'importacion-vista-previa')
   const todasMarcadas = sobrescribir.length === sobrescribibles.length
 
   function alternar(fila: number) {
@@ -65,7 +68,7 @@ export function VistaPreviaImportacion({ analisis, sobrescribir, onSobrescribir 
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {visibles.map((f) => (
+            {tabla.filas.map((f) => (
               <FilaVistaPrevia key={f.fila} fila={f} marcada={sobrescribir.includes(f.fila!)} onAlternar={() => alternar(f.fila!)} />
             ))}
             {visibles.length === 0 && (
@@ -78,6 +81,7 @@ export function VistaPreviaImportacion({ analisis, sobrescribir, onSobrescribir 
           </tbody>
         </table>
       </div>
+      <Paginacion {...tabla.controles} />
     </>
   )
 }

@@ -91,6 +91,21 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
         return existeDelServidorEnEstados(idServidor, estados, EstadoDetalleOrden.NO_INICIADO);
     }
 
+    /** Bitácora (RF53): órdenes en que participó el servidor, individuales o de grupo, la más reciente primero */
+    @Query("""
+            select o.id from Orden o
+            where exists (select 1 from OrdenDetalle d where d.orden = o and d.servidor.id = :idServidor)
+            order by o.fechaInicioProgramada desc, o.id desc
+            """)
+    List<Integer> findIdsDelServidor(@Param("idServidor") Integer idServidor, Pageable limite);
+
+    @Query("""
+            select o.id from Orden o
+            where o.grupo.id = :idGrupo
+            order by o.fechaInicioProgramada desc, o.id desc
+            """)
+    List<Integer> findIdsDelGrupo(@Param("idGrupo") Integer idGrupo, Pageable limite);
+
     /** Evita duplicar el ciclo automático (RF27) */
     boolean existsByServidorIdAndEstadoIn(Integer idServidor, Collection<EstadoOrden> estados);
 

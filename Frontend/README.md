@@ -2,17 +2,30 @@
 
 Panel web de KomainOS. React 19, Vite, TypeScript y Tailwind CSS 4.
 
-**Automatización** reúne sala de operaciones (estado del motor, órdenes por etapa,
-cola por servidor y KPI), scripts, tareas, historial de ejecución e incidencias.
+El menú sigue este orden: **Dashboard** (indicadores de gestión y gráficos en el
+tiempo; el responsable entra directamente al cronograma), **Cronograma**,
+**Inventario**, **Automatización**, **Órdenes**, **Catálogos y umbrales**, **Mis
+alertas** y **Configuración**.
+
+**Automatización** reúne la sala de operaciones (estado del motor, órdenes por
+etapa y cola por servidor), scripts, tareas, historial de ejecución e incidencias.
 Los scripts se escriben en un editor con resaltado de Bash y PowerShell
 (CodeMirror 6, en un archivo aparte que solo se descarga al abrir un script), con
 plantillas, tabla de parámetros, vista previa del archivo que se ejecuta,
 comparación entre versiones y revisión de salidas de análisis. La orden muestra
-las etapas del ciclo, el siguiente paso, las decisiones disponibles para el
-usuario, la MOP con la salida de cada tarea y el reporte comparativo; la bitácora
-se descarga en CSV o JSON. La matriz de políticas de cambio está en
-**Configuración** (`/configuracion/politicas-cambio`). El recorrido y el contrato
-de los scripts están en [la guía del componente](../Backend/AUTOMATIZACION.md).
+las etapas del ciclo como recorrido: cada etapa alcanzada se abre para ver qué se
+encontró, qué se planificó y quién lo aprobó, qué se ejecutó y cómo quedó. La
+bitácora de una orden, de un servidor o de un grupo (completa o de un integrante)
+se exporta en Excel, CSV o JSON; la ficha del servidor y la del grupo la muestran
+además como línea de tiempo con el resultado de cada mantenimiento. La matriz de
+políticas de cambio está en **Configuración** (`/configuracion/politicas-cambio`)
+y se modifica con **Editar política**. El recorrido y el contrato de los scripts
+están en [la guía del componente](../Backend/AUTOMATIZACION.md).
+
+Convenciones de las pantallas: las de detalle tienen la flecha de regreso sobre
+el título y las acciones a la derecha; toda tabla pagina con 25, 50 o 100 filas
+(25 por defecto, la elección se recuerda por tabla en el navegador) y, si la fila
+abre un detalle, se abre al hacer clic en cualquier parte de ella.
 
 ## Uso
 

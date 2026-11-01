@@ -18,6 +18,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { useTextoDiferido } from '@/hooks/useTextoDiferido'
 import { descargarTexto, ESTADO_TAREA_MOP, filaCsv, formatearSegundos } from '@/utils/automatizacion'
 import { formatearDuracion, formatearFechaHora } from '@/utils/formato'
@@ -92,7 +93,7 @@ export function EjecucionesPage() {
   const [idScript, setIdScript] = useState('')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
-  const [pagina, setPagina] = useState(0)
+  const { pagina, tamano, setPagina, setTamano } = usePaginacion('ejecuciones')
   const [abierta, setAbierta] = useState<number>()
   const [exportando, setExportando] = useState(false)
   const [error, setError] = useState<unknown>()
@@ -108,7 +109,7 @@ export function EjecucionesPage() {
     hasta: hasta ? new Date(new Date(`${hasta}T00:00:00`).getTime() + 86_400_000).toISOString() : undefined,
   }
   const clave = JSON.stringify(filtro)
-  const ejecuciones = useConsulta(() => operacionApi.ejecuciones(filtro, pagina), [clave, pagina])
+  const ejecuciones = useConsulta(() => operacionApi.ejecuciones(filtro, pagina, tamano), [clave, pagina, tamano])
   const filas = ejecuciones.datos?.contenido ?? []
 
   const cambiar = <T,>(fijar: (v: T) => void) => (v: T) => {
@@ -217,7 +218,7 @@ export function EjecucionesPage() {
               </thead>
               <tbody className="divide-y divide-line">
                 {filas.map((e) => (
-                  <tr key={e.id} onClick={() => setAbierta(e.id)} className="cursor-pointer align-top hover:bg-panel-muted">
+                  <tr key={e.id} onClick={() => setAbierta(e.id)} className="cursor-pointer align-top transition-colors hover:bg-panel-muted">
                     <td className="px-5 py-3 whitespace-nowrap text-ink-soft">{formatearFechaHora(e.inicio)}</td>
                     <td className="px-3 py-3 font-mono">{e.servidor}</td>
                     <td className="max-w-xs px-3 py-3">
@@ -252,6 +253,8 @@ export function EjecucionesPage() {
             totalPaginas={ejecuciones.datos?.totalPaginas ?? 0}
             totalElementos={ejecuciones.datos?.totalElementos ?? 0}
             onCambiar={setPagina}
+            tamano={tamano}
+            onTamano={setTamano}
           />
         </div>
       )}

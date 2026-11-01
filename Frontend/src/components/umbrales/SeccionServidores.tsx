@@ -2,7 +2,9 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { ExcepcionUmbralRespuesta } from '@/api/types'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { BotonesExcepcion } from './acciones'
 import type { AccionesExcepcion } from './acciones'
 import { BuscadorServidor } from './BuscadorServidor'
@@ -27,6 +29,7 @@ export function SeccionServidores({ prioridad, excepciones, columnas, celdas, es
   const [abierta, setAbierta] = useState(false)
   const propias = excepciones.filter((e) => e.alcance === 'SERVIDOR')
   const yaDefinidos = new Set(propias.map((e) => e.objetivo?.id).filter((id): id is number => id !== undefined))
+  const tabla = usePaginacionLocal(propias, 'umbral-servidores')
 
   return (
     <SeccionAlcance
@@ -48,47 +51,50 @@ export function SeccionServidores({ prioridad, excepciones, columnas, celdas, es
       {propias.length === 0 ? (
         <p className="px-5 py-4 text-sm text-ink-faint">Sin servidores</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="px-5 py-2.5 font-medium">Servidor</th>
-                {columnas.map((c) => (
-                  <th key={c} className="px-3 py-2.5 font-medium">
-                    {c}
-                  </th>
-                ))}
-                <th className="px-3 py-2.5 font-medium">Estado</th>
-                {esAdmin && (
-                  <th className="px-5 py-2.5">
-                    <span className="sr-only">Acciones</span>
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {propias.map((e) => (
-                <tr key={e.id} className="hover:bg-panel-muted">
-                  <td className="px-5 py-2.5 font-medium">
-                    <Link to={`/servidores/${e.objetivo?.id}`} className="font-mono text-accent hover:underline">
-                      {e.objetivo?.nombre}
-                    </Link>
-                    {e.motivo && <div className="text-xs font-normal text-ink-faint">{e.motivo}</div>}
-                  </td>
-                  {celdas(e)}
-                  <td className="px-3 py-2.5">
-                    <StatusPill tone={e.activo ? 'success' : 'neutral'} label={e.activo ? 'Activa' : 'Inactiva'} />
-                  </td>
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-5 py-2.5 font-medium">Servidor</th>
+                  {columnas.map((c) => (
+                    <th key={c} className="px-3 py-2.5 font-medium">
+                      {c}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2.5 font-medium">Estado</th>
                   {esAdmin && (
-                    <td className="px-5 py-2.5">
-                      <BotonesExcepcion excepcion={e} acciones={acciones} />
-                    </td>
+                    <th className="px-5 py-2.5">
+                      <span className="sr-only">Acciones</span>
+                    </th>
                   )}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {tabla.filas.map((e) => (
+                  <tr key={e.id} className="transition-colors hover:bg-panel-muted">
+                    <td className="px-5 py-2.5 font-medium">
+                      <Link to={`/servidores/${e.objetivo?.id}`} className="font-mono text-accent hover:underline">
+                        {e.objetivo?.nombre}
+                      </Link>
+                      {e.motivo && <div className="text-xs font-normal text-ink-faint">{e.motivo}</div>}
+                    </td>
+                    {celdas(e)}
+                    <td className="px-3 py-2.5">
+                      <StatusPill tone={e.activo ? 'success' : 'neutral'} label={e.activo ? 'Activa' : 'Inactiva'} />
+                    </td>
+                    {esAdmin && (
+                      <td className="px-5 py-2.5">
+                        <BotonesExcepcion excepcion={e} acciones={acciones} />
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Paginacion {...tabla.controles} />
+        </>
       )}
     </SeccionAlcance>
   )

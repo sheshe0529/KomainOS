@@ -1,25 +1,30 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarPlus, Pencil, Power, PowerOff, Users, Wrench } from 'lucide-react'
+import { CalendarPlus, Pencil, Power, PowerOff, Users, Wrench } from 'lucide-react'
 import { gruposApi } from '@/api/inventario'
 import type { FichaGrupoRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
+import { BitacoraMantenimiento } from '@/components/automatizacion/BitacoraMantenimiento'
 import { ConectividadGrupo } from '@/components/automatizacion/ConectividadGrupo'
+import { EnlaceVolver, PageHeader } from '@/components/common/PageHeader'
 import { Dato, Tarjeta } from '@/components/common/Tarjeta'
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
 import { GrupoFormulario } from '@/components/inventario/GrupoFormulario'
 import { IntegrantesModal } from '@/components/inventario/IntegrantesModal'
 import { DatoCuentaServicio } from '@/components/inventario/DatoCuentaServicio'
 import { VentanaPermisivaTarjeta } from '@/components/inventario/VentanaPermisivaTarjeta'
-import { OrdenesDelObjetivo } from '@/components/planificacion/OrdenesDelObjetivo'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
+import { ENLACE_FILA } from '@/components/ui/estilos'
+import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { MensajeError } from '@/components/ui/MensajeError'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { ESTADO_GRUPO, ESTADO_SERVIDOR, ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
 import { textoDeError } from '@/utils/errores'
 
@@ -38,6 +43,7 @@ export function FichaGrupoPage() {
   const ficha = useConsulta(() => gruposApi.ficha(idGrupo), [idGrupo])
   const catalogos = useCatalogos()
   const g = ficha.datos
+  const integrantes = usePaginacionLocal(g?.integrantes ?? [], 'integrantes-grupo')
 
   function actualizar(nueva: FichaGrupoRespuesta, mensaje: string) {
     ficha.reemplazar(nueva)
@@ -57,7 +63,14 @@ export function FichaGrupoPage() {
   }
 
   if (ficha.cargando && !g) return <Cargando texto="Cargando grupo…" />
-  if (ficha.error && !g) return <MensajeError error={ficha.error} onReintentar={ficha.recargar} />
+  if (ficha.error && !g) {
+    return (
+      <div className="flex flex-col gap-4">
+        <EnlaceVolver a="/grupos" texto="Volver a grupos" />
+        <MensajeError error={ficha.error} onReintentar={ficha.recargar} />
+      </div>
+    )
+  }
   if (!g) return null
 
   const estado = g.estado ? ESTADO_GRUPO[g.estado] : undefined
@@ -66,53 +79,53 @@ export function FichaGrupoPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to="/grupos" className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver a grupos
-      </Link>
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-ink">{g.nombre}</h2>
-          {g.descripcion && <p className="mt-1 text-sm text-ink-soft">{g.descripcion}</p>}
-          <div className="mt-3 flex flex-wrap gap-2">
+      <PageHeader
+        className=""
+        volver={{ a: '/grupos', texto: 'Volver a grupos' }}
+        title={g.nombre}
+        description={g.descripcion}
+        meta={
+          <>
             {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
             {g.criticidad && <StatusPill tone="neutral" label={`Criticidad ${g.criticidad.nombre}`} />}
             {g.configuracion?.modalidadPlanificacion && (
               <StatusPill tone="neutral" label={`Modalidad: ${ETIQUETA_MODALIDAD[g.configuracion.modalidadPlanificacion]}`} />
             )}
-          </div>
-        </div>
-        {esAdmin && (
-          <div className="flex flex-wrap gap-2">
-            <Boton icono={Pencil} onClick={() => setDialogo('editar')}>
-              Editar
-            </Boton>
-            {!inactivo && (
-              <>
-                <Boton icono={Users} onClick={() => setDialogo('integrantes')}>
-                  Integrantes
-                </Boton>
-                <Boton icono={Wrench} variante="primario" onClick={() => setDialogo('configurar')}>
-                  {g.configuracion ? 'Configuración' : 'Configurar mantenimiento'}
-                </Boton>
-              </>
-            )}
-            {g.estado === 'ACTIVO' && (
-              <Boton icono={CalendarPlus} onClick={() => setDialogo('programar')}>
-                Programar
+          </>
+        }
+        actions={
+          esAdmin && (
+            <>
+              <Boton icono={Pencil} onClick={() => setDialogo('editar')}>
+                Editar
               </Boton>
-            )}
-            <Boton
-              icono={inactivo ? Power : PowerOff}
-              variante="fantasma"
-              cargando={cambiandoEstado}
-              onClick={() => cambiarEstado(inactivo)}
-            >
-              {inactivo ? 'Activar' : 'Desactivar'}
-            </Boton>
-          </div>
-        )}
-      </div>
+              {!inactivo && (
+                <>
+                  <Boton icono={Users} onClick={() => setDialogo('integrantes')}>
+                    Integrantes
+                  </Boton>
+                  <Boton icono={Wrench} variante="primario" onClick={() => setDialogo('configurar')}>
+                    {g.configuracion ? 'Configuración' : 'Configurar mantenimiento'}
+                  </Boton>
+                </>
+              )}
+              {g.estado === 'ACTIVO' && (
+                <Boton icono={CalendarPlus} onClick={() => setDialogo('programar')}>
+                  Programar
+                </Boton>
+              )}
+              <Boton
+                icono={inactivo ? Power : PowerOff}
+                variante="fantasma"
+                cargando={cambiandoEstado}
+                onClick={() => cambiarEstado(inactivo)}
+              >
+                {inactivo ? 'Activar' : 'Desactivar'}
+              </Boton>
+            </>
+          )
+        }
+      />
 
       <div className="grid gap-6">
         <Tarjeta titulo="Características comunes">
@@ -150,41 +163,46 @@ export function FichaGrupoPage() {
 
       <Tarjeta titulo={`Integrantes (${g.integrantes?.length ?? 0})`}>
         {g.integrantes && g.integrantes.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                  <th className="py-2 pr-4 font-medium">Servidor</th>
-                  <th className="py-2 pr-4 font-medium">Sistema operativo</th>
-                  <th className="py-2 pr-4 font-medium">Criticidad</th>
-                  <th className="py-2 pr-4 font-medium">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {g.integrantes.map((s) => (
-                  <tr key={s.id}>
-                    <td className="py-2 pr-4">
-                      <Link to={`/servidores/${s.id}`} className="font-mono text-ink hover:text-accent">
-                        {s.hostname}
-                      </Link>
-                      <span className="ml-2 font-mono text-xs text-ink-faint">{s.direccionIp}</span>
-                    </td>
-                    <td className="py-2 pr-4 text-ink-soft">{s.versionSistemaOperativo?.nombre}</td>
-                    <td className="py-2 pr-4 text-ink-soft">{s.criticidad?.nombre}</td>
-                    <td className="py-2 pr-4">
-                      {s.estado && <StatusPill tone={ESTADO_SERVIDOR[s.estado].tono} label={ESTADO_SERVIDOR[s.estado].etiqueta} />}
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                    <th className="py-2 pr-4 font-medium">Servidor</th>
+                    <th className="py-2 pr-4 font-medium">Sistema operativo</th>
+                    <th className="py-2 pr-4 font-medium">Criticidad</th>
+                    <th className="py-2 pr-4 font-medium">Estado</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {integrantes.filas.map((s) => (
+                    <FilaNavegable key={s.id} a={`/servidores/${s.id}`}>
+                      <td className="py-2 pr-4">
+                        <Link to={`/servidores/${s.id}`} className={`font-mono ${ENLACE_FILA}`}>
+                          {s.hostname}
+                        </Link>
+                        <span className="ml-2 font-mono text-xs text-ink-faint">{s.direccionIp}</span>
+                      </td>
+                      <td className="py-2 pr-4 text-ink-soft">{s.versionSistemaOperativo?.nombre}</td>
+                      <td className="py-2 pr-4 text-ink-soft">{s.criticidad?.nombre}</td>
+                      <td className="py-2 pr-4">
+                        {s.estado && <StatusPill tone={ESTADO_SERVIDOR[s.estado].tono} label={ESTADO_SERVIDOR[s.estado].etiqueta} />}
+                      </td>
+                    </FilaNavegable>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="-mx-5 -mb-5 mt-2">
+              <Paginacion {...integrantes.controles} />
+            </div>
+          </>
         ) : (
           <p className="text-sm text-ink-soft">El grupo aún no tiene integrantes.</p>
         )}
       </Tarjeta>
 
-      <OrdenesDelObjetivo idGrupo={idGrupo} version={versionOrdenes} />
+      <BitacoraMantenimiento idGrupo={idGrupo} integrantes={g.integrantes ?? []} version={versionOrdenes} />
       <ConectividadGrupo idGrupo={idGrupo} />
 
       {dialogo === 'programar' && (

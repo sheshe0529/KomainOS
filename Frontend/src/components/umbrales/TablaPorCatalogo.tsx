@@ -4,7 +4,9 @@ import { Plus } from 'lucide-react'
 import type { ExcepcionUmbralRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { BotonesExcepcion } from './acciones'
 import type { AccionesExcepcion } from './acciones'
 import { SeccionAlcance } from './SeccionAlcance'
@@ -56,6 +58,7 @@ export function TablaPorCatalogo({
   const propias = new Map(excepciones.filter((e) => e.alcance === alcance).map((e) => [e.objetivo?.id, e]))
   const filas = catalogo.filter((c) => c.activo || propias.has(c.id))
   const definidas = filas.filter((c) => propias.has(c.id)).length
+  const tabla = usePaginacionLocal(filas, 'umbral-catalogo')
 
   return (
     <SeccionAlcance
@@ -72,61 +75,64 @@ export function TablaPorCatalogo({
       ) : filas.length === 0 ? (
         <p className="px-5 py-4 text-sm text-ink-faint">Sin elementos</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="px-5 py-2.5 font-medium">{encabezado}</th>
-                {columnas.map((c) => (
-                  <th key={c} className="px-3 py-2.5 font-medium">
-                    {c}
-                  </th>
-                ))}
-                <th className="px-3 py-2.5 font-medium">Estado</th>
-                {esAdmin && (
-                  <th className="px-5 py-2.5">
-                    <span className="sr-only">Acciones</span>
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {filas.map((c) => {
-                const propia = propias.get(c.id)
-                return (
-                  <tr key={c.id} className="hover:bg-panel-muted">
-                    <td className="px-5 py-2.5 font-medium text-ink">
-                      {c.nombre}
-                      {!c.activo && <span className="ml-2 text-xs font-normal text-ink-faint">(inactivo)</span>}
-                      {propia?.motivo && <div className="text-xs font-normal text-ink-faint">{propia.motivo}</div>}
-                    </td>
-                    {celdas(propia)}
-                    <td className="px-3 py-2.5">
-                      {propia ? (
-                        <StatusPill tone={propia.activo ? 'success' : 'neutral'} label={propia.activo ? 'Activa' : 'Inactiva'} />
-                      ) : (
-                        <span className="text-ink-faint">—</span>
-                      )}
-                    </td>
-                    {esAdmin && (
-                      <td className="px-5 py-2.5">
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-5 py-2.5 font-medium">{encabezado}</th>
+                  {columnas.map((c) => (
+                    <th key={c} className="px-3 py-2.5 font-medium">
+                      {c}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2.5 font-medium">Estado</th>
+                  {esAdmin && (
+                    <th className="px-5 py-2.5">
+                      <span className="sr-only">Acciones</span>
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {tabla.filas.map((c) => {
+                  const propia = propias.get(c.id)
+                  return (
+                    <tr key={c.id} className="transition-colors hover:bg-panel-muted">
+                      <td className="px-5 py-2.5 font-medium text-ink">
+                        {c.nombre}
+                        {!c.activo && <span className="ml-2 text-xs font-normal text-ink-faint">(inactivo)</span>}
+                        {propia?.motivo && <div className="text-xs font-normal text-ink-faint">{propia.motivo}</div>}
+                      </td>
+                      {celdas(propia)}
+                      <td className="px-3 py-2.5">
                         {propia ? (
-                          <BotonesExcepcion excepcion={propia} acciones={acciones} />
+                          <StatusPill tone={propia.activo ? 'success' : 'neutral'} label={propia.activo ? 'Activa' : 'Inactiva'} />
                         ) : (
-                          <div className="flex justify-end">
-                            <Boton icono={Plus} onClick={() => acciones.definir({ alcance, id: c.id!, nombre: c.nombre ?? '' })} disabled={!c.activo}>
-                              Definir
-                            </Boton>
-                          </div>
+                          <span className="text-ink-faint">—</span>
                         )}
                       </td>
-                    )}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                      {esAdmin && (
+                        <td className="px-5 py-2.5">
+                          {propia ? (
+                            <BotonesExcepcion excepcion={propia} acciones={acciones} />
+                          ) : (
+                            <div className="flex justify-end">
+                              <Boton icono={Plus} onClick={() => acciones.definir({ alcance, id: c.id!, nombre: c.nombre ?? '' })} disabled={!c.activo}>
+                                Definir
+                              </Boton>
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Paginacion {...tabla.controles} />
+        </>
       )}
     </SeccionAlcance>
   )

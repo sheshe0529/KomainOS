@@ -1,8 +1,9 @@
-import { consulta, http, todasLasPaginas } from './cliente'
+import { consulta, descargar, http, todasLasPaginas } from './cliente'
 import type { Pagina } from './dominio'
 import type {
   AlertaRespuesta,
   AnalisisRespuesta,
+  Bitacora,
   ColaRespuesta,
   ConexionRespuesta,
   DecidirAutorizacionPeticion,
@@ -44,8 +45,8 @@ export interface FiltroScripts {
 
 /** Catálogo de scripts: implementaciones por sistema operativo y versiones inmutables (RF22, RF25, RF26) */
 export const scriptsApi = {
-  listar: (filtro: FiltroScripts, pagina = 0) =>
-    http.get<Pagina<ScriptResumenRespuesta>>(`/scripts${consulta({ ...filtro, page: pagina })}`),
+  listar: (filtro: FiltroScripts, pagina = 0, tamano = 25) =>
+    http.get<Pagina<ScriptResumenRespuesta>>(`/scripts${consulta({ ...filtro, page: pagina, size: tamano })}`),
   todos: (filtro: FiltroScripts = {}) =>
     todasLasPaginas<ScriptResumenRespuesta>((page) => http.get(`/scripts${consulta({ ...filtro, page, size: 100 })}`)),
   obtener: (id: number) => http.get<ScriptRespuesta>(`/scripts/${id}`),
@@ -67,13 +68,15 @@ export const scriptsApi = {
   revisarSalida: (salida: string) => http.post<RevisionSalidaRespuesta>('/scripts/revisar-salida', { salida }),
   probarAnalisis: (idVersion: number, idServidor: number) =>
     http.post<PruebaAnalisisRespuesta>(`/scripts/versiones/${idVersion}/prueba`, { idServidor }),
-  usosVersion: (idVersion: number, pagina = 0) =>
-    http.get<Pagina<UsoVersionRespuesta>>(`/scripts/versiones/${idVersion}/ejecuciones${consulta({ page: pagina })}`),
+  usosVersion: (idVersion: number, pagina = 0, tamano = 25) =>
+    http.get<Pagina<UsoVersionRespuesta>>(
+      `/scripts/versiones/${idVersion}/ejecuciones${consulta({ page: pagina, size: tamano })}`,
+    ),
 }
 
 /** Tareas de mantenimiento: script, afectación, prioridad y umbrales que las activan (RF23, RF24) */
 export const tareasApi = {
-  listar: (pagina = 0, tamano = 20) =>
+  listar: (pagina = 0, tamano = 25) =>
     http.get<Pagina<TareaRespuesta>>(`/tareas${consulta({ page: pagina, size: tamano })}`),
   obtener: (id: number) => http.get<TareaRespuesta>(`/tareas/${id}`),
   guardar: (id: number | undefined, datos: TareaPeticion) =>
@@ -112,13 +115,14 @@ export interface FiltroEjecuciones {
 /** Sala de operaciones: estado del motor, órdenes por etapa, cola e historial de ejecución */
 export const operacionApi = {
   diagnostico: () => http.get<Diagnostico>('/automatizacion/modo'),
-  sala: (filtro: FiltroSala, pagina = 0) =>
-    http.get<Pagina<OrdenResumenRespuesta>>(`/automatizacion/sala${consulta({ ...filtro, page: pagina })}`),
+  sala: (filtro: FiltroSala, pagina = 0, tamano = 25) =>
+    http.get<Pagina<OrdenResumenRespuesta>>(`/automatizacion/sala${consulta({ ...filtro, page: pagina, size: tamano })}`),
   indicadores: () => http.get<Record<string, number>>('/automatizacion/indicadores'),
-  cola: (pagina = 0) => http.get<Pagina<ColaRespuesta>>(`/automatizacion/cola${consulta({ page: pagina })}`),
+  cola: (pagina = 0, tamano = 25) =>
+    http.get<Pagina<ColaRespuesta>>(`/automatizacion/cola${consulta({ page: pagina, size: tamano })}`),
   kpis: (desde?: string, hasta?: string) => http.get<InformeKpi>(`/automatizacion/kpis${consulta({ desde, hasta })}`),
   graficos: () => http.get<ResumenGraficos>('/automatizacion/graficos'),
-  ejecuciones: (filtro: FiltroEjecuciones, pagina = 0, tamano = 20) =>
+  ejecuciones: (filtro: FiltroEjecuciones, pagina = 0, tamano = 25) =>
     http.get<Pagina<EjecucionRespuesta>>(
       `/automatizacion/ejecuciones${consulta({ ...filtro, page: pagina, size: tamano })}`,
     ),
@@ -136,8 +140,8 @@ export const analisisApi = {
   probarGrupo: (idGrupo: number, idCuenta?: number) =>
     http.post<ConexionRespuesta[]>(`/grupos/${idGrupo}/conectividad${consulta({ idCuenta })}`),
   revisar: (idServidor: number) => http.post<AnalisisRespuesta>(`/servidores/${idServidor}/revision`),
-  historial: (idServidor: number, pagina = 0) =>
-    http.get<Pagina<AnalisisRespuesta>>(`/servidores/${idServidor}/evaluaciones${consulta({ page: pagina, size: 5 })}`),
+  historial: (idServidor: number, pagina = 0, tamano = 25) =>
+    http.get<Pagina<AnalisisRespuesta>>(`/servidores/${idServidor}/evaluaciones${consulta({ page: pagina, size: tamano })}`),
   preparacion: (idServidor: number) => http.get<Preparacion>(`/servidores/${idServidor}/preparacion-automatizacion`),
 }
 
@@ -158,15 +162,36 @@ export interface FiltroIncidencias {
 }
 
 export const incidenciasApi = {
-  listar: (filtro: FiltroIncidencias, pagina = 0) =>
-    http.get<Pagina<IncidenciaRespuesta>>(`/incidencias${consulta({ ...filtro, page: pagina })}`),
+  listar: (filtro: FiltroIncidencias, pagina = 0, tamano = 25) =>
+    http.get<Pagina<IncidenciaRespuesta>>(`/incidencias${consulta({ ...filtro, page: pagina, size: tamano })}`),
   obtener: (id: number) => http.get<IncidenciaRespuesta>(`/incidencias/${id}`),
   atender: (id: number, datos: { diagnostico: string; acciones: string; resultado: string; cerrar: boolean }) =>
     http.put<IncidenciaRespuesta>(`/incidencias/${id}`, datos),
 }
 
+export type FormatoBitacora = 'XLSX' | 'CSV' | 'JSON'
+
+/** Bitácora de mantenimiento (RF53): resumen para la vista gráfica y exportación de los eventos */
+export const bitacoraApi = {
+  servidor: (idServidor: number) => http.get<Bitacora>(`/servidores/${idServidor}/bitacora`),
+  grupo: (idGrupo: number) => http.get<Bitacora>(`/grupos/${idGrupo}/bitacora`),
+  exportarOrden: (idOrden: number, formato: FormatoBitacora) =>
+    descargar(`/ordenes/${idOrden}/bitacora/exportacion${consulta({ formato })}`, `bitacora.${formato.toLowerCase()}`),
+  exportarServidor: (idServidor: number, formato: FormatoBitacora) =>
+    descargar(
+      `/servidores/${idServidor}/bitacora/exportacion${consulta({ formato })}`,
+      `bitacora.${formato.toLowerCase()}`,
+    ),
+  /** Sin servidor, la bitácora completa del grupo; con uno, solo lo que le corresponde a ese integrante */
+  exportarGrupo: (idGrupo: number, formato: FormatoBitacora, idServidor?: number) =>
+    descargar(
+      `/grupos/${idGrupo}/bitacora/exportacion${consulta({ formato, idServidor })}`,
+      `bitacora.${formato.toLowerCase()}`,
+    ),
+}
+
 export const alertasApi = {
-  listar: (pagina = 0, tamano = 20, soloNoLeidas = false) =>
+  listar: (pagina = 0, tamano = 25, soloNoLeidas = false) =>
     http.get<Pagina<AlertaRespuesta>>(`/alertas${consulta({ page: pagina, size: tamano, soloNoLeidas })}`),
   obtener: (id: number) => http.get<AlertaRespuesta>(`/alertas/${id}`),
   pendientes: () => http.get<{ pendientes: number }>('/alertas/pendientes'),

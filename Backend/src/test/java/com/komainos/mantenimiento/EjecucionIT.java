@@ -12,11 +12,13 @@ import com.komainos.inventario.model.Servidor;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.service.ServicioRecuperacion;
 import com.komainos.shared.exception.ReglaNegocioException;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.LocalTime;
 import java.util.concurrent.CountDownLatch;
@@ -29,6 +31,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * El orquestador con el adaptador simulado. El espía del transporte permite detener una tarea en curso o cambiar la
@@ -65,6 +71,35 @@ class EjecucionIT extends BaseAutomatizacionIT {
 
             assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
             assertThat(contar("select count(*) from orden_detalle where id_orden = ? and es_servidor_piloto", id)).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("RF53: la bitácora del grupo muestra a cada integrante y se exporta completa o de uno solo")
+        void bitacoraDelGrupo() throws Exception {
+            GrupoMantenimiento g = grupo("Grupo bitácora", ModoEjecucion.PARALELO, servidor, crear("srv-segundo", "10.90.0.2"));
+            Integer id = lanzarGrupo(g);
+            aprobarComoResponsable(id);
+            orquestador.drenar();
+
+            mvc.perform(get("/api/grupos/{id}/bitacora", g.getId()).with(como(admin)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.mantenimientos[0].idOrden").value(id))
+                    .andExpect(jsonPath("$.mantenimientos[0].grupal").value(true))
+                    .andExpect(jsonPath("$.mantenimientos[0].resultado").value("EN_CURSO"))
+                    .andExpect(jsonPath("$.mantenimientos[0].servidores.length()").value(2));
+            String soloUno = mvc.perform(get("/api/grupos/{id}/bitacora/exportacion", g.getId())
+                            .param("formato", "CSV").param("idServidor", String.valueOf(servidor.getId()))
+                            .with(como(admin)))
+                    .andExpect(status().isOk())
+                    // El nombre del grupo lleva tilde: viaja en filename* codificado en UTF-8
+                    .andExpect(header().string("Content-Disposition",
+                            Matchers.containsString("filename*=UTF-8''bitacora_grupo_Grupo_bit%C3%A1cora_srv-")))
+                    .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+            assertThat(soloUno).contains(servidor.getHostname(), "Estado de la orden").doesNotContain("srv-segundo");
+            // La bitácora del servidor incluye los mantenimientos de sus grupos
+            mvc.perform(get("/api/servidores/{id}/bitacora", servidor.getId()).with(como(admin)))
+                    .andExpect(jsonPath("$.mantenimientos[0].grupo").value("Grupo bitácora"))
+                    .andExpect(jsonPath("$.mantenimientos[0].servidores.length()").value(1));
         }
 
         @Test

@@ -83,16 +83,28 @@ o al arrancar: `--komainos.automatizacion.escenarios.SERVPRODBDDV02=FALLO_TAREA`
    duración estimada (es también el tiempo máximo de ejecución) y umbrales que la
    activan.
 5. **Configuración → Políticas de cambio**: quién autoriza por entorno y afectación.
-6. Programe desde el cronograma o use **Lanzamiento inmediato**.
+6. Programe desde el cronograma o use **Lanzamiento inmediato**. El proceso
+   automático revisa cada `KOMAINOS_AUTOMATIZACION_INTERVALO_MS` los plazos
+   vencidos, las evaluaciones previas que llegaron a su fecha, las revisiones
+   periódicas pendientes y la cola; **Ejecutar proceso automático** en la sala lo
+   adelanta sin esperar (útil en pruebas o con el proceso desactivado).
 7. La orden muestra el **ciclo de mantenimiento**: etapas, el siguiente paso en una
    frase y los botones que el usuario puede usar ahora (evaluar, aprobar, rechazar,
    proponer fecha, aceptar la propuesta, validar, cerrar sin intervenir, despachar
-   la cola). Pestañas: MOP y ejecución (salida de cada tarea), análisis con el
-   reporte comparativo, autorizaciones, validaciones e incidencias. La bitácora se
-   descarga en CSV o JSON, sin secretos.
-8. **Historial de ejecución** lista cada tarea ejecutada con versión, cuenta,
+   la cola). Cada etapa alcanzada se abre desde el recorrido: qué se encontró
+   (análisis previo), qué se va a hacer y quién lo aprueba (plan de trabajo y
+   aprobaciones), qué se hizo (salida de cada tarea), si quedó bien (antes y
+   después, validaciones e incidencias) y cómo terminó. **Exportar bitácora**
+   descarga todos los eventos en Excel, CSV o JSON, sin secretos.
+8. La ficha del servidor y la del grupo muestran la **bitácora de mantenimiento**
+   como línea de tiempo (un punto por mantenimiento, coloreado por su resultado),
+   con la salud antes y después y las tareas de cada ciclo; la del grupo agrega un
+   mapa de resultados por integrante. Se exporta completa o, en un grupo, la de un
+   integrante (`/api/servidores/{id}/bitacora`, `/api/grupos/{id}/bitacora` y sus
+   `/exportacion?formato=XLSX|CSV|JSON`).
+9. **Historial de ejecución** lista cada tarea ejecutada con versión, cuenta,
    duración, código de salida y salida; se filtra y se exporta a CSV.
-9. **Incidencias**: diagnóstico, acciones y resultado; al cerrar la última, la
+10. **Incidencias**: diagnóstico, acciones y resultado; al cerrar la última, la
    orden continúa a su cierre sin reanudar tareas.
 
 ## Escribir scripts

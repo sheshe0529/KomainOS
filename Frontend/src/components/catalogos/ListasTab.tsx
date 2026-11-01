@@ -8,8 +8,10 @@ import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { textoDeError } from '@/utils/errores'
 import { ETIQUETA_TIPO_DATO } from '@/utils/umbrales'
 import { ListaFormulario } from './ListaFormulario'
@@ -18,6 +20,7 @@ import { ListaFormulario } from './ListaFormulario'
 export function ListasTab({ esAdmin = false }: { esAdmin?: boolean }) {
   const { avisar } = useAvisos()
   const listas = useConsulta(() => listasApi.listar(), [])
+  const tabla = usePaginacionLocal(listas.datos ?? [], 'listas')
   const [editando, setEditando] = useState<ListaReferenciaRespuesta | 'nueva' | null>(null)
   const [eliminando, setEliminando] = useState<ListaReferenciaRespuesta | null>(null)
   const [trabajando, setTrabajando] = useState(false)
@@ -59,60 +62,63 @@ export function ListasTab({ esAdmin = false }: { esAdmin?: boolean }) {
       {listas.cargando && !listas.datos ? (
         <Cargando />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-panel">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="px-4 py-3 font-medium">Lista</th>
-                <th className="px-4 py-3 font-medium">Tipo</th>
-                <th className="px-4 py-3 font-medium">Elementos</th>
-                <th className="px-4 py-3 font-medium">Usos</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 text-right font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {listas.datos?.map((l) => (
-                <tr key={l.id} className="hover:bg-panel-muted">
-                  <td className="px-4 py-3 font-medium text-ink">{l.nombre}</td>
-                  <td className="px-4 py-3 text-ink-soft">
-                    {l.tipoDato ? ETIQUETA_TIPO_DATO[l.tipoDato] : ''}
-                    {l.ignoraMayusculas && <span className="block text-xs text-ink-faint">Sin mayúsculas</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <ListaChips elementos={l.elementos} atenuado={!l.activo} />
-                  </td>
-                  <td
-                    className="px-4 py-3 tabular-nums text-ink-soft"
-                    title={`${l.umbrales ?? 0} umbral(es) y ${l.excepciones ?? 0} excepción(es)`}
-                  >
-                    {usos(l)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusPill tone={l.activo ? 'success' : 'neutral'} label={l.activo ? 'Activa' : 'Inactiva'} />
-                  </td>
-                  <td className="px-4 py-3">
-                    {esAdmin && <div className="flex justify-end gap-1">
-                      <BotonIcono icono={Pencil} etiqueta={`Editar ${l.nombre}`} onClick={() => setEditando(l)} />
-                      <BotonIcono
-                        icono={l.activo ? PowerOff : Power}
-                        etiqueta={l.activo ? 'Desactivar' : 'Activar'}
-                        onClick={() => cambiarEstado(l)}
-                      />
-                      <BotonIcono icono={Trash2} etiqueta={`Eliminar ${l.nombre}`} onClick={() => setEliminando(l)} />
-                    </div>}
-                  </td>
+        <div className="overflow-hidden rounded-xl border border-line bg-panel">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-4 py-3 font-medium">Lista</th>
+                  <th className="px-4 py-3 font-medium">Tipo</th>
+                  <th className="px-4 py-3 font-medium">Elementos</th>
+                  <th className="px-4 py-3 font-medium">Usos</th>
+                  <th className="px-4 py-3 font-medium">Estado</th>
+                  <th className="px-4 py-3 text-right font-medium">Acciones</th>
                 </tr>
-              ))}
-              {listas.datos?.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-ink-soft">
-                    Sin listas
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {tabla.filas.map((l) => (
+                  <tr key={l.id} className="transition-colors hover:bg-panel-muted">
+                    <td className="px-4 py-3 font-medium text-ink">{l.nombre}</td>
+                    <td className="px-4 py-3 text-ink-soft">
+                      {l.tipoDato ? ETIQUETA_TIPO_DATO[l.tipoDato] : ''}
+                      {l.ignoraMayusculas && <span className="block text-xs text-ink-faint">Sin mayúsculas</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ListaChips elementos={l.elementos} atenuado={!l.activo} />
+                    </td>
+                    <td
+                      className="px-4 py-3 tabular-nums text-ink-soft"
+                      title={`${l.umbrales ?? 0} umbral(es) y ${l.excepciones ?? 0} excepción(es)`}
+                    >
+                      {usos(l)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusPill tone={l.activo ? 'success' : 'neutral'} label={l.activo ? 'Activa' : 'Inactiva'} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {esAdmin && <div className="flex justify-end gap-1">
+                        <BotonIcono icono={Pencil} etiqueta={`Editar ${l.nombre}`} onClick={() => setEditando(l)} />
+                        <BotonIcono
+                          icono={l.activo ? PowerOff : Power}
+                          etiqueta={l.activo ? 'Desactivar' : 'Activar'}
+                          onClick={() => cambiarEstado(l)}
+                        />
+                        <BotonIcono icono={Trash2} etiqueta={`Eliminar ${l.nombre}`} onClick={() => setEliminando(l)} />
+                      </div>}
+                    </td>
+                  </tr>
+                ))}
+                {listas.datos?.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-ink-soft">
+                      Sin listas
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Paginacion {...tabla.controles} />
         </div>
       )}
 

@@ -1,12 +1,18 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
 import { planificacionApi } from '@/api/planificacion'
+import { EnlaceVolver } from '@/components/common/PageHeader'
 import { ChartCard } from '@/components/dashboard/ChartCard'
 import { DistribucionHorariaChart, type PuntoHora } from '@/components/planificacion/DistribucionHorariaChart'
 import { Cargando } from '@/components/ui/Cargando'
+import { ENLACE_FILA } from '@/components/ui/estilos'
+import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { MensajeError } from '@/components/ui/MensajeError'
+import { Paginacion } from '@/components/ui/Paginacion'
+import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
+import { TONO_ESTADO_ORDEN } from '@/utils/automatizacion'
 import { ETIQUETA_ESTADO_ORDEN, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
 import { claveDia, formatearFechaHora, formatearFechaLarga, formatearHora } from '@/utils/formato'
 
@@ -29,6 +35,7 @@ export function CronogramaDiaPage() {
   const ordenes = useConsulta(() => planificacionApi.cronograma(dia, siguiente), [clave])
 
   const delDia = ordenes.datos ?? []
+  const tabla = usePaginacionLocal(delDia, 'cronograma-dia')
 
   // Las que vienen cruzando desde el día anterior se listan pero no suman a la distribución por hora de inicio
   const { inicianHoy, distribucion } = useMemo(() => {
@@ -43,9 +50,7 @@ export function CronogramaDiaPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to={`/cronograma?mes=${clave.slice(0, 7)}`} className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al cronograma
-      </Link>
+      <EnlaceVolver a={`/cronograma?mes=${clave.slice(0, 7)}`} texto="Volver al cronograma" />
       <div>
         <h2 className="text-2xl font-semibold text-ink">{formatearFechaLarga(dia)}</h2>
         <p className="mt-1 text-sm text-ink-soft">
@@ -78,16 +83,16 @@ export function CronogramaDiaPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {delDia.map((o) => {
+                  {tabla.filas.map((o) => {
                     const empiezaHoy = o.inicioProgramado && claveDia(new Date(o.inicioProgramado)) === clave
                     return (
-                      <tr key={o.id} className="hover:bg-panel-muted">
+                      <FilaNavegable key={o.id} a={`/ordenes/${o.id}`}>
                         <td className="px-4 py-3 font-mono text-ink-soft">
                           {empiezaHoy ? formatearHora(o.inicioProgramado) : formatearFechaHora(o.inicioProgramado)}
                           <span className="text-ink-faint"> – {formatearHora(o.finProgramado)}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <Link to={`/ordenes/${o.id}`} className="font-mono font-medium text-ink hover:text-accent">
+                          <Link to={`/ordenes/${o.id}`} className={`font-mono ${ENLACE_FILA}`}>
                             {o.codigo}
                           </Link>
                         </td>
@@ -97,8 +102,10 @@ export function CronogramaDiaPage() {
                         </td>
                         <td className="px-4 py-3 text-ink-soft">{o.origen ? ETIQUETA_ORIGEN[o.origen] : ''}</td>
                         <td className="px-4 py-3 text-ink-soft">{o.criticidad?.nombre}</td>
-                        <td className="px-4 py-3 text-ink-soft">{o.estado ? ETIQUETA_ESTADO_ORDEN[o.estado] : ''}</td>
-                      </tr>
+                        <td className="px-4 py-3">
+                          {o.estado && <StatusPill tone={TONO_ESTADO_ORDEN[o.estado]} label={ETIQUETA_ESTADO_ORDEN[o.estado]} />}
+                        </td>
+                      </FilaNavegable>
                     )
                   })}
                   {delDia.length === 0 && (
@@ -111,6 +118,7 @@ export function CronogramaDiaPage() {
                 </tbody>
               </table>
             </div>
+            <Paginacion {...tabla.controles} />
           </div>
         </>
       )}

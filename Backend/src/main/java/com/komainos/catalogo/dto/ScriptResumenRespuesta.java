@@ -6,9 +6,13 @@ import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import java.time.Instant;
 import java.util.List;
 
-/** Fila del catálogo: compatibilidad y versión vigente de cada implementación, sin el código */
+/**
+ * Fila del catálogo: compatibilidad y versión vigente de cada implementación, sin el código
+ *
+ * @param creadoPor quien registró el script según la auditoría; nulo si se cargó fuera del sistema
+ */
 public record ScriptResumenRespuesta(Integer id, String nombre, TipoScript tipo, String descripcion, boolean activo,
-                                     List<ImplementacionResumen> implementaciones) {
+                                     String creadoPor, List<ImplementacionResumen> implementaciones) {
 
     /**
      * @param versionVigente la última habilitada, que se fija en una MOP nueva; nula si todas están deshabilitadas

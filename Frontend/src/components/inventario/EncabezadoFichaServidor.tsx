@@ -1,5 +1,6 @@
 import { ArchiveX, CalendarClock, CalendarPlus, Pencil, RotateCcw, Wrench } from 'lucide-react'
 import type { FichaServidorRespuesta } from '@/api/types'
+import { PageHeader } from '@/components/common/PageHeader'
 import { Boton } from '@/components/ui/Boton'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { ESTADO_SERVIDOR, ETIQUETA_MODALIDAD } from '@/utils/etiquetas'
@@ -31,20 +32,24 @@ export function EncabezadoFichaServidor({
   const dadoDeBaja = s.estado === 'DADO_DE_BAJA'
 
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h2 className="font-mono text-2xl font-semibold text-ink">{s.hostname}</h2>
-        <p className="mt-1 text-sm text-ink-soft">{s.dns ?? s.direccionIp}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
+    <PageHeader
+      className=""
+      volver={{ a: '/servidores', texto: 'Volver al inventario' }}
+      mono
+      title={s.hostname}
+      description={s.dns ?? s.direccionIp}
+      meta={
+        <>
           {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
           <StatusPill tone="neutral" label={`Criticidad ${s.criticidad?.nombre ?? ''}`} />
           <StatusPill tone="neutral" label={s.entorno?.nombre ?? ''} />
           {s.configuracion?.modalidadPlanificacion && (
             <StatusPill tone="neutral" label={`Modalidad: ${ETIQUETA_MODALIDAD[s.configuracion.modalidadPlanificacion]}`} />
           )}
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
+        </>
+      }
+      actions={
+        <>
         {esAdmin && !dadoDeBaja && (
           <>
             <Boton icono={Pencil} onClick={() => onAbrir('editar')} disabled={!catalogosListos}>
@@ -70,12 +75,13 @@ export function EncabezadoFichaServidor({
             Dar de baja
           </Boton>
         )}
-        {esAdmin && dadoDeBaja && (
-          <Boton icono={RotateCcw} variante="primario" onClick={onReactivar} cargando={reactivando}>
-            Reactivar
-          </Boton>
-        )}
-      </div>
-    </div>
+          {esAdmin && dadoDeBaja && (
+            <Boton icono={RotateCcw} variante="primario" onClick={onReactivar} cargando={reactivando}>
+              Reactivar
+            </Boton>
+          )}
+        </>
+      }
+    />
   )
 }

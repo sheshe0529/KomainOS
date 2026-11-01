@@ -24,13 +24,13 @@ public final class CatalogoMapeador {
     private CatalogoMapeador() {
     }
 
-    public static ScriptResumenRespuesta resumen(Script s) {
+    public static ScriptResumenRespuesta resumen(Script s, String creadoPor) {
         return new ScriptResumenRespuesta(s.getId(), s.getNombre(), s.getTipo(), s.getDescripcion(), s.isActivo(),
-                s.getImplementaciones().stream().map(CatalogoMapeador::resumen).toList());
+                creadoPor, s.getImplementaciones().stream().map(CatalogoMapeador::resumen).toList());
     }
 
-    public static ScriptRespuesta script(Script s, long tareasActivas) {
-        return new ScriptRespuesta(s.getId(), s.getNombre(), s.getTipo(), s.getDescripcion(), s.isActivo(),
+    public static ScriptRespuesta script(Script s, String creadoPor, long tareasActivas) {
+        return new ScriptRespuesta(s.getId(), s.getNombre(), s.getTipo(), s.getDescripcion(), s.isActivo(), creadoPor,
                 tareasActivas, s.getImplementaciones().stream().map(CatalogoMapeador::implementacion).toList());
     }
 

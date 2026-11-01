@@ -24,6 +24,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -41,6 +42,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /** Catálogo de scripts de análisis y mantenimiento con sus implementaciones y versiones (RF24-RF26, HU17) */
 @RestController
@@ -59,8 +61,9 @@ public class ScriptController {
             @RequestParam(required = false) TipoScript tipo,
             @RequestParam(required = false) Boolean activo,
             @PageableDefault(size = 20, sort = "nombre", direction = Sort.Direction.ASC) Pageable pagina) {
-        return PaginaRespuesta.de(servicio.scripts(new FiltroScripts(texto, tipo, activo), pagina),
-                CatalogoMapeador::resumen);
+        Page<Script> scripts = servicio.scripts(new FiltroScripts(texto, tipo, activo), pagina);
+        Map<Integer, String> creadores = servicio.creadores(scripts.map(Script::getId).getContent());
+        return PaginaRespuesta.de(scripts, s -> CatalogoMapeador.resumen(s, creadores.get(s.getId())));
     }
 
     @GetMapping("/{id}")
@@ -143,7 +146,8 @@ public class ScriptController {
     }
 
     private ScriptRespuesta detalle(Script script) {
-        return CatalogoMapeador.script(script, servicio.tareasActivasDe(script.getId()));
+        return CatalogoMapeador.script(script, servicio.creadores(List.of(script.getId())).get(script.getId()),
+                servicio.tareasActivasDe(script.getId()));
     }
 
     private static DatosScript datos(ScriptPeticion p) {

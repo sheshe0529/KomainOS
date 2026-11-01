@@ -9,10 +9,10 @@ interface ModalProps {
   onCerrar: () => void
   children: ReactNode
   pie?: ReactNode
-  ancho?: 'md' | 'lg' | 'xl'
+  ancho?: 'md' | 'lg' | 'xl' | '2xl'
 }
 
-const ANCHOS = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
+const ANCHOS = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl', '2xl': 'max-w-6xl' }
 
 /** Sobre <dialog> nativo: el navegador resuelve el foco, Escape y la capa de fondo */
 export function Modal({ abierto, titulo, descripcion, onCerrar, children, pie, ancho = 'md' }: ModalProps) {

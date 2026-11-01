@@ -9,8 +9,10 @@ import { Campo, Entrada } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { errorDeCampo, textoDeError, tieneErroresDeCampo } from '@/utils/errores'
 
 type Formulario = Record<keyof NivelCriticidadPeticion, string>
@@ -27,6 +29,7 @@ const VACIO: Formulario = {
 export function CriticidadesTab() {
   const { avisar } = useAvisos()
   const niveles = useConsulta(() => catalogosApi.criticidades(), [])
+  const tabla = usePaginacionLocal(niveles.datos ?? [], 'criticidades')
   const [editando, setEditando] = useState<NivelCriticidadRespuesta | 'nuevo' | null>(null)
   const [f, setF] = useState<Formulario>(VACIO)
   const [guardando, setGuardando] = useState(false)
@@ -105,58 +108,61 @@ export function CriticidadesTab() {
       {niveles.cargando && !niveles.datos ? (
         <Cargando />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-panel">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="px-4 py-3 font-medium">Nivel</th>
-                <th className="px-4 py-3 font-medium">Prioridad</th>
-                <th className="px-4 py-3 font-medium">Revisión</th>
-                <th className="px-4 py-3 font-medium">Mantenimiento</th>
-                <th className="px-4 py-3 font-medium">Plazo autorización</th>
-                <th className="px-4 py-3 font-medium">Plazo validación</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 text-right font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {niveles.datos?.map((n) => (
-                <tr key={n.id} className="hover:bg-panel-muted">
-                  <td className="px-4 py-3 font-medium text-ink">{n.nombre}</td>
-                  <td className="px-4 py-3 font-mono tabular-nums">{n.prioridad}</td>
-                  <td className="px-4 py-3 text-ink-soft">Cada {n.frecuenciaRevisionDias} días</td>
-                  <td className="px-4 py-3 text-ink-soft">Cada {n.frecuenciaMantenimientoDias} días</td>
-                  <td className="px-4 py-3 text-ink-soft">{n.plazoAutorizacionHoras} h</td>
-                  <td className="px-4 py-3 text-ink-soft">{n.plazoValidacionHoras} h</td>
-                  <td className="px-4 py-3">
-                    <StatusPill tone={n.activo ? 'success' : 'neutral'} label={n.activo ? 'Activo' : 'Inactivo'} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <BotonIcono icono={Pencil} etiqueta="Editar" onClick={() => abrir(n)} />
-                      <BotonIcono
-                        icono={n.activo ? PowerOff : Power}
-                        etiqueta={n.activo ? 'Desactivar' : 'Activar'}
-                        onClick={() => ejecutar(() => catalogosApi.cambiarEstadoCriticidad(n.id!, !n.activo), 'Estado actualizado.')}
-                      />
-                      <BotonIcono
-                        icono={Trash2}
-                        etiqueta="Eliminar"
-                        onClick={() => ejecutar(() => catalogosApi.eliminarCriticidad(n.id!), 'Nivel de criticidad eliminado.')}
-                      />
-                    </div>
-                  </td>
+        <div className="overflow-hidden rounded-xl border border-line bg-panel">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-4 py-3 font-medium">Nivel</th>
+                  <th className="px-4 py-3 font-medium">Prioridad</th>
+                  <th className="px-4 py-3 font-medium">Revisión</th>
+                  <th className="px-4 py-3 font-medium">Mantenimiento</th>
+                  <th className="px-4 py-3 font-medium">Plazo autorización</th>
+                  <th className="px-4 py-3 font-medium">Plazo validación</th>
+                  <th className="px-4 py-3 font-medium">Estado</th>
+                  <th className="px-4 py-3 text-right font-medium">Acciones</th>
                 </tr>
-              ))}
-              {niveles.datos?.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-ink-soft">
-                    No hay niveles de criticidad registrados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {tabla.filas.map((n) => (
+                  <tr key={n.id} className="transition-colors hover:bg-panel-muted">
+                    <td className="px-4 py-3 font-medium text-ink">{n.nombre}</td>
+                    <td className="px-4 py-3 font-mono tabular-nums">{n.prioridad}</td>
+                    <td className="px-4 py-3 text-ink-soft">Cada {n.frecuenciaRevisionDias} días</td>
+                    <td className="px-4 py-3 text-ink-soft">Cada {n.frecuenciaMantenimientoDias} días</td>
+                    <td className="px-4 py-3 text-ink-soft">{n.plazoAutorizacionHoras} h</td>
+                    <td className="px-4 py-3 text-ink-soft">{n.plazoValidacionHoras} h</td>
+                    <td className="px-4 py-3">
+                      <StatusPill tone={n.activo ? 'success' : 'neutral'} label={n.activo ? 'Activo' : 'Inactivo'} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <BotonIcono icono={Pencil} etiqueta="Editar" onClick={() => abrir(n)} />
+                        <BotonIcono
+                          icono={n.activo ? PowerOff : Power}
+                          etiqueta={n.activo ? 'Desactivar' : 'Activar'}
+                          onClick={() => ejecutar(() => catalogosApi.cambiarEstadoCriticidad(n.id!, !n.activo), 'Estado actualizado.')}
+                        />
+                        <BotonIcono
+                          icono={Trash2}
+                          etiqueta="Eliminar"
+                          onClick={() => ejecutar(() => catalogosApi.eliminarCriticidad(n.id!), 'Nivel de criticidad eliminado.')}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {niveles.datos?.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-ink-soft">
+                      No hay niveles de criticidad registrados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Paginacion {...tabla.controles} />
         </div>
       )}
 

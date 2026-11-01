@@ -239,6 +239,11 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
                             .content("{\"nombre\":\"Otro análisis\",\"tipo\":\"ANALISIS\",\"activo\":true}"))
                     .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
             Integer id = Integer.valueOf(nuevo.replaceAll("^\\{\"id\":(\\d+).*", "$1"));
+            // El autor sale de la auditoría del registro: la tabla del catálogo no lo guarda
+            mvc.perform(get("/api/scripts/{id}", id).with(como(operador)))
+                    .andExpect(jsonPath("$.creadoPor").value(admin.getNombreCompleto()));
+            mvc.perform(get("/api/scripts").param("texto", "Otro análisis").with(como(operador)))
+                    .andExpect(jsonPath("$.contenido[0].creadoPor").value(admin.getNombreCompleto()));
 
             mvc.perform(post("/api/scripts/{id}/implementaciones", id).with(como(admin)).contentType("application/json")
                             .content("{\"idVersionSistemaOperativo\":%d,\"contenido\":\"echo {}\",\"parametros\":[]}"

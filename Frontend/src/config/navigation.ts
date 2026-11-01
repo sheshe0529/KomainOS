@@ -20,6 +20,8 @@ import {
   Activity,
   Bell,
   History,
+  LayoutDashboard,
+  Library,
 } from 'lucide-react'
 import type { Rol } from '@/api/dominio'
 
@@ -47,7 +49,23 @@ export function isNavGroup(item: NavItem): item is NavGroup {
 }
 
 export const navigation: NavItem[] = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    path: '/dashboard',
+    roles: ['ADMINISTRADOR', 'OPERADOR'],
+  },
   { id: 'cronograma', label: 'Cronograma', icon: CalendarDays, path: '/cronograma' },
+  {
+    id: 'inventario',
+    label: 'Inventario',
+    icon: ServerCog,
+    children: [
+      { id: 'servidores', label: 'Servidores', icon: Server, path: '/servidores' },
+      { id: 'grupos', label: 'Grupos de mantenimiento', icon: Boxes, path: '/grupos' },
+    ],
+  },
   {
     id: 'automatizacion',
     label: 'Automatización',
@@ -91,20 +109,18 @@ export const navigation: NavItem[] = [
       },
     ],
   },
-  { id: 'alertas', label: 'Mis alertas', icon: Bell, path: '/alertas' },
   { id: 'ordenes', label: 'Órdenes', icon: ClipboardList, path: '/ordenes', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+  // Rigen el inventario, la planificación y la evaluación de los servidores
   {
-    id: 'inventario',
-    label: 'Inventario',
-    icon: ServerCog,
+    id: 'referencias',
+    label: 'Catálogos y umbrales',
+    icon: Library,
     children: [
-      { id: 'servidores', label: 'Servidores', icon: Server, path: '/servidores' },
-      { id: 'grupos', label: 'Grupos de mantenimiento', icon: Boxes, path: '/grupos' },
+      { id: 'catalogos', label: 'Catálogos', icon: BookOpen, path: '/catalogos', roles: ['ADMINISTRADOR'] },
+      { id: 'umbrales', label: 'Umbrales', icon: Gauge, path: '/umbrales', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     ],
   },
-  // Catálogos es un apartado propio: rige el inventario y la planificación
-  { id: 'catalogos', label: 'Catálogos', icon: BookOpen, path: '/catalogos', roles: ['ADMINISTRADOR'] },
-  { id: 'umbrales', label: 'Umbrales', icon: Gauge, path: '/umbrales', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+  { id: 'alertas', label: 'Mis alertas', icon: Bell, path: '/alertas' },
   {
     id: 'configuracion',
     label: 'Configuración',
@@ -142,6 +158,11 @@ export const navigation: NavItem[] = [
     ],
   },
 ]
+
+/** Primera pantalla después de iniciar sesión: el dashboard para quien lo ve, el cronograma para el responsable */
+export function inicioPara(rol: Rol | undefined): string {
+  return rol === 'ADMINISTRADOR' || rol === 'OPERADOR' ? '/dashboard' : '/cronograma'
+}
 
 /** Los grupos sin hijos visibles desaparecen */
 export function navegacionPara(rol: Rol | undefined): NavItem[] {

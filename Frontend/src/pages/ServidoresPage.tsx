@@ -18,6 +18,7 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { useCatalogos, useResponsables } from '@/hooks/useCatalogos'
 import { useColumnasVisibles } from '@/hooks/useColumnasVisibles'
 import { useConsulta } from '@/hooks/useConsulta'
+import { guardarTamano, leerTamanoGuardado } from '@/hooks/usePaginacion'
 
 export function ServidoresPage() {
   const { tieneRol } = useSesion()
@@ -28,7 +29,7 @@ export function ServidoresPage() {
 
   const [busqueda, setBusqueda] = useState('')
   const [textoAplicado, setTextoAplicado] = useState('')
-  const [filtro, setFiltro] = useState<FiltroServidores>({ estado: '', pagina: 0, tamano: 20 })
+  const [filtro, setFiltro] = useState<FiltroServidores>({ estado: '', pagina: 0, tamano: leerTamanoGuardado('servidores') })
   const [orden, setOrden] = useState<Orden>({ propiedad: 'hostname', asc: true })
   const [formularioAbierto, setFormularioAbierto] = useState(false)
   const [dialogo, setDialogo] = useState<'importar' | 'exportar' | 'credenciales' | null>(null)
@@ -104,6 +105,11 @@ export function ServidoresPage() {
         orden={orden}
         onOrdenar={(propiedad) => setOrden((o) => ({ propiedad, asc: o.propiedad === propiedad ? !o.asc : true }))}
         onPagina={(p) => setFiltro((f) => ({ ...f, pagina: p }))}
+        tamano={filtro.tamano ?? 25}
+        onTamano={(t) => {
+          guardarTamano('servidores', t)
+          setFiltro((f) => ({ ...f, tamano: t, pagina: 0 }))
+        }}
         esAdmin={esAdmin}
         conFiltros={conFiltros}
       />

@@ -9,6 +9,7 @@ import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { FilaAnalisis } from './FilaAnalisis'
 import { PreparacionServidor } from './PreparacionServidor'
 import { PruebaAcceso } from './PruebaAcceso'
@@ -23,8 +24,8 @@ export function AnalisisServidor({ idServidor }: { idServidor: number }) {
   const ve = esAdmin || tieneRol('OPERADOR')
   const { avisar } = useAvisos()
 
-  const [pagina, setPagina] = useState(0)
-  const historial = useConsulta(() => analisisApi.historial(idServidor, pagina), [idServidor, pagina])
+  const { pagina, tamano, setPagina, setTamano } = usePaginacion('analisis-servidor')
+  const historial = useConsulta(() => analisisApi.historial(idServidor, pagina, tamano), [idServidor, pagina, tamano])
   const preparacion = useConsulta(
     async () => (ve ? analisisApi.preparacion(idServidor) : undefined),
     [idServidor, ve],
@@ -110,6 +111,8 @@ export function AnalisisServidor({ idServidor }: { idServidor: number }) {
               totalPaginas={historial.datos?.totalPaginas ?? 0}
               totalElementos={historial.datos?.totalElementos ?? 0}
               onCambiar={setPagina}
+              tamano={tamano}
+              onTamano={setTamano}
             />
           </>
         )}

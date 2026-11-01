@@ -15,6 +15,7 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { AFECTACION } from '@/utils/automatizacion'
 import { formatearDuracion } from '@/utils/formato'
 
@@ -24,9 +25,9 @@ export function TareasPage() {
   const esAdmin = tieneRol('ADMINISTRADOR')
   const { avisar } = useAvisos()
 
-  const [pagina, setPagina] = useState(0)
+  const { pagina, tamano, setPagina, setTamano } = usePaginacion('tareas')
   const [editando, setEditando] = useState<TareaRespuesta | 'nueva'>()
-  const tareas = useConsulta(() => tareasApi.listar(pagina), [pagina])
+  const tareas = useConsulta(() => tareasApi.listar(pagina, tamano), [pagina, tamano])
   const scripts = useConsulta(() => scriptsApi.todos(), [])
   const umbrales = useConsulta(() => umbralesApi.umbrales(), [])
   const parametros = useConsulta(() => catalogosApi.parametros(), [])
@@ -79,7 +80,7 @@ export function TareasPage() {
               <thead>
                 <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
                   <th className="px-5 py-3 font-medium">Tarea</th>
-                  <th className="px-3 py-3 font-medium">Script · compatible con</th>
+                  <th className="px-3 py-3 font-medium">Script</th>
                   <th className="px-3 py-3 font-medium">Afectación</th>
                   <th className="px-3 py-3 text-right font-medium">Prioridad</th>
                   <th className="px-3 py-3 font-medium">Duración</th>
@@ -97,7 +98,18 @@ export function TareasPage() {
                   const afectacion = AFECTACION[t.nivelAfectacion ?? 'SIN_AFECTACION']
                   const nombres = (t.idsUmbrales ?? []).map((id) => nombresUmbral.get(id) ?? `#${id}`)
                   return (
-                    <tr key={t.id} className={`align-top ${t.activo ? '' : 'text-ink-faint'}`}>
+                    <tr
+                      key={t.id}
+                      onClick={(e) => {
+                        // Como en las demás tablas, la fila abre su detalle: aquí, el formulario de la tarea
+                        if (!esAdmin || !scripts.datos || !umbrales.datos) return
+                        if ((e.target as HTMLElement).closest('a, button')) return
+                        setEditando(t)
+                      }}
+                      className={`align-top transition-colors hover:bg-panel-muted ${esAdmin ? 'cursor-pointer' : ''} ${
+                        t.activo ? '' : 'text-ink-faint'
+                      }`}
+                    >
                       <td className="max-w-xs px-5 py-3">
                         <span className="font-medium text-ink">{t.nombre}</span>
                         {t.descripcion && <p className="line-clamp-2 text-xs text-ink-soft">{t.descripcion}</p>}
@@ -107,17 +119,6 @@ export function TareasPage() {
                           {t.script}
                         </Link>
                         {!t.scriptActivo && <span className="ml-2 text-xs text-warning">inactivo</span>}
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {(t.sistemasCompatibles ?? []).length === 0 ? (
-                            <span className="text-xs text-warning">Sin versión habilitada</span>
-                          ) : (
-                            t.sistemasCompatibles?.map((so) => (
-                              <span key={so} className="rounded bg-panel-muted px-1.5 py-0.5 text-xs text-ink-soft">
-                                {so}
-                              </span>
-                            ))
-                          )}
-                        </div>
                       </td>
                       <td className="px-3 py-3">
                         <StatusPill tone={afectacion.tono} label={afectacion.etiqueta} />
@@ -158,6 +159,8 @@ export function TareasPage() {
             totalPaginas={tareas.datos?.totalPaginas ?? 0}
             totalElementos={tareas.datos?.totalElementos ?? 0}
             onCambiar={setPagina}
+            tamano={tamano}
+            onTamano={setTamano}
           />
         </div>
       )}

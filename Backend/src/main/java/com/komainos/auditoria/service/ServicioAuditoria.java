@@ -12,7 +12,10 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Se une a la transacción del llamador: el cambio y su registro de auditoría se aplican juntos o ninguno (RNF06) */
 @Service
@@ -44,6 +47,22 @@ public class ServicioAuditoria {
     @Transactional(readOnly = true)
     public List<RegistroAuditoria> consultarSobreServidor(Integer idServidor, String operacion) {
         return repositorio.findByIdServidorAndOperacionOrderByFechaHoraDescIdDesc(idServidor, operacion);
+    }
+
+    /**
+     * Usuario que ejecutó la operación sobre cada entidad, por ejemplo quién registró cada script. Las entidades creadas
+     * por un proceso o cargadas fuera del sistema no aparecen.
+     */
+    @Transactional(readOnly = true)
+    public Map<Integer, Integer> autores(String entidad, String operacion, Collection<Integer> idsEntidad) {
+        Map<Integer, Integer> autores = new LinkedHashMap<>();
+        if (idsEntidad.isEmpty()) {
+            return autores;
+        }
+        repositorio.findByEntidadAndOperacionAndIdEntidadInOrderByIdAsc(entidad, operacion, idsEntidad).stream()
+                .filter(r -> r.getIdUsuario() != null)
+                .forEach(r -> autores.putIfAbsent(r.getIdEntidad(), r.getIdUsuario()));
+        return autores;
     }
 
     private String json(Object valor) {

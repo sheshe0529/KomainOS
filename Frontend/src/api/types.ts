@@ -104,6 +104,12 @@ export interface BajaPeticion {
   motivo: string
 }
 
+export interface Bitacora {
+  objetivo?: string
+  mantenimientos?: MantenimientoBitacora[]
+  truncada?: boolean
+}
+
 export interface CambioEstado {
   estadoAnterior?: 'PROGRAMADA' | 'EN_EVALUACION' | 'SIN_IMPLEMENTACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'PENDIENTE_VALIDACION' | 'INCIDENCIA' | 'REPROGRAMADA' | 'RECHAZADA' | 'AUTORIZACION_VENCIDA' | 'VALIDACION_VENCIDA' | 'CANCELADA' | 'CERRADA'
   estadoNuevo?: 'PROGRAMADA' | 'EN_EVALUACION' | 'SIN_IMPLEMENTACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'PENDIENTE_VALIDACION' | 'INCIDENCIA' | 'REPROGRAMADA' | 'RECHAZADA' | 'AUTORIZACION_VENCIDA' | 'VALIDACION_VENCIDA' | 'CANCELADA' | 'CERRADA'
@@ -628,6 +634,25 @@ export interface LoginPeticion {
   contrasena: string
 }
 
+export interface MantenimientoBitacora {
+  idOrden?: number
+  codigo?: string
+  grupal?: boolean
+  grupo?: string
+  origen?: 'PLANIFICACION_AUTOMATICA' | 'SOLICITUD_BAJO_DEMANDA' | 'LANZAMIENTO_INMEDIATO' | 'CONDICION_CRITICA'
+  prioridad?: 'NORMAL' | 'ALTA'
+  estado?: 'PROGRAMADA' | 'EN_EVALUACION' | 'SIN_IMPLEMENTACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'PENDIENTE_VALIDACION' | 'INCIDENCIA' | 'REPROGRAMADA' | 'RECHAZADA' | 'AUTORIZACION_VENCIDA' | 'VALIDACION_VENCIDA' | 'CANCELADA' | 'CERRADA'
+  etapa?: 'PLANIFICACION' | 'EVALUACION' | 'AUTORIZACION' | 'EJECUCION' | 'VALIDACION' | 'INCIDENCIA' | 'CIERRE'
+  resultado?: 'PROGRAMADO' | 'EN_CURSO' | 'EXITOSO' | 'SIN_INTERVENCION' | 'CON_INCIDENCIA' | 'REQUIERE_ATENCION' | 'NO_AUTORIZADO' | 'CANCELADO'
+  inicioProgramado?: string
+  finProgramado?: string
+  inicioReal?: string
+  finReal?: string
+  fechaCierre?: string
+  validacionFuncional?: 'PENDIENTE' | 'CONFORME' | 'RECHAZADA' | 'VENCIDA'
+  servidores?: ParticipacionServidor[]
+}
+
 export interface MantenimientoRegistroPeticion {
   configuracion: ConfiguracionPeticion
   ventanas: VentanaPeticion[]
@@ -858,6 +883,21 @@ export interface ParametrosSistemaRespuesta {
   minutosExpiracionToken?: number
   fechaActualizacion?: string
   cuentaServicioPredeterminada?: ReferenciaSimple
+}
+
+export interface ParticipacionServidor {
+  idServidor?: number
+  servidor?: string
+  estado?: 'PENDIENTE' | 'EN_COLA' | 'EN_EJECUCION' | 'FINALIZADO' | 'FALLIDO' | 'NO_INICIADO'
+  piloto?: boolean
+  nivelAntes?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  nivelDespues?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
+  validacionTecnica?: 'CONFORME' | 'NO_CONFORME'
+  incidencias?: number
+  resultado?: 'PROGRAMADO' | 'EN_CURSO' | 'EXITOSO' | 'SIN_INTERVENCION' | 'CON_INCIDENCIA' | 'REQUIERE_ATENCION' | 'NO_AUTORIZADO' | 'CANCELADO'
+  inicioReal?: string
+  finReal?: string
+  tareas?: TareaBitacora[]
 }
 
 export interface PerfilRespuesta {
@@ -1100,6 +1140,7 @@ export interface ScriptRespuesta {
   tipo?: 'ANALISIS' | 'MANTENIMIENTO'
   descripcion?: string
   activo?: boolean
+  creadoPor?: string
   tareasActivas?: number
   implementaciones?: ImplementacionRespuesta[]
 }
@@ -1110,6 +1151,7 @@ export interface ScriptResumenRespuesta {
   tipo?: 'ANALISIS' | 'MANTENIMIENTO'
   descripcion?: string
   activo?: boolean
+  creadoPor?: string
   implementaciones?: ImplementacionResumen[]
 }
 
@@ -1209,6 +1251,12 @@ export interface SolicitudBajaRespuesta {
   solicitante?: ReferenciaSimple
   fechaSolicitud?: string
   fechaAplicacion?: string
+}
+
+export interface TareaBitacora {
+  nombre?: string
+  estado?: 'PENDIENTE' | 'EN_EJECUCION' | 'FINALIZADA' | 'FALLIDA' | 'NO_INICIADA'
+  duracionSegundos?: number
 }
 
 export interface TareaMopRespuesta {

@@ -1,11 +1,9 @@
 import { ArrowRight } from 'lucide-react'
 import type { NivelAlerta } from '@/api/dominio'
-import type { AnalisisRespuesta, ReporteServidor } from '@/api/types'
-import { FilaAnalisis } from '../FilaAnalisis'
+import type { ReporteServidor } from '@/api/types'
 
 interface ReporteComparativoProps {
   reporte: ReporteServidor[]
-  evaluaciones: AnalisisRespuesta[]
 }
 
 const COLOR_NIVEL: Record<NivelAlerta, string> = {
@@ -20,11 +18,11 @@ function Valor({ texto, nivel }: { texto?: string; nivel?: NivelAlerta }) {
 }
 
 /** Reporte comparativo (RF54): métricas antes y después de intervenir, tareas y errores por servidor */
-export function ReporteComparativo({ reporte, evaluaciones }: ReporteComparativoProps) {
+export function ReporteComparativo({ reporte }: ReporteComparativoProps) {
   return (
     <div className="flex flex-col gap-6">
       {reporte.length === 0 ? (
-        <p className="text-sm text-ink-soft">El reporte aparece cuando la evaluación previa registra métricas.</p>
+        <p className="text-sm text-ink-soft">La comparación aparece cuando la evaluación previa registra métricas.</p>
       ) : (
         reporte.map((r) => (
           <section key={r.idServidor} className="flex flex-col gap-3">
@@ -91,16 +89,6 @@ export function ReporteComparativo({ reporte, evaluaciones }: ReporteComparativo
         ))
       )}
 
-      {evaluaciones.length > 0 && (
-        <section>
-          <h4 className="mb-2 text-sm font-semibold text-ink">Análisis ejecutados ({evaluaciones.length})</h4>
-          <ol className="overflow-hidden rounded-lg border border-line">
-            {evaluaciones.map((a) => (
-              <FilaAnalisis key={a.id} analisis={a} />
-            ))}
-          </ol>
-        </section>
-      )}
     </div>
   )
 }
