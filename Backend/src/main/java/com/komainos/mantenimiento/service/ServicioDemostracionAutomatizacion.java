@@ -21,6 +21,7 @@ import com.komainos.inventario.model.OperadorComparacion;
 import com.komainos.inventario.model.SistemaOperativo;
 import com.komainos.inventario.model.TipoDato;
 import com.komainos.inventario.model.Umbral;
+import com.komainos.inventario.model.VariablesSalud;
 import com.komainos.inventario.model.VersionSistemaOperativo;
 import com.komainos.inventario.repository.MetricaRepositorio;
 import com.komainos.inventario.repository.UmbralRepositorio;
@@ -43,17 +44,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Datos opcionales de demostración (DEC-44), idempotentes: agregan lo que falta y nunca reemplazan una configuración
  * existente. Los scripts son ejemplos funcionales y seguros: el análisis solo lee y la limpieza simula por defecto
- * (SOLO_SIMULAR=true). Sus métricas y límites son provisionales hasta definir las variables de la organización.
+ * (SOLO_SIMULAR=true). El análisis informa las variables de salud del R3.1; los límites que se crean son genéricos y
+ * se ajustan en Umbrales.
  */
 @Service
 @RequiredArgsConstructor
 public class ServicioDemostracionAutomatizacion {
 
-    static final String ANALISIS = "Análisis básico de salud";
+    static final String ANALISIS = "Análisis de salud del servidor";
     static final String LIMPIEZA = "Liberar archivos temporales";
     static final String MEMORIA = "Revisar consumo de memoria";
 
@@ -73,14 +76,12 @@ public class ServicioDemostracionAutomatizacion {
     public Map<String, Integer> cargar(Actor actor) {
         scripts.bloquearCatalogo();
         Map<String, Integer> agregados = new LinkedHashMap<>();
-        Map<String, Integer> idsUmbral = new LinkedHashMap<>();
-        for (String[] m : new String[][]{{"cpu_uso_pct", "Uso de CPU"}, {"memoria_uso_pct", "Uso de memoria"},
-                {"disco_uso_pct", "Uso de disco"}}) {
-            idsUmbral.put(m[0], umbralDemostracion(m[0], m[1], agregados));
-        }
+        Map<String, Metrica> variables = variablesSalud(agregados);
+        Integer umbralCpu = umbral(variables.get("cpu_uso"), "80", "95", agregados);
+        Integer umbralMemoria = umbral(variables.get("mem_uso"), "85", "95", agregados);
+        Integer umbralDisco = umbral(variables.get("disco_uso"), "80", "90", agregados);
 
-        Script analisis = script(ANALISIS, TipoScript.ANALISIS,
-                "Ejemplo de solo lectura: CPU, memoria, disco, SWAP, carga, puertos, servicios y usuarios", actor, agregados);
+        Script analisis = null;
         Script limpieza = script(LIMPIEZA, TipoScript.MANTENIMIENTO,
                 "Ejemplo con parámetros; por defecto solo simula y no elimina archivos", actor, agregados);
         Script memoria = script(MEMORIA, TipoScript.MANTENIMIENTO,
@@ -95,9 +96,14 @@ public class ServicioDemostracionAutomatizacion {
                 if (!version.isActivo()) {
                     continue;
                 }
+                // El script de análisis solo se registra si alguna versión no tiene uno
                 if (catalogo.buscarAnalisis(version.getId()).isEmpty()) {
-                    implementar(analisis, version, windows ? "analisis_windows.ps1" : "analisis_linux.sh", List.of(),
-                            actor, agregados);
+                    if (analisis == null) {
+                        analisis = script(ANALISIS, TipoScript.ANALISIS, "Solo lectura: informa las variables de "
+                                + "salud del R3.1 (recursos, registros del sistema, seguridad y servicios)", actor, agregados);
+                    }
+                    implementar(analisis, version, windows ? "analisis_windows.ps1" : "analisis_linux.sh",
+                            parametrosAnalisis(windows), actor, agregados);
                 }
                 implementar(limpieza, version, windows ? "liberar_temporales_windows.ps1" : "liberar_temporales_linux.sh",
                         List.of(new DatosParametro("RUTA_TEMPORAL", TipoDato.STRING, true, windows ? "C:\\Windows\\Temp" : "/tmp"),
@@ -109,10 +115,9 @@ public class ServicioDemostracionAutomatizacion {
         }
 
         tarea(LIMPIEZA, limpieza, "Libera espacio en la carpeta temporal (simulación por defecto)",
-                NivelAfectacion.PARCIAL, 10, 15, Set.of(idsUmbral.get("disco_uso_pct")), actor, agregados);
+                NivelAfectacion.PARCIAL, 10, 15, Set.of(umbralDisco), actor, agregados);
         tarea(MEMORIA, memoria, "Diagnóstico no destructivo del consumo de memoria",
-                NivelAfectacion.SIN_AFECTACION, 20, 5, Set.of(idsUmbral.get("memoria_uso_pct"), idsUmbral.get("cpu_uso_pct")),
-                actor, agregados);
+                NivelAfectacion.SIN_AFECTACION, 20, 5, Set.of(umbralMemoria, umbralCpu), actor, agregados);
 
         // Sin afectación: automática; parcial: responsable; total: responsable y administrador (RF43, RF44)
         for (Entorno entorno : catalogos.listarEntornos()) {
@@ -133,25 +138,47 @@ public class ServicioDemostracionAutomatizacion {
         return agregados;
     }
 
-    /** Umbral ≥ 80 % advertencia y ≥ 95 % crítico, solo si la métrica no tiene ya uno de demostración */
-    private Integer umbralDemostracion(String codigo, String nombre, Map<String, Integer> agregados) {
-        Metrica metrica = metricas.findAllByOrderByNombreAsc().stream()
-                .filter(m -> m.getCodigo().equals(codigo))
-                .findFirst()
-                .orElseGet(() -> {
-                    agregados.merge("metricas", 1, Integer::sum);
-                    return metricas.save(Metrica.nueva(codigo, nombre, "%", TipoDato.DECIMAL, false));
-                });
-        String nombreUmbral = "Demostración · " + metrica.getNombre();
-        Optional<Umbral> existente = umbrales.findDeMetrica(metrica.getId()).stream()
-                .filter(u -> u.getNombre().equals(nombreUmbral))
-                .findFirst();
-        if (existente.isPresent()) {
-            return existente.get().getId();
+    /** Las variables del R3.1 por clave; registra las que falten en el catálogo de métricas */
+    private Map<String, Metrica> variablesSalud(Map<String, Integer> agregados) {
+        Map<String, Metrica> registradas = metricas.findAllByOrderByNombreAsc().stream()
+                .collect(Collectors.toMap(Metrica::getCodigo, m -> m));
+        Map<String, Metrica> variables = new LinkedHashMap<>();
+        for (VariablesSalud.Variable v : VariablesSalud.TODAS) {
+            Metrica metrica = registradas.get(v.clave());
+            if (metrica == null) {
+                metrica = metricas.save(Metrica.nueva(v.clave(), v.definicion()));
+                agregados.merge("metricas", 1, Integer::sum);
+            }
+            variables.put(v.clave(), metrica);
+        }
+        return variables;
+    }
+
+    /**
+     * El umbral que vincula las tareas de ejemplo: el activo de la métrica si ya hay uno; si no, uno genérico
+     * (≥ advertencia, ≥ crítico) con el nombre de la métrica
+     */
+    private Integer umbral(Metrica metrica, String advertencia, String critico, Map<String, Integer> agregados) {
+        List<Umbral> existentes = umbrales.findDeMetrica(metrica.getId());
+        Optional<Umbral> elegido = existentes.stream().filter(Umbral::isActivo).findFirst()
+                .or(() -> existentes.stream().filter(u -> u.getNombre().equals(metrica.getNombre())).findFirst());
+        if (elegido.isPresent()) {
+            return elegido.get().getId();
         }
         agregados.merge("umbrales", 1, Integer::sum);
-        return umbrales.save(Umbral.numerico(metrica, nombreUmbral, new Umbral.LimitesNumericos(
-                OperadorComparacion.MAYOR_IGUAL, new BigDecimal("80"), new BigDecimal("95")), Tiempo.ahora(reloj))).getId();
+        return umbrales.save(Umbral.numerico(metrica, metrica.getNombre(), new Umbral.LimitesNumericos(
+                OperadorComparacion.MAYOR_IGUAL, new BigDecimal(advertencia), new BigDecimal(critico)),
+                Tiempo.ahora(reloj))).getId();
+    }
+
+    /** Los mismos valores que el script usa si se ejecuta a mano */
+    private static List<DatosParametro> parametrosAnalisis(boolean windows) {
+        DatosParametro muestreo = new DatosParametro("MUESTREO_SEGUNDOS", TipoDato.INTEGER, true, "5");
+        DatosParametro ventana = new DatosParametro("VENTANA_HORAS", TipoDato.INTEGER, true, "24");
+        return windows
+                ? List.of(muestreo, ventana, new DatosParametro("EXCLUIR_PUERTOS_DINAMICOS", TipoDato.BOOLEAN, true, "true"))
+                : List.of(muestreo, ventana, new DatosParametro("ARCHIVOS_CRITICOS", TipoDato.STRING, true,
+                        "/etc/passwd /etc/group /etc/shadow /etc/gshadow /etc/sudoers /etc/ssh/sshd_config /etc/crontab"));
     }
 
     private Script script(String nombre, TipoScript tipo, String descripcion, Actor actor, Map<String, Integer> agregados) {
@@ -188,12 +215,13 @@ public class ServicioDemostracionAutomatizacion {
         agregados.merge("tareas", 1, Integer::sum);
     }
 
+    /** Con saltos de línea de Unix aunque el repositorio se haya clonado con los de Windows */
     private String recurso(String nombre) {
         try (InputStream entrada = getClass().getResourceAsStream("/ansible/scripts/" + nombre)) {
             if (entrada == null) {
                 throw new IllegalStateException("Falta el script de demostración " + nombre);
             }
-            return new String(entrada.readAllBytes(), StandardCharsets.UTF_8);
+            return new String(entrada.readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
         } catch (IOException ex) {
             throw new IllegalStateException("No se pudo leer el script de demostración " + nombre, ex);
         }

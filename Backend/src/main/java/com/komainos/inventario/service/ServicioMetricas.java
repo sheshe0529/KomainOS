@@ -2,6 +2,7 @@ package com.komainos.inventario.service;
 
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
+import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.Metrica;
 import com.komainos.inventario.model.TipoDato;
 import com.komainos.inventario.repository.MetricaRepositorio;
@@ -18,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /** Catálogo de métricas que informan los scripts de análisis (RF16, R2.4) */
 @Service
@@ -44,8 +46,7 @@ public class ServicioMetricas {
         if (metricas.existsByCodigoIgnoreCase(codigo)) {
             throw new ConflictoException("Ya existe una métrica con el código %s".formatted(codigo));
         }
-        Metrica metrica = metricas.save(Metrica.nueva(codigo, datos.nombre().trim(), vacioANulo(datos.unidad()),
-                datos.tipoDato(), datos.esLista()));
+        Metrica metrica = metricas.save(Metrica.nueva(codigo, definicion(datos)));
         auditoria.registrar(actor, Operacion.de("CREAR_METRICA", "metrica", metrica.getId())
                 .valores(null, instantanea(metrica)));
         return metrica;
@@ -70,8 +71,17 @@ public class ServicioMetricas {
                         .formatted(metrica.getNombre()));
             }
         }
+        Set<FamiliaSistemaOperativo> retiradas = Metrica.familias(metrica.getSoAplica());
+        retiradas.removeAll(Metrica.familias(datos.soAplica()));
+        if (!retiradas.isEmpty()) {
+            long excepciones = umbrales.countExcepcionesDeFamilias(id, retiradas);
+            if (excepciones > 0) {
+                throw new ReglaNegocioException(("La métrica %s tiene %d excepción(es) de umbral para un sistema "
+                        + "operativo que deja de medirla: elimínelas antes").formatted(metrica.getNombre(), excepciones));
+            }
+        }
         Map<String, Object> anterior = instantanea(metrica);
-        metrica.actualizar(datos.nombre().trim(), vacioANulo(datos.unidad()), datos.tipoDato(), datos.esLista());
+        metrica.actualizar(definicion(datos));
         auditoria.registrar(actor, Operacion.de("ACTUALIZAR_METRICA", "metrica", id)
                 .valores(anterior, instantanea(metrica)));
         return metrica;
@@ -97,14 +107,26 @@ public class ServicioMetricas {
         v.put("unidad", m.getUnidad());
         v.put("tipoDato", m.getTipoDato().name());
         v.put("esLista", m.isEsLista());
+        v.put("descripcion", m.getDescripcion());
+        v.put("soAplica", m.getSoAplica() == null ? null : m.getSoAplica().name());
         return v;
+    }
+
+    private static Metrica.Definicion definicion(DatosMetrica d) {
+        return new Metrica.Definicion(d.nombre().trim(), vacioANulo(d.descripcion()), vacioANulo(d.unidad()),
+                d.tipoDato(), d.esLista(), d.soAplica());
     }
 
     private static String vacioANulo(String valor) {
         return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
-    /** codigo solo se usa al crear: al actualizar, si llega, debe coincidir con el registrado */
-    public record DatosMetrica(String codigo, String nombre, String unidad, TipoDato tipoDato, boolean esLista) {
+    /**
+     * codigo solo se usa al crear: al actualizar, si llega, debe coincidir con el registrado
+     *
+     * @param soAplica familia en la que la informa el análisis; nula si se mide en Linux y en Windows (R3.1)
+     */
+    public record DatosMetrica(String codigo, String nombre, String descripcion, String unidad, TipoDato tipoDato,
+                               boolean esLista, FamiliaSistemaOperativo soAplica) {
     }
 }

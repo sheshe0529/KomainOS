@@ -152,6 +152,12 @@ public class Umbral {
             throw new ConflictoException("El umbral %s ya tiene una excepción para %s %s"
                     .formatted(nombre, objetivo.alcance().descripcion(), objetivo.nombre()));
         }
+        // Una excepción que nunca se aplicaría confunde: la métrica no se mide en ese sistema operativo (R3.1)
+        if (objetivo.familia() != null && !metrica.aplicaA(objetivo.familia())) {
+            throw new ReglaNegocioException("La métrica %s solo se mide en %s: no admite una excepción para %s %s"
+                    .formatted(metrica.getNombre(), metrica.sistemasOperativos(), objetivo.alcance().descripcion(),
+                            objetivo.nombre()));
+        }
         validarValores(valores, null);
         UmbralExcepcion excepcion = UmbralExcepcion.nueva(this, objetivo, valores, motivo, ahora);
         excepciones.add(excepcion);

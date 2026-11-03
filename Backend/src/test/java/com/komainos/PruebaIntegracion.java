@@ -41,7 +41,10 @@ public abstract class PruebaIntegracion {
     @Autowired
     protected JdbcTemplate jdbc;
 
-    /** Vacía los datos de negocio y conserva los de 02_datos_sistema.sql, para pruebas con transacciones propias */
+    /**
+     * Vacía los datos de negocio y conserva los de 02_datos_sistema.sql, para pruebas con transacciones propias. Las
+     * métricas del R3.1 también se vacían: cada prueba registra las que usa
+     */
     protected void limpiarDatos() {
         jdbc.execute("""
                 TRUNCATE TABLE alerta_destinatario, alerta, auditoria, incidencia, validacion_funcional,

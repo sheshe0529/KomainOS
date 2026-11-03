@@ -7,5 +7,6 @@ public enum OrigenUmbral {
     GRUPO,
     ENTORNO,
     CRITICIDAD,
+    SISTEMA_OPERATIVO,
     GLOBAL
 }

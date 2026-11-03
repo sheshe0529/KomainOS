@@ -44,6 +44,13 @@ describe('Selección y ubicación del menú', () => {
     expect(inicioPara('OPERADOR')).toBe('/dashboard')
     expect(navegacionPara('RESPONSABLE').some((m) => m.id === 'dashboard')).toBe(false)
   })
+  it('Mi cuenta está en el menú de todos los roles y es la pantalla del nombre en la barra superior', () => {
+    for (const rol of ['ADMINISTRADOR', 'OPERADOR', 'RESPONSABLE'] as const) {
+      const hojas = navegacionPara(rol).flatMap((g) => (isNavGroup(g) ? g.children : [g]))
+      expect(hojas.find((h) => h.id === 'mi-cuenta')?.path).toBe('/mi-cuenta')
+    }
+    expect(activas('/mi-cuenta')).toEqual(['mi-cuenta'])
+  })
   it('el responsable no recibe las políticas administrativas', () => {
     const visibles = navegacionPara('RESPONSABLE').flatMap((g) => (isNavGroup(g) ? g.children : [g]))
     expect(visibles.some((h) => h.id === 'politicas')).toBe(false)

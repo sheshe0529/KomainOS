@@ -25,15 +25,15 @@ class ContratoAnalisisTest {
     void ultimaLinea() {
         String salida = """
                 Análisis de SERVDESAUTV01 completado
-                {"metricas":[{"codigo":"cpu_uso_pct","valor":58.5},{"codigo":"disco_uso_pct","instancia":"/","valor":"86"},
+                {"metricas":[{"codigo":"cpu_uso","valor":58.5},{"codigo":"disco_uso","instancia":"/","valor":"86"},
                 {"codigo":"x"}]}
-                {"metricas":[{"codigo":"cpu_uso_pct","valor":58.5},{"codigo":"disco_uso_pct","instancia":"/","valor":"86"},{"codigo":"reinicio_pendiente","valor":true},{"codigo":"puertos","elementos":[22,"443"]}]}
+                {"metricas":[{"codigo":"cpu_uso","valor":58.5},{"codigo":"disco_uso","instancia":"/","valor":"86"},{"codigo":"reinicio_pendiente","valor":true},{"codigo":"puertos","elementos":[22,"443"]}]}
                 """;
 
         List<MedicionInformada> metricas = ContratoAnalisis.leer(salida, json);
 
         assertThat(metricas).extracting(MedicionInformada::codigo)
-                .containsExactly("cpu_uso_pct", "disco_uso_pct", "reinicio_pendiente", "puertos");
+                .containsExactly("cpu_uso", "disco_uso", "reinicio_pendiente", "puertos");
         assertThat(metricas.get(1).valor()).isEqualByComparingTo("86");
         assertThat(metricas.get(1).instancia()).isEqualTo("/");
         assertThat(metricas.get(2).valor()).isEqualByComparingTo(BigDecimal.ONE);

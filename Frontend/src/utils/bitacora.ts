@@ -17,25 +17,25 @@ export const RESULTADO: Record<ResultadoMantenimiento, PresentacionResultado> = 
   EXITOSO: {
     etiqueta: 'Exitoso',
     tono: 'success',
-    color: 'var(--color-success)',
-    descripcion: 'Se ejecutaron las tareas y el ciclo cerró conforme.',
+    color: 'var(--color-grafico-exito)',
+    descripcion: 'Se ejecutaron las tareas y el ciclo cerró sin incidencias.',
   },
   SIN_INTERVENCION: {
     etiqueta: 'Sin intervención',
     tono: 'neutral',
-    color: 'var(--color-detail)',
+    color: 'var(--color-grafico-informativo)',
     descripcion: 'El análisis previo no encontró nada que corregir.',
   },
   CON_INCIDENCIA: {
     etiqueta: 'Con incidencia',
     tono: 'warning',
-    color: 'var(--color-warning)',
+    color: 'var(--color-grafico-advertencia)',
     descripcion: 'Cerró después de atender una incidencia.',
   },
   REQUIERE_ATENCION: {
     etiqueta: 'Requiere atención',
     tono: 'danger',
-    color: 'var(--color-danger)',
+    color: 'var(--color-grafico-error)',
     descripcion: 'Está detenido: incidencia abierta, falta una implementación o venció la validación.',
   },
   EN_CURSO: {
@@ -54,14 +54,14 @@ export const RESULTADO: Record<ResultadoMantenimiento, PresentacionResultado> = 
   NO_AUTORIZADO: {
     etiqueta: 'No autorizado',
     tono: 'neutral',
-    color: 'var(--color-ink-soft)',
+    color: 'var(--color-grafico-neutro)',
     descripcion: 'Se rechazó o venció el plazo de autorización.',
   },
   CANCELADO: {
     etiqueta: 'Cancelado',
     tono: 'neutral',
     color: 'var(--color-line)',
-    descripcion: 'Se canceló antes de ejecutarse.',
+    descripcion: 'Se canceló o se cerró sin ejecutarse, por ejemplo sin una implementación compatible.',
   },
 }
 

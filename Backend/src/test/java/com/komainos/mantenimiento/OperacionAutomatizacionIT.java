@@ -256,13 +256,13 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
         @DisplayName("Revisar una salida informa las métricas reconocidas, las desconocidas y las que faltan")
         void revisarSalida() throws Exception {
             mvc.perform(post("/api/scripts/revisar-salida").with(como(operador)).contentType("application/json")
-                            .content("{\"salida\":\"Inicio\\n{\\\"metricas\\\":[{\\\"codigo\\\":\\\"cpu_uso_pct\\\",\\\"valor\\\":12},"
+                            .content("{\"salida\":\"Inicio\\n{\\\"metricas\\\":[{\\\"codigo\\\":\\\"cpu_uso\\\",\\\"valor\\\":12},"
                                     + "{\\\"codigo\\\":\\\"temperatura\\\",\\\"valor\\\":40}]}\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.valida").value(false))
-                    .andExpect(jsonPath("$.metricas[?(@.codigo == 'cpu_uso_pct')].reconocida").value(true))
+                    .andExpect(jsonPath("$.metricas[?(@.codigo == 'cpu_uso')].reconocida").value(true))
                     .andExpect(jsonPath("$.metricas[?(@.codigo == 'temperatura')].reconocida").value(false))
-                    .andExpect(jsonPath("$.faltantes").value(Matchers.containsInAnyOrder("memoria_uso_pct", "disco_uso_pct")));
+                    .andExpect(jsonPath("$.faltantes").value(Matchers.containsInAnyOrder("mem_uso", "disco_uso")));
         }
 
         @Test
@@ -413,7 +413,17 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
                     .andExpect(jsonPath("$.recursos[-1].servidores").value(2))
                     .andExpect(jsonPath("$.recursos[-1].cpu").isNumber())
                     .andExpect(jsonPath("$.ejecuciones[-1].exito").value(2))
-                    .andExpect(jsonPath("$.ejecuciones[-1].error").value(1));
+                    .andExpect(jsonPath("$.ejecuciones[-1].error").value(1))
+                    // Periodo de los indicadores: órdenes creadas por estado actual e incidencias por origen
+                    .andExpect(jsonPath("$.ordenesPorEstado[?(@.clave == 'PENDIENTE_VALIDACION')].cantidad").value(1))
+                    .andExpect(jsonPath("$.ordenesPorEstado[?(@.clave == 'INCIDENCIA')].cantidad").value(1))
+                    .andExpect(jsonPath("$.incidenciasPorOrigen[0].origen").value("FALLO_EJECUCION"))
+                    .andExpect(jsonPath("$.incidenciasPorOrigen[0].abiertas").value(1))
+                    .andExpect(jsonPath("$.mantenimientosPorMes.length()").value(6))
+                    .andExpect(jsonPath("$.saludServidores.sinAnalisis").value(0));
+            mvc.perform(get("/api/automatizacion/graficos").param("desde", AHORA.toString())
+                            .param("hasta", AHORA.toString()).with(como(admin)))
+                    .andExpect(status().isUnprocessableEntity());
         }
     }
 

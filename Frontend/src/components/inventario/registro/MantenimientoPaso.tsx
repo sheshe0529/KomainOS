@@ -5,6 +5,7 @@ import { DIAS_SEMANA, type DiaSemana } from '@/api/dominio'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Campo, Entrada, Selector } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
+import { SelectorHora } from '@/components/ui/SelectorHora'
 import { useConsulta } from '@/hooks/useConsulta'
 import { ETIQUETA_DIA } from '@/utils/etiquetas'
 import { VistaSemanalVentanas } from '../VistaSemanalVentanas'
@@ -60,8 +61,8 @@ export function MantenimientoPaso({ servidores, onCambiar }: Props) {
         <legend className="mb-2 text-sm font-semibold">Ventana permisiva</legend>
         <p className="text-xs text-ink-soft">Defina cuándo se permite el mantenimiento. Para cruzar medianoche, elija el día siguiente como día de fin.</p>
         {ventanas.map((v, i) => <div key={i} className="grid gap-2 rounded-lg border border-line p-3 sm:grid-cols-[1fr_1fr_auto]">
-          <div className="grid grid-cols-2 gap-2"><Campo etiqueta="Día de inicio"><Selector value={v.diaInicio} onChange={(e) => cambiarVentana(i, { diaInicio: e.target.value as DiaSemana })}>{DIAS_SEMANA.map((d) => <option key={d} value={d}>{ETIQUETA_DIA[d]}</option>)}</Selector></Campo><Campo etiqueta="Hora de inicio"><Entrada type="time" value={v.horaInicio} onChange={(e) => cambiarVentana(i, { horaInicio: e.target.value })} /></Campo></div>
-          <div className="grid grid-cols-2 gap-2"><Campo etiqueta="Día de fin"><Selector value={v.diaFin} onChange={(e) => cambiarVentana(i, { diaFin: e.target.value as DiaSemana })}>{DIAS_SEMANA.map((d) => <option key={d} value={d}>{ETIQUETA_DIA[d]}</option>)}</Selector></Campo><Campo etiqueta="Hora de fin"><Entrada type="time" value={v.horaFin} onChange={(e) => cambiarVentana(i, { horaFin: e.target.value })} /></Campo></div>
+          <div className="grid grid-cols-2 gap-2"><Campo etiqueta="Día de inicio"><Selector value={v.diaInicio} onChange={(e) => cambiarVentana(i, { diaInicio: e.target.value as DiaSemana })}>{DIAS_SEMANA.map((d) => <option key={d} value={d}>{ETIQUETA_DIA[d]}</option>)}</Selector></Campo><Campo etiqueta="Hora de inicio"><SelectorHora aria-label="Hora de inicio" value={v.horaInicio} onChange={(valor) => cambiarVentana(i, { horaInicio: valor })} /></Campo></div>
+          <div className="grid grid-cols-2 gap-2"><Campo etiqueta="Día de fin"><Selector value={v.diaFin} onChange={(e) => cambiarVentana(i, { diaFin: e.target.value as DiaSemana })}>{DIAS_SEMANA.map((d) => <option key={d} value={d}>{ETIQUETA_DIA[d]}</option>)}</Selector></Campo><Campo etiqueta="Hora de fin"><SelectorHora aria-label="Hora de fin" value={v.horaFin} onChange={(valor) => cambiarVentana(i, { horaFin: valor })} /></Campo></div>
           <BotonIcono className="self-end" icono={Trash2} etiqueta={`Quitar intervalo ${i + 1}`} onClick={() => cambiar({ configuracion: c, ventanas: ventanas.filter((_, j) => j !== i) })} />
         </div>)}
         <Boton className="self-start" icono={Plus} disabled={ventanas.length >= 50} onClick={() => cambiar({ configuracion: c, ventanas: [...ventanas, { diaInicio: 'SABADO', horaInicio: '01:00', diaFin: 'SABADO', horaFin: '05:00' }] })}>Agregar intervalo</Boton>

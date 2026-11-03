@@ -40,7 +40,7 @@ class UmbralTest {
     @DisplayName("numérico")
     class Numerico {
 
-        private final Metrica disco = DatosPrueba.metrica("disco_uso_pct", TipoDato.DECIMAL, false);
+        private final Metrica disco = DatosPrueba.metrica("disco_uso", TipoDato.DECIMAL, false);
 
         @Test
         @DisplayName("CP045: con mayor o igual el crítico es el mayor; con menor o igual, el menor")
@@ -104,7 +104,7 @@ class UmbralTest {
     @DisplayName("de lista")
     class DeLista {
 
-        private final Metrica puertos = DatosPrueba.metrica("puertos_escucha", TipoDato.INTEGER, true);
+        private final Metrica puertos = DatosPrueba.metrica("red_puerto_no_aut", TipoDato.INTEGER, true);
         private final ListaReferencia web = lista("Puertos web", TipoDato.INTEGER, "22", "80", "443");
 
         @Test
@@ -151,7 +151,7 @@ class UmbralTest {
     @DisplayName("excepciones")
     class Excepciones {
 
-        private final Metrica cpu = DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false);
+        private final Metrica cpu = DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false);
         private final Entorno produccion = DatosPrueba.entorno(1, "Producción");
 
         @Test
@@ -187,7 +187,7 @@ class UmbralTest {
         @Test
         @DisplayName("en un umbral de lista la excepción cambia solo la lista, del mismo tipo")
         void deLista() {
-            Metrica usuarios = DatosPrueba.metrica("usuarios_locales", TipoDato.STRING, true);
+            Metrica usuarios = DatosPrueba.metrica("admin_no_aut", TipoDato.STRING, true);
             Umbral umbral = Umbral.deLista(usuarios, "Usuarios autorizados",
                     new CriterioLista(lista("Base", TipoDato.STRING, "root"), null, NivelAlerta.CRITICO), AHORA);
 
@@ -209,7 +209,7 @@ class UmbralTest {
     @DisplayName("ingreso de datos: cada nivel debe poder informarse")
     class Ingreso {
 
-        private final Metrica cpu = DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false);
+        private final Metrica cpu = DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false);
         private final Metrica servicioActivo = DatosPrueba.metrica("servicio_activo", TipoDato.BOOLEAN, false);
 
         @Test

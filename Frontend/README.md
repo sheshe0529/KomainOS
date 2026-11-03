@@ -2,8 +2,10 @@
 
 Panel web de KomainOS. React 19, Vite, TypeScript y Tailwind CSS 4.
 
-El menú sigue este orden: **Dashboard** (indicadores de gestión y gráficos en el
-tiempo; el responsable entra directamente al cronograma), **Cronograma**,
+El menú sigue este orden: **Dashboard** (indicadores de gestión del periodo y
+gráficos: mantenimientos por resultado, órdenes por estado, salud de los
+servidores, incidencias por origen, ejecuciones y recursos; el responsable entra
+directamente al cronograma), **Cronograma**,
 **Inventario**, **Automatización**, **Órdenes**, **Catálogos y umbrales**, **Mis
 alertas** y **Configuración**.
 
@@ -25,7 +27,10 @@ están en [la guía del componente](../Backend/AUTOMATIZACION.md).
 Convenciones de las pantallas: las de detalle tienen la flecha de regreso sobre
 el título y las acciones a la derecha; toda tabla pagina con 25, 50 o 100 filas
 (25 por defecto, la elección se recuerda por tabla en el navegador) y, si la fila
-abre un detalle, se abre al hacer clic en cualquier parte de ella.
+abre un detalle, se abre al hacer clic en cualquier parte de ella. Los
+desplegables, las fechas (`SelectorFecha`) y las horas (`SelectorHora`) usan el
+mismo componente con tema propio en lugar de los controles nativos. «Mi cuenta»
+está en Configuración y es la pantalla que abre el nombre en la barra superior.
 
 ## Uso
 

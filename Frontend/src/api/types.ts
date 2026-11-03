@@ -34,9 +34,11 @@ export interface ActualizarExcepcionUmbralPeticion {
 
 export interface ActualizarMetricaPeticion {
   nombre: string
+  descripcion?: string
   unidad?: string
   tipoDato: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
   esLista?: boolean
+  soAplica?: 'LINUX' | 'WINDOWS'
 }
 
 export interface ActualizarUsuarioPeticion {
@@ -189,6 +191,11 @@ export interface ConfiguracionRespuesta {
   cuentaServicio?: ReferenciaSimple
   fechaCreacion?: string
   fechaActualizacion?: string
+}
+
+export interface Conteo {
+  clave?: string
+  cantidad?: number
 }
 
 export interface CrearUsuarioPeticion {
@@ -384,13 +391,13 @@ export interface EstadoVersionPeticion {
 
 export interface ExcepcionAplicadaRespuesta {
   id?: number
-  alcance?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD'
+  alcance?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'SISTEMA_OPERATIVO'
   objetivo?: ReferenciaSimple
   motivo?: string
 }
 
 export interface ExcepcionUmbralPeticion {
-  alcance: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD'
+  alcance: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'SISTEMA_OPERATIVO'
   idObjetivo: number
   valorAdvertencia?: number
   valorCritico?: number
@@ -400,7 +407,7 @@ export interface ExcepcionUmbralPeticion {
 
 export interface ExcepcionUmbralRespuesta {
   id?: number
-  alcance?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD'
+  alcance?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'SISTEMA_OPERATIVO'
   objetivo?: ReferenciaSimple
   valorAdvertencia?: number
   valorCritico?: number
@@ -571,6 +578,12 @@ export interface IncidenciaRespuesta {
   fechaCierre?: string
 }
 
+export interface IncidenciasOrigen {
+  origen?: string
+  abiertas?: number
+  cerradas?: number
+}
+
 export interface IndicadorKpi {
   codigo?: string
   nombre?: string
@@ -672,18 +685,22 @@ export interface MedicionRespuesta {
 export interface MetricaPeticion {
   codigo: string
   nombre: string
+  descripcion?: string
   unidad?: string
   tipoDato: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
   esLista?: boolean
+  soAplica?: 'LINUX' | 'WINDOWS'
 }
 
 export interface MetricaRespuesta {
   id?: number
   codigo?: string
   nombre?: string
+  descripcion?: string
   unidad?: string
   tipoDato?: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
   esLista?: boolean
+  soAplica?: 'LINUX' | 'WINDOWS'
   activo?: boolean
 }
 
@@ -1001,7 +1018,7 @@ export interface PruebaAnalisisRespuesta {
 
 export interface PruebaUmbralRespuesta {
   nivel?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
-  origen?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'GLOBAL'
+  origen?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'SISTEMA_OPERATIVO' | 'GLOBAL'
   excepcion?: ExcepcionAplicadaRespuesta
   aplicado?: ValoresUmbralRespuesta
   valor?: number
@@ -1072,10 +1089,24 @@ export interface ResultadoImportacionRespuesta {
   filas?: FilaImportacionRespuesta[]
 }
 
+export interface ResultadoMes {
+  mes?: string
+  exitosos?: number
+  sinIntervencion?: number
+  conIncidencia?: number
+  noRealizados?: number
+}
+
 export interface ResumenGraficos {
   fechaActualizacion?: string
+  desde?: string
+  hasta?: string
   recursos?: RecursoHora[]
   ejecuciones?: EjecucionDia[]
+  mantenimientosPorMes?: ResultadoMes[]
+  ordenesPorEstado?: Conteo[]
+  incidenciasPorOrigen?: IncidenciasOrigen[]
+  saludServidores?: SaludServidores
 }
 
 export interface ResumenPlanificacionRespuesta {
@@ -1095,6 +1126,7 @@ export interface ResumenProcesoRespuesta {
 
 export interface RevisarSalidaPeticion {
   salida: string
+  familia?: 'LINUX' | 'WINDOWS'
 }
 
 export interface RevisionSalidaRespuesta {
@@ -1116,6 +1148,13 @@ export interface RondaAutorizacion {
   afectacion?: 'SIN_AFECTACION' | 'PARCIAL' | 'TOTAL'
   automatica?: boolean
   decisiones?: DecisionAutorizacion[]
+}
+
+export interface SaludServidores {
+  normal?: number
+  advertencia?: number
+  critico?: number
+  sinAnalisis?: number
 }
 
 export interface ScriptPeticion {
@@ -1381,7 +1420,7 @@ export interface UmbralRespuesta {
 export interface UmbralServidorRespuesta {
   umbral?: ReferenciaSimple
   metrica?: MetricaRespuesta
-  origen?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'GLOBAL'
+  origen?: 'SERVIDOR' | 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'SISTEMA_OPERATIVO' | 'GLOBAL'
   excepcion?: ExcepcionAplicadaRespuesta
   aplicado?: ValoresUmbralRespuesta
   global?: ValoresUmbralRespuesta

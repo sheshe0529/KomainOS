@@ -1,5 +1,8 @@
 import type { FamiliaSistemaOperativo, TipoScript } from '@/api/dominio'
 import type { ParametroPeticion } from '@/api/types'
+// Copias de Backend/src/main/resources/ansible/scripts, los mismos que carga la demostración: al cambiar uno, cambie el otro
+import analisisLinux from './plantillas/analisis_linux.sh?raw'
+import analisisWindows from './plantillas/analisis_windows.ps1?raw'
 
 export interface Plantilla {
   titulo: string
@@ -8,62 +11,39 @@ export interface Plantilla {
   parametros: ParametroPeticion[]
 }
 
+const ARCHIVOS_CRITICOS = '/etc/passwd /etc/group /etc/shadow /etc/gshadow /etc/sudoers /etc/ssh/sshd_config /etc/crontab'
+
+/** El editor trabaja con saltos de línea de Unix aunque el archivo se haya clonado con los de Windows */
+const sinRetornos = (texto: string) => texto.replace(/\r\n/g, '\n')
+
 /**
  * Puntos de partida que ya cumplen los contratos de KomainOS: los análisis imprimen el JSON de métricas en la última
- * línea y los mantenimientos terminan con código distinto de cero cuando algo falla. Los códigos de métrica son
- * genéricos y deben coincidir con los del catálogo de métricas
+ * línea y los mantenimientos terminan con código distinto de cero cuando algo falla. Los análisis informan las variables
+ * de salud del R3.1 con los códigos del catálogo de métricas
  */
 const PLANTILLAS: Record<TipoScript, Record<FamiliaSistemaOperativo, Plantilla>> = {
   ANALISIS: {
     LINUX: {
-      titulo: 'Análisis de salud (Bash)',
-      descripcion: 'CPU, memoria y disco raíz en porcentaje, más los puertos en escucha como lista.',
-      parametros: [],
-      contenido: `#!/usr/bin/env bash
-# Análisis de salud: solo lee, no modifica el servidor.
-# Contrato: la última línea de la salida es el JSON {"metricas": [...]}.
-set -eu
-
-# vmstat mide durante un segundo; la columna 15 es el tiempo ocioso
-cpu=$(vmstat 1 2 | awk 'END { printf "%.2f", 100 - $15 }')
-memoria=$(awk '/^MemTotal:/ { t = $2 } /^MemAvailable:/ { d = $2 } END { printf "%.2f", (1 - d / t) * 100 }' /proc/meminfo)
-disco=$(df -P / | awk 'NR == 2 { sub("%", "", $5); print $5 }')
-puertos=$(ss -H -lnt | awk '{ n = split($4, p, ":"); print "\\"" p[n] "\\"" }' | sort -u | paste -sd, -)
-
-echo "Análisis de $(hostname) completado"
-printf '{"metricas":['
-printf '{"codigo":"cpu_uso_pct","valor":%s},' "$cpu"
-printf '{"codigo":"memoria_uso_pct","valor":%s},' "$memoria"
-printf '{"codigo":"disco_uso_pct","instancia":"/","valor":%s},' "$disco"
-printf '{"codigo":"puertos_escucha","elementos":[%s]}' "$puertos"
-printf ']}\\n'
-`,
+      titulo: 'Análisis de salud del R3.1 (Bash)',
+      descripcion:
+        'Las 21 variables de salud: CPU, memoria, intercambio, discos, red, registros del sistema, seguridad y servicios. Solo lee.',
+      parametros: [
+        { nombre: 'MUESTREO_SEGUNDOS', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '5' },
+        { nombre: 'VENTANA_HORAS', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '24' },
+        { nombre: 'ARCHIVOS_CRITICOS', tipo: 'STRING', obligatorio: true, valorPorDefecto: ARCHIVOS_CRITICOS },
+      ],
+      contenido: sinRetornos(analisisLinux),
     },
     WINDOWS: {
-      titulo: 'Análisis de salud (PowerShell)',
-      descripcion: 'CPU, memoria y disco C: en porcentaje, más los puertos TCP en escucha como lista.',
-      parametros: [],
-      contenido: `# Análisis de salud: solo lee, no modifica el servidor.
-# Contrato: la última línea de la salida es el JSON {"metricas": [...]}.
-$ErrorActionPreference = 'Stop'
-
-$so = Get-CimInstance Win32_OperatingSystem
-$cpu = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
-$memoria = 100 * (1 - $so.FreePhysicalMemory / $so.TotalVisibleMemorySize)
-$unidad = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
-$disco = 100 * (1 - $unidad.FreeSpace / $unidad.Size)
-$puertos = @(Get-NetTCPConnection -State Listen | Select-Object -ExpandProperty LocalPort -Unique | Sort-Object | ForEach-Object { "$_" })
-
-Write-Output "Análisis de $env:COMPUTERNAME completado"
-@{
-    metricas = @(
-        @{ codigo = 'cpu_uso_pct'; valor = [math]::Round($cpu, 2) }
-        @{ codigo = 'memoria_uso_pct'; valor = [math]::Round($memoria, 2) }
-        @{ codigo = 'disco_uso_pct'; instancia = 'C:'; valor = [math]::Round($disco, 2) }
-        @{ codigo = 'puertos_escucha'; elementos = $puertos }
-    )
-} | ConvertTo-Json -Depth 4 -Compress
-`,
+      titulo: 'Análisis de salud del R3.1 (PowerShell)',
+      descripcion:
+        'Las 17 variables de salud que se miden en Windows, con clases CIM que no dependen del idioma. Solo lee.',
+      parametros: [
+        { nombre: 'MUESTREO_SEGUNDOS', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '5' },
+        { nombre: 'VENTANA_HORAS', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '24' },
+        { nombre: 'EXCLUIR_PUERTOS_DINAMICOS', tipo: 'BOOLEAN', obligatorio: true, valorPorDefecto: 'true' },
+      ],
+      contenido: sinRetornos(analisisWindows),
     },
   },
   MANTENIMIENTO: {
@@ -135,4 +115,4 @@ export function plantilla(tipo: TipoScript, familia: FamiliaSistemaOperativo): P
 
 /** Ejemplo del contrato de salida que muestra la ayuda del editor y el revisor de salidas */
 export const EJEMPLO_SALIDA = `Texto libre del script: se conserva como salida.
-{"metricas":[{"codigo":"cpu_uso_pct","valor":42.5},{"codigo":"disco_uso_pct","instancia":"/","valor":71},{"codigo":"puertos_escucha","elementos":["22","443"]}]}`
+{"metricas":[{"codigo":"cpu_uso","valor":42.5},{"codigo":"disco_uso","instancia":"/","valor":71},{"codigo":"firewall_inactivo","valor":0},{"codigo":"red_puerto_no_aut","elementos":["22","443"]}]}`

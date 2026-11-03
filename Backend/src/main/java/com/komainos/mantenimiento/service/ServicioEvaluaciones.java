@@ -152,7 +152,7 @@ public class ServicioEvaluaciones {
         return e;
     }
 
-    /** Valores esperados de cada métrica según los umbrales del servidor; los usa el modo simulado */
+    /** Valores esperados de cada métrica que se mide en el servidor, según sus umbrales; los usa el modo simulado */
     @Transactional(readOnly = true)
     public List<MetricaReferencia> referencia(ContextoEvaluacion contexto) {
         return ValoresReferencia.calcular(metricas.findAllByOrderByNombreAsc(), umbrales.findAplicables(), contexto);
@@ -187,8 +187,9 @@ public class ServicioEvaluaciones {
         Map<String, Metrica> catalogoMetricas = metricas.findAllByOrderByNombreAsc().stream()
                 .filter(Metrica::isActivo)
                 .collect(Collectors.toMap(Metrica::getCodigo, Function.identity(), (a, b) -> a));
-        List<Umbral> vigentes = umbrales.findAplicables();
         ContextoEvaluacion contexto = contexto(e.getServidor(), e.getDetalle());
+        // R3.1: una métrica que no se mide en este sistema operativo ni se exige ni se evalúa
+        List<Umbral> vigentes = umbrales.findAplicables().stream().filter(u -> contexto.mide(u.getMetrica())).toList();
         Set<String> recibidas = new LinkedHashSet<>();
 
         for (MedicionInformada dato : informadas) {

@@ -37,11 +37,11 @@ El perfil `test` usa siempre el simulador y desactiva el proceso automático.
 
 ## Simulación genérica
 
-Como las métricas y los umbrales definitivos (R3.1–R3.3) aún no están cerrados, el
-simulador no tiene valores fijos: para cada métrica que exige un umbral activo del
-servidor calcula un valor normal, de advertencia o crítico según los límites que
-rigen a ese servidor (con sus excepciones). Así cualquier catálogo de métricas
-funciona sin tocar código.
+Como los límites definitivos (R3.2–R3.3) aún no están cerrados, el simulador no
+tiene valores fijos: para cada métrica que exige un umbral activo del servidor y
+que se mide en su sistema operativo calcula un valor normal, de advertencia o
+crítico según los límites que rigen a ese servidor (con sus excepciones). Así
+cualquier catálogo de métricas y umbrales funciona sin tocar código.
 
 | Escenario | Revisión periódica | Evaluación previa | Tareas | Validación técnica |
 |---|---|---|---|---|
@@ -65,12 +65,100 @@ komainos:
 
 o al arrancar: `--komainos.automatizacion.escenarios.SERVPRODBDDV02=FALLO_TAREA`.
 
+## Variables de salud (R3.1)
+
+El catálogo de métricas son las 21 variables del documento R3.1
+(`Documentos/R3_1_Lista_de_variables_corregido`). Se cargan con
+`02_datos_sistema.sql` y están en `VariablesSalud.java`; el código es la clave
+técnica que informa el script de análisis. Cada métrica indica en qué sistemas
+operativos se mide: en los demás no se exige, no se evalúa ni admite excepciones.
+
+| Código | Variable | Unidad | Activación | Se mide en |
+|---|---|---|---|---|
+| `cpu_uso` | Uso de CPU | % | Umbral | Linux y Windows |
+| `cpu_load` | Carga de CPU (load) | tareas por CPU lógica | Umbral | Linux |
+| `cpu_iowait` | CPU en espera de E/S (iowait) | % | Umbral | Linux |
+| `disco_iops` | Operaciones de E/S por segundo (por disco) | op/s | Umbral | Linux y Windows |
+| `mem_uso` | Uso de memoria | % | Umbral | Linux y Windows |
+| `swap_uso` | Uso de espacio de intercambio | % | Umbral | Linux y Windows |
+| `swap_act` | Actividad de intercambio | KiB/s | Umbral | Linux y Windows |
+| `disco_uso` | Uso de disco (por volumen) | % | Umbral | Linux y Windows |
+| `disco_latencia` | Latencia de E/S de disco (por disco) | ms | Umbral | Linux y Windows |
+| `disco_errores` | Errores de E/S de disco | errores | Umbral | Linux y Windows |
+| `red_error_rx` | Porcentaje de errores de recepción de red (por interfaz) | % | Umbral | Linux y Windows |
+| `aut_fallidas` | Autenticaciones fallidas | intentos | Umbral | Linux y Windows |
+| `admin_acceso` | Acceso directo del administrador | binaria | Umbral (= 1) | Linux y Windows |
+| `admin_no_aut` | Cuentas administradoras no autorizadas | — | Lista (sobrantes) | Linux y Windows |
+| `arch_crit_permisos` | Archivos críticos con permisos inseguros | — | Lista (faltantes) | Linux |
+| `red_puerto_no_aut` | Puertos TCP no autorizados en escucha | — | Lista (sobrantes) | Linux y Windows |
+| `firewall_inactivo` | Firewall del sistema inactivo | binaria | Umbral (= 1) | Linux y Windows |
+| `mac_no_estricto` | Control de acceso obligatorio no estricto | binaria | Umbral (= 1) | Linux |
+| `uptime_dias` | Tiempo de actividad (uptime) | días | Umbral | Linux y Windows |
+| `serv_no_operativo` | Servicios requeridos no operativos | — | Lista (faltantes) | Linux y Windows |
+| `mem_agotamiento` | Eventos de agotamiento de memoria | eventos | Umbral | Linux y Windows |
+
+- **Binarias.** Valen 1 cuando se incumple la configuración esperada; su umbral
+  usa `=` o `≠` con un solo nivel (advertencia o crítico).
+- **Listas.** El script informa lo que encuentra y el sistema lo contrasta con la
+  lista de referencia del umbral: las cuentas administradoras y los puertos que
+  **sobran** son los no autorizados; los servicios requeridos que **faltan** son
+  los no operativos. En `arch_crit_permisos` el script informa cada archivo como
+  `ruta:modo` (permiso octal, por ejemplo `/etc/shadow:640`) y la lista tiene el
+  par que exige la política: el que falta es el archivo que la incumple.
+- **Por sistema operativo.** Los nombres de servicios, cuentas y permisos cambian
+  entre distribuciones (`ssh`/`sshd`, `cron`/`crond`, `/etc/shadow` 640 en Ubuntu y
+  000 en RHEL). Por eso las excepciones de umbral tienen un quinto alcance,
+  **Sistema operativo**, de menor prioridad que la criticidad: servidor > grupo >
+  entorno > criticidad > sistema operativo > global.
+- **Umbrales iniciales.** `04_umbrales_variables.sql` deja un umbral global por
+  variable (numérico, binario o de lista), las listas de referencia de base y las
+  excepciones por sistema operativo de Windows Server y la familia de RHEL; no
+  modifica lo existente y se vuelve a ejecutar al registrar un sistema operativo.
+  `05_datos_prueba_umbrales.sql` agrega ejemplos sobre los servidores de prueba.
+- **Límites.** Los del `04` y los que crea la demostración son genéricos (por ejemplo, CPU ≥ 80/90 %, carga > 1/2 tareas por
+  CPU, uptime ≥ 90/180 días) y se ajustan en **Umbrales**.
+
+Cómo las obtienen los scripts de `src/main/resources/ansible/scripts/`:
+
+| Variable | Linux (`analisis_linux.sh`) | Windows (`analisis_windows.ps1`) |
+|---|---|---|
+| CPU, iowait | `/proc/stat` en dos lecturas | `Win32_PerfRawData_PerfOS_Processor` en dos lecturas |
+| Carga | `/proc/loadavg` (5 min) entre `nproc` | — |
+| IOPS y latencia | `/proc/diskstats` por disco (sin `dm-*`, `loop`, `md`) | `Win32_PerfRawData_PerfDisk_PhysicalDisk` |
+| Memoria | `MemAvailable` de `/proc/meminfo` | `AvailableBytes` de `PerfOS_Memory` |
+| Intercambio | `SwapTotal`/`SwapFree`; `pswpin`+`pswpout` de `/proc/vmstat` | `Win32_PageFileUsage`; `PagesPersec` × tamaño de página |
+| Disco | `df` por punto de montaje (sin sistemas en memoria) | `Win32_LogicalDisk` locales |
+| Errores de disco | registro del núcleo (`journalctl -k`) | eventos `disk` y `Ntfs` del registro System |
+| Red | `/sys/class/net/*/statistics` por interfaz | `Get-NetAdapterStatistics` |
+| Autenticaciones | registros auth y authpriv (sshd y PAM) | evento 4625 del registro Security |
+| Administrador | `PermitRootLogin` (`sshd -T`) o contraseña de root utilizable | cuenta integrada (RID 500) habilitada |
+| Cuentas administradoras | uid 0 y miembros de sudo, wheel o admin con shell | miembros del grupo S-1-5-32-544 |
+| Puertos | `ss -lnt` sin la interfaz de bucle local | `Get-NetTCPConnection -State Listen` |
+| Firewall | firewalld, ufw, nftables o iptables | servicio MpsSvc y perfiles efectivos |
+| MAC | SELinux en Enforcing o AppArmor con perfiles en enforce | — |
+| Servicios | `systemctl` en ejecución | `Get-Service` en ejecución |
+| Agotamiento de memoria | `Killed process` del OOM killer | evento 2004 del Resource-Exhaustion-Detector |
+
+Parámetros del análisis: `MUESTREO_SEGUNDOS` (5), `VENTANA_HORAS` (24) y, en Linux,
+`ARCHIVOS_CRITICOS`; en Windows, `EXCLUIR_PUERTOS_DINAMICOS` (`true`: no informa el
+rango dinámico que Windows asigna a RPC). Requieren privilegios de administrador.
+
+Una base creada antes de este cambio se actualiza con
+`scripts/bd/cambios/2026-11-02_variables_salud_r31.sql` (respaldo previo con
+`pg_dump`): agrega las columnas y deja solo las 21 variables. Los umbrales de una
+métrica anterior equivalente (`cpu_uso_pct` → `cpu_uso`, `puertos_escucha` →
+`red_puerto_no_aut`…) pasan a la variable con sus excepciones y tareas; las
+mediciones anteriores y las métricas sin equivalente se eliminan. Después hay que
+reiniciar el backend y, para el modo real, publicar una versión del análisis que
+informe los códigos nuevos (la plantilla del editor ya lo hace).
+
 ## Recorrido de prueba desde el panel
 
 1. **Sala de operaciones → Cargar demostración** (el panel lo ofrece en modo simulado): agrega
-   métricas, umbrales, tres scripts con implementaciones para los sistemas
-   operativos activos, dos tareas y las reglas de política que falten. Es
-   idempotente y no modifica lo existente.
+   las variables del R3.1 que falten, umbrales genéricos de CPU, memoria y disco
+   si esas métricas no tienen uno activo, tres scripts con implementaciones para
+   los sistemas operativos activos, dos tareas y las reglas de política que
+   falten. Es idempotente y no modifica lo existente.
 2. En la ficha del servidor, **Preparación para el ciclo automático** dice qué le
    falta: estado, cuenta de servicio, análisis compatible, política, ventana,
    umbrales, tareas y transporte. **Probar acceso** comprueba conexión,
@@ -137,20 +225,23 @@ reglas:
   catálogo; el texto anterior se conserva como salida:
 
   ```json
-  {"metricas":[{"codigo":"cpu_uso_pct","valor":42.5},
-   {"codigo":"disco_uso_pct","instancia":"/","valor":71},
-   {"codigo":"puertos_escucha","elementos":["22","443"]}]}
+  {"metricas":[{"codigo":"cpu_uso","valor":42.5},
+   {"codigo":"disco_uso","instancia":"/","valor":71},
+   {"codigo":"firewall_inactivo","valor":0},
+   {"codigo":"red_puerto_no_aut","elementos":["22","443"]}]}
   ```
 
-  `valor` para métricas numéricas, `elementos` para las de lista e `instancia`
-  opcional (disco, interfaz). Código e instancia no se repiten. Si falta una
-  métrica que exige un umbral activo, el análisis falla. La pestaña **Probar una
+  `valor` para métricas numéricas y binarias, `elementos` para las de lista e
+  `instancia` opcional (disco, volumen, interfaz). Código e instancia no se
+  repiten. Si falta una métrica que exige un umbral activo y se mide en el
+  sistema operativo del servidor, el análisis falla. La pestaña **Probar una
   salida** del editor revisa un texto pegado y **Probar en un servidor** ejecuta
   una versión publicada sin registrar una evaluación.
 
 Los ejemplos de `src/main/resources/ansible/scripts/` (análisis, liberar
-temporales, revisar memoria) son de diagnóstico y no destructivos; sus métricas y
-límites son provisionales.
+temporales, revisar memoria) son de diagnóstico y no destructivos. El análisis
+informa las variables del R3.1 (21 en Linux, 17 en Windows); el editor ofrece el
+mismo código como plantilla (copia en `Frontend/src/utils/plantillas/`).
 
 ## Habilitar Ansible real
 

@@ -50,7 +50,10 @@ public class ServicioUmbralesServidor {
     public List<UmbralDelServidor> aplicables(Integer idServidor, AlcanceUsuario alcance) {
         Servidor servidor = servidores.obtener(idServidor, alcance);
         List<GrupoMantenimiento> gruposDelServidor = grupos.findDelServidor(idServidor);
-        List<Umbral> vigentes = umbrales.findAplicables();
+        // Solo los de métricas que se miden en el sistema operativo del servidor (R3.1)
+        List<Umbral> vigentes = umbrales.findAplicables().stream()
+                .filter(u -> u.getMetrica().aplicaA(servidor.familia()))
+                .toList();
         vigentes.forEach(ServicioUmbralesServidor::cargar);
         List<UmbralDelServidor> resultado = vigentes.stream()
                 .map(u -> new UmbralDelServidor(UmbralAplicado.resolver(u, ContextoEvaluacion.individual(servidor)),

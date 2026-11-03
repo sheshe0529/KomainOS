@@ -1,5 +1,5 @@
 import { consulta, descargar, http, todasLasPaginas } from './cliente'
-import type { Pagina } from './dominio'
+import type { FamiliaSistemaOperativo, Pagina } from './dominio'
 import type {
   AlertaRespuesta,
   AnalisisRespuesta,
@@ -65,7 +65,9 @@ export const scriptsApi = {
   vistaPrevia: (datos: VistaPreviaPeticion) => http.post<ScriptPreparadoRespuesta>('/scripts/vista-previa', datos),
   vistaPreviaVersion: (idVersion: number) =>
     http.get<ScriptPreparadoRespuesta>(`/scripts/versiones/${idVersion}/vista-previa`),
-  revisarSalida: (salida: string) => http.post<RevisionSalidaRespuesta>('/scripts/revisar-salida', { salida }),
+  /** Con la familia, solo se exigen las métricas que su análisis informa (R3.1) */
+  revisarSalida: (salida: string, familia?: FamiliaSistemaOperativo) =>
+    http.post<RevisionSalidaRespuesta>('/scripts/revisar-salida', { salida, familia }),
   probarAnalisis: (idVersion: number, idServidor: number) =>
     http.post<PruebaAnalisisRespuesta>(`/scripts/versiones/${idVersion}/prueba`, { idServidor }),
   usosVersion: (idVersion: number, pagina = 0, tamano = 25) =>
@@ -121,7 +123,8 @@ export const operacionApi = {
   cola: (pagina = 0, tamano = 25) =>
     http.get<Pagina<ColaRespuesta>>(`/automatizacion/cola${consulta({ page: pagina, size: tamano })}`),
   kpis: (desde?: string, hasta?: string) => http.get<InformeKpi>(`/automatizacion/kpis${consulta({ desde, hasta })}`),
-  graficos: () => http.get<ResumenGraficos>('/automatizacion/graficos'),
+  graficos: (desde?: string, hasta?: string) =>
+    http.get<ResumenGraficos>(`/automatizacion/graficos${consulta({ desde, hasta })}`),
   ejecuciones: (filtro: FiltroEjecuciones, pagina = 0, tamano = 25) =>
     http.get<Pagina<EjecucionRespuesta>>(
       `/automatizacion/ejecuciones${consulta({ ...filtro, page: pagina, size: tamano })}`,

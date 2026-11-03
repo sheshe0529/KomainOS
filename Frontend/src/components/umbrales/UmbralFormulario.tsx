@@ -10,7 +10,7 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { useConsulta } from '@/hooks/useConsulta'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
-import { aNumero, describirMetrica, operadoresPara, problemaDeValores } from '@/utils/umbrales'
+import { aNumero, describirMetrica, operadoresPara, problemaDeValores, sistemasDeMetrica } from '@/utils/umbrales'
 import { ListaChips } from './ListaChips'
 import { ValoresNumericos } from './ValoresNumericos'
 
@@ -118,7 +118,11 @@ export function UmbralFormulario({ umbral, metricas, idMetricaInicial, onCerrar,
       <form id="form-umbral" onSubmit={guardar} className="flex flex-col gap-4">
         {!tieneErroresDeCampo(error) && <MensajeError error={error} />}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Campo etiqueta="Métrica" obligatorio ayuda={metrica ? describirMetrica(metrica) : undefined}>
+          <Campo
+            etiqueta="Métrica"
+            obligatorio
+            ayuda={metrica ? `${describirMetrica(metrica)} · ${sistemasDeMetrica(metrica)}` : undefined}
+          >
             <Selector
               value={idMetrica ?? ''}
               onChange={(e) => elegirMetrica(Number(e.target.value))}

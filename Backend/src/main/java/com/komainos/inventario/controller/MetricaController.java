@@ -46,8 +46,10 @@ public class MetricaController {
     @Operation(summary = "Registra una métrica numérica o de lista (RF16)")
     public MetricaRespuesta crear(@Valid @RequestBody MetricaPeticion peticion,
                                   @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        return MetricaRespuesta.de(servicio.crear(new DatosMetrica(peticion.codigo(), peticion.nombre(), peticion.unidad(),
-                peticion.tipoDato(), peticion.esLista()), AlcanceUsuario.de(solicitante).actor()));
+        return MetricaRespuesta.de(servicio.crear(new DatosMetrica(peticion.codigo(), peticion.nombre(),
+                peticion.descripcion(), peticion.unidad(), peticion.tipoDato(), peticion.esLista(),
+                peticion.soAplica()),
+                AlcanceUsuario.de(solicitante).actor()));
     }
 
     @PutMapping("/{id}")
@@ -55,8 +57,10 @@ public class MetricaController {
     @Operation(summary = "Modifica una métrica; su código no cambia y su tipo tampoco si ya tiene umbrales o mediciones")
     public MetricaRespuesta actualizar(@PathVariable Integer id, @Valid @RequestBody ActualizarMetricaPeticion peticion,
                                        @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        return MetricaRespuesta.de(servicio.actualizar(id, new DatosMetrica(null, peticion.nombre(), peticion.unidad(),
-                peticion.tipoDato(), peticion.esLista()), AlcanceUsuario.de(solicitante).actor()));
+        return MetricaRespuesta.de(servicio.actualizar(id, new DatosMetrica(null, peticion.nombre(),
+                peticion.descripcion(), peticion.unidad(), peticion.tipoDato(), peticion.esLista(),
+                peticion.soAplica()),
+                AlcanceUsuario.de(solicitante).actor()));
     }
 
     @PostMapping("/{id}/activacion")

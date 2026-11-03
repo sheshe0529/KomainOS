@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, CalendarClock, CalendarDays, CalendarX } from 'lucide-react'
+import { ArrowRight, CalendarClock, CalendarX, Clock } from 'lucide-react'
 import type { EstadoOrden } from '@/api/dominio'
 import { planificacionApi } from '@/api/planificacion'
 import type { OrdenDetalleRespuesta } from '@/api/types'
@@ -26,30 +26,58 @@ import { formatearDuracion, formatearFechaHora, formatearFechaLarga, formatearHo
 const REPROGRAMABLES: EstadoOrden[] = ['PROGRAMADA', 'EN_COLA']
 const CANCELABLES: EstadoOrden[] = ['PROGRAMADA', 'AUTORIZADA', 'EN_COLA']
 
-/** Inicio y fin en una línea, como se lee en una agenda; el fin lleva fecha solo si cae otro día */
-function Programacion({ inicio, fin, evaluacion }: { inicio?: string; fin?: string; evaluacion?: string }) {
-  if (!inicio) return <p className="text-sm text-ink-soft">Sin programación.</p>
-  const desde = new Date(inicio)
-  const hasta = fin ? new Date(fin) : undefined
-  const mismoDia = hasta && desde.toDateString() === hasta.toDateString()
-  const minutos = hasta ? Math.round((hasta.getTime() - desde.getTime()) / 60000) : undefined
+const MES = new Intl.DateTimeFormat('es-PE', { month: 'short' })
+const DIA_SEMANA = new Intl.DateTimeFormat('es-PE', { weekday: 'short' })
+
+/** Hoja de calendario: el mes, el día y el día de la semana se leen de un vistazo */
+function HojaCalendario({ fecha }: { fecha: Date }) {
   return (
-    <div className="flex items-start gap-4">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
-        <CalendarDays className="h-5 w-5" aria-hidden="true" />
+    <div className="flex w-14 shrink-0 flex-col overflow-hidden rounded-lg border border-line text-center" aria-hidden="true">
+      <span className="bg-accent py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-ink">
+        {MES.format(fecha).replace('.', '')}
       </span>
-      <div className="flex flex-col gap-1">
-        <p className="text-base font-semibold text-ink">{formatearFechaLarga(desde)}</p>
-        <p className="flex flex-wrap items-center gap-2 font-mono text-lg tabular-nums text-ink">
-          {formatearHora(desde)}
-          <ArrowRight className="h-4 w-4 text-ink-faint" aria-hidden="true" />
-          {hasta ? (mismoDia ? formatearHora(hasta) : formatearFechaHora(fin)) : '—'}
-          {minutos !== undefined && <span className="font-sans text-sm text-ink-soft">({formatearDuracion(minutos)})</span>}
-        </p>
-        <p className="text-xs text-ink-soft">
-          Inicio programado y fin previsto{evaluacion && ` · el análisis previo corre el ${formatearFechaHora(evaluacion)}`}
-        </p>
+      <span className="pt-1 font-mono text-xl font-semibold leading-none text-ink">{fecha.getDate()}</span>
+      <span className="pb-1 text-[10px] text-ink-faint">{DIA_SEMANA.format(fecha).replace('.', '')}</span>
+    </div>
+  )
+}
+
+function Momento({ etiqueta, iso }: { etiqueta: string; iso?: string }) {
+  const fecha = iso ? new Date(iso) : undefined
+  return (
+    <div className="flex flex-col gap-2 rounded-lg bg-panel-muted px-4 py-3">
+      <span className="text-xs font-medium uppercase tracking-wide text-ink-faint">{etiqueta}</span>
+      {fecha ? (
+        <div className="flex items-center gap-3">
+          <HojaCalendario fecha={fecha} />
+          <div className="min-w-0">
+            <p className="font-mono text-2xl font-semibold tabular-nums text-ink">{formatearHora(fecha)}</p>
+            <p className="text-sm text-ink-soft">{formatearFechaLarga(fecha)}</p>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-ink-soft">Sin definir</p>
+      )}
+    </div>
+  )
+}
+
+/** La programación vigente en dos momentos, inicio y fin, y al final lo que dura */
+function Programacion({ inicio, fin }: { inicio?: string; fin?: string }) {
+  const minutos =
+    inicio && fin ? Math.round((new Date(fin).getTime() - new Date(inicio).getTime()) / 60000) : undefined
+  return (
+    // Consulta de contenedor: la tarjeta ocupa media página en pantallas anchas
+    <div className="@container flex flex-col gap-3">
+      <div className="grid items-center gap-3 @lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <Momento etiqueta="Inicio programado" iso={inicio} />
+        <ArrowRight className="mx-auto hidden h-5 w-5 text-ink-faint @lg:block" aria-hidden="true" />
+        <Momento etiqueta="Fin previsto" iso={fin} />
       </div>
+      <p className="flex items-center gap-2 text-sm text-ink">
+        <Clock className="h-4 w-4 text-ink-faint" aria-hidden="true" />
+        Duración prevista: <span className="font-semibold">{formatearDuracion(minutos)}</span>
+      </p>
     </div>
   )
 }
@@ -136,7 +164,7 @@ export function OrdenDetallePage() {
           </dl>
         </Tarjeta>
         <Tarjeta titulo="Programación">
-          <Programacion inicio={r.inicioProgramado} fin={r.finProgramado} evaluacion={r.fechaEvaluacion} />
+          <Programacion inicio={r.inicioProgramado} fin={r.finProgramado} />
         </Tarjeta>
       </div>
 

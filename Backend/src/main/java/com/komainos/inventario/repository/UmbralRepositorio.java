@@ -1,5 +1,6 @@
 package com.komainos.inventario.repository;
 
+import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.Umbral;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -35,6 +36,14 @@ public interface UmbralRepositorio extends JpaRepository<Umbral, Integer> {
     boolean existsByMetricaIdAndNombreIgnoreCaseAndIdNot(Integer idMetrica, String nombre, Integer id);
 
     long countByMetricaId(Integer idMetrica);
+
+    /** Excepciones por sistema operativo de esas familias en los umbrales de la métrica */
+    @Query("""
+            select count(e) from UmbralExcepcion e
+            where e.umbral.metrica.id = :idMetrica and e.sistemaOperativo.familia in :familias
+            """)
+    long countExcepcionesDeFamilias(@Param("idMetrica") Integer idMetrica,
+                                    @Param("familias") Collection<FamiliaSistemaOperativo> familias);
 
     List<Umbral> findByListaIdOrderByNombreAsc(Integer idLista);
 

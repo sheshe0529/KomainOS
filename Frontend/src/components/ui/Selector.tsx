@@ -1,6 +1,7 @@
-import { Children, Fragment, isValidElement, useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Children, Fragment, isValidElement, useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactElement, ReactNode } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
+import { usePopoverAnclado } from './popoverAnclado'
 
 interface Opcion {
   valor: string
@@ -75,68 +76,14 @@ export function Selector({
   const idLista = useId()
   const disparador = useRef<HTMLButtonElement>(null)
   const lista = useRef<HTMLUListElement>(null)
-  const [abierta, setAbierta] = useState(false)
   const [activa, setActiva] = useState(-1)
-
-  // El manejador del evento toggle se registra una sola vez y lee la selección vigente por referencia
-  const indiceSeleccionadoRef = useRef(indiceSeleccionado)
-  useEffect(() => {
-    indiceSeleccionadoRef.current = indiceSeleccionado
-  }, [indiceSeleccionado])
-
-  /** Se posiciona de forma imperativa antes de mostrarse, para que no parpadee */
-  const ubicar = useCallback(() => {
-    const el = lista.current
-    const r = disparador.current?.getBoundingClientRect()
-    if (!el || !r) return
-    const espacioAbajo = window.innerHeight - r.bottom - 8
-    const espacioArriba = r.top - 8
-    const haciaArriba = espacioAbajo < Math.min(el.scrollHeight, 180) && espacioArriba > espacioAbajo
-    const alto = Math.max(120, Math.min(ALTO_MAXIMO, haciaArriba ? espacioArriba : espacioAbajo))
-    Object.assign(el.style, {
-      left: `${Math.max(8, Math.min(r.left, window.innerWidth - Math.max(r.width, el.offsetWidth) - 8))}px`,
-      minWidth: `${r.width}px`,
-      maxHeight: `${alto}px`,
-      top: haciaArriba ? 'auto' : `${r.bottom + 4}px`,
-      bottom: haciaArriba ? `${window.innerHeight - r.top + 4}px` : 'auto',
-      right: 'auto',
-    })
-  }, [])
-
-  useEffect(() => {
-    const el = lista.current
-    if (!el) return
-    const antes = (e: Event) => {
-      if ((e as Event & { newState?: string }).newState === 'open') ubicar()
-    }
-    const despues = (e: Event) => {
-      const abierto = (e as Event & { newState?: string }).newState === 'open'
-      setAbierta(abierto)
-      if (abierto) {
-        setActiva(Math.max(0, indiceSeleccionadoRef.current))
-        el.focus()
-      } else if (el.contains(document.activeElement) || document.activeElement === document.body) {
-        disparador.current?.focus()
-      }
-    }
-    el.addEventListener('beforetoggle', antes)
-    el.addEventListener('toggle', despues)
-    return () => {
-      el.removeEventListener('beforetoggle', antes)
-      el.removeEventListener('toggle', despues)
-    }
-  }, [ubicar])
-
-  // Mientras está abierta, sigue al control si la página o el diálogo se desplazan
-  useEffect(() => {
-    if (!abierta) return
-    window.addEventListener('resize', ubicar)
-    window.addEventListener('scroll', ubicar, true)
-    return () => {
-      window.removeEventListener('resize', ubicar)
-      window.removeEventListener('scroll', ubicar, true)
-    }
-  }, [abierta, ubicar])
+  const abierta = usePopoverAnclado(disparador, lista, {
+    altoMaximo: ALTO_MAXIMO,
+    alAbrir: () => {
+      setActiva(Math.max(0, indiceSeleccionado))
+      lista.current?.focus()
+    },
+  })
 
   useEffect(() => {
     if (abierta) lista.current?.querySelector('[data-activa="true"]')?.scrollIntoView({ block: 'nearest' })

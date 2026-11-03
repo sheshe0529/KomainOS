@@ -14,13 +14,15 @@ import { ResultadoFallo } from './ResultadoFallo'
 interface PruebaAccesoProps {
   idServidor?: number
   idGrupo?: number
+  /** Texto a la izquierda de los controles, en la misma fila */
+  descripcion?: string
 }
 
 /**
  * Verifica conectividad, autenticación y permisos de administrador (RF71, CP021) con la cuenta asignada o con una
  * candidata antes de asignarla. No ejecuta ningún mantenimiento
  */
-export function PruebaAcceso({ idServidor, idGrupo }: PruebaAccesoProps) {
+export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoProps) {
   const cuentas = useConsulta(() => cuentasServicioApi.listar(), [])
   const [idCuenta, setIdCuenta] = useState('')
   const [resultados, setResultados] = useState<ConexionRespuesta[]>()
@@ -48,6 +50,7 @@ export function PruebaAcceso({ idServidor, idGrupo }: PruebaAccesoProps) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
+        {descripcion && <p className="min-w-0 flex-1 basis-72 text-sm text-ink-soft">{descripcion}</p>}
         <Selector
           aria-label="Cuenta de servicio a probar"
           className="!w-auto min-w-56"

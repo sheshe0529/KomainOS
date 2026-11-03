@@ -75,7 +75,7 @@ public class ServicioPreparacionAutomatizacion {
                 "No se puede programar; solo admite lanzamientos inmediatos con confirmación expresa")
                 : Comprobacion.ok("VENTANA", "Ventana permisiva", "%d intervalo(s) semanales".formatted(
                 servidor.getVentanas().size())));
-        lista.add(umbralesActivos());
+        lista.add(umbralesActivos(servidor));
         lista.add(tareasCompatibles(servidor));
         lista.add(ultimaRevision(idServidor));
         lista.add(transporte());
@@ -120,8 +120,9 @@ public class ServicioPreparacionAutomatizacion {
         }
     }
 
-    private Comprobacion umbralesActivos() {
-        long cantidad = umbrales.findAplicables().size();
+    /** Los de métricas que se miden en el sistema operativo del servidor (R3.1) */
+    private Comprobacion umbralesActivos(Servidor servidor) {
+        long cantidad = umbrales.findAplicables().stream().filter(u -> u.getMetrica().aplicaA(servidor.familia())).count();
         return cantidad == 0
                 ? Comprobacion.advertencia("UMBRALES", "Sin umbrales activos",
                 "La evaluación nunca activará tareas: registre métricas y umbrales")
@@ -132,7 +133,11 @@ public class ServicioPreparacionAutomatizacion {
     /** RF42: una tarea activable sin implementación para este sistema dejaría la orden sin implementación */
     private Comprobacion tareasCompatibles(Servidor servidor) {
         Integer idVersionSo = servidor.getVersionSistemaOperativo().getId();
-        List<String> sinImplementacion = catalogo.activadas(umbrales.findAplicables().stream().map(u -> u.getId()).toList())
+        List<Integer> aplicables = umbrales.findAplicables().stream()
+                .filter(u -> u.getMetrica().aplicaA(servidor.familia()))
+                .map(u -> u.getId())
+                .toList();
+        List<String> sinImplementacion = catalogo.activadas(aplicables)
                 .stream()
                 .filter(t -> catalogo.compatible(t.getScript().getId(), idVersionSo).isEmpty())
                 .map(Tarea::getNombre)

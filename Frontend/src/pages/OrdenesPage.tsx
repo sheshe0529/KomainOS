@@ -4,10 +4,11 @@ import type { EstadoOrden } from '@/api/dominio'
 import { planificacionApi, type FiltroOrdenes } from '@/api/planificacion'
 import { PageHeader } from '@/components/common/PageHeader'
 import { OrdenesTabla } from '@/components/planificacion/OrdenesTabla'
-import { Entrada, Selector } from '@/components/ui/Campo'
+import { Selector } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
+import { SelectorFecha } from '@/components/ui/SelectorFecha'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { guardarTamano, leerTamanoGuardado } from '@/hooks/usePaginacion'
@@ -79,14 +80,22 @@ export function OrdenesPage() {
             </option>
           ))}
         </Selector>
-        <label className="flex items-center gap-2 text-sm text-ink-soft">
-          Desde
-          <Entrada type="date" className="!w-auto" value={desde} onChange={(e) => setDesde(e.target.value)} />
-        </label>
-        <label className="flex items-center gap-2 text-sm text-ink-soft">
-          Hasta
-          <Entrada type="date" className="!w-auto" value={hasta} onChange={(e) => setHasta(e.target.value)} />
-        </label>
+        <SelectorFecha
+          className="!w-48"
+          value={desde}
+          max={hasta || undefined}
+          onChange={setDesde}
+          placeholder="Desde…"
+          aria-label="Programadas desde"
+        />
+        <SelectorFecha
+          className="!w-48"
+          value={hasta}
+          min={desde || undefined}
+          onChange={setHasta}
+          placeholder="Hasta…"
+          aria-label="Programadas hasta"
+        />
       </div>
 
       <MensajeError error={ordenes.error} onReintentar={ordenes.recargar} />

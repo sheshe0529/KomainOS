@@ -82,7 +82,7 @@ class UmbralControllerTest {
     }
 
     private static Umbral cpu() {
-        return Umbral.numerico(DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false), "CPU alta",
+        return Umbral.numerico(DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false), "CPU alta",
                 new LimitesNumericos(OperadorComparacion.MAYOR, new BigDecimal("80.000000"), new BigDecimal("90.500000")),
                 AHORA);
     }
@@ -100,7 +100,7 @@ class UmbralControllerTest {
         mockMvc.perform(comoAdmin(get("/api/umbrales/4")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombre").value("CPU alta"))
-                .andExpect(jsonPath("$.metrica.codigo").value("cpu_uso_pct"))
+                .andExpect(jsonPath("$.metrica.codigo").value("cpu_uso"))
                 .andExpect(jsonPath("$.operador").value("MAYOR"))
                 .andExpect(jsonPath("$.valorAdvertencia").value(80))
                 .andExpect(jsonPath("$.valorCritico").value(90.5))

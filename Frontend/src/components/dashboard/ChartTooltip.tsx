@@ -1,12 +1,14 @@
 import type { TooltipContentProps } from 'recharts'
 
 /** Tooltip propio: el de Recharts no respeta los tokens de tema */
-export function ChartTooltip({ active, payload, label }: TooltipContentProps) {
+export function ChartTooltip({ active, payload, label, labelFormatter }: TooltipContentProps) {
   if (!active || !payload || payload.length === 0) return null
+  // Respeta el labelFormatter del Tooltip, como el tooltip por defecto de Recharts
+  const titulo = labelFormatter ? labelFormatter(label, payload) : label
 
   return (
     <div className="min-w-[160px] rounded-lg border border-line bg-panel px-3 py-2 text-xs shadow-lg shadow-black/10">
-      {label !== undefined && <p className="mb-1.5 font-medium text-ink">{label}</p>}
+      {titulo !== undefined && <p className="mb-1.5 font-medium text-ink">{titulo}</p>}
       <div className="flex flex-col gap-1">
         {payload.map((entry, index) => (
           <div key={`${entry.name ?? 'serie'}-${index}`} className="flex items-center justify-between gap-4">

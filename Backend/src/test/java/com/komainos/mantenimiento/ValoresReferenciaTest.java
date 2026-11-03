@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ValoresReferenciaTest {
 
     private static final Instant AHORA = Instant.parse("2026-09-28T14:00:00Z");
-    private static final ContextoEvaluacion CONTEXTO = new ContextoEvaluacion(1, null, 1, 1);
+    private static final ContextoEvaluacion CONTEXTO = new ContextoEvaluacion(1, null, 1, 1, null, null);
 
     private static Umbral numerico(Metrica m, OperadorComparacion op, String advertencia, String critico) {
         return Umbral.numerico(m, "Umbral " + m.getCodigo(), new Umbral.LimitesNumericos(op,
@@ -101,13 +101,13 @@ class ValoresReferenciaTest {
     @Test
     @DisplayName("Una métrica sin umbrales se informa con un valor neutro; las inactivas no se informan")
     void sinUmbrales() {
-        Metrica carga = DatosPrueba.metrica("carga_promedio", TipoDato.DECIMAL, false);
+        Metrica carga = DatosPrueba.metrica("cpu_load", TipoDato.DECIMAL, false);
         Metrica inactiva = DatosPrueba.metrica("retirada", TipoDato.DECIMAL, false);
         inactiva.desactivar();
 
         List<MetricaReferencia> r = ValoresReferencia.calcular(List.of(carga, inactiva), List.of(), CONTEXTO);
 
-        assertThat(r).extracting(MetricaReferencia::codigo).containsExactly("carga_promedio");
+        assertThat(r).extracting(MetricaReferencia::codigo).containsExactly("cpu_load");
         assertThat(r.getFirst().normal().valor()).isEqualByComparingTo("0");
         assertThat(r.getFirst().advertencia()).isNull();
     }

@@ -6,7 +6,7 @@ export function ReglaDePrecedencia() {
   return (
     <div
       className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-soft"
-      title="Cada servidor usa la primera excepción activa que lo alcance. El grupo cuenta solo en las órdenes de ese grupo. Una excepción solo cambia los valores o la lista; el operador y los niveles son los del umbral."
+      title="Cada servidor usa la primera excepción activa que lo alcance. El grupo cuenta solo en las órdenes de ese grupo, y el sistema operativo es el del servidor (Ubuntu, RHEL, Windows Server…). Una excepción solo cambia los valores o la lista; el operador y los niveles son los del umbral."
     >
       <Info className="h-4 w-4 text-ink-faint" aria-hidden="true" />
       <span>Prioridad</span>

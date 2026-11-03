@@ -35,7 +35,8 @@ public final class ValoresReferencia {
                                                    ContextoEvaluacion contexto) {
         List<MetricaReferencia> referencias = new ArrayList<>();
         for (Metrica metrica : metricas) {
-            if (!metrica.isActivo()) {
+            // El script de otro sistema operativo no la informa (R3.1)
+            if (!metrica.isActivo() || !contexto.mide(metrica)) {
                 continue;
             }
             List<UmbralAplicado> aplicados = umbrales.stream()

@@ -139,7 +139,7 @@ public class ScriptController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'OPERADOR')")
     @Operation(summary = "Comprueba la salida de un análisis contra el contrato JSON y el catálogo de métricas")
     public RevisionSalidaRespuesta revisarSalida(@Valid @RequestBody RevisarSalidaPeticion p) {
-        return CatalogoMapeador.revision(servicio.revisarSalida(p.salida()));
+        return CatalogoMapeador.revision(servicio.revisarSalida(p.salida(), p.familia()));
     }
 
     public record EstadoVersionPeticion(boolean habilitada) {

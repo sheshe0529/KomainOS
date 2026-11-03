@@ -10,12 +10,13 @@ import { Dato } from '@/components/common/Tarjeta'
 import { SalidaTerminal } from '@/components/automatizacion/SalidaTerminal'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
-import { Campo, Entrada, Selector } from '@/components/ui/Campo'
+import { Campo, Selector } from '@/components/ui/Campo'
 import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { Paginacion } from '@/components/ui/Paginacion'
+import { SelectorFecha } from '@/components/ui/SelectorFecha'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacion } from '@/hooks/usePaginacion'
@@ -184,11 +185,11 @@ export function EjecucionesPage() {
             </option>
           ))}
         </Selector>
-        <Campo etiqueta="Desde" className="w-40">
-          <Entrada type="date" value={desde} max={hasta || undefined} onChange={(e) => cambiar(setDesde)(e.target.value)} />
+        <Campo etiqueta="Desde" className="w-48">
+          <SelectorFecha value={desde} max={hasta || undefined} onChange={cambiar(setDesde)} aria-label="Desde" />
         </Campo>
-        <Campo etiqueta="Hasta" className="w-40">
-          <Entrada type="date" value={hasta} min={desde || undefined} onChange={(e) => cambiar(setHasta)(e.target.value)} />
+        <Campo etiqueta="Hasta" className="w-48">
+          <SelectorFecha value={hasta} min={desde || undefined} onChange={cambiar(setHasta)} aria-label="Hasta" />
         </Campo>
       </div>
 

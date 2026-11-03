@@ -109,9 +109,11 @@ public class SalaOperacionesController {
 
     @GetMapping("/graficos")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'OPERADOR')")
-    @Operation(summary = "CPU y memoria de las últimas 24 horas y ejecuciones de los últimos siete días (RF67)")
-    public ServicioGraficosAutomatizacion.ResumenGraficos graficos() {
-        return graficos.consultar();
+    @Operation(summary = "Series del dashboard: recursos (24 h), ejecuciones (7 días), mantenimientos por mes, órdenes "
+            + "por estado, incidencias por origen y salud de los servidores (RF67)")
+    public ServicioGraficosAutomatizacion.ResumenGraficos graficos(@RequestParam(required = false) Instant desde,
+                                                                  @RequestParam(required = false) Instant hasta) {
+        return graficos.consultar(desde, hasta);
     }
 
     @GetMapping("/ejecuciones")

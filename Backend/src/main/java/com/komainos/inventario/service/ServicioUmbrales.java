@@ -9,6 +9,7 @@ import com.komainos.inventario.model.ListaReferencia;
 import com.komainos.inventario.model.Metrica;
 import com.komainos.inventario.model.NivelAlerta;
 import com.komainos.inventario.model.NivelCriticidad;
+import com.komainos.inventario.model.SistemaOperativo;
 import com.komainos.inventario.model.ObjetivoExcepcion;
 import com.komainos.inventario.model.OperadorComparacion;
 import com.komainos.inventario.model.Servidor;
@@ -22,6 +23,7 @@ import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.repository.ListaReferenciaRepositorio;
 import com.komainos.inventario.repository.MetricaRepositorio;
 import com.komainos.inventario.repository.NivelCriticidadRepositorio;
+import com.komainos.inventario.repository.SistemaOperativoRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
 import com.komainos.inventario.repository.UmbralExcepcionRepositorio;
 import com.komainos.inventario.repository.UmbralRepositorio;
@@ -59,6 +61,7 @@ public class ServicioUmbrales {
     private final GrupoMantenimientoRepositorio grupos;
     private final EntornoRepositorio entornos;
     private final NivelCriticidadRepositorio criticidades;
+    private final SistemaOperativoRepositorio sistemasOperativos;
     private final ServicioAuditoria auditoria;
     private final Clock reloj;
 
@@ -239,7 +242,8 @@ public class ServicioUmbrales {
     /** No se definen excepciones sobre catálogos inactivos ni sobre servidores dados de baja o grupos inactivos */
     private ObjetivoExcepcion objetivo(AlcanceExcepcion alcance, Integer id) {
         if (alcance == null || id == null) {
-            throw new ReglaNegocioException("Indique el alcance de la excepción: servidor, grupo, entorno o criticidad");
+            throw new ReglaNegocioException(
+                    "Indique el alcance de la excepción: servidor, grupo, entorno, criticidad o sistema operativo");
         }
         return switch (alcance) {
             case SERVIDOR -> {
@@ -269,6 +273,14 @@ public class ServicioUmbrales {
                     throw new ReglaNegocioException("El nivel de criticidad %s está inactivo".formatted(n.getNombre()));
                 }
                 yield ObjetivoExcepcion.de(n);
+            }
+            case SISTEMA_OPERATIVO -> {
+                SistemaOperativo so = sistemasOperativos.findById(id)
+                        .orElseThrow(() -> RecursoNoEncontradoException.de("el sistema operativo", id));
+                if (!so.isActivo()) {
+                    throw new ReglaNegocioException("El sistema operativo %s está inactivo".formatted(so.getNombre()));
+                }
+                yield ObjetivoExcepcion.de(so);
             }
         };
     }

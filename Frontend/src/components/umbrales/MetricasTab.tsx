@@ -11,14 +11,17 @@ import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { textoDeError } from '@/utils/errores'
-import { describirMetrica } from '@/utils/umbrales'
+import { describirMetrica, sistemasDeMetrica } from '@/utils/umbrales'
 import { MetricaFormulario } from './MetricaFormulario'
 
 interface MetricasTabProps {
   esAdmin: boolean
 }
 
-/** Métricas que informan los scripts de análisis; una métrica de lista se evalúa con una lista de referencia */
+/**
+ * Métricas que informan los scripts de análisis (las variables de salud del R3.1); una métrica de lista se evalúa con
+ * una lista de referencia
+ */
 export function MetricasTab({ esAdmin }: MetricasTabProps) {
   const { avisar } = useAvisos()
   const metricas = useConsulta(() => umbralesApi.metricas(), [])
@@ -50,12 +53,13 @@ export function MetricasTab({ esAdmin }: MetricasTabProps) {
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-panel">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
                   <th className="px-4 py-3 font-medium">Métrica</th>
                   <th className="px-4 py-3 font-medium">Código</th>
                   <th className="px-4 py-3 font-medium">Tipo</th>
+                  <th className="px-4 py-3 font-medium">Se mide en</th>
                   <th className="px-4 py-3 font-medium">Estado</th>
                   {esAdmin && <th className="px-4 py-3 text-right font-medium">Acciones</th>}
                 </tr>
@@ -63,9 +67,17 @@ export function MetricasTab({ esAdmin }: MetricasTabProps) {
               <tbody className="divide-y divide-line">
                 {tabla.filas.map((m) => (
                   <tr key={m.id} className="transition-colors hover:bg-panel-muted">
-                    <td className="px-4 py-3 font-medium text-ink">{m.nombre}</td>
+                    <td className="max-w-md px-4 py-3">
+                      <span className="font-medium text-ink">{m.nombre}</span>
+                      {m.descripcion && (
+                        <span className="mt-0.5 block truncate text-xs text-ink-faint" title={m.descripcion}>
+                          {m.descripcion}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs text-ink-soft">{m.codigo}</td>
                     <td className="px-4 py-3 text-ink-soft">{describirMetrica(m)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-ink-soft">{sistemasDeMetrica(m)}</td>
                     <td className="px-4 py-3">
                       <StatusPill tone={m.activo ? 'success' : 'neutral'} label={m.activo ? 'Activa' : 'Inactiva'} />
                     </td>
@@ -85,7 +97,7 @@ export function MetricasTab({ esAdmin }: MetricasTabProps) {
                 ))}
                 {metricas.datos?.length === 0 && (
                   <tr>
-                    <td colSpan={esAdmin ? 5 : 4} className="px-4 py-8 text-center text-ink-soft">
+                    <td colSpan={esAdmin ? 6 : 5} className="px-4 py-8 text-center text-ink-soft">
                       Sin métricas
                     </td>
                   </tr>

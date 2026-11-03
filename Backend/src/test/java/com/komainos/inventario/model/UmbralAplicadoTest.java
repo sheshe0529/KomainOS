@@ -40,7 +40,7 @@ class UmbralAplicadoTest {
 
     /** Global 80/90 con una excepción en cada alcance */
     private Umbral cpuConExcepciones() {
-        Umbral u = Umbral.numerico(DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false), "CPU alta",
+        Umbral u = Umbral.numerico(DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false), "CPU alta",
                 new LimitesNumericos(OperadorComparacion.MAYOR, n("80"), n("90")), AHORA);
         u.agregarExcepcion(ObjetivoExcepcion.de(alta), valores("75", "85"), null, AHORA);
         u.agregarExcepcion(ObjetivoExcepcion.de(produccion), valores("70", "80"), null, AHORA);
@@ -79,7 +79,7 @@ class UmbralAplicadoTest {
         @Test
         @DisplayName("CP193: sin excepción de servidor, grupo ni entorno, la criticidad; y si no, el global")
         void criticidadYGlobal() {
-            Umbral u = Umbral.numerico(DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false), "CPU alta",
+            Umbral u = Umbral.numerico(DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false), "CPU alta",
                     new LimitesNumericos(OperadorComparacion.MAYOR, n("80"), n("90")), AHORA);
             u.agregarExcepcion(ObjetivoExcepcion.de(alta), valores("75", "85"), null, AHORA);
 
@@ -106,7 +106,7 @@ class UmbralAplicadoTest {
         @Test
         @DisplayName("la excepción reemplaza ambos valores: un nivel que no define no se evalúa")
         void reemplazaValores() {
-            Umbral u = Umbral.numerico(DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false), "CPU alta",
+            Umbral u = Umbral.numerico(DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false), "CPU alta",
                     new LimitesNumericos(OperadorComparacion.MAYOR, n("80"), n("90")), AHORA);
             u.agregarExcepcion(ObjetivoExcepcion.de(produccion), valores(null, "95"), null, AHORA);
 
@@ -122,7 +122,7 @@ class UmbralAplicadoTest {
     class Numerica {
 
         private final UmbralAplicado cpu = UmbralAplicado.global(Umbral.numerico(
-                DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false), "CPU alta",
+                DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false), "CPU alta",
                 new LimitesNumericos(OperadorComparacion.MAYOR_IGUAL, n("80"), n("90")), AHORA));
         private final UmbralAplicado libre = UmbralAplicado.global(Umbral.numerico(
                 DatosPrueba.metrica("disco_libre_gb", TipoDato.DECIMAL, false), "Poco espacio",
@@ -154,7 +154,7 @@ class UmbralAplicadoTest {
         }
 
         private UmbralAplicado puertos(NivelAlerta faltante, NivelAlerta sobrante) {
-            return UmbralAplicado.global(Umbral.deLista(DatosPrueba.metrica("puertos_escucha", TipoDato.INTEGER, true),
+            return UmbralAplicado.global(Umbral.deLista(DatosPrueba.metrica("red_puerto_no_aut", TipoDato.INTEGER, true),
                     "Puertos esperados", new CriterioLista(lista("Puertos web", TipoDato.INTEGER, false, "22", "80", "443"),
                             faltante, sobrante), AHORA));
         }
@@ -189,7 +189,7 @@ class UmbralAplicadoTest {
         @DisplayName("CP187: una lista que no distingue mayúsculas compara sin distinguirlas")
         void sinMayusculas() {
             UmbralAplicado servicios = UmbralAplicado.global(Umbral.deLista(
-                    DatosPrueba.metrica("servicios_ejecucion", TipoDato.STRING, true), "Servicios obligatorios",
+                    DatosPrueba.metrica("serv_no_operativo", TipoDato.STRING, true), "Servicios obligatorios",
                     new CriterioLista(lista("Servicios base", TipoDato.STRING, true, "crond", "sshd"), NivelAlerta.CRITICO, null),
                     AHORA));
             assertThat(servicios.evaluarLista(List.of("SSHD", "Crond", "rsyslog")).nivel()).isEqualTo(NivelAlerta.NORMAL);
@@ -199,7 +199,7 @@ class UmbralAplicadoTest {
         @Test
         @DisplayName("la excepción de un umbral de lista cambia la lista y conserva los niveles del umbral")
         void excepcionDeLista() {
-            Umbral u = Umbral.deLista(DatosPrueba.metrica("puertos_escucha", TipoDato.INTEGER, true), "Puertos",
+            Umbral u = Umbral.deLista(DatosPrueba.metrica("red_puerto_no_aut", TipoDato.INTEGER, true), "Puertos",
                     new CriterioLista(lista("Puertos web", TipoDato.INTEGER, false, "22", "80", "443"), NivelAlerta.CRITICO,
                             NivelAlerta.ADVERTENCIA), AHORA);
             u.agregarExcepcion(ObjetivoExcepcion.de(bd01),

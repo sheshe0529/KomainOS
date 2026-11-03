@@ -288,7 +288,8 @@ public class ServicioBitacora {
 
         return new MantenimientoBitacora(orden.getId(), orden.getCodigo(), orden.esGrupal(),
                 orden.esGrupal() ? orden.getGrupo().getNombre() : null, orden.getOrigen(), orden.prioridad(),
-                orden.getEstado(), orden.getEstado().etapa(), resultado(orden.getEstado(), intervino, conIncidencias),
+                orden.getEstado(), orden.getEstado().etapa(),
+                resultado(orden.getEstado(), estadoAlCerrar(orden), intervino, conIncidencias),
                 orden.getFechaInicioProgramada(), orden.getFechaFinProgramada(), inicioReal, finReal, cierre,
                 f.validacion().map(ValidacionFuncional::getEstado).orElse(null), participaciones);
     }
@@ -312,31 +313,52 @@ public class ServicioBitacora {
                 .anyMatch(t -> t.estado() == EstadoTareaMop.FINALIZADA || t.estado() == EstadoTareaMop.FALLIDA);
         return new ParticipacionServidor(d.getServidor().getId(), d.getServidor().getHostname(), d.getEstado(),
                 d.isEsServidorPiloto(), nivel(analisis, TipoEvaluacion.PREVIA), nivel(analisis, TipoEvaluacion.POSTERIOR),
-                validacion, incidencias, resultado(f.orden().getEstado(), intervino, incidencias > 0), d.getFechaRealInicio(),
+                validacion, incidencias,
+                resultado(f.orden().getEstado(), estadoAlCerrar(f.orden()), intervino, incidencias > 0), d.getFechaRealInicio(),
                 d.getFechaRealFin(), tareas);
     }
 
-    /** Resultado de un vistazo: el estado de la orden dice si terminó; las tareas y las incidencias, cómo */
-    static ResultadoMantenimiento resultado(EstadoOrden estado, boolean intervino, boolean conIncidencias) {
-        if (estado == EstadoOrden.CANCELADA) {
+    /**
+     * Estado desde el que se cerró la orden. Todas terminan en CERRADA (tabla 6): si se canceló, se rechazó o se cerró
+     * sin implementación, eso queda en el paso anterior al cierre. Nulo si la orden sigue abierta.
+     */
+    static EstadoOrden estadoAlCerrar(Orden orden) {
+        if (orden.getEstado() != EstadoOrden.CERRADA) {
+            return null;
+        }
+        return orden.getHistorial().stream()
+                .filter(h -> h.getEstadoNuevo() == EstadoOrden.CERRADA)
+                .map(HistorialEstadoOrden::getEstadoAnterior)
+                .reduce((a, b) -> b)
+                .orElse(null);
+    }
+
+    /**
+     * Resultado de un vistazo. Abierta, el estado dice qué espera; cerrada, el estado desde el que se cerró dice si
+     * se hizo, y las tareas y las incidencias, cómo
+     *
+     * @param alCerrar estado anterior al cierre; nulo si la orden sigue abierta
+     */
+    public static ResultadoMantenimiento resultado(EstadoOrden estado, EstadoOrden alCerrar, boolean intervino,
+                                                   boolean conIncidencias) {
+        boolean cerrada = estado == EstadoOrden.CERRADA;
+        EstadoOrden decisivo = cerrada && alCerrar != null ? alCerrar : estado;
+        if (decisivo == EstadoOrden.CANCELADA || cerrada && decisivo == EstadoOrden.SIN_IMPLEMENTACION) {
             return ResultadoMantenimiento.CANCELADO;
         }
-        if (SIN_AUTORIZAR.contains(estado)) {
+        if (SIN_AUTORIZAR.contains(decisivo)) {
             return ResultadoMantenimiento.NO_AUTORIZADO;
+        }
+        if (cerrada) {
+            if (conIncidencias) {
+                return ResultadoMantenimiento.CON_INCIDENCIA;
+            }
+            return intervino ? ResultadoMantenimiento.EXITOSO : ResultadoMantenimiento.SIN_INTERVENCION;
         }
         if (A_ATENDER.contains(estado)) {
             return ResultadoMantenimiento.REQUIERE_ATENCION;
         }
-        if (PROGRAMADAS.contains(estado)) {
-            return ResultadoMantenimiento.PROGRAMADO;
-        }
-        if (estado != EstadoOrden.CERRADA) {
-            return ResultadoMantenimiento.EN_CURSO;
-        }
-        if (conIncidencias) {
-            return ResultadoMantenimiento.CON_INCIDENCIA;
-        }
-        return intervino ? ResultadoMantenimiento.EXITOSO : ResultadoMantenimiento.SIN_INTERVENCION;
+        return PROGRAMADAS.contains(estado) ? ResultadoMantenimiento.PROGRAMADO : ResultadoMantenimiento.EN_CURSO;
     }
 
     /** Nivel de la última evaluación de ese tipo que terminó; nulo si no hubo o no fue concluyente */

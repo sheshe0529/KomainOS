@@ -11,7 +11,7 @@ import { StatusPill } from '@/components/ui/StatusPill'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { textoDeError } from '@/utils/errores'
-import { ETIQUETA_ALCANCE, formatearLimite, NIVEL, OPERADORES, simbolo } from '@/utils/umbrales'
+import { ETIQUETA_ALCANCE, formatearLimite, NIVEL, OPERADORES, seMideEn, simbolo, sistemasDeMetrica } from '@/utils/umbrales'
 import { destinoDe } from './acciones'
 import type { AccionesExcepcion, Destino } from './acciones'
 import { ExcepcionFormulario } from './ExcepcionFormulario'
@@ -35,7 +35,10 @@ interface UmbralDetalleProps {
   onEliminado: () => void
 }
 
-/** Un umbral: su valor global y, por prioridad, los valores propios de servidores, grupos, entornos y criticidades */
+/**
+ * Un umbral: su valor global y, por prioridad, los valores propios de servidores, grupos, entornos, criticidades y
+ * sistemas operativos
+ */
 export function UmbralDetalle({ umbral, esAdmin, onActualizado, onRecargar, onEditar, onEliminado }: UmbralDetalleProps) {
   const { avisar } = useAvisos()
   const catalogos = useCatalogos()
@@ -113,7 +116,11 @@ export function UmbralDetalle({ umbral, esAdmin, onActualizado, onRecargar, onEd
             </div>
             <p className="mt-0.5 text-sm text-ink-soft">
               {umbral.metrica?.nombre} <span className="font-mono text-xs text-ink-faint">{umbral.metrica?.codigo}</span>
+              <span className="text-ink-faint"> · {sistemasDeMetrica(umbral.metrica)}</span>
             </p>
+            {umbral.metrica?.descripcion && (
+              <p className="mt-1 max-w-3xl text-xs text-ink-faint">{umbral.metrica.descripcion}</p>
+            )}
           </div>
           {esAdmin && (
             <div className="flex items-center gap-1">
@@ -221,6 +228,24 @@ export function UmbralDetalle({ umbral, esAdmin, onActualizado, onRecargar, onEd
         columnas={columnas}
         celdas={celdas}
         catalogo={(catalogos.datos?.criticidades ?? []).map((c) => ({ id: c.id, nombre: c.nombre, activo: !!c.activo }))}
+        esAdmin={esAdmin}
+        acciones={acciones}
+        cargando={cargandoCatalogos}
+      />
+      <TablaPorCatalogo
+        prioridad={5}
+        titulo="Por sistema operativo"
+        alcance="SISTEMA_OPERATIVO"
+        encabezado="Sistema operativo"
+        nota="Los nombres de servicios, cuentas y permisos cambian entre distribuciones. Solo los sistemas en los que se mide la métrica."
+        excepciones={excepciones}
+        columnas={columnas}
+        celdas={celdas}
+        catalogo={(catalogos.datos?.sistemasOperativos ?? []).map((so) => ({
+          id: so.id,
+          nombre: so.nombre,
+          activo: !!so.activo && seMideEn(umbral.metrica, so.familia),
+        }))}
         esAdmin={esAdmin}
         acciones={acciones}
         cargando={cargandoCatalogos}

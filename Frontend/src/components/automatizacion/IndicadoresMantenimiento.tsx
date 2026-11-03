@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { GraficosAutomatizacion } from './GraficosAutomatizacion'
 import { operacionApi } from '@/api/automatizacion'
 import { Boton } from '@/components/ui/Boton'
-import { Campo, Entrada } from '@/components/ui/Campo'
+import { Campo } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Cargando } from '@/components/ui/Cargando'
+import { SelectorFecha } from '@/components/ui/SelectorFecha'
 import { useConsulta } from '@/hooks/useConsulta'
 import { formatearFechaHora } from '@/utils/formato'
 
@@ -12,7 +13,8 @@ export function IndicadoresMantenimiento() {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [periodo, setPeriodo] = useState<{ desde?: string; hasta?: string }>({})
-  const informe = useConsulta(() => operacionApi.kpis(periodo.desde, periodo.hasta), [periodo])
+  const [version, setVersion] = useState(0)
+  const informe = useConsulta(() => operacionApi.kpis(periodo.desde, periodo.hasta), [periodo, version])
 
   function aplicar() {
     const inicio = desde ? new Date(`${desde}T00:00:00`) : undefined
@@ -24,16 +26,16 @@ export function IndicadoresMantenimiento() {
   return (
     <section aria-label="Indicadores de gestión">
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <Campo etiqueta="Desde">
-          <Entrada type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+        <Campo etiqueta="Desde" className="w-48">
+          <SelectorFecha value={desde} max={hasta || undefined} onChange={setDesde} aria-label="Desde" />
         </Campo>
-        <Campo etiqueta="Hasta (inclusive)">
-          <Entrada type="date" value={hasta} min={desde} onChange={(e) => setHasta(e.target.value)} />
+        <Campo etiqueta="Hasta (inclusive)" className="w-48">
+          <SelectorFecha value={hasta} min={desde || undefined} onChange={setHasta} aria-label="Hasta" />
         </Campo>
         <Boton onClick={aplicar} disabled={!!(desde && hasta && desde > hasta)}>
           Aplicar periodo
         </Boton>
-        <Boton onClick={informe.recargar}>Actualizar indicadores</Boton>
+        <Boton onClick={() => setVersion((v) => v + 1)}>Actualizar</Boton>
       </div>
       <MensajeError error={informe.error} />
       {informe.cargando && !informe.datos && <Cargando texto="Calculando indicadores…" />}
@@ -78,7 +80,7 @@ export function IndicadoresMantenimiento() {
               </article>
             ))}
           </div>
-          <GraficosAutomatizacion />
+          <GraficosAutomatizacion desde={periodo.desde} hasta={periodo.hasta} version={version} />
           <div className="mt-4 flex flex-wrap gap-3 text-xs text-ink-soft">
             <span>Inventario actual:</span>
             {informe.datos.inventario?.map((e) => (

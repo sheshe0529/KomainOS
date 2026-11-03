@@ -21,7 +21,7 @@ export interface ElementoCatalogo {
 interface TablaPorCatalogoProps {
   prioridad: number
   titulo: string
-  alcance: 'GRUPO' | 'ENTORNO' | 'CRITICIDAD'
+  alcance: 'GRUPO' | 'ENTORNO' | 'CRITICIDAD' | 'SISTEMA_OPERATIVO'
   encabezado: string
   /** Las excepciones del umbral: aquí se toman las del alcance indicado */
   excepciones: ExcepcionUmbralRespuesta[]
@@ -37,7 +37,7 @@ interface TablaPorCatalogoProps {
 }
 
 /**
- * Una fila por cada grupo, entorno o criticidad. Los que no tienen valores propios muestran, atenuados, los globales
+ * Una fila por cada grupo, entorno, criticidad o sistema operativo. Los que no tienen valores propios muestran, atenuados, los globales
  * que usan: así se ve qué rige sin necesidad de explicarlo con texto
  */
 export function TablaPorCatalogo({

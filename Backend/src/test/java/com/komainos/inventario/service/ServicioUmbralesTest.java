@@ -17,6 +17,7 @@ import com.komainos.inventario.repository.ListaReferenciaRepositorio;
 import com.komainos.inventario.repository.MetricaRepositorio;
 import com.komainos.inventario.repository.NivelCriticidadRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
+import com.komainos.inventario.repository.SistemaOperativoRepositorio;
 import com.komainos.inventario.repository.UmbralExcepcionRepositorio;
 import com.komainos.inventario.repository.UmbralRepositorio;
 import com.komainos.inventario.service.ServicioListasReferencia.DatosLista;
@@ -63,6 +64,7 @@ class ServicioUmbralesTest {
     private final GrupoMantenimientoRepositorio grupos = mock(GrupoMantenimientoRepositorio.class);
     private final EntornoRepositorio entornos = mock(EntornoRepositorio.class);
     private final NivelCriticidadRepositorio criticidades = mock(NivelCriticidadRepositorio.class);
+    private final SistemaOperativoRepositorio sistemasOperativos = mock(SistemaOperativoRepositorio.class);
 
     @Nested
     @DisplayName("métricas")
@@ -73,24 +75,24 @@ class ServicioUmbralesTest {
         @Test
         @DisplayName("CP186: un código repetido responde conflicto y se guarda en minúsculas")
         void codigoRepetido() {
-            when(metricas.existsByCodigoIgnoreCase("cpu_uso_pct")).thenReturn(true);
-            assertThatThrownBy(() -> servicio.crear(new DatosMetrica("CPU_uso_pct", "Uso de CPU", "%", TipoDato.DECIMAL,
-                    false), ADMIN)).isInstanceOf(ConflictoException.class).hasMessageContaining("cpu_uso_pct");
+            when(metricas.existsByCodigoIgnoreCase("cpu_uso")).thenReturn(true);
+            assertThatThrownBy(() -> servicio.crear(new DatosMetrica("CPU_USO", "Uso de CPU", null, "%", TipoDato.DECIMAL,
+                    false, null), ADMIN)).isInstanceOf(ConflictoException.class).hasMessageContaining("cpu_uso");
         }
 
         @Test
         @DisplayName("CP198: el tipo de una métrica con umbrales no cambia, y el código nunca")
         void tipoConUmbrales() {
-            Metrica cpu = DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false);
+            Metrica cpu = DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false);
             when(metricas.findById(5)).thenReturn(Optional.of(cpu));
             when(umbrales.countByMetricaId(5)).thenReturn(2L);
 
-            assertThatThrownBy(() -> servicio.actualizar(5, new DatosMetrica(null, "Uso de CPU", "%", TipoDato.INTEGER,
-                    false), ADMIN)).isInstanceOf(ReglaNegocioException.class).hasMessageContaining("2 umbral(es)");
-            assertThatThrownBy(() -> servicio.actualizar(5, new DatosMetrica("otro", "Uso de CPU", "%", TipoDato.DECIMAL,
-                    false), ADMIN)).isInstanceOf(ReglaNegocioException.class).hasMessageContaining("no se modifica");
+            assertThatThrownBy(() -> servicio.actualizar(5, new DatosMetrica(null, "Uso de CPU", null, "%", TipoDato.INTEGER,
+                    false, null), ADMIN)).isInstanceOf(ReglaNegocioException.class).hasMessageContaining("2 umbral(es)");
+            assertThatThrownBy(() -> servicio.actualizar(5, new DatosMetrica("otro", "Uso de CPU", null, "%", TipoDato.DECIMAL,
+                    false, null), ADMIN)).isInstanceOf(ReglaNegocioException.class).hasMessageContaining("no se modifica");
             // Nombre y unidad sí cambian
-            servicio.actualizar(5, new DatosMetrica(null, "CPU", " pct ", TipoDato.DECIMAL, false), ADMIN);
+            servicio.actualizar(5, new DatosMetrica(null, "CPU", null, " pct ", TipoDato.DECIMAL, false, null), ADMIN);
             assertThat(cpu.getUnidad()).isEqualTo("pct");
             verify(auditoria).registrar(any(), any());
         }
@@ -131,8 +133,8 @@ class ServicioUmbralesTest {
     class Umbrales {
 
         private final ServicioUmbrales servicio = new ServicioUmbrales(umbrales, excepciones, metricas, listas, servidores,
-                grupos, entornos, criticidades, auditoria, reloj);
-        private final Umbral cpu = Umbral.numerico(DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false), "CPU alta",
+                grupos, entornos, criticidades, sistemasOperativos, auditoria, reloj);
+        private final Umbral cpu = Umbral.numerico(DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false), "CPU alta",
                 new LimitesNumericos(OperadorComparacion.MAYOR, new BigDecimal("80"), new BigDecimal("90")), AHORA);
 
         @Test
@@ -158,7 +160,7 @@ class ServicioUmbralesTest {
         @Test
         @DisplayName("un umbral numérico no acepta lista ni niveles de lista")
         void modalidadDeLaPeticion() {
-            when(metricas.findById(5)).thenReturn(Optional.of(DatosPrueba.metrica("cpu_uso_pct", TipoDato.DECIMAL, false)));
+            when(metricas.findById(5)).thenReturn(Optional.of(DatosPrueba.metrica("cpu_uso", TipoDato.DECIMAL, false)));
             assertThatThrownBy(() -> servicio.crear(new DatosUmbral(5, "CPU", OperadorComparacion.MAYOR,
                     new BigDecimal("1"), null, 3, null, null), ADMIN))
                     .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("no lleva lista");

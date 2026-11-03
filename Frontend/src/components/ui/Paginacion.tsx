@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { paginasVisibles, TAMANOS_PAGINA } from '@/hooks/usePaginacion'
+import { Selector } from './Selector'
 
 interface PaginacionProps {
   pagina: number
@@ -30,20 +31,21 @@ export function Paginacion({ pagina, totalPaginas, totalElementos, onCambiar, ta
           {totalElementos === 1 ? 'registro' : 'registros'}
         </span>
         {onTamano && tamano !== undefined && (
-          <label className="flex items-center gap-2">
-            Filas por página
-            <select
+          <div className="flex items-center gap-2">
+            <span>Filas por página</span>
+            <Selector
+              aria-label="Filas por página"
+              className="!w-20"
               value={tamano}
               onChange={(e) => onTamano(Number(e.target.value))}
-              className="rounded-lg border border-line bg-panel px-2 py-1 text-sm text-ink focus:border-accent focus:outline-none"
             >
               {TAMANOS_PAGINA.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
               ))}
-            </select>
-          </label>
+            </Selector>
+          </div>
         )}
       </div>
 

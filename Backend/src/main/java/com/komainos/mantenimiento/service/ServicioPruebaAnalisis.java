@@ -87,7 +87,7 @@ public class ServicioPruebaAnalisis {
         });
         ResultadoEjecucion resultado = remoto.ejecutar(preparada.solicitud());
         RevisionSalida revision = resultado.correcto() || resultado.fallo() == TipoFallo.CONTRATO
-                ? catalogo.revisarSalida(resultado.salida())
+                ? catalogo.revisarSalida(resultado.salida(), preparada.solicitud().familia())
                 : null;
         transaccion.executeWithoutResult(estado -> auditoria.registrar(actor,
                 Operacion.de("PROBAR_SCRIPT_ANALISIS", "script_version", idVersion).sobreServidor(idServidor)

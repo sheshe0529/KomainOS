@@ -20,8 +20,8 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Valores particulares de un umbral para un servidor, un grupo de mantenimiento, un entorno o un nivel de criticidad
- * (R2.4). El alcance no cambia: para otro alcance se registra otra excepción. Las validaciones de valores viven en el
+ * Valores particulares de un umbral para un servidor, un grupo de mantenimiento, un entorno, un nivel de criticidad o
+ * un sistema operativo (R2.4, R3.1). El alcance no cambia: para otro alcance se registra otra excepción. Las validaciones de valores viven en el
  * umbral, que conoce su modalidad y su operador.
  */
 @Entity
@@ -56,6 +56,11 @@ public class UmbralExcepcion {
     @JoinColumn(name = "id_nivel_criticidad", updatable = false)
     private NivelCriticidad nivelCriticidad;
 
+    /** Adapta el umbral a una plataforma: por ejemplo, los servicios requeridos o los permisos de una distribución */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_sistema_operativo", updatable = false)
+    private SistemaOperativo sistemaOperativo;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_lista_referencia")
     private ListaReferencia lista;
@@ -83,6 +88,7 @@ public class UmbralExcepcion {
         excepcion.grupo = objetivo.grupo();
         excepcion.entorno = objetivo.entorno();
         excepcion.nivelCriticidad = objetivo.criticidad();
+        excepcion.sistemaOperativo = objetivo.sistemaOperativo();
         excepcion.activo = true;
         excepcion.aplicar(valores, motivo, ahora);
         return excepcion;
@@ -103,11 +109,14 @@ public class UmbralExcepcion {
         if (grupo != null) {
             return AlcanceExcepcion.GRUPO;
         }
-        return entorno != null ? AlcanceExcepcion.ENTORNO : AlcanceExcepcion.CRITICIDAD;
+        if (entorno != null) {
+            return AlcanceExcepcion.ENTORNO;
+        }
+        return nivelCriticidad != null ? AlcanceExcepcion.CRITICIDAD : AlcanceExcepcion.SISTEMA_OPERATIVO;
     }
 
     public ObjetivoExcepcion objetivo() {
-        return new ObjetivoExcepcion(alcance(), servidor, grupo, entorno, nivelCriticidad);
+        return new ObjetivoExcepcion(alcance(), servidor, grupo, entorno, nivelCriticidad, sistemaOperativo);
     }
 
     public Integer idObjetivo() {
@@ -115,8 +124,8 @@ public class UmbralExcepcion {
     }
 
     /**
-     * El entorno y la criticidad se toman del servidor evaluado; el grupo, de la orden grupal en ejecución: un servidor
-     * evaluado de forma individual no recibe los valores de los grupos a los que pertenece.
+     * El entorno, la criticidad y el sistema operativo se toman del servidor evaluado; el grupo, de la orden grupal en
+     * ejecución: un servidor evaluado de forma individual no recibe los valores de los grupos a los que pertenece.
      */
     public boolean aplicaA(ContextoEvaluacion contexto) {
         return switch (alcance()) {
@@ -124,6 +133,7 @@ public class UmbralExcepcion {
             case GRUPO -> contexto.idGrupo() != null && Objects.equals(grupo.getId(), contexto.idGrupo());
             case ENTORNO -> Objects.equals(entorno.getId(), contexto.idEntorno());
             case CRITICIDAD -> Objects.equals(nivelCriticidad.getId(), contexto.idNivelCriticidad());
+            case SISTEMA_OPERATIVO -> Objects.equals(sistemaOperativo.getId(), contexto.idSistemaOperativo());
         };
     }
 

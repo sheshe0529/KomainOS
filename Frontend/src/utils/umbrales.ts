@@ -1,4 +1,11 @@
-import type { AlcanceExcepcion, NivelAlerta, OperadorComparacion, OrigenUmbral, TipoDato } from '@/api/dominio'
+import type {
+  AlcanceExcepcion,
+  FamiliaSistemaOperativo,
+  NivelAlerta,
+  OperadorComparacion,
+  OrigenUmbral,
+  TipoDato,
+} from '@/api/dominio'
 import type { MetricaRespuesta, ValoresUmbralRespuesta } from '@/api/types'
 import type { StatusTone } from '@/components/ui/StatusPill'
 
@@ -88,14 +95,34 @@ export function describirMetrica(m?: Pick<MetricaRespuesta, 'esLista' | 'tipoDat
   return m.unidad ? `${base} · ${m.unidad}` : base
 }
 
+type Sistemas = Pick<MetricaRespuesta, 'soAplica'>
+
+/** Etiqueta de so_aplica: sin familia, la métrica se mide en Linux y en Windows (R3.1) */
+export const ETIQUETA_SO_APLICA: Record<FamiliaSistemaOperativo | '', string> = {
+  '': 'Linux y Windows',
+  LINUX: 'Solo Linux',
+  WINDOWS: 'Solo Windows',
+}
+
+/** "Linux y Windows", "Solo Linux" o "Solo Windows": qué análisis informa la métrica */
+export function sistemasDeMetrica(m?: Sistemas): string {
+  return ETIQUETA_SO_APLICA[m?.soAplica ?? '']
+}
+
+/** Si el análisis de esa familia informa la métrica: en las demás no se exige ni se evalúa, ni admite excepciones */
+export function seMideEn(m: Sistemas | undefined, familia?: FamiliaSistemaOperativo): boolean {
+  return !familia || !m?.soAplica || m.soAplica === familia
+}
+
 /** Orden de prioridad al resolver: el primero que alcanza al servidor gana (R2.4) */
-export const PRIORIDAD: OrigenUmbral[] = ['SERVIDOR', 'GRUPO', 'ENTORNO', 'CRITICIDAD', 'GLOBAL']
+export const PRIORIDAD: OrigenUmbral[] = ['SERVIDOR', 'GRUPO', 'ENTORNO', 'CRITICIDAD', 'SISTEMA_OPERATIVO', 'GLOBAL']
 
 export const ETIQUETA_ORIGEN: Record<OrigenUmbral, string> = {
   SERVIDOR: 'Servidor',
   GRUPO: 'Grupo',
   ENTORNO: 'Entorno',
   CRITICIDAD: 'Criticidad',
+  SISTEMA_OPERATIVO: 'Sistema operativo',
   GLOBAL: 'Global',
 }
 
@@ -104,6 +131,7 @@ export const ETIQUETA_ALCANCE: Record<AlcanceExcepcion, string> = {
   GRUPO: 'Grupo',
   ENTORNO: 'Entorno',
   CRITICIDAD: 'Criticidad',
+  SISTEMA_OPERATIVO: 'Sistema operativo',
 }
 
 export const NIVEL: Record<NivelAlerta, { etiqueta: string; tono: StatusTone }> = {

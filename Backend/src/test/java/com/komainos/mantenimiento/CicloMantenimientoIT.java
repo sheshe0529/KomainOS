@@ -81,8 +81,8 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
                 .andExpect(jsonPath("$.mops[0].tareas[0].salida").value(org.hamcrest.Matchers.containsString("SOLO_SIMULAR=true")))
                 .andExpect(jsonPath("$.mops[0].tareas[0].cuenta").value("Cuenta de pruebas"))
                 .andExpect(jsonPath("$.evaluaciones.length()").value(2))
-                .andExpect(jsonPath("$.reporte[0].metricas[?(@.codigo == 'cpu_uso_pct')].nivelAntes").value("ADVERTENCIA"))
-                .andExpect(jsonPath("$.reporte[0].metricas[?(@.codigo == 'cpu_uso_pct')].nivelDespues").value("NORMAL"))
+                .andExpect(jsonPath("$.reporte[0].metricas[?(@.codigo == 'cpu_uso')].nivelAntes").value("ADVERTENCIA"))
+                .andExpect(jsonPath("$.reporte[0].metricas[?(@.codigo == 'cpu_uso')].nivelDespues").value("NORMAL"))
                 .andExpect(jsonPath("$.reporte[0].tareasFinalizadas").value(2))
                 .andExpect(jsonPath("$.validacionesTecnicas[0].resultado").value("CONFORME"))
                 .andExpect(jsonPath("$..secreto").doesNotExist())
@@ -112,6 +112,10 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(csv).contains("Fecha,Orden,Evento", "Liberar archivos temporales", "Validación funcional",
                 "Conformidad del responsable");
+        // El dashboard cuenta el servidor como un mantenimiento exitoso en el mes del cierre
+        mvc.perform(get("/api/automatizacion/graficos").with(como(admin)))
+                .andExpect(jsonPath("$.mantenimientosPorMes[-1].exitosos").value(1))
+                .andExpect(jsonPath("$.mantenimientosPorMes[-1].noRealizados").value(0));
         mvc.perform(get("/api/ordenes/{id}/bitacora/exportacion", id).param("formato", "XLSX").with(como(admin)))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(

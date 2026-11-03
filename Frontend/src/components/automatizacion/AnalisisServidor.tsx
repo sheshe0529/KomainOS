@@ -59,10 +59,49 @@ export function AnalisisServidor({ idServidor }: { idServidor: number }) {
 
   const filas = historial.datos?.contenido ?? []
 
+  const analisis = (
+    <Tarjeta
+      titulo="Análisis del servidor"
+      acciones={
+        esAdmin && (
+          <Boton icono={ScanSearch} cargando={revisando} onClick={revisar}>
+            Revisar ahora
+          </Boton>
+        )
+      }
+    >
+      <MensajeError error={error ?? historial.error} />
+      {historial.cargando && !historial.datos ? (
+        <Cargando />
+      ) : filas.length === 0 ? (
+        <p className="text-sm text-ink-soft">
+          Aún no se analiza este servidor. Las revisiones periódicas corren según su frecuencia de mantenimiento.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-line">
+          <ol>
+            {filas.map((a) => (
+              <FilaAnalisis key={a.id} analisis={a} conServidor={false} />
+            ))}
+          </ol>
+          <Paginacion
+            pagina={pagina}
+            totalPaginas={historial.datos?.totalPaginas ?? 0}
+            totalElementos={historial.datos?.totalElementos ?? 0}
+            onCambiar={setPagina}
+            tamano={tamano}
+            onTamano={setTamano}
+          />
+        </div>
+      )}
+    </Tarjeta>
+  )
+
   return (
     <div className="flex flex-col gap-6">
-      {ve && (
-        <div className="grid gap-6 lg:grid-cols-2">
+      {/* La preparación y el historial de análisis son listas: van lado a lado; la prueba de acceso es una sola fila */}
+      {ve ? (
+        <div className="grid items-start gap-6 lg:grid-cols-2">
           <Tarjeta titulo="Preparación para el ciclo automático">
             <MensajeError error={preparacion.error} onReintentar={preparacion.recargar} />
             {preparacion.cargando && !preparacion.datos ? (
@@ -71,52 +110,20 @@ export function AnalisisServidor({ idServidor }: { idServidor: number }) {
               preparacion.datos && <PreparacionServidor preparacion={preparacion.datos} />
             )}
           </Tarjeta>
-          {esAdmin && (
-            <Tarjeta titulo="Acceso de la cuenta de servicio">
-              <p className="mb-3 text-sm text-ink-soft">
-                Comprueba la conexión, la autenticación y los permisos de administrador sin ejecutar mantenimientos.
-              </p>
-              <PruebaAcceso idServidor={idServidor} />
-            </Tarjeta>
-          )}
+          {analisis}
         </div>
+      ) : (
+        analisis
       )}
 
-      <Tarjeta
-        titulo="Análisis del servidor"
-        acciones={
-          esAdmin && (
-            <Boton icono={ScanSearch} cargando={revisando} onClick={revisar}>
-              Revisar ahora
-            </Boton>
-          )
-        }
-      >
-        <MensajeError error={error ?? historial.error} />
-        {historial.cargando && !historial.datos ? (
-          <Cargando />
-        ) : filas.length === 0 ? (
-          <p className="text-sm text-ink-soft">
-            Aún no se analiza este servidor. Las revisiones periódicas corren según su frecuencia de mantenimiento.
-          </p>
-        ) : (
-          <>
-            <ol className="overflow-hidden rounded-lg border border-line">
-              {filas.map((a) => (
-                <FilaAnalisis key={a.id} analisis={a} conServidor={false} />
-              ))}
-            </ol>
-            <Paginacion
-              pagina={pagina}
-              totalPaginas={historial.datos?.totalPaginas ?? 0}
-              totalElementos={historial.datos?.totalElementos ?? 0}
-              onCambiar={setPagina}
-              tamano={tamano}
-              onTamano={setTamano}
-            />
-          </>
-        )}
-      </Tarjeta>
+      {esAdmin && (
+        <Tarjeta titulo="Acceso de la cuenta de servicio">
+          <PruebaAcceso
+            idServidor={idServidor}
+            descripcion="Comprueba la conexión, la autenticación y los permisos de administrador sin ejecutar mantenimientos."
+          />
+        </Tarjeta>
+      )}
     </div>
   )
 }

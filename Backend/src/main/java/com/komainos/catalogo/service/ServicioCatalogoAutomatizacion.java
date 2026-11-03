@@ -278,6 +278,15 @@ public class ServicioCatalogoAutomatizacion {
      */
     @Transactional(readOnly = true)
     public RevisionSalida revisarSalida(String salida) {
+        return revisarSalida(salida, null);
+    }
+
+    /**
+     * @param familia la del sistema operativo del script; solo se exigen las métricas que se miden en ella (R3.1). Sin
+     *                familia, todas las que tienen un umbral activo
+     */
+    @Transactional(readOnly = true)
+    public RevisionSalida revisarSalida(String salida, FamiliaSistemaOperativo familia) {
         ContratoAnalisis.Revision revision = ContratoAnalisis.revisar(salida, json);
         Map<String, Metrica> catalogo = metricas.findAllByOrderByNombreAsc().stream()
                 .filter(Metrica::isActivo)
@@ -297,6 +306,7 @@ public class ServicioCatalogoAutomatizacion {
                     metrica == null ? null : metrica.getNombre(), metrica == null ? null : metrica.getUnidad()));
         }
         List<String> faltantes = umbrales.findAplicables().stream()
+                .filter(u -> u.getMetrica().aplicaA(familia))
                 .map(u -> u.getMetrica().getCodigo())
                 .filter(codigo -> !recibidas.contains(codigo))
                 .distinct()

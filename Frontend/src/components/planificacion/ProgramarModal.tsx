@@ -4,11 +4,12 @@ import { CalendarPlus, CalendarClock } from 'lucide-react'
 import { planificacionApi } from '@/api/planificacion'
 import type { OrdenDetalleRespuesta, PropuestaRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
-import { AreaTexto, Campo, Entrada } from '@/components/ui/Campo'
+import { AreaTexto, Campo } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
-import { aValorFechaHoraLocal, formatearFechaHora, formatearHora } from '@/utils/formato'
+import { SelectorFecha } from '@/components/ui/SelectorFecha'
+import { aValorFechaHoraLocal, claveDia, formatearFechaHora, formatearHora } from '@/utils/formato'
 
 export interface ObjetivoProgramacion {
   idServidor?: number
@@ -168,7 +169,7 @@ export function ProgramarModal({ abierto, objetivo, idOrden, onCerrar, onGuardad
 
         {modo === 'fecha' && (
           <Campo etiqueta="Inicio" obligatorio ayuda="Hora local de este equipo.">
-            <Entrada type="datetime-local" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
+            <SelectorFecha conHora required value={fecha} min={claveDia(new Date())} onChange={setFecha} aria-label="Inicio" />
           </Campo>
         )}
 

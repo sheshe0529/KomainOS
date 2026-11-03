@@ -173,7 +173,7 @@ export function PublicarVersionPage() {
   async function revisarSalida() {
     setRevisando(true)
     try {
-      setRevision(await scriptsApi.revisarSalida(salida))
+      setRevision(await scriptsApi.revisarSalida(salida, familia))
     } catch (e) {
       setError(e)
     } finally {

@@ -135,7 +135,7 @@ class UmbralesIT extends PruebaIntegracion {
     @Test
     @DisplayName("CP193/CP194/CP196/CP197: umbral numérico con excepciones en los cuatro alcances y su prioridad")
     void numericoConExcepciones() throws Exception {
-        Integer cpu = metrica("cpu_uso_pct", "Uso de CPU", "DECIMAL", false);
+        Integer cpu = metrica("cpu_uso", "Uso de CPU", "DECIMAL", false);
         Integer umbral = id(enviar(post("/api/umbrales"), Map.of("idMetrica", cpu, "nombre", "CPU alta",
                 "operador", "MAYOR", "valorAdvertencia", 80, "valorCritico", 90))
                 .andExpect(status().isCreated())
@@ -217,7 +217,7 @@ class UmbralesIT extends PruebaIntegracion {
     @Test
     @DisplayName("CP187/CP188/CP190/CP191/CP197: umbral de lista con faltantes, sobrantes y lista propia por servidor")
     void umbralDeLista() throws Exception {
-        Integer puertos = metrica("puertos_escucha", "Puertos en escucha", "INTEGER", true);
+        Integer puertos = metrica("red_puerto_no_aut", "Puertos TCP no autorizados en escucha", "INTEGER", true);
         Integer web = id(enviar(post("/api/listas-referencia"), Map.of("nombre", "Puertos web", "tipoDato", "INTEGER",
                 "elementos", List.of("443", "0080", "22", "80")))
                 .andExpect(status().isCreated())
@@ -291,7 +291,7 @@ class UmbralesIT extends PruebaIntegracion {
     @Test
     @DisplayName("CP199: el operador consulta sin modificar y el responsable solo ve sus servidores")
     void alcancePorRol() throws Exception {
-        Integer cpu = metrica("cpu_uso_pct", "Uso de CPU", "DECIMAL", false);
+        Integer cpu = metrica("cpu_uso", "Uso de CPU", "DECIMAL", false);
         Integer umbral = id(enviar(post("/api/umbrales"), Map.of("idMetrica", cpu, "nombre", "CPU alta",
                 "operador", "MAYOR_IGUAL", "valorCritico", 95)).andExpect(status().isCreated()));
 

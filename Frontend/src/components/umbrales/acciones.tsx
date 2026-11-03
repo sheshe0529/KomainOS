@@ -3,7 +3,7 @@ import type { AlcanceExcepcion } from '@/api/dominio'
 import type { ExcepcionUmbralRespuesta } from '@/api/types'
 import { BotonIcono } from '@/components/ui/Boton'
 
-/** A quién se le definen valores propios: un servidor, un grupo, un entorno o una criticidad */
+/** A quién se le definen valores propios: un servidor, un grupo, un entorno, una criticidad o un sistema operativo */
 export interface Destino {
   alcance: AlcanceExcepcion
   id: number

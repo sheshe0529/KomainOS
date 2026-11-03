@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Save } from 'lucide-react'
-import type { TipoDato } from '@/api/dominio'
+import type { FamiliaSistemaOperativo, TipoDato } from '@/api/dominio'
 import { umbralesApi } from '@/api/umbrales'
 import type { MetricaRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
-import { Campo, Entrada, Selector } from '@/components/ui/Campo'
+import { AreaTexto, Campo, Entrada, Selector } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
-import { ETIQUETA_TIPO_DATO, TIPOS_ESCALAR, TIPOS_LISTA } from '@/utils/umbrales'
+import { ETIQUETA_SO_APLICA, ETIQUETA_TIPO_DATO, TIPOS_ESCALAR, TIPOS_LISTA } from '@/utils/umbrales'
 
 interface MetricaFormularioProps {
   metrica?: MetricaRespuesta
@@ -17,11 +17,17 @@ interface MetricaFormularioProps {
   onGuardado: (metrica: MetricaRespuesta) => void
 }
 
-/** El código no cambia: es lo que busca el sistema en la salida del script de análisis */
+/**
+ * El código no cambia: es lo que busca el sistema en la salida del script de análisis. «Se mide en» indica qué análisis
+ * la informa: en los servidores de otra familia no se exige ni se evalúa (R3.1)
+ */
 export function MetricaFormulario({ metrica, onCerrar, onGuardado }: MetricaFormularioProps) {
   const [codigo, setCodigo] = useState(metrica?.codigo ?? '')
   const [nombre, setNombre] = useState(metrica?.nombre ?? '')
+  const [descripcion, setDescripcion] = useState(metrica?.descripcion ?? '')
   const [unidad, setUnidad] = useState(metrica?.unidad ?? '')
+  // Vacío: Linux y Windows (so_aplica nulo)
+  const [soAplica, setSoAplica] = useState<FamiliaSistemaOperativo | ''>(metrica?.soAplica ?? '')
   const [esLista, setEsLista] = useState(metrica?.esLista ?? false)
   const [tipo, setTipo] = useState<TipoDato>(metrica?.tipoDato ?? 'DECIMAL')
   const [guardando, setGuardando] = useState(false)
@@ -45,7 +51,14 @@ export function MetricaFormulario({ metrica, onCerrar, onGuardado }: MetricaForm
     evento.preventDefault()
     setGuardando(true)
     setError(undefined)
-    const comunes = { nombre: nombre.trim(), unidad: llevaUnidad ? unidad.trim() || undefined : undefined, tipoDato: tipo, esLista }
+    const comunes = {
+      nombre: nombre.trim(),
+      descripcion: descripcion.trim() || undefined,
+      unidad: llevaUnidad ? unidad.trim() || undefined : undefined,
+      tipoDato: tipo,
+      esLista,
+      soAplica: soAplica || undefined,
+    }
     try {
       onGuardado(
         metrica?.id
@@ -79,7 +92,7 @@ export function MetricaFormulario({ metrica, onCerrar, onGuardado }: MetricaForm
           <Entrada
             value={codigo}
             onChange={(e) => setCodigo(e.target.value)}
-            placeholder="cpu_uso_pct"
+            placeholder="cpu_uso"
             disabled={!!metrica}
             className="font-mono"
             required
@@ -88,6 +101,13 @@ export function MetricaFormulario({ metrica, onCerrar, onGuardado }: MetricaForm
         </Campo>
         <Campo etiqueta="Nombre" obligatorio error={errorDeCampo(error, 'nombre')}>
           <Entrada value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Uso de CPU" required />
+        </Campo>
+        <Campo
+          etiqueta="Descripción"
+          error={errorDeCampo(error, 'descripcion')}
+          ayuda="Qué mide y cómo la obtiene el script: la ven quienes definen los umbrales."
+        >
+          <AreaTexto value={descripcion} maxLength={500} rows={3} onChange={(e) => setDescripcion(e.target.value)} />
         </Campo>
         <div className="grid gap-4 sm:grid-cols-2">
           <Campo etiqueta="Mide">
@@ -107,11 +127,30 @@ export function MetricaFormulario({ metrica, onCerrar, onGuardado }: MetricaForm
           </Campo>
         </div>
         {ayudaTipo && <p className="-mt-2 text-xs text-ink-faint">{ayudaTipo}</p>}
-        {llevaUnidad && (
-          <Campo etiqueta="Unidad" error={errorDeCampo(error, 'unidad')}>
-            <Entrada value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder="%" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {llevaUnidad && (
+            <Campo etiqueta="Unidad" error={errorDeCampo(error, 'unidad')}>
+              <Entrada value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder="%" />
+            </Campo>
+          )}
+          <Campo
+            etiqueta="Se mide en"
+            error={errorDeCampo(error, 'soAplica')}
+            ayuda="Solo el análisis de ese sistema la informa; en los demás servidores no se exige ni se evalúa."
+          >
+            <Selector
+              value={soAplica}
+              onChange={(e) => setSoAplica(e.target.value as FamiliaSistemaOperativo | '')}
+              aria-label="Sistema operativo en el que se mide"
+            >
+              {(Object.keys(ETIQUETA_SO_APLICA) as (FamiliaSistemaOperativo | '')[]).map((valor) => (
+                <option key={valor} value={valor}>
+                  {ETIQUETA_SO_APLICA[valor]}
+                </option>
+              ))}
+            </Selector>
           </Campo>
-        )}
+        </div>
       </form>
     </Modal>
   )

@@ -4,9 +4,10 @@ import { Plus, Save, Trash2 } from 'lucide-react'
 import { DIAS_SEMANA, type DiaSemana } from '@/api/dominio'
 import type { VentanaPeticion, VentanaRespuesta } from '@/api/types'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
-import { Entrada, Selector } from '@/components/ui/Campo'
+import { Selector } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { SelectorHora } from '@/components/ui/SelectorHora'
 import { VistaSemanalVentanas } from './VistaSemanalVentanas'
 import { ETIQUETA_DIA } from '@/utils/etiquetas'
 
@@ -100,7 +101,7 @@ export function VentanasModal({ abierto, hostname, actuales, onCerrar, onGuardar
                     </option>
                   ))}
                 </Selector>
-                <Entrada type="time" aria-label="Hora de inicio" value={f.horaInicio} onChange={(e) => cambiar(i, { horaInicio: e.target.value })} required />
+                <SelectorHora aria-label="Hora de inicio" value={f.horaInicio} onChange={(v) => cambiar(i, { horaInicio: v })} />
               </div>
               <span className="text-ink-faint">a</span>
               <div className="grid grid-cols-2 gap-2">
@@ -111,7 +112,7 @@ export function VentanasModal({ abierto, hostname, actuales, onCerrar, onGuardar
                     </option>
                   ))}
                 </Selector>
-                <Entrada type="time" aria-label="Hora de fin" value={f.horaFin} onChange={(e) => cambiar(i, { horaFin: e.target.value })} required />
+                <SelectorHora aria-label="Hora de fin" value={f.horaFin} onChange={(v) => cambiar(i, { horaFin: v })} />
               </div>
               <button
                 type="button"

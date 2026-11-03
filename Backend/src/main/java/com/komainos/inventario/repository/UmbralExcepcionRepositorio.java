@@ -16,6 +16,7 @@ public interface UmbralExcepcionRepositorio extends JpaRepository<UmbralExcepcio
               left join fetch e.grupo
               left join fetch e.entorno
               left join fetch e.nivelCriticidad
+              left join fetch e.sistemaOperativo
               left join fetch e.lista
             where e.umbral.id = :idUmbral
             """)

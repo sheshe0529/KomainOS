@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { cicloApi } from '@/api/automatizacion'
 import { Boton } from '@/components/ui/Boton'
-import { AreaTexto, Campo, Entrada } from '@/components/ui/Campo'
+import { AreaTexto, Campo } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { SelectorFecha } from '@/components/ui/SelectorFecha'
 import { errorDeCampo } from '@/utils/errores'
-import { formatearFechaHora } from '@/utils/formato'
+import { claveDia, formatearFechaHora } from '@/utils/formato'
 
 export type AccionOrden =
   | 'aprobar'
@@ -169,7 +170,7 @@ export function AccionOrdenModal({ idOrden, accion, fechaPropuesta, onCerrar, on
         )}
         {accion === 'proponer' && (
           <Campo etiqueta="Nueva fecha de inicio" obligatorio error={errorDeCampo(error, 'fechaPropuesta')}>
-            <Entrada type="datetime-local" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <SelectorFecha conHora required value={fecha} min={claveDia(new Date())} onChange={setFecha} aria-label="Nueva fecha de inicio" />
           </Campo>
         )}
         {p.campo && (

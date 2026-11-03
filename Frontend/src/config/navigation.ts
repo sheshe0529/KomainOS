@@ -21,6 +21,7 @@ import {
   Bell,
   History,
   LayoutDashboard,
+  CircleUserRound,
   Library,
 } from 'lucide-react'
 import type { Rol } from '@/api/dominio'
@@ -126,6 +127,8 @@ export const navigation: NavItem[] = [
     label: 'Configuración',
     icon: Settings,
     children: [
+      // El nombre en la barra superior lleva a esta misma pantalla
+      { id: 'mi-cuenta', label: 'Mi cuenta', icon: CircleUserRound, path: '/mi-cuenta' },
       {
         id: 'politicas',
         label: 'Políticas de cambio',
@@ -174,13 +177,8 @@ export function navegacionPara(rol: Rol | undefined): NavItem[] {
   })
 }
 
-const TITULOS_FUERA_DEL_MENU: Record<string, string> = {
-  '/mi-cuenta': 'Mi cuenta',
-}
-
 /** Las rutas de detalle (/servidores/12) toman el título de su sección */
 export function findNavLabel(pathname: string): string {
-  if (TITULOS_FUERA_DEL_MENU[pathname]) return TITULOS_FUERA_DEL_MENU[pathname]
   let mejor: { label: string; largo: number } | null = null
   for (const item of navigation) {
     const hojas = isNavGroup(item) ? item.children : [item]
