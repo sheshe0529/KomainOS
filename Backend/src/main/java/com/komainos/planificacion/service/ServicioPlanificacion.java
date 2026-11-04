@@ -192,14 +192,25 @@ public class ServicioPlanificacion {
         return orden;
     }
 
-    /** RF48, CP122: la fecha propuesta debe caber en la ventana efectiva, sin conflictos y con capacidad */
+    /**
+     * RF48, CP122: la fecha propuesta debe estar libre de conflictos y con capacidad. Fuera de la ventana efectiva solo
+     * se admite con la confirmación expresa de quien la propone (HU19 CA3)
+     *
+     * @return si la fecha cae dentro de la ventana permisiva
+     */
     @Transactional(readOnly = true)
-    public void verificarFecha(Integer idOrden, Instant inicio) {
+    public boolean verificarFecha(Integer idOrden, Instant inicio, boolean confirmaFueraDeVentana) {
         Orden orden = buscarOrden(idOrden);
         Objetivo objetivo = objetivoDeOrden(orden);
         Instant ahora = Tiempo.ahora(reloj);
-        planificador.verificar(solicitud(objetivo, orden.getFechaObjetivo(), ahora), inicio,
-                reservas(ahora, inicio, idOrden));
+        SolicitudPlanificacion solicitud = solicitud(objetivo, orden.getFechaObjetivo(), ahora);
+        boolean dentro = planificador.cabeEnVentana(solicitud, inicio);
+        if (!dentro && !confirmaFueraDeVentana) {
+            throw new ReglaNegocioException("La fecha propuesta queda fuera de la ventana permisiva del servidor: confirme "
+                    + "expresamente que desea proponerla");
+        }
+        planificador.verificar(solicitud, inicio, reservas(ahora, inicio, idOrden), dentro);
+        return dentro;
     }
 
     /** RF48: aplica la fecha propuesta aceptada; la orden sigue en autorización con una ronda nueva */
@@ -210,8 +221,14 @@ public class ServicioPlanificacion {
         Map<String, Object> anterior = orden.instantaneaProgramacion();
         Objetivo objetivo = objetivoDeOrden(orden);
         Instant ahora = Tiempo.ahora(reloj);
-        ResultadoPlanificacion resultado = planificador.verificar(solicitud(objetivo, orden.getFechaObjetivo(), ahora),
-                inicio, reservas(ahora, inicio, idOrden));
+        SolicitudPlanificacion solicitud = solicitud(objetivo, orden.getFechaObjetivo(), ahora);
+        boolean dentro = planificador.cabeEnVentana(solicitud, inicio);
+        if (!dentro && !confirmaciones.existsByOrdenId(idOrden)) {
+            throw new ReglaNegocioException("La fecha propuesta queda fuera de la ventana permisiva y no tiene una "
+                    + "confirmación registrada");
+        }
+        ResultadoPlanificacion resultado = planificador.verificar(solicitud, inicio, reservas(ahora, inicio, idOrden),
+                dentro);
         orden.reprogramarEnAutorizacion(programacion(resultado), resultado.tramos().stream()
                 .map(t -> new Orden.TramoDetalle(t.idServidor(), t.posicion(), t.inicio(), t.fin()))
                 .toList());

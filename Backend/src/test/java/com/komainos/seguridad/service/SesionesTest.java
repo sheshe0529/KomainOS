@@ -157,6 +157,24 @@ class SesionesTest {
         }
 
         @Test
+        @DisplayName("RF02: el token que reemplaza una renovación vale solo la gracia; el nuevo sigue vigente")
+        void reemplazoPorRenovacion() {
+            RelojManual reloj = new RelojManual();
+            ServicioJwt conReloj = new ServicioJwt(new PropiedadesJwt(
+                    Base64.getEncoder().encodeToString("clave-de-prueba-de-32-bytes-o-mas!!".getBytes()), 60),
+                    new RegistroRevocaciones(reloj));
+            String anterior = conReloj.generar("admin", "ADMINISTRADOR", 60);
+            String nuevo = conReloj.generar("admin", "ADMINISTRADOR", 60);
+
+            conReloj.reemplazar(conReloj.verificar(anterior).orElseThrow(), Duration.ofSeconds(30));
+
+            assertThat(conReloj.verificar(anterior)).isPresent();
+            reloj.avanzar(Duration.ofSeconds(31));
+            assertThat(conReloj.verificar(anterior)).isEmpty();
+            assertThat(conReloj.verificar(nuevo)).isPresent();
+        }
+
+        @Test
         @DisplayName("revocar las sesiones de una cuenta invalida los tokens ya emitidos, sin importar mayúsculas")
         void sesionesDeLaCuenta() {
             String anterior = jwt.generar("Operador", "OPERADOR", 60);

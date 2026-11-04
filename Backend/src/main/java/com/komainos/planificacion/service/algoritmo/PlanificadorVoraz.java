@@ -69,6 +69,23 @@ public final class PlanificadorVoraz {
 
     /** Programación manual con fecha (RF30): no busca, solo verifica ventana, conflictos y capacidad (DEC-23) */
     public ResultadoPlanificacion verificar(SolicitudPlanificacion s, Instant inicio, List<Reserva> reservas) {
+        return verificar(s, inicio, reservas, true);
+    }
+
+    /** Si el mantenimiento completo cabe en la ventana permisiva a partir de esa hora */
+    public boolean cabeEnVentana(SolicitudPlanificacion s, Instant inicio) {
+        Instant t = inicio.truncatedTo(ChronoUnit.SECONDS);
+        Intervalo propuesta = new Intervalo(t, t.plus(Forma.de(s).total()));
+        return s.ventana().proyectar(t.minus(Duration.ofDays(8)), propuesta.fin().plus(Duration.ofDays(1)), s.zona())
+                .stream().anyMatch(v -> v.contiene(propuesta));
+    }
+
+    /**
+     * Sin exigir la ventana solo se usa con una excepción confirmada expresamente (HU19 CA3): siguen valiendo los
+     * conflictos y la capacidad, y la ventana aplicada es el propio intervalo de la orden
+     */
+    public ResultadoPlanificacion verificar(SolicitudPlanificacion s, Instant inicio, List<Reserva> reservas,
+                                            boolean exigirVentana) {
         Instant t = inicio.truncatedTo(ChronoUnit.SECONDS);
         if (!t.isAfter(s.ahora())) {
             throw new PlanificacionImposibleException("La fecha y hora de inicio deben ser futuras");
@@ -76,15 +93,18 @@ public final class PlanificadorVoraz {
         Forma forma = Forma.de(s);
         Intervalo propuesta = new Intervalo(t, t.plus(forma.total()));
 
-        List<Intervalo> ventanas = s.ventana().proyectar(
-                t.minus(Duration.ofDays(8)), propuesta.fin().plus(Duration.ofDays(1)), s.zona());
-        exigirVentanaUtil(s, ventanas, forma.total());
-        Intervalo ventana = ventanas.stream()
-                .filter(v -> v.contiene(propuesta))
-                .findFirst()
-                .orElseThrow(() -> new PlanificacionImposibleException(
-                        ("El mantenimiento (%d min) no cabe completo dentro de la ventana permisiva a partir de la hora "
-                                + "indicada").formatted(forma.total().toMinutes())));
+        Intervalo ventana = propuesta;
+        if (exigirVentana) {
+            List<Intervalo> ventanas = s.ventana().proyectar(
+                    t.minus(Duration.ofDays(8)), propuesta.fin().plus(Duration.ofDays(1)), s.zona());
+            exigirVentanaUtil(s, ventanas, forma.total());
+            ventana = ventanas.stream()
+                    .filter(v -> v.contiene(propuesta))
+                    .findFirst()
+                    .orElseThrow(() -> new PlanificacionImposibleException(
+                            ("El mantenimiento (%d min) no cabe completo dentro de la ventana permisiva a partir de la "
+                                    + "hora indicada").formatted(forma.total().toMinutes())));
+        }
 
         List<Reserva> relevantes = reservas.stream().filter(r -> r.intervalo().seSolapaCon(propuesta)).toList();
         Set<String> enConflicto = conflictos(forma, t, relevantes);

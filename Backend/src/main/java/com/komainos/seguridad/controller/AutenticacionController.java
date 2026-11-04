@@ -62,6 +62,15 @@ public class AutenticacionController {
         }
     }
 
+    @PostMapping("/renovar")
+    @Operation(summary = "Renueva la sesión vigente por la actividad del usuario: vence solo por inactividad")
+    public TokenRespuesta renovar(@AuthenticationPrincipal UsuarioAutenticado usuario, HttpServletRequest solicitud) {
+        String cabecera = solicitud.getHeader(HttpHeaders.AUTHORIZATION);
+        String actual = cabecera != null && cabecera.startsWith(PREFIJO) ? cabecera.substring(PREFIJO.length()) : null;
+        Sesion sesion = autenticacion.renovar(usuario, actual);
+        return TokenRespuesta.de(sesion.token(), sesion.minutos(), UsuarioSesion.de(sesion.usuario()));
+    }
+
     /** Se releen de la base para reflejar cambios hechos por el administrador durante la sesión */
     @GetMapping("/perfil")
     @Operation(summary = "Detalle de la cuenta del usuario autenticado")

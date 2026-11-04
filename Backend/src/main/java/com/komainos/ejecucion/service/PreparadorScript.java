@@ -1,5 +1,6 @@
 package com.komainos.ejecucion.service;
 
+import com.komainos.ejecucion.model.ListaEjecucion;
 import com.komainos.ejecucion.model.ParametroEjecucion;
 import com.komainos.ejecucion.model.ScriptPreparado;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
@@ -19,6 +20,9 @@ import java.util.regex.Pattern;
  * cada parámetro como una variable del mismo nombre, {@code $NOMBRE} en Bash y en PowerShell. El mismo texto se ejecuta
  * en el servidor y se muestra en la vista previa del panel, así un script se puede probar a mano con idéntico resultado.
  * Los valores van entre comillas simples con su escape: un valor nunca se interpreta como código.
+ *
+ * <p>Un análisis recibe además, en el mismo bloque, la lista de referencia que rige para el servidor en cada métrica de
+ * lista, como arreglo {@code KOMAINOS_LISTA_<CÓDIGO>}: {@code ('a' 'b')} en Bash y {@code @('a', 'b')} en PowerShell.
  */
 public final class PreparadorScript {
 
@@ -50,10 +54,15 @@ public final class PreparadorScript {
 
     public static ScriptPreparado preparar(FamiliaSistemaOperativo familia, String contenido,
                                            List<ParametroEjecucion> parametros) {
+        return preparar(familia, contenido, parametros, List.of());
+    }
+
+    public static ScriptPreparado preparar(FamiliaSistemaOperativo familia, String contenido,
+                                           List<ParametroEjecucion> parametros, List<ListaEjecucion> listas) {
         List<String> lineas = new ArrayList<>(List.of(normalizar(contenido).split("\n", -1)));
         return familia == FamiliaSistemaOperativo.WINDOWS
-                ? prepararPowerShell(lineas, parametros)
-                : prepararBash(lineas, parametros);
+                ? prepararPowerShell(lineas, definiciones(FamiliaSistemaOperativo.WINDOWS, parametros, listas))
+                : prepararBash(lineas, definiciones(FamiliaSistemaOperativo.LINUX, parametros, listas));
     }
 
     public static String nombreArchivo(FamiliaSistemaOperativo familia) {
@@ -141,7 +150,26 @@ public final class PreparadorScript {
         };
     }
 
-    private static ScriptPreparado prepararBash(List<String> lineas, List<ParametroEjecucion> parametros) {
+    /** Las líneas del bloque: cada parámetro y después cada lista */
+    private static List<String> definiciones(FamiliaSistemaOperativo familia, List<ParametroEjecucion> parametros,
+                                             List<ListaEjecucion> listas) {
+        boolean windows = familia == FamiliaSistemaOperativo.WINDOWS;
+        List<String> definiciones = new ArrayList<>();
+        for (ParametroEjecucion p : parametros) {
+            definiciones.add((windows ? "$" + p.nombre() + " = " : p.nombre() + "=") + literal(familia, p));
+        }
+        for (ListaEjecucion l : listas) {
+            List<String> elementos = l.elementos().stream()
+                    .map(e -> literal(familia, new ParametroEjecucion(l.variable(), TipoDato.STRING, e)))
+                    .toList();
+            definiciones.add(windows
+                    ? "$" + l.variable() + " = @(" + String.join(", ", elementos) + ")"
+                    : l.variable() + "=(" + String.join(" ", elementos) + ")");
+        }
+        return definiciones;
+    }
+
+    private static ScriptPreparado prepararBash(List<String> lineas, List<String> definiciones) {
         List<String> resultado = new ArrayList<>();
         // El controlador ejecuta con /bin/bash; el shebang solo importa al probar el archivo a mano
         if (!lineas.isEmpty() && lineas.getFirst().startsWith("#!")) {
@@ -151,12 +179,10 @@ public final class PreparadorScript {
         }
         int inicio = 0;
         int fin = 0;
-        if (!parametros.isEmpty()) {
+        if (!definiciones.isEmpty()) {
             inicio = resultado.size() + 1;
             resultado.add(INICIO_BLOQUE);
-            for (ParametroEjecucion p : parametros) {
-                resultado.add(p.nombre() + "=" + literal(FamiliaSistemaOperativo.LINUX, p));
-            }
+            resultado.addAll(definiciones);
             resultado.add(FIN_BLOQUE);
             fin = resultado.size();
         }
@@ -165,8 +191,8 @@ public final class PreparadorScript {
     }
 
     /** Las sentencias using deben ser las primeras del script: el bloque va después de ellas */
-    private static ScriptPreparado prepararPowerShell(List<String> lineas, List<ParametroEjecucion> parametros) {
-        if (parametros.isEmpty()) {
+    private static ScriptPreparado prepararPowerShell(List<String> lineas, List<String> definiciones) {
+        if (definiciones.isEmpty()) {
             return new ScriptPreparado("tarea.ps1", "powershell", String.join("\n", lineas), 0, 0);
         }
         int posicion = 0;
@@ -180,9 +206,7 @@ public final class PreparadorScript {
         }
         List<String> bloque = new ArrayList<>();
         bloque.add(INICIO_BLOQUE);
-        for (ParametroEjecucion p : parametros) {
-            bloque.add("$" + p.nombre() + " = " + literal(FamiliaSistemaOperativo.WINDOWS, p));
-        }
+        bloque.addAll(definiciones);
         bloque.add(FIN_BLOQUE);
         List<String> resultado = new ArrayList<>(lineas.subList(0, posicion));
         resultado.addAll(bloque);

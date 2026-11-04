@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * RF67: series observadas, sin interpolar ni sustituir mediciones ausentes por cero. Recursos y ejecuciones tienen
- * ventana fija; órdenes e incidencias usan el periodo de los indicadores, y los mantenimientos por mes, seis meses.
+ * RF67: series observadas, sin interpolar ni sustituir mediciones ausentes por cero. Las ejecuciones tienen ventana
+ * fija; órdenes e incidencias usan el periodo de los indicadores, y los mantenimientos por mes, seis meses.
  */
 @Service
 @RequiredArgsConstructor
@@ -43,28 +43,8 @@ public class ServicioGraficosAutomatizacion {
         if (!inicioPeriodo.isBefore(finPeriodo)) {
             throw new ReglaNegocioException("El inicio del periodo debe ser anterior a su fin");
         }
-        Instant inicioHoras = ahora.truncatedTo(ChronoUnit.HOURS).minus(23, ChronoUnit.HOURS);
         Instant inicioDias = ahora.truncatedTo(ChronoUnit.DAYS).minus(6, ChronoUnit.DAYS);
         Timestamp fin = Timestamp.from(ahora.plusSeconds(1));
-        var recursos = jdbc.query("""
-                with horas as (select generate_series(?::timestamp, date_trunc('hour', ?::timestamp),
-                    interval '1 hour') as hora),
-                muestras as (select date_trunc('hour', e.fecha_fin) as hora, e.id_servidor,
-                    avg(m.valor) filter (where mt.codigo = 'cpu_uso') as cpu,
-                    avg(m.valor) filter (where mt.codigo = 'mem_uso') as memoria
-                    from medicion_metrica m join evaluacion e using(id_evaluacion)
-                    join metrica mt using(id_metrica) join servidor s using(id_servidor)
-                    where e.estado = 'FINALIZADA' and s.estado = 'ACTIVO' and e.fecha_fin >= ?
-                        and e.fecha_fin < ? and mt.codigo in ('cpu_uso','mem_uso')
-                    group by 1, 2),
-                promedios as (select hora, avg(cpu) as cpu, avg(memoria) as memoria, count(*) as servidores
-                    from muestras group by hora)
-                select to_char(h.hora,'YYYY-MM-DD"T"HH24:MI:SS"Z"'), p.cpu, p.memoria,
-                    coalesce(p.servidores,0) from horas h left join promedios p using(hora) order by h.hora
-                """, (rs, fila) -> new RecursoHora(rs.getString(1),
-                rs.getObject(2) == null ? null : rs.getDouble(2),
-                rs.getObject(3) == null ? null : rs.getDouble(3), rs.getLong(4)),
-                Timestamp.from(inicioHoras), Timestamp.from(ahora), Timestamp.from(inicioHoras), fin);
         var ejecuciones = jdbc.query("""
                 with dias as (select generate_series(?::timestamp, date_trunc('day', ?::timestamp),
                     interval '1 day')::date as dia),
@@ -93,7 +73,7 @@ public class ServicioGraficosAutomatizacion {
                 group by origen order by count(*) desc, origen
                 """, (rs, fila) -> new IncidenciasOrigen(rs.getString(1), rs.getLong(2), rs.getLong(3)),
                 desdePeriodo, hastaPeriodo);
-        return new ResumenGraficos(ahora, inicioPeriodo, finPeriodo, recursos, ejecuciones, mantenimientosPorMes(ahora),
+        return new ResumenGraficos(ahora, inicioPeriodo, finPeriodo, ejecuciones, mantenimientosPorMes(ahora),
                 ordenes, incidencias, salud());
     }
 
@@ -160,7 +140,7 @@ public class ServicioGraficosAutomatizacion {
      * @param desde inicio del periodo de órdenes e incidencias
      * @param hasta fin exclusivo del periodo
      */
-    public record ResumenGraficos(Instant fechaActualizacion, Instant desde, Instant hasta, List<RecursoHora> recursos,
+    public record ResumenGraficos(Instant fechaActualizacion, Instant desde, Instant hasta,
                                   List<EjecucionDia> ejecuciones, List<ResultadoMes> mantenimientosPorMes,
                                   List<Conteo> ordenesPorEstado, List<IncidenciasOrigen> incidenciasPorOrigen,
                                   SaludServidores saludServidores) {
@@ -173,8 +153,6 @@ public class ServicioGraficosAutomatizacion {
     public record IncidenciasOrigen(String origen, long abiertas, long cerradas) {
     }
     public record SaludServidores(long normal, long advertencia, long critico, long sinAnalisis) {
-    }
-    public record RecursoHora(String hora, Double cpu, Double memoria, long servidores) {
     }
     public record EjecucionDia(String fecha, long exito, long advertencia, long error) {
     }

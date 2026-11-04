@@ -7,6 +7,7 @@ import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta.FilaComparati
 import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta.MedicionRespuesta;
 import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta.PlanMop;
 import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta.ReporteServidor;
+import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta.ResumenPlan;
 import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta.TareaMopRespuesta;
 import com.komainos.mantenimiento.dto.IncidenciaRespuesta;
 import com.komainos.mantenimiento.dto.OperacionRespuestas;
@@ -21,9 +22,11 @@ import com.komainos.mantenimiento.model.MedicionMetrica;
 import com.komainos.mantenimiento.model.Mop;
 import com.komainos.mantenimiento.model.MopTarea;
 import com.komainos.mantenimiento.model.NotificacionRegla;
+import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrdenDetalle;
 import com.komainos.mantenimiento.model.ReglaPoliticaCambio;
 import com.komainos.mantenimiento.model.SolicitudAutorizacion;
+import com.komainos.mantenimiento.model.TipoAprobador;
 import com.komainos.mantenimiento.model.TipoEvaluacion;
 import com.komainos.mantenimiento.service.ServicioConsultaAutomatizacion.FichaAutomatizacion;
 import com.komainos.shared.dto.ReferenciaSimple;
@@ -55,8 +58,9 @@ public final class AutomatizacionMapeador {
                 new FichaAutomatizacionRespuesta.AccionesOrden(a.evaluar(), a.decidir(), a.proponerFecha(),
                         a.decidirPropuesta(), a.validar(), a.cerrarSinImplementacion(), a.procesarCola()),
                 f.mops().stream().map(m -> plan(m, f.maxDuracionMop(), f.cuentas())).toList(),
+                resumenPlan(f),
                 analisis,
-                f.autorizaciones().stream().map(AutomatizacionMapeador::ronda).toList(),
+                f.autorizaciones().stream().map(s -> ronda(s, responsables(f))).toList(),
                 f.validacion().map(v -> new FichaAutomatizacionRespuesta.ValidacionFuncionalRespuesta(v.getId(),
                         v.getResponsable().getId(), v.getResponsable().getNombreCompleto(), v.getEstado(),
                         v.getFechaSolicitud(), v.getFechaLimite(), v.getFechaRespuesta(), v.getObservaciones()))
@@ -128,6 +132,14 @@ public final class AutomatizacionMapeador {
                 duracion(t.getFechaInicio(), t.getFechaFin()), t.getError());
     }
 
+    private static ResumenPlan resumenPlan(FichaAutomatizacion f) {
+        Orden orden = f.orden();
+        return new ResumenPlan(f.servidores(),
+                (int) f.mops().stream().filter(m -> !m.getTareas().isEmpty()).count(),
+                f.mops().stream().mapToInt(m -> m.getTareas().size()).sum(), f.duracionPlan(),
+                orden.esGrupal() ? orden.getModoEjecucionAplicado() : null);
+    }
+
     private static PlanMop plan(Mop m, int maximo, Map<Integer, String> cuentas) {
         OrdenDetalle d = m.getDetalle();
         return new PlanMop(m.getId(), d.getId(), d.getServidor().getId(), d.getServidor().getHostname(), d.getEstado(),
@@ -146,13 +158,22 @@ public final class AutomatizacionMapeador {
                 duracion(t.getFechaInicio(), t.getFechaFin()));
     }
 
-    private static FichaAutomatizacionRespuesta.RondaAutorizacion ronda(SolicitudAutorizacion s) {
+    private static List<FichaAutomatizacionRespuesta.Aprobador> responsables(FichaAutomatizacion f) {
+        return f.responsables().entrySet().stream()
+                .map(e -> new FichaAutomatizacionRespuesta.Aprobador(e.getKey(), e.getValue()))
+                .toList();
+    }
+
+    private static FichaAutomatizacionRespuesta.RondaAutorizacion ronda(SolicitudAutorizacion s,
+                                                                        List<FichaAutomatizacionRespuesta.Aprobador> responsables) {
         return new FichaAutomatizacionRespuesta.RondaAutorizacion(s.getId(), s.getNumeroRonda(), s.getFechaLimite(),
                 s.getRegla().getEntorno().getNombre(), s.getRegla().getAfectacion(), s.esAutomatica(),
                 s.getDecisiones().stream()
                         .map(d -> new FichaAutomatizacionRespuesta.DecisionAutorizacion(d.getId(), d.getTipo(), d.getOrdenSecuencia(),
                                 d.getEstado(), d.getUsuarioDecision() == null ? null : d.getUsuarioDecision().getNombreCompleto(),
-                                d.getFechaSolicitud(), d.getFechaDecision(), d.getFechaPropuesta(), d.getMotivo()))
+                                d.getUsuarioDecision() == null ? null : d.getUsuarioDecision().getCodigo(),
+                                d.getFechaSolicitud(), d.getFechaDecision(), d.getFechaPropuesta(), d.getMotivo(),
+                                d.getTipo() == TipoAprobador.RESPONSABLE ? responsables : List.of()))
                         .toList());
     }
 
@@ -163,7 +184,8 @@ public final class AutomatizacionMapeador {
                 m.getUmbrales().stream()
                         .map(u -> new FichaAutomatizacionRespuesta.UmbralEvaluadoRespuesta(u.getIdUmbral(), u.getIdExcepcion(),
                                 u.getNivel(), u.getOperador() == null ? null : u.getOperador().simbolo(),
-                                u.getAdvertencia(), u.getCritico(), u.getIdLista(), u.getNivelFaltante(),
+                                u.getAdvertencia(), u.getCritico(), u.getIdLista(),
+                                u.getListaAplicada() == null ? null : u.getListaAplicada().getNombre(), u.getNivelFaltante(),
                                 u.getNivelSobrante()))
                         .toList());
     }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { cicloApi } from '@/api/automatizacion'
 import { Boton } from '@/components/ui/Boton'
 import { AreaTexto, Campo } from '@/components/ui/Campo'
+import { ErrorApi } from '@/api/cliente'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { SelectorFecha } from '@/components/ui/SelectorFecha'
@@ -47,7 +48,7 @@ const PRESENTACION: Record<AccionOrden, Presentacion> = {
   proponer: {
     titulo: 'Proponer otra fecha',
     explicacion:
-      'El administrador decide si la acepta. La fecha debe caber en la ventana permisiva del servidor y no chocar con otros mantenimientos.',
+      'El administrador decide si la acepta. La fecha no puede chocar con otros mantenimientos; si queda fuera de la ventana permisiva del servidor, deberá confirmarlo.',
     campo: 'Motivo',
     boton: 'Enviar propuesta',
     hecho: 'Propuesta de fecha enviada al administrador.',
@@ -106,8 +107,12 @@ export function AccionOrdenModal({ idOrden, accion, fechaPropuesta, onCerrar, on
   const [fecha, setFecha] = useState('')
   const [error, setError] = useState<unknown>()
   const [enviando, setEnviando] = useState(false)
+  // La fecha queda fuera de la ventana permisiva: el responsable debe confirmarlo expresamente (HU19 CA3)
+  const [fueraDeVentana, setFueraDeVentana] = useState(false)
+  const [confirmaFuera, setConfirmaFuera] = useState(false)
 
-  const completo = (!p.campo || texto.trim()) && (accion !== 'proponer' || fecha)
+  const completo =
+    (!p.campo || texto.trim()) && (accion !== 'proponer' || fecha) && (!fueraDeVentana || confirmaFuera)
 
   async function confirmar() {
     setEnviando(true)
@@ -123,7 +128,12 @@ export function AccionOrdenModal({ idOrden, accion, fechaPropuesta, onCerrar, on
           await cicloApi.decidir(idOrden, { decision: 'RECHAZADA', motivo })
           break
         case 'proponer':
-          await cicloApi.decidir(idOrden, { decision: 'FECHA_PROPUESTA', motivo, fechaPropuesta: new Date(fecha).toISOString() })
+          await cicloApi.decidir(idOrden, {
+            decision: 'FECHA_PROPUESTA',
+            motivo,
+            fechaPropuesta: new Date(fecha).toISOString(),
+            confirmarFueraVentana: fueraDeVentana && confirmaFuera,
+          })
           break
         case 'aceptar-fecha':
           await cicloApi.aceptarFecha(idOrden)
@@ -138,6 +148,12 @@ export function AccionOrdenModal({ idOrden, accion, fechaPropuesta, onCerrar, on
       }
       onHecho(p.hecho)
     } catch (e) {
+      if (accion === 'proponer' && e instanceof ErrorApi && e.message.includes('fuera de la ventana permisiva')) {
+        // No es un error: se pide la confirmación expresa antes de volver a enviar
+        setFueraDeVentana(true)
+        setConfirmaFuera(false)
+        return
+      }
       setError(e)
     } finally {
       setEnviando(false)
@@ -170,8 +186,38 @@ export function AccionOrdenModal({ idOrden, accion, fechaPropuesta, onCerrar, on
         )}
         {accion === 'proponer' && (
           <Campo etiqueta="Nueva fecha de inicio" obligatorio error={errorDeCampo(error, 'fechaPropuesta')}>
-            <SelectorFecha conHora required value={fecha} min={claveDia(new Date())} onChange={setFecha} aria-label="Nueva fecha de inicio" />
+            <SelectorFecha
+              conHora
+              required
+              value={fecha}
+              min={claveDia(new Date())}
+              onChange={(valor) => {
+                setFecha(valor)
+                setFueraDeVentana(false)
+                setConfirmaFuera(false)
+              }}
+              aria-label="Nueva fecha de inicio"
+            />
           </Campo>
+        )}
+        {accion === 'proponer' && fueraDeVentana && (
+          <div className="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning-soft px-3 py-3 text-sm">
+            <p className="font-medium text-ink">La fecha queda fuera de la ventana permisiva del servidor</p>
+            <p className="text-ink-soft">
+              Puede proponerla igual: el mantenimiento se ejecutaría fuera del horario acordado con el negocio. Su confirmación
+              queda registrada.
+            </p>
+            <label className="flex items-start gap-2 text-ink">
+              <input
+                type="checkbox"
+                checked={confirmaFuera}
+                onChange={(e) => setConfirmaFuera(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-[var(--color-accent)]"
+              />
+              Confirmo que estoy seguro de proponer el {fecha ? formatearFechaHora(new Date(fecha).toISOString()) : ''} fuera de
+              la ventana permisiva.
+            </label>
+          </div>
         )}
         {p.campo && (
           <Campo etiqueta={p.campo} obligatorio error={errorDeCampo(error, 'motivo') ?? errorDeCampo(error, 'observaciones')}>

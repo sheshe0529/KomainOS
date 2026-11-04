@@ -17,7 +17,6 @@ export const CuentasServicioPage = lazy(() => import('./CuentasServicioPage').th
 export const UmbralesPage = lazy(() => import('./UmbralesPage').then((m) => ({ default: m.UmbralesPage })))
 export const UmbralDetallePage = lazy(() => import('./UmbralDetallePage').then((m) => ({ default: m.UmbralDetallePage })))
 export const ParametrosPage = lazy(() => import('./ParametrosPage').then((m) => ({ default: m.ParametrosPage })))
-export const PreferenciasPage = lazy(() => import('./PreferenciasPage').then((m) => ({ default: m.PreferenciasPage })))
 export const MiCuentaPage = lazy(() => import('./MiCuentaPage').then((m) => ({ default: m.MiCuentaPage })))
 export const NoEncontradoPage = lazy(() => import('./NoEncontradoPage').then((m) => ({ default: m.NoEncontradoPage })))
 

@@ -2,8 +2,6 @@ import { ArchiveX, CalendarClock, CalendarPlus, Pencil, RotateCcw, Wrench } from
 import type { FichaServidorRespuesta } from '@/api/types'
 import { PageHeader } from '@/components/common/PageHeader'
 import { Boton } from '@/components/ui/Boton'
-import { StatusPill } from '@/components/ui/StatusPill'
-import { ESTADO_SERVIDOR, ETIQUETA_MODALIDAD } from '@/utils/etiquetas'
 
 export type DialogoFichaServidor = 'editar' | 'configurar' | 'ventanas' | 'baja' | 'programar'
 
@@ -18,7 +16,7 @@ interface EncabezadoFichaServidorProps {
   onReactivar: () => void
 }
 
-/** Las acciones visibles dependen del rol y del estado del servidor */
+/** Solo el nombre y las acciones, que dependen del rol y del estado; el resto de los datos va en «Datos generales» */
 export function EncabezadoFichaServidor({
   servidor: s,
   esAdmin,
@@ -28,26 +26,14 @@ export function EncabezadoFichaServidor({
   onAbrir,
   onReactivar,
 }: EncabezadoFichaServidorProps) {
-  const estado = s.estado ? ESTADO_SERVIDOR[s.estado] : undefined
   const dadoDeBaja = s.estado === 'DADO_DE_BAJA'
 
   return (
     <PageHeader
       className=""
-      volver={{ a: '/servidores', texto: 'Volver al inventario' }}
+      volver={{ a: '/servidores', texto: 'Volver al inventario', atras: true }}
       mono
       title={s.hostname}
-      description={s.dns ?? s.direccionIp}
-      meta={
-        <>
-          {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
-          <StatusPill tone="neutral" label={`Criticidad ${s.criticidad?.nombre ?? ''}`} />
-          <StatusPill tone="neutral" label={s.entorno?.nombre ?? ''} />
-          {s.configuracion?.modalidadPlanificacion && (
-            <StatusPill tone="neutral" label={`Modalidad: ${ETIQUETA_MODALIDAD[s.configuracion.modalidadPlanificacion]}`} />
-          )}
-        </>
-      }
       actions={
         <>
         {esAdmin && !dadoDeBaja && (

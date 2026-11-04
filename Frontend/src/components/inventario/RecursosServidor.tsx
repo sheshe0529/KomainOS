@@ -28,7 +28,8 @@ export function RecursosServidor({ cantidadCpu, ramGb, hdVirtualGb }: RecursosSe
 
   return (
     <div className="flex flex-col gap-3">
-      <dl className="grid grid-cols-3 gap-3">
+      {/* Uno debajo del otro: la tarjeta es angosta y así cada recuadro conserva su tamaño */}
+      <dl className="flex flex-col gap-3">
         {recursos.map(({ icono: Icono, etiqueta, valor, unidad }) => {
           const registrado = valor !== undefined && valor !== null
           return (

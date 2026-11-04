@@ -109,8 +109,8 @@ public class SalaOperacionesController {
 
     @GetMapping("/graficos")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'OPERADOR')")
-    @Operation(summary = "Series del dashboard: recursos (24 h), ejecuciones (7 días), mantenimientos por mes, órdenes "
-            + "por estado, incidencias por origen y salud de los servidores (RF67)")
+    @Operation(summary = "Series del dashboard: ejecuciones (7 días), mantenimientos por mes, órdenes por estado, "
+            + "incidencias por origen y salud de los servidores (RF67)")
     public ServicioGraficosAutomatizacion.ResumenGraficos graficos(@RequestParam(required = false) Instant desde,
                                                                   @RequestParam(required = false) Instant hasta) {
         return graficos.consultar(desde, hasta);
@@ -168,7 +168,7 @@ public class SalaOperacionesController {
     public OperacionRespuestas.DespachoRespuesta ejecutarCola() {
         int despachados = orquestador.despachar();
         return new OperacionRespuestas.DespachoRespuesta(despachados, despachados == 0
-                ? "No hay servidores listos: revise las fechas, la capacidad y la exclusión por servidor"
+                ? orquestador.motivoSinDespacho()
                 : "%d servidor(es) iniciado(s)".formatted(despachados));
     }
 

@@ -83,6 +83,13 @@ public class ServicioJwt {
         }
     }
 
+    /** Lo reemplaza una renovación: vale unos segundos más para las peticiones en curso y después deja de valer */
+    public void reemplazar(TokenVerificado token, Duration gracia) {
+        if (token.id() != null && token.vence() != null) {
+            revocaciones.reemplazarToken(token.id(), token.vence(), gracia);
+        }
+    }
+
     private static Instant instante(Date fecha) {
         return fecha == null ? null : fecha.toInstant();
     }

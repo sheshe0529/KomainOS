@@ -55,7 +55,7 @@ public class AnsibleSimulado implements PuertoAnsible {
     @Override
     public ResultadoEjecucion ejecutar(SolicitudEjecucion s) {
         esperar();
-        ScriptPreparado script = PreparadorScript.preparar(s.familia(), s.contenido(), s.parametros());
+        ScriptPreparado script = PreparadorScript.preparar(s.familia(), s.contenido(), s.parametros(), s.listas());
         EscenarioSimulado escenario = propiedades.escenario(s.hostname());
         if (escenario == EscenarioSimulado.SIN_CONEXION) {
             return falloConexion(s);

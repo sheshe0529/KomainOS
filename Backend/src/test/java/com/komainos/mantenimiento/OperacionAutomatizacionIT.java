@@ -249,7 +249,7 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
                             .content("{\"idVersionSistemaOperativo\":%d,\"contenido\":\"echo {}\",\"parametros\":[]}"
                                     .formatted(versionUbuntu)))
                     .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.mensaje").value(Matchers.containsString("Análisis básico de salud")));
+                    .andExpect(jsonPath("$.mensaje").value(Matchers.containsString("Análisis de salud del servidor")));
         }
 
         @Test
@@ -399,19 +399,16 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
         }
 
         @Test
-        @DisplayName("RF67: CPU, memoria y ejecuciones se calculan de las evaluaciones y tareas reales")
+        @DisplayName("RF67: ejecuciones, órdenes e incidencias se calculan de las tareas y órdenes reales")
         void graficos() throws Exception {
             mvc.perform(get("/api/automatizacion/graficos").with(como(admin)))
-                    .andExpect(jsonPath("$.recursos.length()").value(24))
-                    .andExpect(jsonPath("$.recursos[0].cpu").doesNotExist())
+                    .andExpect(jsonPath("$.recursos").doesNotExist())
                     .andExpect(jsonPath("$.ejecuciones[-1].exito").value(0));
             lanzarAutorizada(servidor);
             lanzarAutorizada(crear("srv-fallo", "10.90.0.2"));
             orquestador.drenar();
 
             mvc.perform(get("/api/automatizacion/graficos").with(como(operador)))
-                    .andExpect(jsonPath("$.recursos[-1].servidores").value(2))
-                    .andExpect(jsonPath("$.recursos[-1].cpu").isNumber())
                     .andExpect(jsonPath("$.ejecuciones[-1].exito").value(2))
                     .andExpect(jsonPath("$.ejecuciones[-1].error").value(1))
                     // Periodo de los indicadores: órdenes creadas por estado actual e incidencias por origen

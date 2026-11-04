@@ -121,7 +121,7 @@ export function TareasPage() {
                         {!t.scriptActivo && <span className="ml-2 text-xs text-warning">inactivo</span>}
                       </td>
                       <td className="px-3 py-3">
-                        <StatusPill tone={afectacion.tono} label={afectacion.etiqueta} />
+                        <span className="text-ink-soft">{afectacion.etiqueta}</span>
                       </td>
                       <td className="px-3 py-3 text-right font-mono tabular-nums">{t.prioridad}</td>
                       <td className="px-3 py-3 whitespace-nowrap">{formatearDuracion(t.duracionEstimadaMinutos)}</td>

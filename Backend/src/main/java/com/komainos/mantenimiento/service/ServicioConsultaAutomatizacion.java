@@ -1,9 +1,11 @@
 package com.komainos.mantenimiento.service;
 
 import com.komainos.ejecucion.config.PropiedadesAutomatizacion;
+import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.service.PuertoCuentasServicio;
 import com.komainos.inventario.service.ServicioParametrosSistema;
 import com.komainos.mantenimiento.model.AutorizacionDetalle;
+import com.komainos.mantenimiento.model.DuracionPlan;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.EstadoTareaMop;
@@ -32,6 +34,7 @@ import com.komainos.mantenimiento.repository.ValidacionTecnicaRepositorio;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.Rol;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
+import com.komainos.shared.util.Tiempo;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +47,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -84,6 +88,7 @@ public class ServicioConsultaAutomatizacion {
     private final PuertoCuentasServicio cuentas;
     private final ServicioParametrosSistema parametros;
     private final PropiedadesAutomatizacion propiedades;
+    private final Clock reloj;
 
     @Transactional(readOnly = true)
     public FichaAutomatizacion ficha(Integer idOrden, AlcanceUsuario alcance) {
@@ -123,8 +128,11 @@ public class ServicioConsultaAutomatizacion {
                 .forEach(id -> cuentas.nombre(id).ifPresent(nombre -> nombresCuenta.put(id, nombre)));
 
         SolicitudAutorizacion vigente = rondas.isEmpty() ? null : rondas.getLast();
+        var parametrosSistema = parametros.obtener();
+        boolean paralelo = orden.esGrupal() && orden.getModoEjecucionAplicado() == ModoEjecucion.PARALELO;
         return new FichaAutomatizacion(orden, planes, analisis, rondas, validacion, validacionesTecnicas, problemas,
-                nombresCuenta, propiedades.simulada(), parametros.obtener().getMaxDuracionMopMinutos(),
+                nombresCuenta, responsables(orden), propiedades.simulada(), parametrosSistema.getMaxDuracionMopMinutos(),
+                visibles.size(), DuracionPlan.estimar(planes, paralelo, parametrosSistema.getMaxEjecucionesConcurrentes()),
                 acciones(orden, vigente, validacion, alcance), siguientePaso(orden, planes, vigente, validacion));
     }
 
@@ -251,7 +259,19 @@ public class ServicioConsultaAutomatizacion {
                 admin && hayPropuesta,
                 validar,
                 admin && estado == EstadoOrden.SIN_IMPLEMENTACION,
-                admin && EnumSet.of(EstadoOrden.AUTORIZADA, EstadoOrden.EN_COLA, EstadoOrden.EN_EJECUCION).contains(estado));
+                // Despachar solo sirve cuando la orden ya alcanzó su inicio programado (CP105)
+                admin && EnumSet.of(EstadoOrden.AUTORIZADA, EstadoOrden.EN_COLA, EstadoOrden.EN_EJECUCION).contains(estado)
+                        && !Tiempo.ahora(reloj).isBefore(orden.getFechaInicioProgramada()));
+    }
+
+    /** Quién aprueba como responsable: el de los servidores de la orden, con su código (RF44) */
+    private static Map<String, String> responsables(Orden orden) {
+        Map<String, String> responsables = new LinkedHashMap<>();
+        orden.getDetalles().stream()
+                .map(d -> d.getServidor().getResponsable())
+                .filter(Objects::nonNull)
+                .forEach(r -> responsables.putIfAbsent(r.getCodigo(), r.getNombreCompleto()));
+        return responsables;
     }
 
     /** Qué espera la orden para avanzar, en una frase para el panel */
@@ -275,11 +295,16 @@ public class ServicioConsultaAutomatizacion {
                 }
                 yield ronda.pendienteActual()
                         .map(d -> "Esperando la aprobación del %s hasta el %s.".formatted(
-                                d.getTipo() == TipoAprobador.RESPONSABLE ? "responsable" : "administrador",
+                                d.getTipo() == TipoAprobador.RESPONSABLE
+                                        ? "responsable (" + String.join(", ", responsables(orden).keySet()) + ")"
+                                        : "administrador",
                                 FECHA.format(ronda.getFechaLimite())))
                         .orElse("Aprobaciones en proceso.");
             }
-            case AUTORIZADA -> "Autorizada: entra en la cola el %s.".formatted(FECHA.format(orden.getFechaInicioProgramada()));
+            case AUTORIZADA -> Tiempo.ahora(reloj).isBefore(orden.getFechaInicioProgramada())
+                    ? "Autorizada: entra en la cola el %s.".formatted(FECHA.format(orden.getFechaInicioProgramada()))
+                    : "Autorizada: el inicio programado ya llegó; entra en la cola en el siguiente ciclo del proceso "
+                    + "automático.";
             case EN_COLA -> "En cola: inicia cuando haya capacidad y el servidor esté libre.";
             case EN_EJECUCION -> {
                 long total = planes.stream().mapToLong(m -> m.getTareas().size()).sum();
@@ -322,11 +347,14 @@ public class ServicioConsultaAutomatizacion {
 
     /**
      * @param cuentas nombre de cada cuenta de servicio usada, sin secretos
+     * @param servidores   los de la orden que el usuario puede ver
+     * @param duracionPlan minutos que dura el plan completo según el modo de ejecución (RF58)
      */
     public record FichaAutomatizacion(Orden orden, List<Mop> mops, List<Evaluacion> evaluaciones,
                                       List<SolicitudAutorizacion> autorizaciones, Optional<ValidacionFuncional> validacion,
                                       List<ValidacionTecnica> validacionesTecnicas, List<Incidencia> incidencias,
-                                      Map<Integer, String> cuentas, boolean simulado, int maxDuracionMop,
+                                      Map<Integer, String> cuentas, Map<String, String> responsables,
+                                      boolean simulado, int maxDuracionMop, int servidores, int duracionPlan,
                                       Acciones acciones, String siguientePaso) {
     }
 }

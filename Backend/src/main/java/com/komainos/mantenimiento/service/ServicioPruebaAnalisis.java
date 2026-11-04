@@ -78,10 +78,11 @@ public class ServicioPruebaAnalisis {
                     : "La implementación es para %s y el servidor tiene %s: el ciclo no la usará con este servidor"
                     .formatted(implementacion.getVersionSistemaOperativo().descripcionCompleta(),
                             servidor.getVersionSistemaOperativo().descripcionCompleta());
+            ContextoEvaluacion contexto = ContextoEvaluacion.individual(servidor);
             SolicitudEjecucion solicitud = new SolicitudEjecucion(servidor.getId(), servidor.getHostname(),
                     servidor.getDireccionIp(), servidor.familia(), cuenta, PropositoEjecucion.PRUEBA_ANALISIS,
                     version.getContenido(), ServicioCatalogoAutomatizacion.valoresDeEjecucion(version),
-                    evaluaciones.maxMinutos(), evaluaciones.referencia(ContextoEvaluacion.individual(servidor)));
+                    evaluaciones.maxMinutos(), evaluaciones.referencia(contexto), evaluaciones.listas(contexto));
             return new Preparada(solicitud, advertencia, "%s v%d".formatted(implementacion.getScript().getNombre(),
                     version.getNumeroVersion()));
         });

@@ -1,5 +1,6 @@
 package com.komainos.ejecucion;
 
+import com.komainos.ejecucion.model.ListaEjecucion;
 import com.komainos.ejecucion.model.ParametroEjecucion;
 import com.komainos.ejecucion.model.ScriptPreparado;
 import com.komainos.ejecucion.service.PreparadorScript;
@@ -137,6 +138,51 @@ class PreparadorScriptTest {
             assertThat(PreparadorScript.problemaValor("B", TipoDato.BOOLEAN, "false")).isEmpty();
             assertThat(PreparadorScript.problemaValor("B", TipoDato.BOOLEAN, "si")).isPresent();
             assertThat(PreparadorScript.problemaValor("S", TipoDato.STRING, null)).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("Listas de referencia del análisis (R2.4)")
+    class Listas {
+
+        private final List<ListaEjecucion> listas = List.of(
+                new ListaEjecucion("arch_crit_permisos", List.of("/etc/passwd:644", "/etc/it's:600")));
+
+        @Test
+        @DisplayName("En Bash, cada lista es un arreglo KOMAINOS_LISTA_<CÓDIGO> después de los parámetros")
+        void arregloBash() {
+            ScriptPreparado s = PreparadorScript.preparar(FamiliaSistemaOperativo.LINUX, "echo ok",
+                    List.of(new ParametroEjecucion("DIAS", TipoDato.INTEGER, "7")), listas);
+
+            assertThat(s.contenido().lines().toList()).containsExactly(
+                    "#!/usr/bin/env bash",
+                    PreparadorScript.INICIO_BLOQUE,
+                    "DIAS=7",
+                    "KOMAINOS_LISTA_ARCH_CRIT_PERMISOS=('/etc/passwd:644' '/etc/it'\"'\"'s:600')",
+                    PreparadorScript.FIN_BLOQUE,
+                    "echo ok");
+        }
+
+        @Test
+        @DisplayName("En PowerShell es un arreglo @( ) y basta una lista, sin parámetros, para que haya bloque")
+        void arregloPowerShell() {
+            ScriptPreparado s = PreparadorScript.preparar(FamiliaSistemaOperativo.WINDOWS, "Write-Output ok",
+                    List.of(), listas);
+
+            assertThat(s.contenido().lines().toList()).containsExactly(
+                    PreparadorScript.INICIO_BLOQUE,
+                    "$KOMAINOS_LISTA_ARCH_CRIT_PERMISOS = @('/etc/passwd:644', '/etc/it''s:600')",
+                    PreparadorScript.FIN_BLOQUE,
+                    "Write-Output ok");
+        }
+
+        @Test
+        @DisplayName("Una lista sin elementos se define como arreglo vacío")
+        void listaVacia() {
+            ScriptPreparado s = PreparadorScript.preparar(FamiliaSistemaOperativo.LINUX, "echo ok", List.of(),
+                    List.of(new ListaEjecucion("svc-req", List.of())));
+
+            assertThat(s.contenido()).contains("KOMAINOS_LISTA_SVC_REQ=()");
         }
     }
 }

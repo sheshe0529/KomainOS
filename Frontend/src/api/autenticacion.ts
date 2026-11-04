@@ -5,6 +5,8 @@ export const autenticacionApi = {
   iniciarSesion: (datos: LoginPeticion) => http.post<TokenRespuesta>('/auth/login', datos),
   sesionActual: () => http.get<UsuarioSesion>('/auth/yo'),
   perfil: () => http.get<PerfilRespuesta>('/auth/perfil'),
+  /** Renueva la sesión por la actividad del usuario: solo vence por inactividad (RF02) */
+  renovar: () => http.post<TokenRespuesta>('/auth/renovar'),
   /**
    * Revoca el token en el servidor (RF02). Recibe el token porque el panel ya lo borró: así, si había vencido, el 401
    * no se informa como una sesión expirada

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -119,6 +120,29 @@ class CicloModeloTest {
             assertThat(i.estaCerrada()).isTrue();
             assertThat(i.getFechaCierre()).isEqualTo(AHORA);
             assertThatThrownBy(() -> i.atender(null, "x", "x", "x", true, AHORA)).hasMessageContaining("cerrada");
+        }
+    }
+
+    @Nested
+    @DisplayName("Duración del plan de trabajo (RF58, DEC-11)")
+    class DuracionDelPlan {
+
+        private final List<DuracionPlan.Tramo> tramos = List.of(new DuracionPlan.Tramo(30, false),
+                new DuracionPlan.Tramo(50, true), new DuracionPlan.Tramo(20, false), new DuracionPlan.Tramo(40, false));
+
+        @Test
+        @DisplayName("En secuencia se suman las MOP de todos los servidores")
+        void secuencial() {
+            assertThat(DuracionPlan.estimarTramos(tramos, false, 2)).isEqualTo(140);
+        }
+
+        @Test
+        @DisplayName("En paralelo va primero el piloto y luego los demás en oleadas tan largas como su MOP más larga")
+        void paralelo() {
+            // Piloto 50, primera oleada {30, 20} = 30, segunda {40} = 40
+            assertThat(DuracionPlan.estimarTramos(tramos, true, 2)).isEqualTo(120);
+            // Con capacidad para tres, los demás van en una sola oleada
+            assertThat(DuracionPlan.estimarTramos(tramos, true, 3)).isEqualTo(90);
         }
     }
 }

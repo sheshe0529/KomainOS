@@ -1,6 +1,7 @@
 package com.komainos.mantenimiento.dto;
 
 import com.komainos.catalogo.model.NivelAfectacion;
+import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.model.NivelAlerta;
 import com.komainos.mantenimiento.model.EstadoAutorizacion;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
@@ -25,6 +26,7 @@ import java.util.List;
  */
 public record FichaAutomatizacionRespuesta(Integer idOrden, boolean simulado, OrdenResumenRespuesta orden,
                                            String siguientePaso, AccionesOrden acciones, List<PlanMop> mops,
+                                           ResumenPlan resumenPlan,
                                            List<AnalisisRespuesta> evaluaciones, List<RondaAutorizacion> autorizaciones,
                                            ValidacionFuncionalRespuesta validacionFuncional,
                                            List<ValidacionTecnicaRespuesta> validacionesTecnicas,
@@ -33,6 +35,16 @@ public record FichaAutomatizacionRespuesta(Integer idOrden, boolean simulado, Or
 
     public record AccionesOrden(boolean evaluar, boolean decidir, boolean proponerFecha, boolean decidirPropuesta,
                                 boolean validar, boolean cerrarSinImplementacion, boolean procesarCola) {
+    }
+
+    /**
+     * El plan de trabajo de un vistazo (RF41, RF58): cuántos servidores intervienen, cuántas tareas suman y cuánto dura
+     * completo según el modo de ejecución.
+     *
+     * @param modoEjecucion nulo en una orden individual
+     */
+    public record ResumenPlan(int servidores, int servidoresConTareas, int tareas, int duracionTotalMinutos,
+                              ModoEjecucion modoEjecucion) {
     }
 
     /** MOP de un servidor (RF41) con la duración estimada frente al máximo por MOP */
@@ -63,7 +75,7 @@ public record FichaAutomatizacionRespuesta(Integer idOrden, boolean simulado, Or
 
     /** Los valores que rigieron al evaluar, aunque el umbral haya cambiado después (DEC-41) */
     public record UmbralEvaluadoRespuesta(Integer idUmbral, Integer idExcepcion, NivelAlerta nivel, String operador,
-                                          BigDecimal advertencia, BigDecimal critico, Integer idLista,
+                                          BigDecimal advertencia, BigDecimal critico, Integer idLista, String lista,
                                           NivelAlerta nivelFaltante, NivelAlerta nivelSobrante) {
     }
 
@@ -73,9 +85,18 @@ public record FichaAutomatizacionRespuesta(Integer idOrden, boolean simulado, Or
                                     List<DecisionAutorizacion> decisiones) {
     }
 
+    /**
+     * @param usuario       y codigoUsuario: quien decidió
+     * @param esperados     quiénes pueden decidir como responsable (el de los servidores de la orden); vacía para el
+     *                      administrador, que puede ser cualquiera con ese rol
+     */
     public record DecisionAutorizacion(Integer id, TipoAprobador tipo, int secuencia, EstadoAutorizacion estado,
-                                       String usuario, Instant fechaSolicitud, Instant fechaDecision,
-                                       Instant fechaPropuesta, String motivo) {
+                                       String usuario, String codigoUsuario, Instant fechaSolicitud,
+                                       Instant fechaDecision, Instant fechaPropuesta, String motivo,
+                                       List<Aprobador> esperados) {
+    }
+
+    public record Aprobador(String codigo, String nombre) {
     }
 
     public record ValidacionFuncionalRespuesta(Integer id, Integer idResponsable, String responsable,

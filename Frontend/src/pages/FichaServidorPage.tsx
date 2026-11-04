@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { servidoresApi } from '@/api/inventario'
 import type { FichaServidorRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
-import { AnalisisServidor } from '@/components/automatizacion/AnalisisServidor'
+import { AccesoServidorTarjeta, AnalisisServidor, PreparacionServidorTarjeta } from '@/components/automatizacion/AnalisisServidor'
 import { BitacoraMantenimiento } from '@/components/automatizacion/BitacoraMantenimiento'
 import { EnlaceVolver } from '@/components/common/PageHeader'
 import { Tarjeta } from '@/components/common/Tarjeta'
@@ -11,7 +11,7 @@ import { CredencialesDocumentales } from '@/components/credenciales/Credenciales
 import { AvisosServidor } from '@/components/inventario/AvisosServidor'
 import { BajaModal } from '@/components/inventario/BajaModal'
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
-import { ConfiguracionServidorTarjeta } from '@/components/inventario/ConfiguracionServidorTarjeta'
+import { ConfiguracionMantenimientoTarjeta } from '@/components/inventario/ConfiguracionMantenimientoTarjeta'
 import { DatosGeneralesServidor } from '@/components/inventario/DatosGeneralesServidor'
 import { EncabezadoFichaServidor, type DialogoFichaServidor } from '@/components/inventario/EncabezadoFichaServidor'
 import { HistorialBajasServidor } from '@/components/inventario/HistorialBajasServidor'
@@ -28,11 +28,23 @@ import { useCatalogos, useResponsables } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { textoDeError } from '@/utils/errores'
 
+/** La ficha se lee en dos partes: qué es el servidor y cómo se configura, y lo que se le ha hecho */
+const PESTANAS = [
+  { id: 'datos', etiqueta: 'Datos del servidor' },
+  { id: 'historial', etiqueta: 'Historial de ejecución' },
+] as const
+
+type Pestana = (typeof PESTANAS)[number]['id']
+
 export function FichaServidorPage() {
   const { id } = useParams()
   const idServidor = Number(id)
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
+  const vePreparacion = esAdmin || tieneRol('OPERADOR')
+  // La pestaña va en la dirección para volver a ella; se reemplaza la entrada para que «Volver» no recorra las pestañas
+  const [parametros, setParametros] = useSearchParams()
+  const pestana: Pestana = parametros.get('vista') === 'historial' ? 'historial' : 'datos'
   // Si el responsable ve la ficha, el servidor es suyo: el backend responde 404 si no (RF19)
   const puedeEditarVentana = tieneRol('ADMINISTRADOR', 'RESPONSABLE')
   const { avisar } = useAvisos()
@@ -92,28 +104,63 @@ export function FichaServidorPage() {
       />
       <AvisosServidor servidor={s} />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <DatosGeneralesServidor servidor={s} className="lg:col-span-2" />
-        <div className="flex flex-col gap-6">
-          <Tarjeta titulo="Recursos">
-            <RecursosServidor cantidadCpu={s.cantidadCpu} ramGb={s.ramGb} hdVirtualGb={s.hdVirtualGb} />
-          </Tarjeta>
-          <ConfiguracionServidorTarjeta configuracion={s.configuracion} />
-        </div>
+      <div role="tablist" aria-label="Secciones de la ficha" className="flex flex-wrap gap-2">
+        {PESTANAS.map((p) => (
+          <button
+            key={p.id}
+            role="tab"
+            type="button"
+            aria-selected={pestana === p.id}
+            onClick={() => setParametros(p.id === 'datos' ? {} : { vista: p.id }, { replace: true })}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              pestana === p.id ? 'bg-accent text-accent-ink' : 'bg-panel-muted text-ink-soft hover:text-ink'
+            }`}
+          >
+            {p.etiqueta}
+          </button>
+        ))}
       </div>
 
-      <VentanaPermisivaTarjeta
-        ventanas={s.ventanas ?? []}
-        vacio="Sin ventana definida: el servidor no puede planificarse."
-        onEditar={puedeEditarVentana && !dadoDeBaja ? () => setDialogo('ventanas') : undefined}
-      />
-      <HistorialBajasServidor servidor={s} />
-      {esAdmin && (
-        <CredencialesDocumentales idServidor={idServidor} hostname={s.hostname ?? ''} familia={s.familiaSistemaOperativo} editable={!dadoDeBaja} />
+      {pestana === 'datos' && (
+        <>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <DatosGeneralesServidor servidor={s} className="lg:col-span-2" />
+            <Tarjeta titulo="Recursos">
+              <RecursosServidor cantidadCpu={s.cantidadCpu} ramGb={s.ramGb} hdVirtualGb={s.hdVirtualGb} />
+            </Tarjeta>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <ConfiguracionMantenimientoTarjeta configuracion={s.configuracion} />
+            <div className="lg:col-span-2">
+              <VentanaPermisivaTarjeta
+                ventanas={s.ventanas ?? []}
+                vacio="Sin ventana definida: el servidor no puede planificarse."
+                onEditar={puedeEditarVentana && !dadoDeBaja ? () => setDialogo('ventanas') : undefined}
+              />
+            </div>
+          </div>
+          {esAdmin && (
+            <CredencialesDocumentales
+              idServidor={idServidor}
+              hostname={s.hostname ?? ''}
+              familia={s.familiaSistemaOperativo}
+              editable={!dadoDeBaja}
+            />
+          )}
+          {esAdmin && <AccesoServidorTarjeta idServidor={idServidor} />}
+          <HistorialBajasServidor servidor={s} />
+        </>
       )}
-      <BitacoraMantenimiento idServidor={idServidor} version={versionOrdenes} />
-      <AnalisisServidor idServidor={idServidor} />
-      <UmbralesServidorTarjeta idServidor={idServidor} />
+
+      {/* Lo que se le ha hecho al servidor y, al final, lo que le falta para el próximo ciclo automático */}
+      {pestana === 'historial' && (
+        <>
+          <BitacoraMantenimiento idServidor={idServidor} version={versionOrdenes} />
+          <AnalisisServidor idServidor={idServidor} />
+          <UmbralesServidorTarjeta idServidor={idServidor} />
+          {vePreparacion && <PreparacionServidorTarjeta idServidor={idServidor} />}
+        </>
+      )}
 
       {dialogo === 'programar' && (
         <ProgramarModal
@@ -123,6 +170,8 @@ export function FichaServidorPage() {
           onGuardado={(orden) => {
             setDialogo(null)
             recargarOrdenes()
+            // La orden nueva se ve en la bitácora
+            setParametros({ vista: 'historial' }, { replace: true })
             avisar(`Orden ${orden.resumen?.codigo} programada.`)
           }}
         />

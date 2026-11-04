@@ -60,7 +60,8 @@ public class CicloOrdenController {
     @Operation(summary = "Aprueba, rechaza o propone otra fecha en el turno del usuario (RF44, RF47, RF48)")
     public void decidir(@PathVariable Integer id, @Valid @RequestBody CicloPeticiones.DecidirAutorizacionPeticion p,
                         @AuthenticationPrincipal UsuarioAutenticado u) {
-        autorizaciones.decidir(id, p.decision(), p.motivo(), p.fechaPropuesta(), AlcanceUsuario.de(u));
+        autorizaciones.decidir(id, p.decision(), p.motivo(), p.fechaPropuesta(), p.confirmarFueraVentana(),
+                AlcanceUsuario.de(u));
     }
 
     @PostMapping("/aceptar-fecha")

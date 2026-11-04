@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
 import type { EstadoOrden } from '@/api/dominio'
 import { planificacionApi, type FiltroOrdenes } from '@/api/planificacion'
+import { useSesion } from '@/auth/sesion-context'
 import { PageHeader } from '@/components/common/PageHeader'
 import { OrdenesTabla } from '@/components/planificacion/OrdenesTabla'
 import { Selector } from '@/components/ui/Campo'
@@ -15,6 +16,7 @@ import { guardarTamano, leerTamanoGuardado } from '@/hooks/usePaginacion'
 import { ETIQUETA_ESTADO_ORDEN } from '@/utils/etiquetas'
 
 export function OrdenesPage() {
+  const { tieneRol } = useSesion()
   const [codigo, setCodigo] = useState('')
   const [filtro, setFiltro] = useState<FiltroOrdenes>({ estado: '', pagina: 0, tamano: leerTamanoGuardado('ordenes') })
   const [desde, setDesde] = useState('')
@@ -40,7 +42,14 @@ export function OrdenesPage() {
 
   return (
     <>
-      <PageHeader title="Órdenes de mantenimiento" description="Consulte órdenes por código, estado, criticidad y fechas programadas." />
+      <PageHeader
+        title="Órdenes de mantenimiento"
+        description={
+          tieneRol('RESPONSABLE')
+            ? 'Las órdenes de sus servidores. Filtre por estado para ver las que esperan su autorización o su validación.'
+            : 'Consulte órdenes por código, estado, criticidad y fechas programadas.'
+        }
+      />
 
       <div className="mb-4 flex flex-wrap items-end gap-2">
         <div className="flex min-w-56 flex-1 items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2 sm:max-w-xs">

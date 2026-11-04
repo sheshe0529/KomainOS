@@ -4,27 +4,28 @@ import { Link } from 'react-router-dom'
 import { Check, Download, FlaskConical, Play, ScanSearch, X } from 'lucide-react'
 import { bitacoraApi, cicloApi, operacionApi } from '@/api/automatizacion'
 import type { EstadoOrden, EtapaOrden } from '@/api/dominio'
-import type { AnalisisRespuesta, FichaAutomatizacionRespuesta, IncidenciaRespuesta } from '@/api/types'
+import type { FichaAutomatizacionRespuesta, IncidenciaRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { Info, TituloConInfo } from '@/components/ui/Info'
 import { useConsulta } from '@/hooks/useConsulta'
-import { ESTADO_INCIDENCIA, ORIGEN_INCIDENCIA, TONO_ESTADO_ORDEN } from '@/utils/automatizacion'
+import { AFECTACION, ESTADO_INCIDENCIA, ORIGEN_INCIDENCIA } from '@/utils/automatizacion'
 import { etapasAlcanzadas, pasoDe } from '@/utils/etapasOrden'
 import { ETIQUETA_ESTADO_ORDEN } from '@/utils/etiquetas'
-import { formatearFechaHora } from '@/utils/formato'
+import { formatearFechaHora, formatearHora } from '@/utils/formato'
 import { AccionOrdenModal } from './ciclo/AccionOrdenModal'
 import type { AccionOrden } from './ciclo/AccionOrdenModal'
 import { Autorizaciones } from './ciclo/Autorizaciones'
+import { CELDA, ENCABEZADO } from './ciclo/estilosTabla'
 import { EtapasOrden } from './ciclo/EtapasOrden'
-import { PlanesMop } from './ciclo/PlanesMop'
-import { ReporteComparativo } from './ciclo/ReporteComparativo'
-import { Validaciones } from './ciclo/Validaciones'
+import { EjecucionMop, PlanTrabajo } from './ciclo/PlanesMop'
+import { ValidacionFuncional, ValidacionTecnica } from './ciclo/ResultadoValidacion'
 import { ExportarBitacoraModal } from './ExportarBitacoraModal'
-import { FilaAnalisis } from './FilaAnalisis'
+import { TablaAnalisis } from './TablaAnalisis'
 
 interface SeguimientoOrdenProps {
   idOrden: number
@@ -76,24 +77,36 @@ const INCIDENCIA = {
     'Una tarea falló, se excedió el tiempo o la validación no fue conforme. El administrador registra el diagnóstico y las acciones; al cerrar la incidencia, la orden pasa a su cierre sin reanudar tareas.',
 }
 
-function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) {
+/** Sección de una etapa: su explicación queda detrás del ⓘ para no cargar la pantalla */
+function Seccion({ titulo, info, children }: { titulo: string; info?: ReactNode; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h5 className="text-sm font-semibold text-ink">{titulo}</h5>
+      {info ? <TituloConInfo titulo={titulo}>{info}</TituloConInfo> : <h5 className="text-sm font-semibold text-ink">{titulo}</h5>}
       {children}
     </section>
   )
 }
 
-function ListaAnalisis({ analisis, vacio }: { analisis: AnalisisRespuesta[]; vacio: string }) {
-  if (analisis.length === 0) return <p className="text-sm text-ink-soft">{vacio}</p>
+/** Datos en el formato de la planificación: etiqueta pequeña y valor debajo */
+function Dato({ etiqueta, children, ancho }: { etiqueta: string; children: ReactNode; ancho?: boolean }) {
   return (
-    <ol className="overflow-hidden rounded-lg border border-line">
-      {analisis.map((a) => (
-        <FilaAnalisis key={a.id} analisis={a} />
-      ))}
-    </ol>
+    <div className={ancho ? 'sm:col-span-full' : ''}>
+      <dt className="text-xs text-ink-faint">{etiqueta}</dt>
+      <dd className="mt-0.5 text-sm text-ink">{children}</dd>
+    </div>
   )
+}
+
+/** Cómo terminó el ciclo según el estado previo al cierre */
+const RESULTADO_CIERRE: Partial<Record<EstadoOrden, string>> = {
+  PENDIENTE_VALIDACION: 'Mantenimiento completado y validado',
+  EN_EVALUACION: 'Cerrado sin intervenir: ninguna métrica activó tareas',
+  INCIDENCIA: 'Cerrado tras atender la incidencia',
+  SIN_IMPLEMENTACION: 'Cerrado sin intervenir: faltaba una implementación compatible',
+  RECHAZADA: 'Rechazado en la autorización',
+  AUTORIZACION_VENCIDA: 'No se ejecutó: venció el plazo de autorización',
+  VALIDACION_VENCIDA: 'Cerrado: venció el plazo de la validación funcional',
+  CANCELADA: 'Cancelado antes de ejecutarse',
 }
 
 function Incidencias({ incidencias, gestiona, esAdmin }: { incidencias: IncidenciaRespuesta[]; gestiona: boolean; esAdmin: boolean }) {
@@ -142,42 +155,60 @@ function DetalleEtapa({
     case 'PLANIFICACION':
       return (
         <dl className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <dt className="text-xs text-ink-faint">Inicio programado</dt>
-            <dd className="mt-0.5 text-sm font-medium text-ink">{formatearFechaHora(o.inicioProgramado)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-faint">Fin previsto</dt>
-            <dd className="mt-0.5 text-sm font-medium text-ink">{formatearFechaHora(o.finProgramado)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-faint">Análisis previo</dt>
-            <dd className="mt-0.5 text-sm text-ink">{formatearFechaHora(o.fechaEvaluacion)}</dd>
-          </div>
+          <Dato etiqueta="Inicio programado">
+            <span className="font-medium">{formatearFechaHora(o.inicioProgramado)}</span>
+          </Dato>
+          <Dato etiqueta="Fin previsto">
+            <span className="font-medium">{formatearFechaHora(o.finProgramado)}</span>
+          </Dato>
+          <Dato etiqueta="Análisis previo">{formatearFechaHora(o.fechaEvaluacion)}</Dato>
         </dl>
       )
-    case 'EVALUACION':
-      return (
-        <ListaAnalisis
-          analisis={analisis.filter((a) => a.tipo === 'PREVIA')}
-          vacio="El análisis previo todavía no se ejecuta."
-        />
+    case 'EVALUACION': {
+      // Cada servidor analizado es una fila: al pulsarla se abre el detalle de sus métricas
+      const previos = analisis.filter((a) => a.tipo === 'PREVIA')
+      return previos.length === 0 ? (
+        <p className="text-sm text-ink-soft">El análisis previo todavía no se ejecuta.</p>
+      ) : (
+        <TablaAnalisis analisis={previos} />
       )
-    case 'AUTORIZACION':
+    }
+    case 'AUTORIZACION': {
+      const vigente = f.autorizaciones?.at(-1)
       return (
         <div className="flex flex-col gap-5">
-          <Seccion titulo="Plan de trabajo (MOP)">
-            <PlanesMop mops={f.mops ?? []} modo="plan" />
+          {/* Lo que el aprobador necesita saber antes de decidir */}
+          <dl className="grid gap-4 rounded-lg bg-panel-muted px-4 py-3 sm:grid-cols-4">
+            <Dato etiqueta="Ejecución programada">
+              <span className="font-medium">
+                {formatearFechaHora(o.inicioProgramado)} – {formatearHora(o.finProgramado)}
+              </span>
+            </Dato>
+            <Dato etiqueta="Política de cambio">{vigente?.entorno ?? '—'}</Dato>
+            <Dato etiqueta="Afectación del plan">{vigente?.afectacion ? AFECTACION[vigente.afectacion].etiqueta : '—'}</Dato>
+            <Dato etiqueta="Plazo para decidir">
+              {!vigente ? '—' : vigente.automatica ? 'No requiere aprobaciones' : formatearFechaHora(vigente.fechaLimite)}
+            </Dato>
+          </dl>
+          <Seccion
+            titulo="Plan de trabajo (MOP)"
+            info="Cuántos servidores y tareas abarca el plan y lo que dura completo: en un grupo secuencial se suman las MOP; en uno paralelo va primero el piloto y luego los demás a la vez. Pulse la fila para ver las tareas de cada servidor."
+          >
+            <PlanTrabajo mops={f.mops ?? []} resumen={f.resumenPlan} />
           </Seccion>
-          <Seccion titulo="Aprobaciones">
+          <Seccion
+            titulo="Aprobaciones"
+            info="Se piden en secuencia, primero el responsable y después el administrador, con un único plazo. El responsable puede proponer otra fecha; si el administrador la acepta, se piden de nuevo las aprobaciones."
+          >
             <Autorizaciones rondas={f.autorizaciones ?? []} />
           </Seccion>
         </div>
       )
+    }
     case 'EJECUCION':
       return (
         <div className="flex flex-col gap-5">
-          <PlanesMop mops={f.mops ?? []} modo="ejecucion" />
+          <EjecucionMop mops={f.mops ?? []} />
           {incidencias.length > 0 && (
             <Seccion titulo={`Incidencias (${incidencias.length})`}>
               <Incidencias incidencias={incidencias} gestiona={gestiona} esAdmin={esAdmin} />
@@ -193,41 +224,77 @@ function DetalleEtapa({
               <Incidencias incidencias={incidencias} gestiona={gestiona} esAdmin={esAdmin} />
             </Seccion>
           )}
-          <Seccion titulo="Antes y después">
-            <ReporteComparativo reporte={f.reporte ?? []} />
+          <Seccion
+            titulo="Validación técnica"
+            info="Al terminar las tareas, KomainOS vuelve a analizar cada servidor y compara cada métrica con su valor antes de intervenir. Pulse un servidor para ver la comparación de cada métrica."
+          >
+            <ValidacionTecnica reporte={f.reporte ?? []} tecnicas={f.validacionesTecnicas ?? []} />
           </Seccion>
-          <Validaciones tecnicas={f.validacionesTecnicas ?? []} funcional={f.validacionFuncional} />
-          {analisis.some((a) => a.tipo === 'POSTERIOR') && (
-            <Seccion titulo="Análisis posterior">
-              <ListaAnalisis analisis={analisis.filter((a) => a.tipo === 'POSTERIOR')} vacio="" />
-            </Seccion>
-          )}
+          <Seccion
+            titulo="Conformidad del responsable"
+            info="Si la validación técnica es conforme, se pide al responsable que confirme que el servicio funciona. Con su conformidad el ciclo se cierra."
+          >
+            <ValidacionFuncional funcional={f.validacionFuncional} />
+          </Seccion>
         </div>
       )
     case 'CIERRE': {
-      const ultimo = (f.historial ?? []).at(-1)
+      const historial = f.historial ?? []
+      const ultimo = historial.at(-1)
+      const previo = ultimo?.estadoAnterior
+      const reporte = f.reporte ?? []
       return (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3 rounded-lg bg-panel-muted px-4 py-3 text-sm">
-            {o.estado && <StatusPill tone={TONO_ESTADO_ORDEN[o.estado]} label={ETIQUETA_ESTADO_ORDEN[o.estado]} />}
-            <span className="text-ink-soft">
-              {formatearFechaHora(ultimo?.fechaHora)} · {ultimo?.usuario?.nombre ?? 'Sistema'}
-            </span>
-            {ultimo?.motivo && <span className="w-full text-ink">{ultimo.motivo}</span>}
-          </div>
-          {(f.reporte ?? []).length > 0 && (
-            <ul className="flex flex-col gap-1.5 text-sm">
-              {f.reporte?.map((r) => (
-                <li key={r.idServidor} className="flex flex-wrap items-center gap-x-3">
-                  <span className="font-mono text-ink">{r.servidor}</span>
-                  <span className="text-xs text-ink-soft">
-                    <span className="text-success">{r.tareasFinalizadas} finalizadas</span> ·{' '}
-                    <span className={r.tareasFallidas ? 'text-danger' : ''}>{r.tareasFallidas} fallidas</span> ·{' '}
-                    {r.tareasNoIniciadas} no iniciadas
-                  </span>
-                </li>
-              ))}
-            </ul>
+        <div className="flex flex-col gap-5">
+          <dl className="grid gap-4 sm:grid-cols-3">
+            <Dato etiqueta="Resultado">
+              <span className="font-medium">{(previo && RESULTADO_CIERRE[previo]) ?? (o.estado ? ETIQUETA_ESTADO_ORDEN[o.estado] : '—')}</span>
+            </Dato>
+            <Dato etiqueta="Cerrada">{formatearFechaHora(ultimo?.fechaHora)}</Dato>
+            <Dato etiqueta="Por">{ultimo?.usuario?.nombre ?? 'Sistema'}</Dato>
+            {ultimo?.motivo && (
+              <Dato etiqueta="Motivo" ancho>
+                {ultimo.motivo}
+              </Dato>
+            )}
+          </dl>
+          {reporte.length === 1 && (
+            <dl className="grid gap-4 border-t border-line pt-4 sm:grid-cols-3">
+              <Dato etiqueta="Tareas finalizadas">
+                <span className="font-mono tabular-nums">{reporte[0].tareasFinalizadas ?? 0}</span>
+              </Dato>
+              <Dato etiqueta="Tareas fallidas">
+                <span className={`font-mono tabular-nums ${reporte[0].tareasFallidas ? 'text-danger' : ''}`}>
+                  {reporte[0].tareasFallidas ?? 0}
+                </span>
+              </Dato>
+              <Dato etiqueta="Tareas no iniciadas">
+                <span className="font-mono tabular-nums">{reporte[0].tareasNoIniciadas ?? 0}</span>
+              </Dato>
+            </dl>
+          )}
+          {reporte.length > 1 && (
+            <div className="overflow-x-auto rounded-lg border border-line">
+              <table className="w-full min-w-[480px] text-sm">
+                <thead>
+                  <tr className={ENCABEZADO}>
+                    <th className="px-3 py-2 font-medium">Servidor</th>
+                    <th className="px-3 py-2 font-medium">Tareas finalizadas</th>
+                    <th className="px-3 py-2 font-medium">Fallidas</th>
+                    <th className="px-3 py-2 font-medium">No iniciadas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {reporte.map((r) => (
+                    <tr key={r.idServidor}>
+                      <td className={`${CELDA} font-mono text-ink`}>{r.servidor}</td>
+                      <td className={`${CELDA} tabular-nums`}>{r.tareasFinalizadas ?? 0}</td>
+                      <td className={`${CELDA} tabular-nums ${r.tareasFallidas ? 'text-danger' : ''}`}>{r.tareasFallidas ?? 0}</td>
+                      <td className={`${CELDA} tabular-nums`}>{r.tareasNoIniciadas ?? 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )
@@ -322,7 +389,6 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1 basis-60">
           <h3 className="text-base font-semibold text-ink">Ciclo de mantenimiento</h3>
-          <p className="mt-0.5 text-sm text-ink-soft">Seleccione una etapa para ver lo que ocurrió en ella.</p>
           {f.simulado && (
             <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-warning">
               <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
@@ -397,9 +463,9 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
       <MensajeError error={error} />
 
       <div className="flex flex-col gap-4 border-t border-line pt-4">
-        <div>
+        <div className="flex items-center gap-1.5">
           <h4 className="text-sm font-semibold text-ink">{presentacion.titulo}</h4>
-          <p className="mt-0.5 text-sm text-ink-soft">{presentacion.explicacion}</p>
+          <Info etiqueta={`Qué ocurre en esta etapa: ${presentacion.titulo}`}>{presentacion.explicacion}</Info>
         </div>
         <DetalleEtapa etapa={actual} f={f} gestiona={gestionaIncidencias} esAdmin={esAdmin} />
       </div>

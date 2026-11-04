@@ -6,7 +6,6 @@ import {
   ClipboardList,
   Gauge,
   KeyRound,
-  Palette,
   Server,
   ServerCog,
   Settings,
@@ -110,7 +109,8 @@ export const navigation: NavItem[] = [
       },
     ],
   },
-  { id: 'ordenes', label: 'Órdenes', icon: ClipboardList, path: '/ordenes', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+  // El responsable ve las órdenes de sus servidores: el backend aplica el alcance en la consulta (RF36)
+  { id: 'ordenes', label: 'Órdenes', icon: ClipboardList, path: '/ordenes' },
   // Rigen el inventario, la planificación y la evaluación de los servidores
   {
     id: 'referencias',
@@ -157,7 +157,6 @@ export const navigation: NavItem[] = [
         path: '/configuracion/parametros',
         roles: ['ADMINISTRADOR', 'OPERADOR'],
       },
-      { id: 'preferencias', label: 'Preferencias', icon: Palette, path: '/configuracion/preferencias' },
     ],
   },
 ]

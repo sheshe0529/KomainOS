@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import com.komainos.seguridad.model.Usuario;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -97,6 +98,11 @@ public class SolicitudAutorizacion {
     /** RF75: el plazo es compartido; vence al alcanzar la fecha límite */
     public boolean vencida(Instant ahora) {
         return !ahora.isBefore(fechaLimite);
+    }
+
+    /** RF48: aceptada la fecha propuesta, esta ronda termina: las aprobaciones se piden de nuevo en la siguiente */
+    public void aceptarPropuesta(Usuario administrador, Instant ahora) {
+        decisiones.forEach(d -> d.resolverConPropuesta(administrador, ahora));
     }
 
     public void vencer(Instant ahora) {

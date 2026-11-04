@@ -496,8 +496,8 @@ export function AutomatizacionPage() {
       {esAdmin && diagnostico.datos?.simulado && (
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-line px-5 py-4 text-sm text-ink-soft">
           <span>
-            ¿Primera vez? Cargue scripts, tareas, umbrales y políticas genéricas para recorrer el ciclo completo en modo
-            simulado.
+            ¿Primera vez? Cargue las métricas de salud, umbrales genéricos y las políticas de cambio. Los scripts y las
+            tareas se registran en sus catálogos.
           </span>
           <Boton icono={Database} cargando={trabajando === 'demo'} onClick={cargarDemostracion}>
             Cargar demostración

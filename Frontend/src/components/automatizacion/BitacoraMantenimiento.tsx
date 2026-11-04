@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, Circle, Download, Minus, X } from 'lucide-react'
+import { ArrowRight, Download } from 'lucide-react'
 import { bitacoraApi } from '@/api/automatizacion'
 import type { ResultadoMantenimiento } from '@/api/dominio'
 import type { MantenimientoBitacora, ParticipacionServidor, TareaBitacora } from '@/api/types'
@@ -95,25 +95,20 @@ function Salud({ p }: { p: ParticipacionServidor }) {
   )
 }
 
-function ChipTarea({ t }: { t: TareaBitacora }) {
-  const icono =
-    t.estado === 'FINALIZADA' ? (
-      <Check className="h-3 w-3 text-success" aria-hidden="true" />
-    ) : t.estado === 'FALLIDA' ? (
-      <X className="h-3 w-3 text-danger" aria-hidden="true" />
-    ) : t.estado === 'NO_INICIADA' ? (
-      <Minus className="h-3 w-3 text-ink-faint" aria-hidden="true" />
-    ) : (
-      <Circle className="h-3 w-3 text-ink-faint" aria-hidden="true" />
-    )
+/** Cuántas tareas tuvo y cómo terminaron: el detalle de cada una está en la orden */
+function ResumenTareas({ tareas }: { tareas: TareaBitacora[] }) {
+  const cuenta = (estado: string) => tareas.filter((t) => t.estado === estado).length
+  const fallidas = cuenta('FALLIDA')
+  const noIniciadas = cuenta('NO_INICIADA')
   return (
-    <span className="inline-flex items-center gap-1 rounded-md border border-line bg-panel px-2 py-0.5 text-xs text-ink">
-      {icono}
-      {t.nombre}
-      {t.duracionSegundos !== undefined && t.duracionSegundos !== null && (
-        <span className="text-ink-faint">· {formatearSegundos(t.duracionSegundos)}</span>
-      )}
-    </span>
+    <p className="text-xs text-ink-soft">
+      <span className="font-medium text-ink">
+        {tareas.length} {tareas.length === 1 ? 'tarea' : 'tareas'}
+      </span>
+      : {cuenta('FINALIZADA')} finalizada(s)
+      {fallidas > 0 && <span className="text-danger"> · {fallidas} fallida(s)</span>}
+      {noIniciadas > 0 && <> · {noIniciadas} sin iniciar</>}
+    </p>
   )
 }
 
@@ -145,12 +140,25 @@ function LineaDeTiempo({ mantenimientos }: { mantenimientos: MantenimientoBitaco
             <Link
               key={m.idOrden}
               to={`/ordenes/${m.idOrden}`}
-              title={`${m.codigo} · ${formatearFecha(fechaDe(m))} · ${r.etiqueta}`}
-              aria-label={`${m.codigo}, ${formatearFecha(fechaDe(m))}, ${r.etiqueta}`}
+              aria-label={`${m.codigo}, ${formatearFechaHora(fechaDe(m))}, ${r.etiqueta}`}
               className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full p-1 focus-visible:outline-2 focus-visible:outline-accent"
               style={{ left: `${posicionEnPeriodo(fechaDe(m), periodo.desde, periodo.hasta)}%` }}
             >
               <Punto resultado={m.resultado} className="h-3.5 w-3.5 transition-transform group-hover:scale-150" />
+              {/* Detalle al pasar el cursor o al enfocar con el teclado: la fecha y la hora exactas de la orden */}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-max max-w-[16rem] -translate-x-1/2 rounded-md border border-line bg-panel px-2.5 py-1.5 text-left text-xs shadow-lg group-hover:block group-focus-visible:block"
+              >
+                <span className="block font-mono font-medium text-ink">{m.codigo}</span>
+                <span className="block text-ink-soft">
+                  {m.inicioReal ? `Ejecutada el ${formatearFechaHora(m.inicioReal)}` : `Programada el ${formatearFechaHora(m.inicioProgramado)}`}
+                </span>
+                <span className="mt-0.5 flex items-center gap-1.5 text-ink">
+                  <Punto resultado={m.resultado} className="h-2 w-2" />
+                  {r.etiqueta}
+                </span>
+              </span>
             </Link>
           )
         })}
@@ -257,11 +265,7 @@ function TarjetaMantenimiento({ m, grupal }: { m: MantenimientoBitacora; grupal:
           <div className="mt-2 flex flex-col gap-2">
             <Salud p={una} />
             {(una.tareas ?? []).length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {una.tareas?.map((t, i) => (
-                  <ChipTarea key={i} t={t} />
-                ))}
-              </div>
+              <ResumenTareas tareas={una.tareas ?? []} />
             ) : (
               <p className="text-xs text-ink-faint">{r.descripcion}</p>
             )}

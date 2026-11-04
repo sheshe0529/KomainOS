@@ -1,23 +1,11 @@
-import { useId } from 'react'
 import type { ReactNode } from 'react'
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { TooltipContentProps } from 'recharts'
 import { CircleAlert, CircleCheck, CircleDashed, CircleX } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { operacionApi } from '@/api/automatizacion'
 import type { EstadoOrden, OrigenIncidencia } from '@/api/dominio'
-import type { RecursoHora, SaludServidores } from '@/api/types'
+import type { Conteo, SaludServidores } from '@/api/types'
 import { useConsulta } from '@/hooks/useConsulta'
 import { ChartCard } from '@/components/dashboard/ChartCard'
 import { ChartLegend } from '@/components/dashboard/ChartLegend'
@@ -71,30 +59,106 @@ function SinDatos({ children }: { children: ReactNode }) {
 
 const DIA = new Intl.DateTimeFormat('es-PE', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' })
 
-/** Una hora con medición entre dos sin ella no forma área: se marca con un punto de 8 px */
-function puntoAislado(datos: RecursoHora[], clave: 'cpu' | 'memoria', color: string) {
-  const valor = (i: number) => datos[i]?.[clave]
-  return function Punto({ cx, cy, index = 0 }: { cx?: number; cy?: number; index?: number }) {
-    const aislado = valor(index) != null && valor(index - 1) == null && valor(index + 1) == null
-    if (!aislado || cx === undefined || cy === undefined) return <g key={`${clave}-${index}`} />
-    return <circle key={`${clave}-${index}`} cx={cx} cy={cy} r={4} fill={color} stroke="var(--color-panel)" strokeWidth={2} />
-  }
+/** Familias de estados: pocas porciones para que la dona se lea; el detalle de cada estado va en la lista */
+const FAMILIAS: { etiqueta: string; color: string; estados: EstadoOrden[] }[] = [
+  {
+    etiqueta: 'En curso',
+    color: COLOR.informativo,
+    estados: ['PROGRAMADA', 'REPROGRAMADA', 'EN_EVALUACION', 'AUTORIZADA', 'EN_COLA', 'EN_EJECUCION'],
+  },
+  { etiqueta: 'Esperan una decisión', color: COLOR.advertencia, estados: ['PENDIENTE_AUTORIZACION', 'PENDIENTE_VALIDACION', 'SIN_IMPLEMENTACION'] },
+  {
+    etiqueta: 'Con incidencia o sin realizar',
+    color: COLOR.error,
+    estados: ['INCIDENCIA', 'RECHAZADA', 'AUTORIZACION_VENCIDA', 'VALIDACION_VENCIDA', 'CANCELADA'],
+  },
+  { etiqueta: 'Cerradas', color: COLOR.neutro, estados: ['CERRADA'] },
+]
+
+function TooltipFamilia({ active, payload }: TooltipContentProps) {
+  if (!active || !payload?.length) return null
+  const familia = payload[0].payload as { etiqueta: string; cantidad: number; color: string; total: number }
+  return (
+    <div className="rounded-lg border border-line bg-panel px-3 py-2 text-xs shadow-lg">
+      <p className="flex items-center gap-1.5 font-medium text-ink">
+        <span className="h-2 w-2 rounded-full" style={{ background: familia.color }} />
+        {familia.etiqueta}
+      </p>
+      <p className="mt-1 text-ink-soft">
+        <span className="font-mono font-medium text-ink">{familia.cantidad}</span> órdenes ·{' '}
+        {Math.round((familia.cantidad / familia.total) * 100)} %
+      </p>
+    </div>
+  )
 }
 
-function TooltipRecursos({ active, payload, label }: TooltipContentProps) {
-  if (!active || !payload?.length) return null
+/** Parte de un todo: una dona por familia de estados y, al lado, la cantidad de cada estado */
+function OrdenesPorEstado({ conteos }: { conteos: Conteo[] }) {
+  const cantidad = (estado: EstadoOrden) => conteos.find((c) => c.clave === estado)?.cantidad ?? 0
+  const total = conteos.reduce((suma, c) => suma + (c.cantidad ?? 0), 0)
+  const familias = FAMILIAS.map((f) => ({
+    ...f,
+    cantidad: f.estados.reduce((suma, e) => suma + cantidad(e), 0),
+    total,
+  })).filter((f) => f.cantidad > 0)
+
+  if (total === 0) {
+    return (
+      <div className="relative h-full">
+        <SinDatos>No se crearon órdenes en el periodo.</SinDatos>
+      </div>
+    )
+  }
   return (
-    <div className="rounded-lg border border-line bg-panel p-3 text-xs shadow-lg">
-      <p className="mb-2 font-medium">{formatearFechaHora(String(label))}</p>
-      {payload.map((p) => (
-        <p key={String(p.dataKey)} className="flex items-center justify-between gap-4 py-0.5">
-          <span className="flex items-center gap-1.5 text-ink-soft">
-            <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
-            {p.name}
-          </span>
-          <strong>{Number(p.value).toLocaleString('es-PE', { maximumFractionDigits: 1 })} %</strong>
+    <div className="grid h-full items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="relative h-48 sm:h-full" aria-label="Dona de órdenes por familia de estados">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={familias}
+              dataKey="cantidad"
+              nameKey="etiqueta"
+              innerRadius="62%"
+              outerRadius="92%"
+              paddingAngle={0}
+              stroke="var(--color-panel)"
+              strokeWidth={2}
+              isAnimationActive={false}
+            >
+              {familias.map((f) => (
+                <Cell key={f.etiqueta} fill={f.color} />
+              ))}
+            </Pie>
+            <Tooltip content={TooltipFamilia} />
+          </PieChart>
+        </ResponsiveContainer>
+        <p className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span className="font-mono text-2xl font-semibold tabular-nums text-ink">{total}</span>
+          <span className="text-xs text-ink-soft">órdenes</span>
         </p>
-      ))}
+      </div>
+      <ul className="flex max-h-full flex-col gap-3 overflow-auto text-sm">
+        {FAMILIAS.map((f) => {
+          const estados = f.estados.filter((e) => cantidad(e) > 0)
+          if (estados.length === 0) return null
+          return (
+            <li key={f.etiqueta}>
+              <p className="flex items-center gap-2 font-medium text-ink">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.color }} aria-hidden="true" />
+                {f.etiqueta}
+              </p>
+              <ul className="mt-1 flex flex-col gap-0.5 pl-[18px] text-xs text-ink-soft">
+                {estados.map((e) => (
+                  <li key={e} className="flex items-baseline justify-between gap-3">
+                    {ETIQUETA_ESTADO_ORDEN[e]}
+                    <span className="font-mono tabular-nums text-ink">{cantidad(e)}</span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
@@ -153,21 +217,13 @@ function SaludDeServidores({ salud }: { salud?: SaludServidores }) {
 
 /**
  * Gráficos del dashboard (RF67). Cada uno responde una pregunta: cómo terminan los mantenimientos, en qué estado están
- * las órdenes, qué tan sanos están los servidores, de dónde vienen las incidencias, cómo van las ejecuciones y cuánto
- * consumen los servidores
+ * las órdenes, qué tan sanos están los servidores, de dónde vienen las incidencias y cómo van las ejecuciones
  */
 export function GraficosAutomatizacion({ desde, hasta, version = 0 }: GraficosAutomatizacionProps) {
   const informe = useConsulta(() => operacionApi.graficos(desde, hasta), [desde, hasta, version])
-  const id = useId().replaceAll(':', '')
   const datos = informe.datos
-  const recursos = datos?.recursos ?? []
-  const hayMuestras = recursos.some((r) => r.cpu != null || r.memoria != null)
   const meses = (datos?.mantenimientosPorMes ?? []).map((m) => ({ ...m, etiqueta: mes(m.mes), titulo: mes(m.mes, true) }))
   const hayMantenimientos = meses.some((m) => (m.exitosos ?? 0) + (m.sinIntervencion ?? 0) + (m.conIncidencia ?? 0) + (m.noRealizados ?? 0) > 0)
-  const ordenes = (datos?.ordenesPorEstado ?? []).map((o) => ({
-    etiqueta: ETIQUETA_ESTADO_ORDEN[o.clave as EstadoOrden] ?? o.clave,
-    cantidad: o.cantidad,
-  }))
   const incidencias = (datos?.incidenciasPorOrigen ?? []).map((i) => ({
     etiqueta: ORIGEN_INCIDENCIA[i.origen as OrigenIncidencia] ?? i.origen,
     abiertas: i.abiertas,
@@ -214,20 +270,7 @@ export function GraficosAutomatizacion({ desde, hasta, version = 0 }: GraficosAu
         </ChartCard>
 
         <ChartCard title="Órdenes por estado" description="Creadas en el periodo, según su estado actual">
-          <div className="relative h-full min-w-0" aria-label="Barras horizontales de órdenes por estado">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ordenes} layout="vertical" margin={{ top: 0, right: 36, bottom: 0, left: 0 }} barCategoryGap="25%">
-                <CartesianGrid stroke="var(--color-line)" horizontal={false} />
-                <XAxis {...EJE} type="number" allowDecimals={false} />
-                <YAxis {...EJE} type="category" dataKey="etiqueta" width={150} tick={ETIQUETA_EJE} />
-                <Tooltip content={ChartTooltip} cursor={{ fill: 'var(--color-panel-muted)' }} />
-                <Bar dataKey="cantidad" name="Órdenes" fill={COLOR.serie} maxBarSize={BARRA} radius={[0, 4, 4, 0]} isAnimationActive={false}>
-                  <LabelList dataKey="cantidad" position="right" fill="var(--color-ink-soft)" fontSize={11} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-            {!informe.cargando && ordenes.length === 0 && <SinDatos>No se crearon órdenes en el periodo.</SinDatos>}
-          </div>
+          <OrdenesPorEstado conteos={datos?.ordenesPorEstado ?? []} />
         </ChartCard>
 
         <ChartCard title="Salud de los servidores" description="Nivel del último análisis concluyente de cada servidor activo">
@@ -299,71 +342,11 @@ export function GraficosAutomatizacion({ desde, hasta, version = 0 }: GraficosAu
           </div>
         </ChartCard>
 
-        <ChartCard
-          title="Uso de recursos (24 h)"
-          description="Promedio de CPU y RAM entre los servidores activos · UTC"
-          legend={
-            <ChartLegend
-              items={[
-                { label: 'CPU', colorVar: 'var(--color-serie-1)' },
-                { label: 'RAM', colorVar: 'var(--color-serie-2)' },
-              ]}
-            />
-          }
-        >
-          <div className="relative h-full min-w-0" aria-label="Áreas de CPU y RAM por hora">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={recursos} margin={{ top: 8, right: 10, bottom: 0, left: 0 }}>
-                <defs>
-                  <linearGradient id={`${id}-cpu`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-serie-1)" stopOpacity={0.22} />
-                    <stop offset="100%" stopColor="var(--color-serie-1)" stopOpacity={0.01} />
-                  </linearGradient>
-                  <linearGradient id={`${id}-ram`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-serie-2)" stopOpacity={0.22} />
-                    <stop offset="100%" stopColor="var(--color-serie-2)" stopOpacity={0.01} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="var(--color-line)" vertical={false} />
-                <XAxis {...EJE} dataKey="hora" tickFormatter={(v) => String(v).slice(11, 16)} interval={2} />
-                <YAxis {...EJE} width={42} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                <Tooltip content={TooltipRecursos} cursor={{ stroke: 'var(--color-line)' }} />
-                <Area
-                  type="monotone"
-                  dataKey="cpu"
-                  name="CPU"
-                  stroke="var(--color-serie-1)"
-                  fill={`url(#${id}-cpu)`}
-                  strokeWidth={2}
-                  dot={puntoAislado(recursos, 'cpu', 'var(--color-serie-1)')}
-                  isAnimationActive={false}
-                  connectNulls={false}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="memoria"
-                  name="RAM"
-                  stroke="var(--color-serie-2)"
-                  fill={`url(#${id}-ram)`}
-                  strokeWidth={2}
-                  dot={puntoAislado(recursos, 'memoria', 'var(--color-serie-2)')}
-                  isAnimationActive={false}
-                  connectNulls={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-            {!informe.cargando && !hayMuestras && (
-              <SinDatos>
-                No hay mediciones de CPU o RAM en las últimas 24 horas. Se mostrarán al realizar una revisión del servidor.
-              </SinDatos>
-            )}
-          </div>
-        </ChartCard>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-ink-faint">
         «No realizado» agrupa los mantenimientos rechazados, con la autorización vencida, cancelados o cerrados sin una
         implementación compatible. En las ejecuciones, la advertencia identifica tareas terminadas cuya validación técnica
-        resultó no conforme; las tareas no iniciadas se excluyen. Las horas sin mediciones quedan sin datos.
+        resultó no conforme; las tareas no iniciadas se excluyen.
         {datos?.fechaActualizacion && ` Actualizado: ${formatearFechaHora(datos.fechaActualizacion)}.`}
       </p>
     </section>

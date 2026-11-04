@@ -15,7 +15,7 @@ function iniciales(nombre?: string): string {
   return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? (partes[partes.length - 1][0] ?? '') : '')).toUpperCase()
 }
 
-/** El tema se cambia solo desde Configuración › Preferencias */
+/** El tema se cambia solo desde Mi cuenta */
 export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const location = useLocation()
   const navigate = useNavigate()

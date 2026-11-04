@@ -91,6 +91,11 @@ export interface AnalisisRespuesta {
   mediciones?: MedicionRespuesta[]
 }
 
+export interface Aprobador {
+  codigo?: string
+  nombre?: string
+}
+
 export interface AsignacionServidoresPeticion {
   idsServidores: number[]
 }
@@ -265,6 +270,7 @@ export interface DecidirAutorizacionPeticion {
   decision: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'FECHA_PROPUESTA' | 'VENCIDA'
   motivo: string
   fechaPropuesta?: string
+  confirmarFueraVentana?: boolean
 }
 
 export interface DecisionAutorizacion {
@@ -273,10 +279,12 @@ export interface DecisionAutorizacion {
   secuencia?: number
   estado?: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'FECHA_PROPUESTA' | 'VENCIDA'
   usuario?: string
+  codigoUsuario?: string
   fechaSolicitud?: string
   fechaDecision?: string
   fechaPropuesta?: string
   motivo?: string
+  esperados?: Aprobador[]
 }
 
 export interface DespachoRespuesta {
@@ -424,6 +432,7 @@ export interface FichaAutomatizacionRespuesta {
   siguientePaso?: string
   acciones?: AccionesOrden
   mops?: PlanMop[]
+  resumenPlan?: ResumenPlan
   evaluaciones?: AnalisisRespuesta[]
   autorizaciones?: RondaAutorizacion[]
   validacionFuncional?: ValidacionFuncionalRespuesta
@@ -1035,13 +1044,6 @@ export interface ReautenticacionPeticion {
   contrasena: string
 }
 
-export interface RecursoHora {
-  hora?: string
-  cpu?: number
-  memoria?: number
-  servidores?: number
-}
-
 export interface ReferenciaSimple {
   id?: number
   nombre?: string
@@ -1101,12 +1103,19 @@ export interface ResumenGraficos {
   fechaActualizacion?: string
   desde?: string
   hasta?: string
-  recursos?: RecursoHora[]
   ejecuciones?: EjecucionDia[]
   mantenimientosPorMes?: ResultadoMes[]
   ordenesPorEstado?: Conteo[]
   incidenciasPorOrigen?: IncidenciasOrigen[]
   saludServidores?: SaludServidores
+}
+
+export interface ResumenPlan {
+  servidores?: number
+  servidoresConTareas?: number
+  tareas?: number
+  duracionTotalMinutos?: number
+  modoEjecucion?: 'SECUENCIAL' | 'PARALELO'
 }
 
 export interface ResumenPlanificacionRespuesta {
@@ -1384,6 +1393,7 @@ export interface UmbralEvaluadoRespuesta {
   advertencia?: number
   critico?: number
   idLista?: number
+  lista?: string
   nivelFaltante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
   nivelSobrante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
 }

@@ -51,6 +51,9 @@ describe('Selección y ubicación del menú', () => {
     }
     expect(activas('/mi-cuenta')).toEqual(['mi-cuenta'])
   })
+  it('el responsable consulta las órdenes de sus servidores desde el menú', () => {
+    expect(navegacionPara('RESPONSABLE').some((m) => m.id === 'ordenes')).toBe(true)
+  })
   it('el responsable no recibe las políticas administrativas', () => {
     const visibles = navegacionPara('RESPONSABLE').flatMap((g) => (isNavGroup(g) ? g.children : [g]))
     expect(visibles.some((h) => h.id === 'politicas')).toBe(false)

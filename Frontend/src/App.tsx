@@ -28,7 +28,6 @@ import {
   OrdenesPage,
   ParametrosPage,
   PoliticasCambioPage,
-  PreferenciasPage,
   PublicarVersionPage,
   ScriptDetallePage,
   ScriptsPage,
@@ -159,14 +158,7 @@ function App() {
               <Route path="/alertas" element={<AlertasPage />} />
               <Route path="/cronograma" element={<CronogramaPage />} />
               <Route path="/cronograma/dia/:fecha" element={<CronogramaDiaPage />} />
-              <Route
-                path="/ordenes"
-                element={
-                  <RutaProtegida roles={['ADMINISTRADOR', 'OPERADOR']}>
-                    <OrdenesPage />
-                  </RutaProtegida>
-                }
-              />
+              <Route path="/ordenes" element={<OrdenesPage />} />
               <Route path="/ordenes/:id" element={<OrdenDetallePage />} />
               <Route path="/servidores" element={<ServidoresPage />} />
               <Route path="/servidores/:id" element={<FichaServidorPage />} />
@@ -222,7 +214,8 @@ function App() {
                   </RutaProtegida>
                 }
               />
-              <Route path="/configuracion/preferencias" element={<PreferenciasPage />} />
+              {/* Las preferencias son parte de la cuenta: el enlace anterior lleva a Mi cuenta */}
+              <Route path="/configuracion/preferencias" element={<Navigate to="/mi-cuenta" replace />} />
               <Route path="/mi-cuenta" element={<MiCuentaPage />} />
               <Route path="*" element={<NoEncontradoPage />} />
             </Route>

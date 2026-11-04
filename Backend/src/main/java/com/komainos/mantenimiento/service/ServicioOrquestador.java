@@ -108,6 +108,53 @@ public class ServicioOrquestador {
         return cantidad;
     }
 
+    /** Por qué no inició ningún servidor al despachar, en una frase para el panel */
+    public String motivoSinDespacho() {
+        return transaccion.execute(estado -> {
+            Instant ahora = Tiempo.ahora(reloj);
+            List<Orden> candidatas = ordenes.findByEstadoInOrderByFechaInicioProgramadaAsc(
+                    EnumSet.of(EstadoOrden.AUTORIZADA, EstadoOrden.EN_COLA, EstadoOrden.EN_EJECUCION));
+            if (candidatas.isEmpty()) {
+                return "No hay órdenes autorizadas esperando su ejecución.";
+            }
+            List<Orden> listas = candidatas.stream().filter(o -> !ahora.isBefore(o.getFechaInicioProgramada())).toList();
+            if (listas.isEmpty()) {
+                Orden proxima = candidatas.getFirst();
+                return "Ninguna orden alcanzó su inicio programado: %s entra en la cola el %s."
+                        .formatted(proxima.getCodigo(), HORA.format(proxima.getFechaInicioProgramada()));
+            }
+            List<OrdenDetalle> activos = detalles.findByEstado(EstadoDetalleOrden.EN_EJECUCION);
+            Set<Integer> ocupados = new HashSet<>();
+            activos.forEach(d -> ocupados.add(d.getServidor().getId()));
+            for (Orden orden : listas) {
+                for (OrdenDetalle d : orden.getDetalles()) {
+                    if ((d.getEstado() == EstadoDetalleOrden.EN_COLA || d.getEstado() == EstadoDetalleOrden.PENDIENTE)
+                            && ocupados.contains(d.getServidor().getId())) {
+                        return "El servidor %s ya está ejecutando otro mantenimiento: %s espera a que termine "
+                                .formatted(d.getServidor().getHostname(), orden.getCodigo())
+                                + "(exclusión por servidor).";
+                    }
+                }
+            }
+            long normales = activos.stream()
+                    .filter(d -> d.getOrden().getOrigen() != OrigenOrden.LANZAMIENTO_INMEDIATO).count();
+            int maximo = parametros.obtener().getMaxEjecucionesConcurrentes();
+            boolean hayInmediata = listas.stream().anyMatch(o -> o.getOrigen() == OrigenOrden.LANZAMIENTO_INMEDIATO);
+            if (normales >= maximo && !hayInmediata) {
+                return "Se alcanzó el límite de %d ejecuciones simultáneas: los servidores esperan a que termine alguna."
+                        .formatted(maximo);
+            }
+            for (Orden orden : listas) {
+                Optional<OrdenDetalle> piloto = orden.getDetalles().stream().filter(OrdenDetalle::isEsServidorPiloto).findFirst();
+                if (piloto.isPresent() && piloto.get().getEstado() == EstadoDetalleOrden.EN_EJECUCION) {
+                    return "Los demás servidores de %s esperan a que el piloto %s termine sin fallos."
+                            .formatted(orden.getCodigo(), piloto.get().getServidor().getHostname());
+                }
+            }
+            return "Los servidores de las órdenes que alcanzaron su inicio ya están en ejecución o terminaron.";
+        });
+    }
+
     /**
      * Ejecuta la cola hasta que no quede nada que pueda iniciar y espera a que termine: los servidores que se habilitan
      * después del piloto o del anterior de un grupo secuencial también corren. Lo usan las pruebas y el recorrido manual.

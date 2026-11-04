@@ -127,7 +127,7 @@ export function ScriptsPage() {
           ) : (
             <>
               Aún no hay scripts.{' '}
-              {esAdmin && 'Cree el primero o cargue los de demostración desde la sala de operaciones.'}
+              {esAdmin && 'Cree el primero: el editor ofrece plantillas de análisis y de mantenimiento.'}
             </>
           )}
         </div>

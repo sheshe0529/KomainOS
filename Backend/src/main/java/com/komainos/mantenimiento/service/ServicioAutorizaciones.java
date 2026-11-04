@@ -14,6 +14,8 @@ import com.komainos.mantenimiento.model.ReglaPoliticaCambio;
 import com.komainos.mantenimiento.model.SolicitudAutorizacion;
 import com.komainos.mantenimiento.model.TipoAprobador;
 import com.komainos.mantenimiento.model.TipoDestinatario;
+import com.komainos.mantenimiento.model.ConfirmacionFueraVentana;
+import com.komainos.mantenimiento.repository.ConfirmacionFueraVentanaRepositorio;
 import com.komainos.mantenimiento.repository.MopRepositorio;
 import com.komainos.mantenimiento.repository.OrdenRepositorio;
 import com.komainos.mantenimiento.repository.SolicitudAutorizacionRepositorio;
@@ -53,6 +55,7 @@ public class ServicioAutorizaciones {
     private final OrdenRepositorio ordenes;
     private final MopRepositorio mops;
     private final SolicitudAutorizacionRepositorio solicitudes;
+    private final ConfirmacionFueraVentanaRepositorio confirmaciones;
     private final UsuarioRepositorio usuarios;
     private final ServicioConsultaOrdenes consulta;
     private final ServicioPoliticasCambio politicas;
@@ -110,6 +113,16 @@ public class ServicioAutorizaciones {
     @Transactional
     public void decidir(Integer idOrden, EstadoAutorizacion decision, String motivo, Instant propuesta,
                         AlcanceUsuario alcance) {
+        decidir(idOrden, decision, motivo, propuesta, false, alcance);
+    }
+
+    /**
+     * @param confirmarFueraVentana quien propone una fecha fuera de la ventana permisiva lo confirma expresamente; la
+     *                              excepción queda registrada con su usuario (HU19 CA3)
+     */
+    @Transactional
+    public void decidir(Integer idOrden, EstadoAutorizacion decision, String motivo, Instant propuesta,
+                        boolean confirmarFueraVentana, AlcanceUsuario alcance) {
         bloqueo.tomar();
         Orden orden = consulta.obtener(idOrden, alcance);
         Instant ahora = Tiempo.ahora(reloj);
@@ -127,11 +140,14 @@ public class ServicioAutorizaciones {
         AutorizacionDetalle pendiente = solicitud.pendienteActual()
                 .orElseThrow(() -> new ReglaNegocioException("No quedan aprobaciones pendientes en esta ronda"));
         exigirTurno(orden, pendiente.getTipo(), alcance);
-        if (decision == EstadoAutorizacion.FECHA_PROPUESTA && propuesta != null) {
-            programacion.verificarFecha(idOrden, propuesta);
-        }
+        boolean fueraDeVentana = decision == EstadoAutorizacion.FECHA_PROPUESTA && propuesta != null
+                && !programacion.verificarFecha(idOrden, propuesta, confirmarFueraVentana);
         Usuario autor = usuario(alcance.actor());
         pendiente.decidir(decision, autor, motivo, propuesta, ahora);
+        if (fueraDeVentana) {
+            confirmaciones.save(ConfirmacionFueraVentana.de(orden, autor,
+                    recortar("Fecha propuesta fuera de la ventana permisiva: " + motivo), ahora));
+        }
         auditoria.registrar(alcance.actor(), Operacion.de("DECIDIR_AUTORIZACION", "autorizacion_detalle", pendiente.getId())
                 .sobreOrden(idOrden)
                 .motivo("%s · %s: %s".formatted(pendiente.getTipo(), decision, motivo)));
@@ -141,7 +157,8 @@ public class ServicioAutorizaciones {
                     alcance.actor(), ahora);
             case FECHA_PROPUESTA -> notificaciones.aOrden(orden, TipoAlerta.SOLICITUD_AUTORIZACION,
                     "Fecha propuesta para " + orden.getCodigo(),
-                    "El responsable propone iniciar el %s: %s".formatted(FECHA.format(propuesta), motivo),
+                    "El responsable propone iniciar el %s%s: %s".formatted(FECHA.format(propuesta),
+                            fueraDeVentana ? " (fuera de la ventana permisiva, confirmado por el responsable)" : "", motivo),
                     notificaciones.administradores());
             default -> {
                 if (solicitud.aprobada()) {
@@ -166,10 +183,13 @@ public class ServicioAutorizaciones {
         if (orden.getEstado() != EstadoOrden.PENDIENTE_AUTORIZACION) {
             throw new ReglaNegocioException("La orden %s no está pendiente de autorización".formatted(orden.getCodigo()));
         }
-        AutorizacionDetalle propuesta = rondaVigente(orden).propuesta()
+        SolicitudAutorizacion vigente = rondaVigente(orden);
+        AutorizacionDetalle propuesta = vigente.propuesta()
                 .orElseThrow(() -> new ReglaNegocioException("No hay una fecha propuesta por el responsable"));
         programacion.reprogramarEnAutorizacion(idOrden, propuesta.getFechaPropuesta(),
                 "Fecha propuesta por el responsable: " + propuesta.getMotivo(), actor);
+        // La ronda de la propuesta termina: no queda una aprobación «pendiente» que ya no se pedirá
+        vigente.aceptarPropuesta(usuario(actor), Tiempo.ahora(reloj));
         solicitar(orden, actor);
     }
 
@@ -202,6 +222,13 @@ public class ServicioAutorizaciones {
             throw new ReglaNegocioException("El responsable propuso otra fecha: el administrador debe aceptarla o rechazar "
                     + "el mantenimiento");
         }
+        // La aprobación del administrador que seguía pendiente queda registrada con su rechazo
+        Usuario autor = usuario(alcance.actor());
+        rondaVigente(orden).getDecisiones().stream()
+                .filter(d -> d.getTipo() == TipoAprobador.ADMINISTRADOR && d.estaPendiente())
+                .findFirst()
+                .ifPresent(d -> d.decidir(EstadoAutorizacion.RECHAZADA, autor,
+                        recortar("No aceptó la fecha propuesta: " + motivo), null, ahora));
         auditoria.registrar(alcance.actor(), Operacion.de("RECHAZAR_FECHA_PROPUESTA", "orden", orden.getId())
                 .sobreOrden(orden.getId()).motivo(motivo));
         rechazar(orden, "Fecha propuesta no aceptada por el administrador: " + motivo, alcance.actor(), ahora);

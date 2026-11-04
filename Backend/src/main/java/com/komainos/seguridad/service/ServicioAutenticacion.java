@@ -7,6 +7,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Locale;
 
 /**
@@ -16,6 +17,9 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class ServicioAutenticacion {
+
+    /** Lo que sigue valiendo el token reemplazado por una renovación, para las peticiones que ya estaban en curso */
+    static final Duration GRACIA_RENOVACION = Duration.ofSeconds(30);
 
     private final AuthenticationManager gestorAutenticacion;
     private final ServicioJwt servicioJwt;
@@ -39,6 +43,20 @@ public class ServicioAutenticacion {
         limitador.registrarExito(porCuenta);
         long minutos = parametrosSesion.minutosExpiracionToken();
         return new Sesion(servicioJwt.generar(usuario.getUsername(), usuario.rol().name(), minutos), minutos, usuario);
+    }
+
+    /**
+     * RF02: mientras el usuario usa el panel, su sesión se renueva con la vigencia configurada; así solo vence por
+     * inactividad. El token anterior vale unos segundos más, para no cortar las peticiones en curso de otras pestañas,
+     * y después deja de valer: cerrar la sesión revoca el único token que queda
+     */
+    public Sesion renovar(UsuarioAutenticado usuario, String tokenActual) {
+        long minutos = parametrosSesion.minutosExpiracionToken();
+        Sesion sesion = new Sesion(servicioJwt.generar(usuario.getUsername(), usuario.rol().name(), minutos), minutos, usuario);
+        if (tokenActual != null) {
+            servicioJwt.verificar(tokenActual).ifPresent(t -> servicioJwt.reemplazar(t, GRACIA_RENOVACION));
+        }
+        return sesion;
     }
 
     /** El token deja de valer aunque no haya vencido; uno ya inválido no tiene nada que revocar */

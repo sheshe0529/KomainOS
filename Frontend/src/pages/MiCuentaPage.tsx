@@ -1,9 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, Palette } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { autenticacionApi } from '@/api/autenticacion'
 import type { Rol } from '@/api/dominio'
 import { useSesion } from '@/auth/sesion-context'
 import { PageHeader } from '@/components/common/PageHeader'
+import { SelectorTema } from '@/components/cuenta/SelectorTema'
 import { Dato, Tarjeta } from '@/components/common/Tarjeta'
 import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
@@ -35,25 +36,17 @@ export function MiCuentaPage() {
     <>
       <PageHeader
         title="Mi cuenta"
-        description="Datos de la cuenta con la que inició sesión."
+        description="Los datos de la cuenta con la que inició sesión y sus preferencias en este equipo."
         actions={
-          <>
-            <Link
-              to="/configuracion/preferencias"
-              className="inline-flex items-center gap-2 rounded-lg border border-line bg-panel px-3.5 py-2 text-sm font-medium text-ink hover:bg-panel-muted"
-            >
-              <Palette className="h-4 w-4" aria-hidden="true" /> Preferencias
-            </Link>
-            <Boton
-              icono={LogOut}
-              onClick={() => {
-                cerrarSesion()
-                navigate('/login', { replace: true })
-              }}
-            >
-              Cerrar sesión
-            </Boton>
-          </>
+          <Boton
+            icono={LogOut}
+            onClick={() => {
+              cerrarSesion()
+              navigate('/login', { replace: true })
+            }}
+          >
+            Cerrar sesión
+          </Boton>
         }
       />
       <MensajeError error={perfil.error} onReintentar={perfil.recargar} />
@@ -69,8 +62,8 @@ export function MiCuentaPage() {
                 valor={<StatusPill tone={p.activo ? 'success' : 'neutral'} label={p.activo ? 'Activa' : 'Desactivada'} />}
               />
               <Dato etiqueta="Cuenta creada" valor={formatearFechaHora(p.fechaCreacion)} />
-              <Dato etiqueta="Última actualización" valor={formatearFechaHora(p.fechaActualizacion)} />
-              <Dato etiqueta="Vigencia de la sesión" valor={p.minutosSesion ? `${p.minutosSesion} minutos` : undefined} />
+              {/* La sesión se renueva mientras se usa el panel: solo vence sin actividad (RF02) */}
+              <Dato etiqueta="Cierre por inactividad" valor={p.minutosSesion ? `${p.minutosSesion} minutos` : undefined} />
               {p.servidoresACargo !== undefined && (
                 <Dato
                   etiqueta="Servidores a su cargo"
@@ -88,6 +81,9 @@ export function MiCuentaPage() {
             <p className="mt-4 text-xs text-ink-faint">
               Los datos de la cuenta y el rol los administra un usuario con rol Administrador.
             </p>
+          </Tarjeta>
+          <Tarjeta titulo="Tema de la interfaz" className="lg:col-span-3">
+            <SelectorTema />
           </Tarjeta>
         </div>
       )}

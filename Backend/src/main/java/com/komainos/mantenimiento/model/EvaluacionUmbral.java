@@ -1,5 +1,6 @@
 package com.komainos.mantenimiento.model;
 
+import com.komainos.inventario.model.ListaReferencia;
 import com.komainos.inventario.model.NivelAlerta;
 import com.komainos.inventario.model.OperadorComparacion;
 import com.komainos.inventario.model.UmbralAplicado;
@@ -61,6 +62,11 @@ public class EvaluacionUmbral {
 
     @Column(name = "id_lista_referencia_aplicada")
     private Integer idLista;
+
+    /** Solo para mostrar el nombre de la lista con que se comparó; la columna la escribe idLista */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_lista_referencia_aplicada", insertable = false, updatable = false)
+    private ListaReferencia listaAplicada;
 
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType.class)

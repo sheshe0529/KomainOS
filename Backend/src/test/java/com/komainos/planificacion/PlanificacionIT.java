@@ -303,6 +303,11 @@ class PlanificacionIT extends PruebaIntegracion {
         assertThat(cronograma.entradas(desde, hasta, new AlcanceUsuario(responsable.getId(), Rol.RESPONSABLE)))
                 .extracting(o -> o.getServidor().getHostname())
                 .containsExactly("srv-propio");
+        // RF36: el listado de órdenes aplica el mismo alcance, también al filtrar por estado
+        mockMvc.perform(get("/api/ordenes").param("estado", "PROGRAMADA").with(user(new UsuarioAutenticado(responsable))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElementos").value(1))
+                .andExpect(jsonPath("$.contenido[0].objetivo.nombre").value("srv-propio"));
 
         // RF30: solo el administrador programa, el responsable recibe 403
         mockMvc.perform(post("/api/ordenes").with(user(new UsuarioAutenticado(responsable)))

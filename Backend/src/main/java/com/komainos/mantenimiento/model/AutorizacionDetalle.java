@@ -106,6 +106,16 @@ public class AutorizacionDetalle {
         this.fechaDecision = ahora;
     }
 
+    /** RF48: aceptada la fecha propuesta, la aprobación que seguía pendiente en esa ronda queda resuelta por ella */
+    void resolverConPropuesta(Usuario administrador, Instant ahora) {
+        if (estaPendiente()) {
+            estado = EstadoAutorizacion.APROBADA;
+            usuarioDecision = administrador;
+            motivo = "Aceptó la fecha propuesta por el responsable";
+            fechaDecision = ahora;
+        }
+    }
+
     void vencer(Instant ahora) {
         estado = EstadoAutorizacion.VENCIDA;
         motivo = "Plazo compartido vencido sin decisión";

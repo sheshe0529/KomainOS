@@ -118,7 +118,7 @@ operativos se mide: en los demás no se exige, no se evalúa ni admite excepcion
 - **Límites.** Los del `04` y los que crea la demostración son genéricos (por ejemplo, CPU ≥ 80/90 %, carga > 1/2 tareas por
   CPU, uptime ≥ 90/180 días) y se ajustan en **Umbrales**.
 
-Cómo las obtienen los scripts de `src/main/resources/ansible/scripts/`:
+Cómo las obtienen los scripts de referencia del R3.2, en `Documentos/Scripts/` (carpeta de documentos del proyecto, fuera del repositorio):
 
 | Variable | Linux (`analisis_linux.sh`) | Windows (`analisis_windows.ps1`) |
 |---|---|---|
@@ -139,9 +139,25 @@ Cómo las obtienen los scripts de `src/main/resources/ansible/scripts/`:
 | Servicios | `systemctl` en ejecución | `Get-Service` en ejecución |
 | Agotamiento de memoria | `Killed process` del OOM killer | evento 2004 del Resource-Exhaustion-Detector |
 
-Parámetros del análisis: `MUESTREO_SEGUNDOS` (5), `VENTANA_HORAS` (24) y, en Linux,
-`ARCHIVOS_CRITICOS`; en Windows, `EXCLUIR_PUERTOS_DINAMICOS` (`true`: no informa el
-rango dinámico que Windows asigna a RPC). Requieren privilegios de administrador.
+Parámetros del análisis: `MUESTREO_SEGUNDOS` (5) y `VENTANA_HORAS` (24). Requieren
+privilegios de administrador.
+
+**Listas de los umbrales como entrada (DEC-52).** Lo que el análisis revisa no se
+repite en un parámetro: por cada métrica de lista que se mide en el servidor,
+KomainOS antepone al script, en el mismo bloque de los parámetros, el arreglo
+`KOMAINOS_LISTA_<CÓDIGO>` con la lista del umbral que rige para ese servidor
+(global o excepción, con la misma regla de resolución de la evaluación). Si
+ninguna lista aplica, el arreglo queda vacío. Así, el análisis de Linux revisa
+exactamente los archivos de «Permisos de archivos críticos»
+(`KOMAINOS_LISTA_ARCH_CRIT_PERMISOS`, elementos `ruta:modo`), y cambiar la lista
+no exige publicar otra versión del script. En Windows los puertos del rango
+dinámico se omiten siempre: Windows los asigna a RPC al azar y cambian en cada
+arranque, así que no se pueden autorizar en una lista.
+
+```bash
+KOMAINOS_LISTA_ARCH_CRIT_PERMISOS=('/etc/passwd:644' '/etc/shadow:0')   # Bash
+$KOMAINOS_LISTA_ARCH_CRIT_PERMISOS = @('/etc/passwd:644', '/etc/shadow:0')  # PowerShell
+```
 
 Una base creada antes de este cambio se actualiza con
 `scripts/bd/cambios/2026-11-02_variables_salud_r31.sql` (respaldo previo con
@@ -150,15 +166,16 @@ métrica anterior equivalente (`cpu_uso_pct` → `cpu_uso`, `puertos_escucha` �
 `red_puerto_no_aut`…) pasan a la variable con sus excepciones y tareas; las
 mediciones anteriores y las métricas sin equivalente se eliminan. Después hay que
 reiniciar el backend y, para el modo real, publicar una versión del análisis que
-informe los códigos nuevos (la plantilla del editor ya lo hace).
+informe los códigos nuevos (el de `Documentos/Scripts/` ya lo hace).
 
 ## Recorrido de prueba desde el panel
 
 1. **Sala de operaciones → Cargar demostración** (el panel lo ofrece en modo simulado): agrega
    las variables del R3.1 que falten, umbrales genéricos de CPU, memoria y disco
-   si esas métricas no tienen uno activo, tres scripts con implementaciones para
-   los sistemas operativos activos, dos tareas y las reglas de política que
-   falten. Es idempotente y no modifica lo existente.
+   si esas métricas no tienen uno activo y las reglas de política que falten. Es
+   idempotente y no modifica lo existente. No trae scripts ni tareas: se
+   registran en **Scripts** y **Tareas** (los de referencia están en
+   `Documentos/Scripts/`).
 2. En la ficha del servidor, **Preparación para el ciclo automático** dice qué le
    falta: estado, cuenta de servicio, análisis compatible, política, ventana,
    umbrales, tareas y transporte. **Probar acceso** comprueba conexión,
@@ -183,7 +200,13 @@ informe los códigos nuevos (la plantilla del editor ya lo hace).
    (análisis previo), qué se va a hacer y quién lo aprueba (plan de trabajo y
    aprobaciones), qué se hizo (salida de cada tarea), si quedó bien (antes y
    después, validaciones e incidencias) y cómo terminó. **Exportar bitácora**
-   descarga todos los eventos en Excel, CSV o JSON, sin secretos.
+   descarga todos los eventos en Excel, CSV o JSON, sin secretos. El responsable
+   puede proponer una fecha fuera de la ventana permisiva si lo confirma
+   expresamente (queda en `confirmacion_fuera_ventana`); al aceptarla, la ronda
+   anterior se cierra y se abre otra con su plazo. **Despachar ahora** solo aparece
+   cuando la orden alcanzó su inicio; si no inicia ningún servidor, el mensaje dice
+   por qué (ninguna orden llegó a su inicio, servidor ocupado por la exclusión,
+   límite de ejecuciones simultáneas o piloto en curso).
 8. La ficha del servidor y la del grupo muestran la **bitácora de mantenimiento**
    como línea de tiempo (un punto por mantenimiento, coloreado por su resultado),
    con la salud antes y después y las tareas de cada ciclo; la del grupo agrega un
@@ -194,6 +217,9 @@ informe los códigos nuevos (la plantilla del editor ya lo hace).
    duración, código de salida y salida; se filtra y se exporta a CSV.
 10. **Incidencias**: diagnóstico, acciones y resultado; al cerrar la última, la
    orden continúa a su cierre sin reanudar tareas.
+11. **Órdenes** (todos los roles): el responsable ve solo las de sus servidores. El
+   filtro por estado muestra las que esperan una decisión (pendiente de
+   autorización o de validación); cada fila abre la orden, donde se decide.
 
 ## Escribir scripts
 
@@ -238,10 +264,14 @@ reglas:
   salida** del editor revisa un texto pegado y **Probar en un servidor** ejecuta
   una versión publicada sin registrar una evaluación.
 
-Los ejemplos de `src/main/resources/ansible/scripts/` (análisis, liberar
-temporales, revisar memoria) son de diagnóstico y no destructivos. El análisis
-informa las variables del R3.1 (21 en Linux, 17 en Windows); el editor ofrece el
-mismo código como plantilla (copia en `Frontend/src/utils/plantillas/`).
+Los scripts viven en el catálogo (`script_version.contenido`): es lo único que se
+ejecuta. El backend no trae scripts de mantenimiento ni de análisis; solo las
+comprobaciones internas de la prueba de acceso (`ansible/comprobaciones/`) y el
+plugin que da formato a la salida de Ansible. Los scripts de referencia del R3.2
+(análisis, liberar temporales, revisar memoria) están en `Documentos/Scripts/`;
+son de diagnóstico y no destructivos, y el análisis informa las variables del
+R3.1 (21 en Linux, 17 en Windows). El editor ofrece plantillas cortas que
+muestran el contrato y permite partir de otra versión del catálogo.
 
 ## Habilitar Ansible real
 

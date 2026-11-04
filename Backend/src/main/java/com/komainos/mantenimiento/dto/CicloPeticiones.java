@@ -23,7 +23,10 @@ public final class CicloPeticiones {
             String motivo,
 
             /** Solo al proponer otra fecha */
-            Instant fechaPropuesta) {
+            Instant fechaPropuesta,
+
+            /** Al proponer una fecha fuera de la ventana permisiva, la confirmación expresa del responsable */
+            boolean confirmarFueraVentana) {
     }
 
     /** RF57: conformidad o rechazo del responsable con sus observaciones */

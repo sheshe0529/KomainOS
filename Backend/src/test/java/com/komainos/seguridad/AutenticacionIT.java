@@ -92,6 +92,28 @@ class AutenticacionIT extends PruebaIntegracion {
     }
 
     @Test
+    @DisplayName("RF02: renovar por actividad entrega otro token; al cerrar sesión con él, la sesión termina")
+    void renovacion() throws Exception {
+        String inicial = token("admin.sesion", "clave-segura-1", "10.9.0.6");
+
+        String cuerpo = mockMvc.perform(post("/api/auth/renovar").header(HttpHeaders.AUTHORIZATION, "Bearer " + inicial))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.usuario.codigo").value("admin.sesion"))
+                .andReturn().getResponse().getContentAsString();
+        String renovado = JsonPath.read(cuerpo, "$.token");
+
+        assertThat(renovado).isNotEqualTo(inicial);
+        yo(renovado).andExpect(status().isOk());
+        // El anterior vale unos segundos más para las peticiones que ya estaban en curso en otras pestañas
+        yo(inicial).andExpect(status().isOk());
+        mockMvc.perform(post("/api/auth/logout").header(HttpHeaders.AUTHORIZATION, "Bearer " + renovado))
+                .andExpect(status().isNoContent());
+        yo(renovado).andExpect(status().isUnauthorized());
+        // Sin sesión no hay nada que renovar
+        mockMvc.perform(post("/api/auth/renovar")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("cambiar el rol de una cuenta cierra sus sesiones: el token con el rol anterior deja de valer")
     void cambioDeRolRevoca() throws Exception {
         Usuario operador = usuarios.crear("oper2.sesion", "Operador", "clave-segura-3", Rol.OPERADOR, sistema);

@@ -1,8 +1,5 @@
 import type { FamiliaSistemaOperativo, TipoScript } from '@/api/dominio'
 import type { ParametroPeticion } from '@/api/types'
-// Copias de Backend/src/main/resources/ansible/scripts, los mismos que carga la demostración: al cambiar uno, cambie el otro
-import analisisLinux from './plantillas/analisis_linux.sh?raw'
-import analisisWindows from './plantillas/analisis_windows.ps1?raw'
 
 export interface Plantilla {
   titulo: string
@@ -11,39 +8,65 @@ export interface Plantilla {
   parametros: ParametroPeticion[]
 }
 
-const ARCHIVOS_CRITICOS = '/etc/passwd /etc/group /etc/shadow /etc/gshadow /etc/sudoers /etc/ssh/sshd_config /etc/crontab'
-
-/** El editor trabaja con saltos de línea de Unix aunque el archivo se haya clonado con los de Windows */
-const sinRetornos = (texto: string) => texto.replace(/\r\n/g, '\n')
-
 /**
  * Puntos de partida que ya cumplen los contratos de KomainOS: los análisis imprimen el JSON de métricas en la última
- * línea y los mantenimientos terminan con código distinto de cero cuando algo falla. Los análisis informan las variables
- * de salud del R3.1 con los códigos del catálogo de métricas
+ * línea y leen las listas de los umbrales; los mantenimientos terminan con código distinto de cero cuando algo falla.
+ * Son esqueletos: los scripts completos están en el catálogo (el editor permite partir de otra versión) y en
+ * Documentos/Scripts
  */
 const PLANTILLAS: Record<TipoScript, Record<FamiliaSistemaOperativo, Plantilla>> = {
   ANALISIS: {
     LINUX: {
-      titulo: 'Análisis de salud del R3.1 (Bash)',
+      titulo: 'Análisis de salud (Bash)',
       descripcion:
-        'Las 21 variables de salud: CPU, memoria, intercambio, discos, red, registros del sistema, seguridad y servicios. Solo lee.',
-      parametros: [
-        { nombre: 'MUESTREO_SEGUNDOS', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '5' },
-        { nombre: 'VENTANA_HORAS', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '24' },
-        { nombre: 'ARCHIVOS_CRITICOS', tipo: 'STRING', obligatorio: true, valorPorDefecto: ARCHIVOS_CRITICOS },
-      ],
-      contenido: sinRetornos(analisisLinux),
+        'Estructura de un análisis: una métrica de valor, una de lista que se revisa con la lista del umbral y el JSON final. Solo lee.',
+      parametros: [],
+      contenido: `#!/usr/bin/env bash
+# Análisis: solo lee el servidor. Por cada métrica de lista, KomainOS define antes de este código el arreglo
+# KOMAINOS_LISTA_<CÓDIGO> con la lista del umbral que rige para el servidor.
+# Informe cada métrica que tenga un umbral activo: si falta una, la evaluación queda fallida.
+# La última línea debe ser el JSON {"metricas": [...]} con los códigos del catálogo de métricas.
+set -u
+
+# Valor único: porcentaje de memoria en uso
+memoria=$(free | awk '/^Mem:/ { printf "%.1f", $3 * 100 / $2 }')
+
+# Lista: los archivos de la lista del umbral con su permiso actual (ruta:modo)
+archivos=""
+for esperado in "\${KOMAINOS_LISTA_ARCH_CRIT_PERMISOS[@]+"\${KOMAINOS_LISTA_ARCH_CRIT_PERMISOS[@]}"}"; do
+    archivo=\${esperado%:*}
+    [ -e "$archivo" ] && archivos="$archivos\${archivos:+,}\\"$archivo:$(stat -c '%a' "$archivo")\\""
+done
+
+printf '{"metricas":[{"codigo":"mem_uso","valor":%s},{"codigo":"arch_crit_permisos","elementos":[%s]}]}\\n' \\
+    "$memoria" "$archivos"
+`,
     },
     WINDOWS: {
-      titulo: 'Análisis de salud del R3.1 (PowerShell)',
+      titulo: 'Análisis de salud (PowerShell)',
       descripcion:
-        'Las 17 variables de salud que se miden en Windows, con clases CIM que no dependen del idioma. Solo lee.',
-      parametros: [
-        { nombre: 'MUESTREO_SEGUNDOS', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '5' },
-        { nombre: 'VENTANA_HORAS', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '24' },
-        { nombre: 'EXCLUIR_PUERTOS_DINAMICOS', tipo: 'BOOLEAN', obligatorio: true, valorPorDefecto: 'true' },
-      ],
-      contenido: sinRetornos(analisisWindows),
+        'Estructura de un análisis: una métrica de valor, una de lista y el JSON final, con clases CIM que no dependen del idioma. Solo lee.',
+      parametros: [],
+      contenido: `# Análisis: solo lee el servidor. Por cada métrica de lista, KomainOS define antes de este código el arreglo
+# $KOMAINOS_LISTA_<CÓDIGO> con la lista del umbral que rige para el servidor. No declare un bloque param().
+# Informe cada métrica que tenga un umbral activo: si falta una, la evaluación queda fallida.
+# La última línea debe ser el JSON {"metricas": [...]} con los códigos del catálogo de métricas.
+$ErrorActionPreference = 'Stop'
+
+# Valor único: porcentaje de memoria en uso
+$so = Get-CimInstance Win32_OperatingSystem
+$memoria = [math]::Round(100 * (1 - $so.FreePhysicalMemory / $so.TotalVisibleMemorySize), 1)
+
+# Lista: puertos TCP en escucha fuera de la interfaz de bucle local; los que no están en la lista del umbral sobran
+$puertos = @(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalAddress -notmatch '^(127\\.|::1$)' } |
+    ForEach-Object { [string]$_.LocalPort } | Sort-Object -Unique)
+
+$metricas = @(
+    [ordered]@{ codigo = 'mem_uso'; valor = $memoria },
+    [ordered]@{ codigo = 'red_puerto_no_aut'; elementos = $puertos }
+)
+@{ metricas = $metricas } | ConvertTo-Json -Depth 4 -Compress
+`,
     },
   },
   MANTENIMIENTO: {

@@ -10,26 +10,45 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacion } from '@/hooks/usePaginacion'
-import { FilaAnalisis } from './FilaAnalisis'
 import { PreparacionServidor } from './PreparacionServidor'
 import { PruebaAcceso } from './PruebaAcceso'
+import { TablaAnalisis } from './TablaAnalisis'
 
-/**
- * Automatización desde la ficha del servidor: qué le falta para el ciclo automático, prueba de acceso, revisión
- * inmediata (RF37) e historial de análisis
- */
+/** Qué le falta al servidor para el ciclo automático; lo ven el administrador y el operador */
+export function PreparacionServidorTarjeta({ idServidor }: { idServidor: number }) {
+  const preparacion = useConsulta(() => analisisApi.preparacion(idServidor), [idServidor])
+  return (
+    <Tarjeta titulo="Preparación para el ciclo automático">
+      <MensajeError error={preparacion.error} onReintentar={preparacion.recargar} />
+      {preparacion.cargando && !preparacion.datos ? (
+        <Cargando />
+      ) : (
+        preparacion.datos && <PreparacionServidor preparacion={preparacion.datos} />
+      )}
+    </Tarjeta>
+  )
+}
+
+/** Conexión, autenticación y permisos de la cuenta de servicio, sin ejecutar mantenimientos */
+export function AccesoServidorTarjeta({ idServidor }: { idServidor: number }) {
+  return (
+    <Tarjeta titulo="Acceso de la cuenta de servicio">
+      <PruebaAcceso
+        idServidor={idServidor}
+        descripcion="Comprueba la conexión, la autenticación y los permisos de administrador sin ejecutar mantenimientos."
+      />
+    </Tarjeta>
+  )
+}
+
+/** Historial de análisis del servidor (RF37): cada revisión es una fila que abre su detalle */
 export function AnalisisServidor({ idServidor }: { idServidor: number }) {
   const { tieneRol } = useSesion()
   const esAdmin = tieneRol('ADMINISTRADOR')
-  const ve = esAdmin || tieneRol('OPERADOR')
   const { avisar } = useAvisos()
 
   const { pagina, tamano, setPagina, setTamano } = usePaginacion('analisis-servidor')
   const historial = useConsulta(() => analisisApi.historial(idServidor, pagina, tamano), [idServidor, pagina, tamano])
-  const preparacion = useConsulta(
-    async () => (ve ? analisisApi.preparacion(idServidor) : undefined),
-    [idServidor, ve],
-  )
   const [revisando, setRevisando] = useState(false)
   const [error, setError] = useState<unknown>()
 
@@ -59,7 +78,7 @@ export function AnalisisServidor({ idServidor }: { idServidor: number }) {
 
   const filas = historial.datos?.contenido ?? []
 
-  const analisis = (
+  return (
     <Tarjeta
       titulo="Análisis del servidor"
       acciones={
@@ -78,52 +97,20 @@ export function AnalisisServidor({ idServidor }: { idServidor: number }) {
           Aún no se analiza este servidor. Las revisiones periódicas corren según su frecuencia de mantenimiento.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-line">
-          <ol>
-            {filas.map((a) => (
-              <FilaAnalisis key={a.id} analisis={a} conServidor={false} />
-            ))}
-          </ol>
-          <Paginacion
-            pagina={pagina}
-            totalPaginas={historial.datos?.totalPaginas ?? 0}
-            totalElementos={historial.datos?.totalElementos ?? 0}
-            onCambiar={setPagina}
-            tamano={tamano}
-            onTamano={setTamano}
-          />
+        <div className="flex flex-col gap-3">
+          <TablaAnalisis analisis={filas} conServidor={false} />
+          <div className="-mx-5 -mb-5">
+            <Paginacion
+              pagina={pagina}
+              totalPaginas={historial.datos?.totalPaginas ?? 0}
+              totalElementos={historial.datos?.totalElementos ?? 0}
+              onCambiar={setPagina}
+              tamano={tamano}
+              onTamano={setTamano}
+            />
+          </div>
         </div>
       )}
     </Tarjeta>
-  )
-
-  return (
-    <div className="flex flex-col gap-6">
-      {/* La preparación y el historial de análisis son listas: van lado a lado; la prueba de acceso es una sola fila */}
-      {ve ? (
-        <div className="grid items-start gap-6 lg:grid-cols-2">
-          <Tarjeta titulo="Preparación para el ciclo automático">
-            <MensajeError error={preparacion.error} onReintentar={preparacion.recargar} />
-            {preparacion.cargando && !preparacion.datos ? (
-              <Cargando />
-            ) : (
-              preparacion.datos && <PreparacionServidor preparacion={preparacion.datos} />
-            )}
-          </Tarjeta>
-          {analisis}
-        </div>
-      ) : (
-        analisis
-      )}
-
-      {esAdmin && (
-        <Tarjeta titulo="Acceso de la cuenta de servicio">
-          <PruebaAcceso
-            idServidor={idServidor}
-            descripcion="Comprueba la conexión, la autenticación y los permisos de administrador sin ejecutar mantenimientos."
-          />
-        </Tarjeta>
-      )}
-    </div>
   )
 }

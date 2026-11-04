@@ -2,6 +2,13 @@ package com.komainos.mantenimiento;
 
 import com.komainos.PruebaIntegracion;
 import com.komainos.catalogo.model.NivelAfectacion;
+import com.komainos.catalogo.model.Script;
+import com.komainos.catalogo.model.Tarea;
+import com.komainos.catalogo.model.TipoScript;
+import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
+import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosParametro;
+import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosScript;
+import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosVersion;
 import com.komainos.credencial.model.TipoAutenticacion;
 import com.komainos.credencial.service.ServicioCredenciales;
 import com.komainos.inventario.model.CalendarioSemanal;
@@ -13,6 +20,10 @@ import com.komainos.inventario.model.ModalidadPlanificacion;
 import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.model.NivelCriticidad;
 import com.komainos.inventario.model.Servidor;
+import com.komainos.inventario.model.TipoDato;
+import com.komainos.inventario.model.Umbral;
+import com.komainos.inventario.repository.MetricaRepositorio;
+import com.komainos.inventario.repository.UmbralRepositorio;
 import com.komainos.inventario.service.ServicioCatalogos;
 import com.komainos.inventario.service.ServicioGrupo;
 import com.komainos.inventario.service.ServicioServidor;
@@ -47,14 +58,19 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 /**
  * Escenario común del componente de automatización en modo simulado: un entorno con criticidad «Alta», Ubuntu 24.04,
- * una cuenta de servicio de prueba, el servidor srv-prueba con ventana toda la semana y los datos de demostración. El
- * comportamiento de cada servidor lo decide su hostname (application-test.yml, EscenarioSimulado).
+ * una cuenta de servicio de prueba, el servidor srv-prueba con ventana toda la semana, los datos de demostración
+ * (métricas, umbrales y política) y un catálogo de prueba. El comportamiento de cada servidor lo decide su hostname
+ * (application-test.yml, EscenarioSimulado).
  *
- * <p>Con la demostración, la evaluación previa activa dos tareas: «Liberar archivos temporales» (afectación PARCIAL,
- * prioridad 10) y «Revisar consumo de memoria» (SIN_AFECTACION, prioridad 20). La política exige al responsable en
- * PARCIAL y a ambos en TOTAL.</p>
+ * <p>Con el catálogo de prueba, la evaluación previa activa dos tareas: «Liberar archivos temporales» (afectación
+ * PARCIAL, prioridad 10) y «Revisar consumo de memoria» (SIN_AFECTACION, prioridad 20). La política exige al responsable
+ * en PARCIAL y a ambos en TOTAL.</p>
  */
 abstract class BaseAutomatizacionIT extends PruebaIntegracion {
+
+    protected static final String ANALISIS = "Análisis de salud del servidor";
+    protected static final String LIMPIEZA = "Liberar archivos temporales";
+    protected static final String MEMORIA = "Revisar consumo de memoria";
 
     protected static final CalendarioSemanal.IntervaloSemanal TODA_LA_SEMANA = new CalendarioSemanal.IntervaloSemanal(
             DiaSemana.LUNES, LocalTime.MIDNIGHT, DiaSemana.DOMINGO, LocalTime.of(23, 59));
@@ -73,6 +89,12 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
     protected ServicioCredenciales credenciales;
     @Autowired
     protected ServicioDemostracionAutomatizacion demostracion;
+    @Autowired
+    protected ServicioCatalogoAutomatizacion catalogo;
+    @Autowired
+    private MetricaRepositorio metricas;
+    @Autowired
+    private UmbralRepositorio umbrales;
     @Autowired
     protected PuertoProgramacionCambio programacion;
     @Autowired
@@ -113,6 +135,40 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
                 actor).getId();
         servidor = crear("srv-prueba", "10.90.0.1");
         demostracion.cargar(actor);
+        registrarCatalogo();
+    }
+
+    /**
+     * Los scripts y las tareas de prueba (DEC-52: la demostración ya no trae scripts). En modo simulado el código no se
+     * ejecuta: importan el tipo de script, sus parámetros y los umbrales que activan cada tarea
+     */
+    private void registrarCatalogo() {
+        Script analisis = catalogo.registrarScript(new DatosScript(ANALISIS, TipoScript.ANALISIS,
+                "Análisis de prueba", true), actor);
+        Script limpieza = catalogo.registrarScript(new DatosScript(LIMPIEZA, TipoScript.MANTENIMIENTO,
+                "Limpieza de prueba", true), actor);
+        Script memoria = catalogo.registrarScript(new DatosScript(MEMORIA, TipoScript.MANTENIMIENTO,
+                "Diagnóstico de prueba", true), actor);
+        catalogo.implementar(analisis.getId(), versionUbuntu, new DatosVersion("echo análisis", "Prueba", List.of(
+                new DatosParametro("MUESTREO_SEGUNDOS", TipoDato.INTEGER, true, "5"),
+                new DatosParametro("VENTANA_HORAS", TipoDato.INTEGER, true, "24"))), actor);
+        catalogo.implementar(limpieza.getId(), versionUbuntu, new DatosVersion("echo limpieza", "Prueba", List.of(
+                new DatosParametro("RUTA_TEMPORAL", TipoDato.STRING, true, "/tmp"),
+                new DatosParametro("DIAS_RETENCION", TipoDato.INTEGER, true, "7"),
+                new DatosParametro("SOLO_SIMULAR", TipoDato.BOOLEAN, true, "true"))), actor);
+        catalogo.implementar(memoria.getId(), versionUbuntu, new DatosVersion("echo memoria", "Prueba", List.of(
+                new DatosParametro("TOP_PROCESOS", TipoDato.INTEGER, true, "5"))), actor);
+        catalogo.guardarTarea(null, limpieza.getId(), new Tarea.DatosTarea(LIMPIEZA, "Libera espacio en /tmp",
+                NivelAfectacion.PARCIAL, 10, 15, true), Set.of(umbral("disco_uso")), actor);
+        catalogo.guardarTarea(null, memoria.getId(), new Tarea.DatosTarea(MEMORIA, "Diagnóstico de memoria",
+                NivelAfectacion.SIN_AFECTACION, 20, 5, true), Set.of(umbral("mem_uso"), umbral("cpu_uso")), actor);
+    }
+
+    /** El umbral activo que la demostración deja en la métrica */
+    private Integer umbral(String codigo) {
+        Integer idMetrica = metricas.findAllByOrderByNombreAsc().stream()
+                .filter(m -> m.getCodigo().equals(codigo)).findFirst().orElseThrow().getId();
+        return umbrales.findDeMetrica(idMetrica).stream().filter(Umbral::isActivo).findFirst().orElseThrow().getId();
     }
 
     @AfterEach

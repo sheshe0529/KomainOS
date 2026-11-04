@@ -1,9 +1,16 @@
 import type { ConfiguracionRespuesta } from '@/api/types'
 import { Dato, Tarjeta } from '@/components/common/Tarjeta'
-import { ETIQUETA_MODALIDAD } from '@/utils/etiquetas'
+import { ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
 import { DatoCuentaServicio } from './DatoCuentaServicio'
 
-export function ConfiguracionServidorTarjeta({ configuracion }: { configuracion?: ConfiguracionRespuesta }) {
+interface ConfiguracionMantenimientoTarjetaProps {
+  configuracion?: ConfiguracionRespuesta
+  /** Un grupo indica además si sus integrantes se mantienen uno tras otro o a la vez (RF58) */
+  conModoEjecucion?: boolean
+}
+
+/** Cada cuánto se revisa y se mantiene, cómo se planifica y con qué cuenta (RF05, RF26); la usan servidores y grupos */
+export function ConfiguracionMantenimientoTarjeta({ configuracion, conModoEjecucion }: ConfiguracionMantenimientoTarjetaProps) {
   return (
     <Tarjeta titulo="Configuración de mantenimiento">
       {configuracion ? (
@@ -14,6 +21,12 @@ export function ConfiguracionServidorTarjeta({ configuracion }: { configuracion?
             etiqueta="Modalidad de planificación"
             valor={configuracion.modalidadPlanificacion ? ETIQUETA_MODALIDAD[configuracion.modalidadPlanificacion] : undefined}
           />
+          {conModoEjecucion && (
+            <Dato
+              etiqueta="Modo de ejecución"
+              valor={configuracion.modoEjecucion ? ETIQUETA_MODO[configuracion.modoEjecucion] : undefined}
+            />
+          )}
           <DatoCuentaServicio configuracion={configuracion} />
         </dl>
       ) : (

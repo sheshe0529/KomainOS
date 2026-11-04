@@ -2,6 +2,7 @@ package com.komainos.mantenimiento.service;
 
 import com.komainos.catalogo.model.VersionScript;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
+import com.komainos.ejecucion.model.ListaEjecucion;
 import com.komainos.ejecucion.model.MedicionInformada;
 import com.komainos.ejecucion.model.MetricaReferencia;
 import com.komainos.ejecucion.model.PropositoEjecucion;
@@ -98,10 +99,11 @@ public class ServicioEvaluaciones {
             case PREVIA -> PropositoEjecucion.ANALISIS_PREVIO;
             case POSTERIOR -> PropositoEjecucion.ANALISIS_POSTERIOR;
         };
+        ContextoEvaluacion contexto = contexto(s, e.getDetalle());
         return new SolicitudEjecucion(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(),
                 e.getIdCuentaServicio(), proposito, version.getContenido(),
-                ServicioCatalogoAutomatizacion.valoresDeEjecucion(version), maxMinutos(),
-                referencia(contexto(s, e.getDetalle())));
+                ServicioCatalogoAutomatizacion.valoresDeEjecucion(version), maxMinutos(), referencia(contexto),
+                listas(contexto));
     }
 
     /**
@@ -158,6 +160,12 @@ public class ServicioEvaluaciones {
         return ValoresReferencia.calcular(metricas.findAllByOrderByNombreAsc(), umbrales.findAplicables(), contexto);
     }
 
+    /** Las listas de referencia que rigen para el servidor: el análisis revisa lo que ellas definen */
+    @Transactional(readOnly = true)
+    public List<ListaEjecucion> listas(ContextoEvaluacion contexto) {
+        return ListasAnalisis.calcular(metricas.findAllByOrderByNombreAsc(), umbrales.findAplicables(), contexto);
+    }
+
     public Integer cuentaAplicable(Integer idCuenta) {
         return idCuenta != null ? idCuenta : parametros.obtener().getIdCuentaServicioPredeterminada();
     }
@@ -180,6 +188,7 @@ public class ServicioEvaluaciones {
             Hibernate.initialize(m.getMetrica());
             Hibernate.initialize(m.getElementos());
             Hibernate.initialize(m.getUmbrales());
+            m.getUmbrales().forEach(u -> Hibernate.initialize(u.getListaAplicada()));
         });
     }
 

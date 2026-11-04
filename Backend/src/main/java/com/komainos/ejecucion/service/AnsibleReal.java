@@ -62,7 +62,8 @@ public class AnsibleReal implements PuertoAnsible {
 
     @Override
     public ResultadoEjecucion ejecutar(SolicitudEjecucion solicitud) {
-        String codigo = PreparadorScript.preparar(solicitud.familia(), solicitud.contenido(), solicitud.parametros())
+        String codigo = PreparadorScript.preparar(solicitud.familia(), solicitud.contenido(), solicitud.parametros(),
+                        solicitud.listas())
                 .contenido();
         ResultadoEjecucion resultado = invocar(solicitud, codigo);
         return solicitud.esAnalisis() ? ContratoAnalisis.aplicar(resultado, json) : resultado;

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, CalendarClock, CalendarX, Clock } from 'lucide-react'
+import { ArrowRight, CalendarClock, CalendarX, ChevronRight, Clock } from 'lucide-react'
 import type { EstadoOrden } from '@/api/dominio'
 import { planificacionApi } from '@/api/planificacion'
 import type { OrdenDetalleRespuesta } from '@/api/types'
@@ -18,8 +18,7 @@ import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
-import { TONO_ESTADO_ORDEN } from '@/utils/automatizacion'
-import { ETIQUETA_ESTADO_DETALLE, ETIQUETA_ESTADO_ORDEN, ETIQUETA_ETAPA, ETIQUETA_MODO, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
+import { ETIQUETA_ESTADO_DETALLE, ETIQUETA_ESTADO_ORDEN, ETIQUETA_MODO, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
 import { formatearDuracion, formatearFechaHora, formatearFechaLarga, formatearHora } from '@/utils/formato'
 
 /** Estados desde los que la tabla 6 permite reprogramar y cancelar */
@@ -123,14 +122,8 @@ export function OrdenDetallePage() {
             </Link>
           </>
         }
-        meta={
-          <>
-            {r.estado && <StatusPill tone={TONO_ESTADO_ORDEN[r.estado]} label={ETIQUETA_ESTADO_ORDEN[r.estado]} />}
-            <StatusPill tone="neutral" label={`Criticidad ${r.criticidad?.nombre ?? ''}`} />
-            {r.etapa && <StatusPill tone="neutral" label={`Etapa: ${ETIQUETA_ETAPA[r.etapa]}`} />}
-            {r.prioridad === 'ALTA' && <StatusPill tone="danger" label="Prioridad alta" />}
-          </>
-        }
+        // El estado y la etapa se leen en el ciclo de mantenimiento, justo debajo
+        meta={r.prioridad === 'ALTA' && <StatusPill tone="danger" label="Prioridad alta" />}
         actions={
           esAdmin && (
             <>
@@ -155,9 +148,8 @@ export function OrdenDetallePage() {
         <Tarjeta titulo="Información general">
           <dl className="grid gap-4 sm:grid-cols-2">
             <Dato etiqueta="Origen" valor={r.origen ? ETIQUETA_ORIGEN[r.origen] : undefined} />
+            <Dato etiqueta="Criticidad" valor={r.criticidad?.nombre} />
             <Dato etiqueta="Solicitada por" valor={o.solicitante?.nombre ?? 'Sistema'} />
-            <Dato etiqueta="Criticidad aplicada" valor={r.criticidad?.nombre} />
-            <Dato etiqueta="Prioridad" valor={r.prioridad === 'ALTA' ? 'Alta' : 'Normal'} />
             {grupal && <Dato etiqueta="Modo de ejecución" valor={o.modoEjecucionAplicado ? ETIQUETA_MODO[o.modoEjecucionAplicado] : undefined} />}
             <Dato etiqueta="Cuenta de servicio" valor={o.cuentaServicio?.nombre ?? 'Sin cuenta asignada al generarse'} />
             <Dato etiqueta="Creada" valor={formatearFechaHora(r.fechaCreacion)} />
@@ -168,84 +160,101 @@ export function OrdenDetallePage() {
         </Tarjeta>
       </div>
 
-      <Tarjeta titulo={`Detalle por servidor (${o.detalles?.length ?? 0})`}>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
-                <th className="py-2 pr-4 font-medium">Posición</th>
-                <th className="py-2 pr-4 font-medium">Servidor</th>
-                <th className="py-2 pr-4 font-medium">Estado</th>
-                <th className="py-2 pr-4 font-medium">Previsto</th>
-                <th className="py-2 pr-4 font-medium">Real</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {detalles.filas.map((d) => (
-                <tr key={d.id}>
-                  <td className="py-2 pr-4 font-mono tabular-nums text-ink-soft">
-                    {d.posicionEjecucion}
-                    {d.esServidorPiloto && <span className="ml-2 text-xs text-accent">piloto</span>}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <Link to={`/servidores/${d.servidor?.id}`} className="font-mono text-ink hover:text-accent">
-                      {d.servidor?.nombre}
-                    </Link>
-                    <span className="ml-2 font-mono text-xs text-ink-faint">{d.direccionIp}</span>
-                  </td>
-                  <td className="py-2 pr-4 text-ink-soft">{d.estado ? ETIQUETA_ESTADO_DETALLE[d.estado] : ''}</td>
-                  <td className="py-2 pr-4 text-ink-soft">
-                    {formatearFechaHora(d.fechaPrevistaInicio)} – {formatearFechaHora(d.fechaPrevistaFin)}
-                  </td>
-                  <td className="py-2 pr-4 text-ink-soft">
-                    {d.fechaRealInicio ? `${formatearFechaHora(d.fechaRealInicio)} – ${formatearFechaHora(d.fechaRealFin)}` : 'Sin iniciar'}
-                  </td>
+      {/* En una orden individual el servidor y sus fechas ya están arriba: el detalle sirve para los grupos */}
+      {grupal && (
+        <Tarjeta titulo={`Detalle por servidor (${o.detalles?.length ?? 0})`}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="py-2 pr-4 font-medium">Posición</th>
+                  <th className="py-2 pr-4 font-medium">Servidor</th>
+                  <th className="py-2 pr-4 font-medium">Estado</th>
+                  <th className="py-2 pr-4 font-medium">Previsto</th>
+                  <th className="py-2 pr-4 font-medium">Real</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="-mx-5 -mb-5 mt-2">
-          <Paginacion {...detalles.controles} />
-        </div>
-      </Tarjeta>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {detalles.filas.map((d) => (
+                  <tr key={d.id}>
+                    <td className="py-2 pr-4 font-mono tabular-nums text-ink-soft">
+                      {d.posicionEjecucion}
+                      {d.esServidorPiloto && <span className="ml-2 text-xs text-accent">piloto</span>}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <Link to={`/servidores/${d.servidor?.id}`} className="font-mono text-ink hover:text-accent">
+                        {d.servidor?.nombre}
+                      </Link>
+                      <span className="ml-2 font-mono text-xs text-ink-faint">{d.direccionIp}</span>
+                    </td>
+                    <td className="py-2 pr-4 text-ink-soft">{d.estado ? ETIQUETA_ESTADO_DETALLE[d.estado] : ''}</td>
+                    <td className="py-2 pr-4 text-ink-soft">
+                      {formatearFechaHora(d.fechaPrevistaInicio)} – {formatearFechaHora(d.fechaPrevistaFin)}
+                    </td>
+                    <td className="py-2 pr-4 text-ink-soft">
+                      {d.fechaRealInicio ? `${formatearFechaHora(d.fechaRealInicio)} – ${formatearFechaHora(d.fechaRealFin)}` : 'Sin iniciar'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="-mx-5 -mb-5 mt-2">
+            <Paginacion {...detalles.controles} />
+          </div>
+        </Tarjeta>
+      )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* La orden guarda solo su programación vigente: cada reprogramación queda en el historial (R2.4) */}
-        <Tarjeta titulo={`Reprogramaciones (${reprogramaciones.length})`}>
-          {reprogramaciones.length === 0 ? (
-            <p className="text-sm text-ink-soft">Conserva la programación con la que se generó.</p>
-          ) : (
+      {/* Consulta ocasional: los cambios de estado y de fecha quedan plegados para no cargar la página */}
+      <details className="group rounded-xl border border-line bg-panel">
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-5 py-4 hover:bg-panel-muted">
+          <ChevronRight className="h-4 w-4 text-ink-faint transition-transform group-open:rotate-90" aria-hidden="true" />
+          <span className="text-base font-semibold text-ink">Historial de la orden</span>
+          <span className="text-sm text-ink-soft">
+            {o.historial?.length ?? 0} cambios de estado
+            {reprogramaciones.length > 0 &&
+              ` · ${reprogramaciones.length} ${reprogramaciones.length === 1 ? 'cambio de fecha' : 'cambios de fecha'}`}
+          </span>
+        </summary>
+        <div className="grid gap-6 border-t border-line px-5 py-4 lg:grid-cols-2">
+          {/* La orden guarda solo su programación vigente: cada reprogramación queda en el historial (R2.4) */}
+          <section className="flex flex-col gap-3">
+            <h4 className="text-sm font-semibold text-ink">Cambios de fecha</h4>
+            {reprogramaciones.length === 0 ? (
+              <p className="text-sm text-ink-soft">Conserva la programación con la que se generó.</p>
+            ) : (
+              <ol className="flex flex-col gap-3">
+                {reprogramaciones.map((h, i) => (
+                  <li key={i} className="rounded-lg bg-panel-muted px-3 py-2 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-ink">{formatearFechaHora(h.fechaHora)}</span>
+                      <span className="text-xs text-ink-faint">{h.usuario?.nombre ?? 'Sistema'}</span>
+                    </div>
+                    {h.motivo && <p className="mt-1 text-xs text-ink-soft">Motivo: {h.motivo}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+          <section className="flex flex-col gap-3">
+            <h4 className="text-sm font-semibold text-ink">Cambios de estado</h4>
             <ol className="flex flex-col gap-3">
-              {reprogramaciones.map((h, i) => (
-                <li key={i} className="rounded-lg bg-panel-muted px-3 py-2 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium text-ink">{formatearFechaHora(h.fechaHora)}</span>
-                    <span className="text-xs text-ink-faint">{h.usuario?.nombre ?? 'Sistema'}</span>
-                  </div>
-                  {h.motivo && <p className="mt-1 text-xs text-ink-soft">Motivo: {h.motivo}</p>}
+              {o.historial?.map((h, i) => (
+                <li key={i} className="flex flex-col gap-0.5 border-l-2 border-line pl-3 text-sm">
+                  <span className="text-ink">
+                    {h.estadoAnterior ? `${ETIQUETA_ESTADO_ORDEN[h.estadoAnterior]} → ` : ''}
+                    <span className="font-medium">{h.estadoNuevo ? ETIQUETA_ESTADO_ORDEN[h.estadoNuevo] : ''}</span>
+                  </span>
+                  <span className="text-xs text-ink-faint">
+                    {formatearFechaHora(h.fechaHora)} · {h.usuario?.nombre ?? 'Sistema'}
+                  </span>
+                  {h.motivo && <span className="text-xs text-ink-soft">{h.motivo}</span>}
                 </li>
               ))}
             </ol>
-          )}
-        </Tarjeta>
-        <Tarjeta titulo="Historial de estados">
-          <ol className="flex flex-col gap-3">
-            {o.historial?.map((h, i) => (
-              <li key={i} className="flex flex-col gap-0.5 border-l-2 border-line pl-3 text-sm">
-                <span className="text-ink">
-                  {h.estadoAnterior ? `${ETIQUETA_ESTADO_ORDEN[h.estadoAnterior]} → ` : ''}
-                  <span className="font-medium">{h.estadoNuevo ? ETIQUETA_ESTADO_ORDEN[h.estadoNuevo] : ''}</span>
-                </span>
-                <span className="text-xs text-ink-faint">
-                  {formatearFechaHora(h.fechaHora)} · {h.usuario?.nombre ?? 'Sistema'}
-                </span>
-                {h.motivo && <span className="text-xs text-ink-soft">{h.motivo}</span>}
-              </li>
-            ))}
-          </ol>
-        </Tarjeta>
-      </div>
+          </section>
+        </div>
+      </details>
 
       {dialogo === 'reprogramar' && (
         <ProgramarModal

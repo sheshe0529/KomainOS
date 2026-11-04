@@ -15,13 +15,14 @@ export interface Volver {
 /** La misma flecha sobre el título en todas las pantallas de detalle */
 export function EnlaceVolver({ a, texto, atras, alSalir }: Volver) {
   const navigate = useNavigate()
+  // BrowserRouter guarda la posición en el historial: idx 0 es la primera pantalla de la sesión
+  const posicion = (window.history.state as { idx?: number } | null)?.idx ?? 0
+  const regresa = !!atras && posicion > 0
 
   function alHacerClic(evento: MouseEvent<HTMLAnchorElement>) {
     alSalir?.(evento)
     if (evento.defaultPrevented) return
-    // BrowserRouter guarda la posición en el historial: idx 0 es la primera pantalla de la sesión
-    const posicion = (window.history.state as { idx?: number } | null)?.idx ?? 0
-    if (atras && posicion > 0) {
+    if (regresa) {
       evento.preventDefault()
       navigate(-1)
     }
@@ -29,7 +30,8 @@ export function EnlaceVolver({ a, texto, atras, alSalir }: Volver) {
 
   return (
     <Link to={a} onClick={alHacerClic} className="inline-flex items-center gap-1 self-start text-sm text-ink-soft hover:text-ink">
-      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {texto}
+      {/* Regresa a donde se abrió (una orden, la bitácora, el inventario): el texto no promete un destino fijo */}
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {regresa ? 'Volver' : texto}
     </Link>
   )
 }

@@ -22,8 +22,8 @@ public class AdaptadorProgramacionCambio implements PuertoProgramacionCambio {
     }
 
     @Override
-    public void verificarFecha(Integer idOrden, Instant inicio) {
-        planificacion.verificarFecha(idOrden, inicio);
+    public boolean verificarFecha(Integer idOrden, Instant inicio, boolean confirmaFueraDeVentana) {
+        return planificacion.verificarFecha(idOrden, inicio, confirmaFueraDeVentana);
     }
 
     @Override

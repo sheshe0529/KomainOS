@@ -5,12 +5,21 @@ import com.komainos.catalogo.model.Script;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.FiltroScripts;
 import com.komainos.inventario.model.CalendarioSemanal;
+import com.komainos.inventario.model.AlcanceExcepcion;
 import com.komainos.inventario.model.DiaSemana;
 import com.komainos.inventario.model.ModalidadPlanificacion;
+import com.komainos.inventario.model.NivelAlerta;
 import com.komainos.inventario.model.Servidor;
+import com.komainos.inventario.model.TipoDato;
+import com.komainos.inventario.service.ServicioListasReferencia;
+import com.komainos.inventario.service.ServicioListasReferencia.DatosLista;
 import com.komainos.inventario.service.ServicioServidor;
+import com.komainos.inventario.service.ServicioUmbrales;
+import com.komainos.inventario.service.ServicioUmbrales.DatosExcepcion;
+import com.komainos.inventario.service.ServicioUmbrales.DatosUmbral;
 import com.komainos.mantenimiento.model.EstadoAutorizacion;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.service.ServicioEvaluaciones;
 import com.komainos.mantenimiento.service.ServicioIncidencias;
 import com.komainos.mantenimiento.service.ServicioRevisionPeriodica;
 import com.komainos.mantenimiento.service.ServicioAutorizaciones;
@@ -27,9 +36,11 @@ import org.springframework.data.domain.PageRequest;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -47,7 +58,11 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
     @Autowired
     ServicioRevisionPeriodica revision;
     @Autowired
-    ServicioCatalogoAutomatizacion catalogo;
+    ServicioEvaluaciones evaluaciones;
+    @Autowired
+    ServicioListasReferencia servicioListas;
+    @Autowired
+    ServicioUmbrales servicioUmbrales;
 
     private AlcanceUsuario comoResponsable() {
         return new AlcanceUsuario(responsable.getId(), Rol.RESPONSABLE);
@@ -80,6 +95,12 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
                 .andExpect(jsonPath("$.mops[0].tareas[0].estado").value("FINALIZADA"))
                 .andExpect(jsonPath("$.mops[0].tareas[0].salida").value(org.hamcrest.Matchers.containsString("SOLO_SIMULAR=true")))
                 .andExpect(jsonPath("$.mops[0].tareas[0].cuenta").value("Cuenta de pruebas"))
+                // Individual: un servidor, sus dos tareas y la duración de su MOP, sin modo de ejecución
+                .andExpect(jsonPath("$.resumenPlan.servidores").value(1))
+                .andExpect(jsonPath("$.resumenPlan.servidoresConTareas").value(1))
+                .andExpect(jsonPath("$.resumenPlan.tareas").value(2))
+                .andExpect(jsonPath("$.resumenPlan.duracionTotalMinutos").value(org.hamcrest.Matchers.greaterThan(0)))
+                .andExpect(jsonPath("$.resumenPlan.modoEjecucion").doesNotExist())
                 .andExpect(jsonPath("$.evaluaciones.length()").value(2))
                 .andExpect(jsonPath("$.reporte[0].metricas[?(@.codigo == 'cpu_uso')].nivelAntes").value("ADVERTENCIA"))
                 .andExpect(jsonPath("$.reporte[0].metricas[?(@.codigo == 'cpu_uso')].nivelDespues").value("NORMAL"))
@@ -309,6 +330,37 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
         }
 
         @Test
+        @DisplayName("HU19 CA3: el responsable puede proponer una fecha fuera de la ventana si lo confirma expresamente")
+        void propuestaFueraDeVentana() throws Exception {
+            exigir(NivelAfectacion.PARCIAL, true, true);
+            Servidor acotado = crear("srv-acotado", "10.90.0.5", new CalendarioSemanal.IntervaloSemanal(DiaSemana.LUNES,
+                    LocalTime.of(6, 0), DiaSemana.LUNES, LocalTime.of(14, 0)));
+            Integer id = lanzar(acotado);
+            String propuesta = "{\"decision\":\"FECHA_PROPUESTA\",\"motivo\":\"Por la tarde, sin usuarios\","
+                    + "\"fechaPropuesta\":\"2026-10-05T20:00:00Z\",\"confirmarFueraVentana\":%s}";
+
+            mvc.perform(post("/api/ordenes/{id}/autorizacion", id).with(como(responsable)).contentType("application/json")
+                            .content(propuesta.formatted(false)))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.mensaje").value(containsString("confirme expresamente")));
+            mvc.perform(post("/api/ordenes/{id}/autorizacion", id).with(como(responsable)).contentType("application/json")
+                            .content(propuesta.formatted(true)))
+                    .andExpect(status().isNoContent());
+            assertThat(contar("select count(*) from confirmacion_fuera_ventana where id_orden = ? and id_usuario = ?",
+                    id, responsable.getId())).isEqualTo(1);
+
+            autorizaciones.aceptarPropuesta(id, actor);
+
+            assertThat(jdbc.queryForObject("select fecha_inicio_programada from orden where id_orden = ?", Timestamp.class, id)
+                    .toInstant()).isEqualTo(Instant.parse("2026-10-05T20:00:00Z"));
+            // La ronda de la propuesta termina: la aprobación del administrador no queda «pendiente» para siempre
+            assertThat(jdbc.queryForList("select d.estado::text from autorizacion_detalle d join solicitud_autorizacion s "
+                    + "using (id_solicitud_autorizacion) where s.id_orden = ? and s.numero_ronda = 1 order by d.orden_secuencia",
+                    String.class, id)).containsExactly("FECHA_PROPUESTA", "APROBADA");
+            assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_AUTORIZACION);
+        }
+
+        @Test
         @DisplayName("CP124: vencido el plazo se registra la aprobación vencida, se alerta y se cierra sin ejecutar")
         void vencimiento() {
             Integer id = lanzar(servidor);
@@ -466,6 +518,33 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
             revision.revisar(s.getId(), actor);
             assertThat(contar("select count(*) from orden where id_servidor = ? and origen = 'CONDICION_CRITICA'", s.getId()))
                     .isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("DEC-52: el análisis recibe la lista del umbral que rige para el servidor, con sus excepciones")
+        void listasDelUmbral() {
+            Servidor otro = crear("srv-lista", "10.90.0.9");
+            Integer idMetrica = jdbc.queryForObject("select id_metrica from metrica where codigo = 'arch_crit_permisos'",
+                    Integer.class);
+            Integer base = servicioListas.crear(new DatosLista("Permisos base", TipoDato.STRING, false,
+                    List.of("/etc/passwd:644", "/etc/shadow:0")), actor).getId();
+            Integer propia = servicioListas.crear(new DatosLista("Permisos de srv-prueba", TipoDato.STRING, false,
+                    List.of("/etc/passwd:644")), actor).getId();
+            Integer umbral = servicioUmbrales.crear(new DatosUmbral(idMetrica, "Permisos de archivos críticos", null, null,
+                    null, base, NivelAlerta.CRITICO, null), actor).getId();
+            servicioUmbrales.crearExcepcion(umbral, new DatosExcepcion(AlcanceExcepcion.SERVIDOR, servidor.getId(), null,
+                    null, propia, "Solo exige passwd"), actor);
+
+            assertThat(listaRecibida(otro)).containsExactly("/etc/passwd:644", "/etc/shadow:0");
+            assertThat(listaRecibida(servidor)).containsExactly("/etc/passwd:644");
+        }
+
+        /** Lo que el adaptador recibe para revisar los archivos críticos del servidor */
+        private List<String> listaRecibida(Servidor s) {
+            Integer idEvaluacion = revision.revisar(s.getId(), actor).getId();
+            return evaluaciones.solicitud(idEvaluacion).listas().stream()
+                    .filter(l -> l.codigoMetrica().equals("arch_crit_permisos"))
+                    .findFirst().orElseThrow().elementos();
         }
     }
 
