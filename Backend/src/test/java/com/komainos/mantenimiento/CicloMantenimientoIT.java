@@ -2,7 +2,10 @@ package com.komainos.mantenimiento;
 
 import com.komainos.catalogo.model.NivelAfectacion;
 import com.komainos.catalogo.model.Script;
+import com.komainos.catalogo.model.TipoParametro;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
+import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosParametro;
+import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosVersion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.FiltroScripts;
 import com.komainos.inventario.model.CalendarioSemanal;
 import com.komainos.inventario.model.AlcanceExcepcion;
@@ -504,7 +507,7 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
         void condicionCritica() {
             Servidor s = crear("srv-critico", "10.90.0.8");
             servidores.configurar(s.getId(), new ServicioServidor.DatosConfiguracion(7, 30,
-                    ModalidadPlanificacion.AUTOMATICA, cuenta), actor);
+                    ModalidadPlanificacion.AUTOMATICA, cuenta, cuenta), actor);
             assertThat(contar("select count(*) from orden where id_servidor = ? and estado = 'PROGRAMADA'", s.getId())).isEqualTo(1);
 
             revision.revisar(s.getId(), actor);
@@ -521,8 +524,14 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
         }
 
         @Test
-        @DisplayName("DEC-52: el análisis recibe la lista del umbral que rige para el servidor, con sus excepciones")
+        @DisplayName("Compatibilidad DEC-52: solo el análisis legado recibe listas implícitas y sus excepciones")
         void listasDelUmbral() {
+            // Simula una versión previamente publicada y marcada por la migración; las nuevas no reciben listas implícitas.
+            jdbc.update("""
+                    update script_version v set listas_explicitas = false
+                    from script_implementacion i join script s using (id_script)
+                    where v.id_script_implementacion = i.id_script_implementacion and s.nombre = ?
+                    """, ANALISIS);
             Servidor otro = crear("srv-lista", "10.90.0.9");
             Integer idMetrica = jdbc.queryForObject("select id_metrica from metrica where codigo = 'arch_crit_permisos'",
                     Integer.class);
@@ -537,6 +546,36 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
 
             assertThat(listaRecibida(otro)).containsExactly("/etc/passwd:644", "/etc/shadow:0");
             assertThat(listaRecibida(servidor)).containsExactly("/etc/passwd:644");
+        }
+
+        @Test
+        @DisplayName("RF25: el análisis nuevo recibe la lista elegida como parámetro y resuelve sus cambios sin listas implícitas")
+        void listaExplicitaDelCatalogo() {
+            Integer fuente = servicioListas.crear(new DatosLista("Archivos elegidos", TipoDato.STRING, false,
+                    List.of("/etc/passwd:644", "/etc/shadow:0")), actor).getId();
+            Integer implementacion = jdbc.queryForObject("""
+                    select i.id_script_implementacion from script_implementacion i join script s using (id_script)
+                    where s.nombre = ?
+                    """, Integer.class, ANALISIS);
+            var version = catalogo.publicar(implementacion, new DatosVersion("echo analisis", "Entradas explícitas",
+                    List.of(new DatosParametro("ARCHIVOS", TipoParametro.LISTA, null, fuente))), actor);
+            assertThat(version.usaListasImplicitas()).isFalse();
+
+            Integer idEvaluacion = revision.revisar(servidor.getId(), actor).getId();
+            var primera = evaluaciones.solicitud(idEvaluacion);
+            assertThat(primera.listas()).isEmpty();
+            assertThat(primera.parametros()).hasSize(1);
+            assertThat(primera.parametros().getFirst().nombre()).isEqualTo("ARCHIVOS");
+            assertThat(primera.parametros().getFirst().elementos()).containsExactly("/etc/passwd:644", "/etc/shadow:0");
+            assertThat(servicioListas.obtener(fuente).referenciasScript()).isEqualTo(1);
+
+            servicioListas.actualizar(fuente, new DatosLista("Archivos elegidos", TipoDato.STRING, false,
+                    List.of("/etc/passwd:600")), actor);
+            var segunda = evaluaciones.solicitud(idEvaluacion);
+            assertThat(segunda.listas()).isEmpty();
+            assertThat(segunda.parametros().getFirst().elementos()).containsExactly("/etc/passwd:600");
+            assertThat(primera.parametros().getFirst().elementos()).containsExactly("/etc/passwd:644", "/etc/shadow:0");
+            assertThat(catalogo.vistaPrevia(version.getId()).contenido()).contains("ARCHIVOS=('/etc/passwd:600')");
         }
 
         /** Lo que el adaptador recibe para revisar los archivos críticos del servidor */
@@ -554,7 +593,7 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
         Integer id = lanzarAutorizada(servidor);
         orquestador.drenar();
         servidores.configurar(servidor.getId(), new ServicioServidor.DatosConfiguracion(7, 30,
-                ModalidadPlanificacion.AUTOMATICA, cuenta), actor);
+                ModalidadPlanificacion.AUTOMATICA, cuenta, cuenta), actor);
 
         validaciones.validar(id, true, "Conforme", comoResponsable());
 

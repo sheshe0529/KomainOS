@@ -1,5 +1,7 @@
 package com.komainos.inventario.controller;
 
+import com.komainos.inventario.model.FinalidadCuenta;
+
 import com.komainos.inventario.dto.ParametrosSistemaPeticion;
 import com.komainos.inventario.dto.ParametrosSistemaRespuesta;
 import com.komainos.inventario.service.ServicioAsignacionCuentas;
@@ -31,7 +33,8 @@ public class ParametrosSistemaController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'OPERADOR')")
     @Operation(summary = "Consulta los parámetros de ejecución")
     public ParametrosSistemaRespuesta obtener() {
-        return ParametrosSistemaRespuesta.de(servicio.obtener(), cuentasServicio.predeterminada());
+        return ParametrosSistemaRespuesta.de(servicio.obtener(), cuentasServicio.predeterminada(FinalidadCuenta.EVALUACION),
+                cuentasServicio.predeterminada(FinalidadCuenta.MANTENIMIENTO));
     }
 
     @PutMapping
@@ -40,6 +43,7 @@ public class ParametrosSistemaController {
     public ParametrosSistemaRespuesta actualizar(@Valid @RequestBody ParametrosSistemaPeticion peticion,
                                                  @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         return ParametrosSistemaRespuesta.de(servicio.actualizar(peticion.aDatos(),
-                peticion.versionEsperada(), AlcanceUsuario.de(solicitante).actor()), cuentasServicio.predeterminada());
+                peticion.versionEsperada(), AlcanceUsuario.de(solicitante).actor()), cuentasServicio.predeterminada(FinalidadCuenta.EVALUACION),
+                cuentasServicio.predeterminada(FinalidadCuenta.MANTENIMIENTO));
     }
 }

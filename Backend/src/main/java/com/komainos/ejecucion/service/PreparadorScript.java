@@ -131,6 +131,12 @@ public final class PreparadorScript {
     /** Texto con el que el parámetro aparece en el bloque, por ejemplo {@code 'C:\Temp'} o {@code $true} */
     public static String literal(FamiliaSistemaOperativo familia, ParametroEjecucion p) {
         boolean windows = familia == FamiliaSistemaOperativo.WINDOWS;
+        if (p.elementos() != null) {
+            List<String> literales = p.elementos().stream()
+                    .map(e -> literal(familia, new ParametroEjecucion(p.nombre(), p.tipo(), e))).toList();
+            return windows ? "@(" + String.join(", ", literales) + ")"
+                    : "(" + String.join(" ", literales) + ")";
+        }
         String valor = p.valor();
         if (valor == null) {
             return windows ? "$null" : "''";

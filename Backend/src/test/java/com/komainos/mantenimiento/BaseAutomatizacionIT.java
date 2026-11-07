@@ -5,6 +5,7 @@ import com.komainos.catalogo.model.NivelAfectacion;
 import com.komainos.catalogo.model.Script;
 import com.komainos.catalogo.model.Tarea;
 import com.komainos.catalogo.model.TipoScript;
+import com.komainos.catalogo.model.TipoParametro;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosParametro;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosScript;
@@ -150,14 +151,14 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
         Script memoria = catalogo.registrarScript(new DatosScript(MEMORIA, TipoScript.MANTENIMIENTO,
                 "Diagnóstico de prueba", true), actor);
         catalogo.implementar(analisis.getId(), versionUbuntu, new DatosVersion("echo análisis", "Prueba", List.of(
-                new DatosParametro("MUESTREO_SEGUNDOS", TipoDato.INTEGER, true, "5"),
-                new DatosParametro("VENTANA_HORAS", TipoDato.INTEGER, true, "24"))), actor);
+                new DatosParametro("MUESTREO_SEGUNDOS", TipoParametro.INTEGER, "5", null),
+                new DatosParametro("VENTANA_HORAS", TipoParametro.INTEGER, "24", null))), actor);
         catalogo.implementar(limpieza.getId(), versionUbuntu, new DatosVersion("echo limpieza", "Prueba", List.of(
-                new DatosParametro("RUTA_TEMPORAL", TipoDato.STRING, true, "/tmp"),
-                new DatosParametro("DIAS_RETENCION", TipoDato.INTEGER, true, "7"),
-                new DatosParametro("SOLO_SIMULAR", TipoDato.BOOLEAN, true, "true"))), actor);
+                new DatosParametro("RUTA_TEMPORAL", TipoParametro.STRING, "/tmp", null),
+                new DatosParametro("DIAS_RETENCION", TipoParametro.INTEGER, "7", null),
+                new DatosParametro("SOLO_SIMULAR", TipoParametro.BOOLEAN, "true", null))), actor);
         catalogo.implementar(memoria.getId(), versionUbuntu, new DatosVersion("echo memoria", "Prueba", List.of(
-                new DatosParametro("TOP_PROCESOS", TipoDato.INTEGER, true, "5"))), actor);
+                new DatosParametro("TOP_PROCESOS", TipoParametro.INTEGER, "5", null))), actor);
         catalogo.guardarTarea(null, limpieza.getId(), new Tarea.DatosTarea(LIMPIEZA, "Libera espacio en /tmp",
                 NivelAfectacion.PARCIAL, 10, 15, true), Set.of(umbral("disco_uso")), actor);
         catalogo.guardarTarea(null, memoria.getId(), new Tarea.DatosTarea(MEMORIA, "Diagnóstico de memoria",
@@ -189,7 +190,7 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
         DatosServidor datos = new DatosServidor(hostname, ip, null, null, null, null, null, idVersionSistemaOperativo, null, entorno,
                 criticidad, responsable.getId(), null, List.of(), null, null, null);
         return servidores.registrar(datos, new ServicioServidor.DatosAltaMantenimiento(
-                new ServicioServidor.DatosConfiguracion(7, 30, ModalidadPlanificacion.BAJO_DEMANDA, cuenta),
+                new ServicioServidor.DatosConfiguracion(7, 30, ModalidadPlanificacion.BAJO_DEMANDA, cuenta, cuenta),
                 List.of(ventana), null), actor);
     }
 
@@ -197,7 +198,7 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
         GrupoMantenimiento g = grupos.crear(nombre, null, actor);
         grupos.reemplazarIntegrantes(g.getId(), List.of(integrantes).stream().map(Servidor::getId).toList(), actor);
         grupos.configurar(g.getId(), new ServicioGrupo.DatosConfiguracionGrupo(7, 30, ModalidadPlanificacion.BAJO_DEMANDA,
-                modo, cuenta), actor);
+                modo, cuenta, cuenta), actor);
         return g;
     }
 

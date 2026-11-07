@@ -189,7 +189,7 @@ public class ServicioValidaciones {
             }
             try {
                 iniciadas.add(evaluaciones.iniciar(detalle.getServidor(), detalle, TipoEvaluacion.POSTERIOR,
-                        orden.getIdCuentaServicio()).getId());
+                        orden.getIdCuentaServicioEvaluacion()).getId());
             } catch (ReglaNegocioException ex) {
                 problemas.put(detalle.getId(), ex.getMessage());
             }

@@ -68,9 +68,12 @@ public class Orden implements Persistable<Integer> {
     @JoinColumn(name = "id_nivel_criticidad", nullable = false)
     private NivelCriticidad nivelCriticidad;
 
-    /** Nula mientras no exista el módulo de credenciales */
-    @Column(name = "id_cuenta_servicio")
-    private Integer idCuentaServicio;
+    /** Las cuentas resueltas se conservan; una asignación ausente solo se completa antes de la primera evaluación. */
+    @Column(name = "id_cuenta_servicio_evaluacion")
+    private Integer idCuentaServicioEvaluacion;
+
+    @Column(name = "id_cuenta_servicio_mantenimiento")
+    private Integer idCuentaServicioMantenimiento;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario_solicitante")
@@ -128,7 +131,7 @@ public class Orden implements Persistable<Integer> {
     private boolean nueva;
 
     public static Orden nueva(Integer id, Servidor servidor, GrupoMantenimiento grupo,
-                              NivelCriticidad criticidad, Integer idCuentaServicio, Usuario solicitante,
+                              NivelCriticidad criticidad, Integer idCuentaServicioEvaluacion, Integer idCuentaServicioMantenimiento, Usuario solicitante,
                               OrigenOrden origen, ModoEjecucion modoEjecucion, Programacion programacion,
                               Instant ahora, String motivo) {
         if ((servidor == null) == (grupo == null)) {
@@ -141,7 +144,8 @@ public class Orden implements Persistable<Integer> {
         orden.servidor = servidor;
         orden.grupo = grupo;
         orden.nivelCriticidad = criticidad;
-        orden.idCuentaServicio = idCuentaServicio;
+        orden.idCuentaServicioEvaluacion = idCuentaServicioEvaluacion;
+        orden.idCuentaServicioMantenimiento = idCuentaServicioMantenimiento;
         orden.usuarioSolicitante = solicitante;
         orden.origen = origen;
         orden.modoEjecucionAplicado = grupo != null ? modoEjecucion : null;
@@ -151,6 +155,14 @@ public class Orden implements Persistable<Integer> {
         orden.fechaCreacion = ahora;
         orden.historial.add(HistorialEstadoOrden.nuevo(orden, solicitante, null, EstadoOrden.PROGRAMADA, motivo, ahora));
         return orden;
+    }
+
+    public static Orden nueva(Integer id, Servidor servidor, GrupoMantenimiento grupo,
+                              NivelCriticidad criticidad, Integer cuenta, Usuario solicitante,
+                              OrigenOrden origen, ModoEjecucion modoEjecucion, Programacion programacion,
+                              Instant ahora, String motivo) {
+        return nueva(id, servidor, grupo, criticidad, cuenta, cuenta, solicitante, origen, modoEjecucion,
+                programacion, ahora, motivo);
     }
 
     public boolean esGrupal() {
@@ -218,11 +230,16 @@ public class Orden implements Persistable<Integer> {
         detalleDe(idServidor).ifPresent(OrdenDetalle::marcarNoIniciadoSiPendiente);
     }
 
-    /** La cuenta con la que se evaluó queda fijada para la MOP y la ejecución (RF52) */
-    public void fijarCuentaServicio(Integer idCuenta) {
-        if (idCuentaServicio == null && estado == EstadoOrden.EN_EVALUACION) {
-            idCuentaServicio = idCuenta;
+    /** Compatibilidad con órdenes programadas sin cuentas: completa solo las ausentes, nunca reemplaza las fijadas. */
+    public void completarCuentasPendientes(Integer evaluacion, Integer mantenimiento) {
+        if (estado != EstadoOrden.PROGRAMADA) {
+            throw new ReglaNegocioException("Las cuentas pendientes solo se completan antes de evaluar la orden");
         }
+        if (evaluacion == null || mantenimiento == null) {
+            throw new ReglaNegocioException("La orden necesita una cuenta de evaluación y una de mantenimiento");
+        }
+        if (idCuentaServicioEvaluacion == null) idCuentaServicioEvaluacion = evaluacion;
+        if (idCuentaServicioMantenimiento == null) idCuentaServicioMantenimiento = mantenimiento;
     }
 
     public void definirEvaluacionOrigen(Integer idEvaluacion) {
@@ -244,6 +261,8 @@ public class Orden implements Persistable<Integer> {
     /** Sin las colecciones: es lo que queda en la auditoría al programar o reprogramar */
     public Map<String, Object> instantaneaProgramacion() {
         Map<String, Object> v = new HashMap<>();
+        v.put("idCuentaServicioEvaluacion", idCuentaServicioEvaluacion);
+        v.put("idCuentaServicioMantenimiento", idCuentaServicioMantenimiento);
         v.put("fechaObjetivo", fechaObjetivo.toString());
         v.put("inicio", fechaInicioProgramada.toString());
         v.put("fin", fechaFinProgramada.toString());

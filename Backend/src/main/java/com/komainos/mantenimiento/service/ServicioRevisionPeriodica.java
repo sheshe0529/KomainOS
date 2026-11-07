@@ -86,7 +86,7 @@ public class ServicioRevisionPeriodica {
             ConfiguracionServidor config = configuraciones.findByServidorId(idServidor)
                     .orElseThrow(() -> new ReglaNegocioException("El servidor %s no tiene configuración de mantenimiento"
                             .formatted(servidor.getHostname())));
-            return evaluaciones.iniciar(servidor, null, TipoEvaluacion.REVISION_PERIODICA, config.getIdCuentaServicio())
+            return evaluaciones.iniciar(servidor, null, TipoEvaluacion.REVISION_PERIODICA, config.getIdCuentaServicioEvaluacion())
                     .getId();
         });
         analisis.ejecutar(idEvaluacion);

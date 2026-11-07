@@ -122,9 +122,9 @@ class IntercambioInventarioIT extends PruebaIntegracion {
     private String mantenimiento(String modalidad, String horaFin, Integer cuenta) {
         return """
                 {"configuracion":{"frecuenciaRevisionDias":3,"frecuenciaMantenimientoDias":21,
-                 "modalidadPlanificacion":"%s","idCuentaServicio":%s},
+                 "modalidadPlanificacion":"%s","idCuentaServicioEvaluacion":%s,"idCuentaServicioMantenimiento":%s},
                  "ventanas":[{"diaInicio":"SABADO","horaInicio":"01:00","diaFin":"SABADO","horaFin":"%s"}]}
-                """.formatted(modalidad, cuenta, horaFin);
+                """.formatted(modalidad, cuenta, cuenta, horaFin);
     }
 
     private String datosRegistro(String hostname) {

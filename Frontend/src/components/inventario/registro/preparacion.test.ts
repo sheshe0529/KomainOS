@@ -19,10 +19,10 @@ describe('Registro por etapas (RF09, RF12, RF17-RF19)', () => {
 
   it('conserva configuración, cuenta, modalidad y ventana de un servidor existente', () => {
     const s = prepararServidor(datos, catalogos, 3, { id: 8, fechaActualizacion: '2026-10-24T12:00:00Z',
-      configuracion: { frecuenciaRevisionDias: 5, frecuenciaMantenimientoDias: 15, modalidadPlanificacion: 'BAJO_DEMANDA', idCuentaServicio: 4, fechaActualizacion: '2026-10-24T10:00:00Z' },
+      configuracion: { frecuenciaRevisionDias: 5, frecuenciaMantenimientoDias: 15, modalidadPlanificacion: 'BAJO_DEMANDA', idCuentaServicioEvaluacion: 4, idCuentaServicioMantenimiento: 9, fechaActualizacion: '2026-10-24T10:00:00Z' },
       ventanas: [{ diaInicio: 'SABADO', horaInicio: '22:00:00', diaFin: 'DOMINGO', horaFin: '02:00:00' }],
     })
-    expect(s.mantenimiento.configuracion).toMatchObject({ frecuenciaRevisionDias: 5, modalidadPlanificacion: 'BAJO_DEMANDA', idCuentaServicio: 4, versionEsperada: '2026-10-24T10:00:00Z' })
+    expect(s.mantenimiento.configuracion).toMatchObject({ frecuenciaRevisionDias: 5, modalidadPlanificacion: 'BAJO_DEMANDA', idCuentaServicioEvaluacion: 4, idCuentaServicioMantenimiento: 9, versionEsperada: '2026-10-24T10:00:00Z' })
     expect(s.idServidorExistente).toBe(8)
     expect(s.mantenimiento.ventanas[0].horaInicio).toBe('22:00')
     expect(problemaMantenimiento(s)).toBeUndefined()

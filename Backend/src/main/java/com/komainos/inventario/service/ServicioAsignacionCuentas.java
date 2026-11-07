@@ -3,13 +3,14 @@ package com.komainos.inventario.service;
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.inventario.model.ConfiguracionMantenimiento;
+import com.komainos.inventario.model.FinalidadCuenta;
 import com.komainos.inventario.model.ConfiguracionServidor;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.ParametrosSistema;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionGrupoRepositorio;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
-import com.komainos.inventario.repository.ConteoPorCuenta;
+import com.komainos.inventario.repository.CuentasConfiguradas;
 import com.komainos.inventario.repository.ParametrosSistemaRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
@@ -44,17 +45,17 @@ public class ServicioAsignacionCuentas {
     private final ServicioAuditoria auditoria;
 
     @Transactional(readOnly = true)
-    public Optional<CuentaEfectiva> efectiva(ConfiguracionMantenimiento configuracion) {
-        Integer propia = configuracion.getIdCuentaServicio();
+    public Optional<CuentaEfectiva> efectiva(ConfiguracionMantenimiento configuracion, FinalidadCuenta finalidad) {
+        Integer propia = propia(configuracion, finalidad);
         if (propia == null) {
-            return predeterminada();
+            return predeterminada(finalidad);
         }
         return cuentas.nombre(propia).map(nombre -> new CuentaEfectiva(propia, nombre, false));
     }
 
     @Transactional(readOnly = true)
-    public Optional<CuentaEfectiva> predeterminada() {
-        Integer id = parametrosSistema().getIdCuentaServicioPredeterminada();
+    public Optional<CuentaEfectiva> predeterminada(FinalidadCuenta finalidad) {
+        Integer id = predeterminadaId(parametrosSistema(), finalidad);
         return id == null ? Optional.empty() : cuentas.nombre(id).map(nombre -> new CuentaEfectiva(id, nombre, true));
     }
 
@@ -64,8 +65,8 @@ public class ServicioAsignacionCuentas {
      * con una cuenta que WinRM no admite (RF06, HU04 CA3).
      */
     @Transactional(readOnly = true)
-    public void validarCuentaEfectiva(Integer propia, FamiliaSistemaOperativo familia) {
-        Integer efectiva = propia != null ? propia : parametrosSistema().getIdCuentaServicioPredeterminada();
+    public void validarCuentaEfectiva(Integer propia, FinalidadCuenta finalidad, FamiliaSistemaOperativo familia) {
+        Integer efectiva = propia != null ? propia : predeterminadaId(parametrosSistema(), finalidad);
         if (efectiva != null) {
             cuentas.exigirAsignable(efectiva, familia);
         }
@@ -78,7 +79,7 @@ public class ServicioAsignacionCuentas {
 
     /** RF07: asigna la misma cuenta a varios servidores, nula los devuelve a la predeterminada */
     @Transactional
-    public int asignarAServidores(Integer idCuenta, Collection<Integer> idsServidores, Actor actor) {
+    public int asignarAServidores(Integer idCuenta, Collection<Integer> idsServidores, FinalidadCuenta finalidad, Actor actor) {
         Set<Integer> ids = new LinkedHashSet<>(idsServidores);
         Map<Integer, ConfiguracionServidor> porServidor = configuracionesServidor.findByServidorIdIn(ids).stream()
                 .collect(Collectors.toMap(c -> c.getServidor().getId(), Function.identity()));
@@ -92,61 +93,81 @@ public class ServicioAsignacionCuentas {
         }
         for (Integer id : ids) {
             ConfiguracionServidor configuracion = porServidor.get(id);
-            Integer anterior = configuracion.getIdCuentaServicio();
+            Integer anterior = propia(configuracion, finalidad);
             if (Objects.equals(anterior, idCuenta)) {
                 continue;
             }
-            if (idCuenta != null) {
-                cuentas.exigirAsignable(idCuenta, configuracion.getServidor().familia());
+            validarCuentaEfectiva(idCuenta, finalidad, configuracion.getServidor().familia());
+            if (finalidad == FinalidadCuenta.EVALUACION) {
+                configuracion.setIdCuentaServicioEvaluacion(idCuenta);
+            } else {
+                configuracion.setIdCuentaServicioMantenimiento(idCuenta);
             }
-            configuracion.setIdCuentaServicio(idCuenta);
             auditoria.registrar(actor, Operacion.de("ASIGNAR_CUENTA_SERVICIO", "configuracion_servidor",
                             configuracion.getId())
                     .sobreServidor(id)
-                    .valores(cuenta(anterior), cuenta(idCuenta)));
+                    .motivo(finalidad.name()).valores(cuenta(anterior), cuenta(idCuenta)));
         }
         return ids.size();
     }
 
     /** RF06: la predeterminada aplica a todas las familias, así que debe servir a las que la usan */
     @Transactional
-    public void definirPredeterminada(Integer idCuenta, Actor actor) {
+    public void definirPredeterminada(Integer idCuenta, FinalidadCuenta finalidad, Actor actor) {
         ParametrosSistema sistema = parametrosSistema();
-        Integer anterior = sistema.getIdCuentaServicioPredeterminada();
+        Integer anterior = predeterminadaId(sistema, finalidad);
         if (Objects.equals(anterior, idCuenta)) {
             return;
         }
         if (idCuenta != null) {
             cuentas.exigirAsignable(idCuenta, null);
-            for (FamiliaSistemaOperativo familia : familiasQueUsan(null, true)) {
+            for (FamiliaSistemaOperativo familia : familiasQueUsan(null, true, finalidad)) {
                 cuentas.exigirAsignable(idCuenta, familia);
             }
         }
-        sistema.setIdCuentaServicioPredeterminada(idCuenta);
+        if (finalidad == FinalidadCuenta.EVALUACION) {
+            sistema.setIdCuentaServicioEvaluacionPredeterminada(idCuenta);
+        } else {
+            sistema.setIdCuentaServicioMantenimientoPredeterminada(idCuenta);
+        }
         auditoria.registrar(actor, Operacion.de("DEFINIR_CUENTA_PREDETERMINADA", "configuracion_sistema", sistema.getId())
-                .valores(cuenta(anterior), cuenta(idCuenta)));
+                .motivo(finalidad.name()).valores(cuenta(anterior), cuenta(idCuenta)));
     }
 
     @Transactional(readOnly = true)
     public UsosCuentas usos() {
-        Map<Integer, Long> porServidor = aMapa(configuracionesServidor.contarPorCuenta());
-        Map<Integer, Long> porGrupo = aMapa(configuracionesGrupo.contarPorCuenta());
-        return new UsosCuentas(porServidor, porGrupo, parametrosSistema().getIdCuentaServicioPredeterminada());
+        Map<Integer, Long> porServidor = aMapa(configuracionesServidor.cuentasConfiguradas());
+        Map<Integer, Long> porGrupo = aMapa(configuracionesGrupo.cuentasConfiguradas());
+        return new UsosCuentas(porServidor, porGrupo, parametrosSistema().getIdCuentaServicioEvaluacionPredeterminada(),
+                parametrosSistema().getIdCuentaServicioMantenimientoPredeterminada());
     }
 
     /** Familias que dependen de la cuenta: por asignación propia y, si es la predeterminada, por omisión */
     @Transactional(readOnly = true)
     public Set<FamiliaSistemaOperativo> familiasQueUsan(Integer idCuenta) {
-        boolean esPredeterminada = idCuenta != null
-                && idCuenta.equals(parametrosSistema().getIdCuentaServicioPredeterminada());
-        return familiasQueUsan(idCuenta, esPredeterminada);
+        Set<FamiliaSistemaOperativo> familias = EnumSet.noneOf(FamiliaSistemaOperativo.class);
+        for (FinalidadCuenta finalidad : FinalidadCuenta.values()) {
+            boolean predeterminada = idCuenta != null && idCuenta.equals(predeterminadaId(parametrosSistema(), finalidad));
+            familias.addAll(familiasQueUsan(idCuenta, predeterminada, finalidad));
+        }
+        return familias;
     }
 
-    private Set<FamiliaSistemaOperativo> familiasQueUsan(Integer idCuenta, boolean incluirSinCuenta) {
+    private Set<FamiliaSistemaOperativo> familiasQueUsan(Integer idCuenta, boolean incluirSinCuenta, FinalidadCuenta finalidad) {
         Set<FamiliaSistemaOperativo> familias = EnumSet.noneOf(FamiliaSistemaOperativo.class);
-        familias.addAll(configuracionesServidor.familiasQueUsan(idCuenta, incluirSinCuenta));
-        familias.addAll(configuracionesGrupo.familiasQueUsan(idCuenta, incluirSinCuenta));
+        boolean evaluacion = finalidad == FinalidadCuenta.EVALUACION;
+        familias.addAll(configuracionesServidor.familiasQueUsan(idCuenta, incluirSinCuenta, evaluacion));
+        familias.addAll(configuracionesGrupo.familiasQueUsan(idCuenta, incluirSinCuenta, evaluacion));
         return familias;
+    }
+
+    public static Integer propia(ConfiguracionMantenimiento c, FinalidadCuenta finalidad) {
+        return finalidad == FinalidadCuenta.EVALUACION ? c.getIdCuentaServicioEvaluacion() : c.getIdCuentaServicioMantenimiento();
+    }
+
+    public static Integer predeterminadaId(ParametrosSistema p, FinalidadCuenta finalidad) {
+        return finalidad == FinalidadCuenta.EVALUACION ? p.getIdCuentaServicioEvaluacionPredeterminada()
+                : p.getIdCuentaServicioMantenimientoPredeterminada();
     }
 
     private ParametrosSistema parametrosSistema() {
@@ -154,9 +175,14 @@ public class ServicioAsignacionCuentas {
                 .orElseThrow(() -> new ReglaNegocioException("No se encontraron los parámetros del sistema"));
     }
 
-    private static Map<Integer, Long> aMapa(List<ConteoPorCuenta> conteos) {
+    private static Map<Integer, Long> aMapa(List<CuentasConfiguradas> conteos) {
         Map<Integer, Long> mapa = new HashMap<>();
-        conteos.forEach(c -> mapa.put(c.idCuentaServicio(), c.cantidad()));
+        for (CuentasConfiguradas c : conteos) {
+            Set<Integer> ids = new LinkedHashSet<>();
+            if (c.evaluacion() != null) ids.add(c.evaluacion());
+            if (c.mantenimiento() != null) ids.add(c.mantenimiento());
+            ids.forEach(id -> mapa.merge(id, 1L, Long::sum));
+        }
         return mapa;
     }
 
@@ -169,7 +195,7 @@ public class ServicioAsignacionCuentas {
     public record CuentaEfectiva(Integer id, String nombre, boolean predeterminada) {
     }
 
-    public record UsosCuentas(Map<Integer, Long> servidores, Map<Integer, Long> grupos, Integer idPredeterminada) {
+    public record UsosCuentas(Map<Integer, Long> servidores, Map<Integer, Long> grupos, Integer idPredeterminadaEvaluacion, Integer idPredeterminadaMantenimiento) {
 
         public long servidoresDe(Integer idCuenta) {
             return servidores.getOrDefault(idCuenta, 0L);
@@ -179,8 +205,16 @@ public class ServicioAsignacionCuentas {
             return grupos.getOrDefault(idCuenta, 0L);
         }
 
+        public boolean esPredeterminadaEvaluacion(Integer idCuenta) {
+            return idCuenta != null && idCuenta.equals(idPredeterminadaEvaluacion);
+        }
+
+        public boolean esPredeterminadaMantenimiento(Integer idCuenta) {
+            return idCuenta != null && idCuenta.equals(idPredeterminadaMantenimiento);
+        }
+
         public boolean esPredeterminada(Integer idCuenta) {
-            return idCuenta != null && idCuenta.equals(idPredeterminada);
+            return esPredeterminadaEvaluacion(idCuenta) || esPredeterminadaMantenimiento(idCuenta);
         }
     }
 }

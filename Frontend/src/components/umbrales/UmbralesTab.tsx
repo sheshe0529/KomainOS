@@ -17,6 +17,7 @@ import { UmbralFormulario } from './UmbralFormulario'
 
 interface UmbralesTabProps {
   esAdmin: boolean
+  visita: number
 }
 
 function Limite({ umbral, valor }: { umbral: UmbralRespuesta; valor?: number }) {
@@ -29,14 +30,14 @@ function Limite({ umbral, valor }: { umbral: UmbralRespuesta; valor?: number }) 
 }
 
 /** Vista general: un umbral por fila con su valor global; en los de lista, cuántos elementos tiene. El detalle está en cada fila */
-export function UmbralesTab({ esAdmin }: UmbralesTabProps) {
+export function UmbralesTab({ esAdmin, visita }: UmbralesTabProps) {
   const { avisar } = useAvisos()
   const navigate = useNavigate()
   const [idMetrica, setIdMetrica] = useState('')
   const [creando, setCreando] = useState(false)
-  const metricas = useConsulta(() => umbralesApi.metricas(), [])
+  const metricas = useConsulta(() => umbralesApi.metricas(), [visita])
   const filtro = idMetrica ? Number(idMetrica) : undefined
-  const umbrales = useConsulta(() => umbralesApi.umbrales(filtro), [idMetrica])
+  const umbrales = useConsulta(() => umbralesApi.umbrales(filtro), [idMetrica, visita])
   const tabla = usePaginacionLocal(umbrales.datos ?? [], 'umbrales')
   const hayMetricaActiva = metricas.datos?.some((m) => m.activo)
   const ruta = (u: UmbralRespuesta) => `/umbrales/${u.id}`

@@ -98,6 +98,7 @@ export interface Aprobador {
 
 export interface AsignacionServidoresPeticion {
   idsServidores: number[]
+  finalidad: 'EVALUACION' | 'MANTENIMIENTO'
 }
 
 export interface AtenderIncidenciaPeticion {
@@ -105,6 +106,30 @@ export interface AtenderIncidenciaPeticion {
   acciones?: string
   resultado: string
   cerrar?: boolean
+}
+
+export interface AuditoriaRespuesta {
+  id?: number
+  fechaHora?: string
+  idUsuario?: number
+  codigoUsuario?: string
+  actor?: string
+  proceso?: string
+  operacion?: string
+  entidad?: string
+  idEntidad?: number
+  idServidor?: number
+  idGrupo?: number
+  idOrden?: number
+  motivo?: string
+  valorAnterior?: JsonNode
+  valorNuevo?: JsonNode
+}
+
+export interface Autor {
+  id?: number
+  codigo?: string
+  nombre?: string
 }
 
 export interface BajaPeticion {
@@ -174,7 +199,8 @@ export interface ConfiguracionGrupoPeticion {
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
   modoEjecucion: 'SECUENCIAL' | 'PARALELO'
-  idCuentaServicio?: number
+  idCuentaServicioEvaluacion?: number
+  idCuentaServicioMantenimiento?: number
   versionEsperada?: string
 }
 
@@ -182,7 +208,8 @@ export interface ConfiguracionPeticion {
   frecuenciaRevisionDias?: number
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
-  idCuentaServicio?: number
+  idCuentaServicioEvaluacion?: number
+  idCuentaServicioMantenimiento?: number
   versionEsperada?: string
 }
 
@@ -191,9 +218,12 @@ export interface ConfiguracionRespuesta {
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion?: 'AUTOMATICA' | 'BAJO_DEMANDA'
   modoEjecucion?: 'SECUENCIAL' | 'PARALELO'
-  idCuentaServicio?: number
-  usaCuentaPredeterminada?: boolean
-  cuentaServicio?: ReferenciaSimple
+  idCuentaServicioEvaluacion?: number
+  idCuentaServicioMantenimiento?: number
+  usaPredeterminadaEvaluacion?: boolean
+  usaPredeterminadaMantenimiento?: boolean
+  cuentaServicioEvaluacion?: ReferenciaSimple
+  cuentaServicioMantenimiento?: ReferenciaSimple
   fechaCreacion?: string
   fechaActualizacion?: string
 }
@@ -243,6 +273,7 @@ export interface CriticidadResumen {
 
 export interface CuentaPredeterminadaPeticion {
   idCuentaServicio?: number
+  finalidad: 'EVALUACION' | 'MANTENIMIENTO'
 }
 
 export interface CuentaServicioRespuesta {
@@ -257,7 +288,8 @@ export interface CuentaServicioRespuesta {
   fechaRevocacion?: string
   servidores?: number
   grupos?: number
-  predeterminada?: boolean
+  predeterminadaEvaluacion?: boolean
+  predeterminadaMantenimiento?: boolean
 }
 
 export interface DatosCredencialPeticion {
@@ -616,6 +648,8 @@ export interface IntegrantesPeticion {
   idsServidores: number[]
 }
 
+export type JsonNode = Record<string, unknown>
+
 export interface LanzamientoInmediatoPeticion {
   idServidor?: number
   idGrupo?: number
@@ -640,6 +674,7 @@ export interface ListaReferenciaRespuesta {
   elementos?: string[]
   umbrales?: number
   excepciones?: number
+  referenciasScript?: number
   fechaActualizacion?: string
 }
 
@@ -678,6 +713,12 @@ export interface MantenimientoBitacora {
 export interface MantenimientoRegistroPeticion {
   configuracion: ConfiguracionPeticion
   ventanas: VentanaPeticion[]
+}
+
+export interface MantenimientosMes {
+  mes?: string
+  finalizados?: number
+  fallidos?: number
 }
 
 export interface MedicionRespuesta {
@@ -747,11 +788,18 @@ export interface NivelCriticidadRespuesta {
   activo?: boolean
 }
 
+export interface Opciones {
+  usuarios?: Autor[]
+  operaciones?: string[]
+  entidades?: string[]
+}
+
 export interface OrdenDetalleRespuesta {
   resumen?: OrdenResumenRespuesta
   solicitante?: ReferenciaSimple
   modoEjecucionAplicado?: 'SECUENCIAL' | 'PARALELO'
-  cuentaServicio?: ReferenciaSimple
+  cuentaServicioEvaluacion?: ReferenciaSimple
+  cuentaServicioMantenimiento?: ReferenciaSimple
   inicioVentanaAplicada?: string
   finVentanaAplicada?: string
   detalles?: Detalle[]
@@ -792,6 +840,14 @@ export interface PaginaRespuestaAlertaRespuesta {
 
 export interface PaginaRespuestaAnalisisRespuesta {
   contenido?: AnalisisRespuesta[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
+export interface PaginaRespuestaAuditoriaRespuesta {
+  contenido?: AuditoriaRespuesta[]
   pagina?: number
   tamano?: number
   totalElementos?: number
@@ -880,16 +936,17 @@ export interface PaginaRespuestaUsuarioRespuesta {
 
 export interface ParametroPeticion {
   nombre: string
-  tipo: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
-  obligatorio?: boolean
+  tipo: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN' | 'LISTA'
   valorPorDefecto?: string
+  idListaReferencia?: number
 }
 
 export interface ParametroRespuesta {
   nombre?: string
-  tipo?: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN'
-  obligatorio?: boolean
+  tipo?: 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN' | 'LISTA'
   valorPorDefecto?: string
+  idListaReferencia?: number
+  listaReferencia?: ReferenciaSimple
 }
 
 export interface ParametrosSistemaPeticion {
@@ -908,7 +965,8 @@ export interface ParametrosSistemaRespuesta {
   minCiclosRachaEstable?: number
   minutosExpiracionToken?: number
   fechaActualizacion?: string
-  cuentaServicioPredeterminada?: ReferenciaSimple
+  cuentaServicioEvaluacionPredeterminada?: ReferenciaSimple
+  cuentaServicioMantenimientoPredeterminada?: ReferenciaSimple
 }
 
 export interface ParticipacionServidor {
@@ -1108,6 +1166,8 @@ export interface ResumenGraficos {
   ordenesPorEstado?: Conteo[]
   incidenciasPorOrigen?: IncidenciasOrigen[]
   saludServidores?: SaludServidores
+  servidoresPorMes?: ServidoresMes[]
+  mantenimientosEjecutadosPorMes?: MantenimientosMes[]
 }
 
 export interface ResumenPlan {
@@ -1227,7 +1287,8 @@ export interface ServidorAsignableRespuesta {
   hostname?: string
   direccionIp?: string
   familia?: 'LINUX' | 'WINDOWS'
-  idCuentaServicio?: number
+  idCuentaServicioEvaluacion?: number
+  idCuentaServicioMantenimiento?: number
 }
 
 export interface ServidorPeticion {
@@ -1275,6 +1336,12 @@ export interface ServidorResumenRespuesta {
   estado?: 'PENDIENTE_DE_CONFIGURACION' | 'ACTIVO' | 'DADO_DE_BAJA'
   fechaAlta?: string
   fechaActualizacion?: string
+}
+
+export interface ServidoresMes {
+  mes?: string
+  registrados?: number
+  altas?: number
 }
 
 export interface SistemaOperativoPeticion {

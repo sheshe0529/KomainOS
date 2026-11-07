@@ -18,5 +18,6 @@ public record CuentaServicioRespuesta(
         Instant fechaRevocacion,
         long servidores,
         long grupos,
-        boolean predeterminada) {
+        boolean predeterminadaEvaluacion,
+        boolean predeterminadaMantenimiento) {
 }

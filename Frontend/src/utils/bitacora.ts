@@ -1,4 +1,4 @@
-import type { NivelAlerta, ResultadoMantenimiento } from '@/api/dominio'
+import type { ResultadoMantenimiento } from '@/api/dominio'
 import type { MantenimientoBitacora } from '@/api/types'
 import type { StatusTone } from '@/components/ui/StatusPill'
 
@@ -76,12 +76,6 @@ export const ORDEN_RESULTADOS: ResultadoMantenimiento[] = [
   'NO_AUTORIZADO',
   'CANCELADO',
 ]
-
-export const TONO_NIVEL: Record<NivelAlerta, StatusTone> = {
-  NORMAL: 'success',
-  ADVERTENCIA: 'warning',
-  CRITICO: 'danger',
-}
 
 /** Lo que ocurrió primero: el inicio real si se ejecutó, si no el programado */
 export function fechaDe(m: MantenimientoBitacora): string | undefined {

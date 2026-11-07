@@ -308,7 +308,7 @@ public class ServicioOrquestador {
         Mop mop = mops.findByDetalleId(idDetalle).orElseThrow();
         Servidor s = detalle.getServidor();
         Integer cuenta = mop.getTareas().stream().map(MopTarea::getIdCuentaServicio).filter(id -> id != null)
-                .findFirst().orElse(detalle.getOrden().getIdCuentaServicio());
+                .findFirst().orElse(detalle.getOrden().getIdCuentaServicioMantenimiento());
         return new Inicio(detalle.getOrden().getId(), SolicitudEjecucion.conectividad(s.getId(), s.getHostname(),
                 s.getDireccionIp(), s.familia(), cuenta, 2));
     }

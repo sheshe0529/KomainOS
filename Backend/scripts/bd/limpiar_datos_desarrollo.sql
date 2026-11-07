@@ -14,7 +14,8 @@ TRUNCATE TABLE
     direccion_ip, servidor, version_sistema_operativo, sistema_operativo, nivel_criticidad, entorno, usuario
 RESTART IDENTITY;
 
--- configuracion_sistema referencia la cuenta predeterminada: se suelta antes de borrar las credenciales
-UPDATE configuracion_sistema SET id_cuenta_servicio_predeterminada = NULL;
+-- Ambas predeterminadas se sueltan antes de borrar las credenciales.
+UPDATE configuracion_sistema SET id_cuenta_servicio_evaluacion_predeterminada = NULL,
+    id_cuenta_servicio_mantenimiento_predeterminada = NULL;
 DELETE FROM credencial;
 COMMIT;

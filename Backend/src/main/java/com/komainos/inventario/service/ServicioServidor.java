@@ -1,5 +1,7 @@
 package com.komainos.inventario.service;
 
+import com.komainos.inventario.model.FinalidadCuenta;
+
 import com.komainos.auditoria.model.RegistroAuditoria;
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
@@ -110,7 +112,8 @@ public class ServicioServidor implements PuertoServidoresACargo {
         return new FichaServidor(
                 servidor,
                 configuracion,
-                configuracion.flatMap(cuentasServicio::efectiva),
+                configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.EVALUACION)),
+                configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.MANTENIMIENTO)),
                 grupos.findDelServidor(id),
                 bajas.stream().filter(b -> b.getEstado() == EstadoSolicitudBaja.PENDIENTE).findFirst(),
                 bajas,
@@ -198,8 +201,10 @@ public class ServicioServidor implements PuertoServidoresACargo {
         FamiliaSistemaOperativo familiaAnterior = servidor.familia();
         aplicar(limpio, servidor, false);
         if (servidor.familia() != familiaAnterior) {
-            configuraciones.findByServidorId(id).ifPresent(c ->
-                    cuentasServicio.validarCuentaEfectiva(c.getIdCuentaServicio(), servidor.familia()));
+            configuraciones.findByServidorId(id).ifPresent(c -> {
+                cuentasServicio.validarCuentaEfectiva(c.getIdCuentaServicioEvaluacion(), FinalidadCuenta.EVALUACION, servidor.familia());
+                cuentasServicio.validarCuentaEfectiva(c.getIdCuentaServicioMantenimiento(), FinalidadCuenta.MANTENIMIENTO, servidor.familia());
+            });
         }
         auditoria.registrar(actor, Operacion.de("ACTUALIZAR_SERVIDOR", "servidor", id)
                 .sobreServidor(id)
@@ -226,11 +231,13 @@ public class ServicioServidor implements PuertoServidoresACargo {
         existente.ifPresent(c -> Concurrencia.exigirVersion(versionEsperada, c.getFechaActualizacion(),
                 "la configuración de mantenimiento de " + servidor.getHostname()));
         Map<String, Object> anterior = existente.map(ServicioServidor::instantanea).orElse(null);
-        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicio(), servidor.familia());
+        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicioEvaluacion(), FinalidadCuenta.EVALUACION, servidor.familia());
+        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicioMantenimiento(), FinalidadCuenta.MANTENIMIENTO, servidor.familia());
         ConfiguracionServidor configuracion = existente.orElseGet(() ->
                 ConfiguracionServidor.nueva(servidor, revision, mantenimiento, datos.modalidad(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad());
-        configuracion.setIdCuentaServicio(datos.idCuentaServicio());
+        configuracion.setIdCuentaServicioEvaluacion(datos.idCuentaServicioEvaluacion());
+        configuracion.setIdCuentaServicioMantenimiento(datos.idCuentaServicioMantenimiento());
         configuraciones.save(configuracion);
         servidor.activarPorConfiguracion();
 
@@ -508,7 +515,8 @@ public class ServicioServidor implements PuertoServidoresACargo {
         v.put("frecuenciaRevisionDias", c.getFrecuenciaRevisionDias());
         v.put("frecuenciaMantenimientoDias", c.getFrecuenciaMantenimientoDias());
         v.put("modalidadPlanificacion", c.getModalidadPlanificacion().name());
-        v.put("idCuentaServicio", c.getIdCuentaServicio());
+        v.put("idCuentaServicioEvaluacion", c.getIdCuentaServicioEvaluacion());
+        v.put("idCuentaServicioMantenimiento", c.getIdCuentaServicioMantenimiento());
         return v;
     }
 
@@ -519,16 +527,17 @@ public class ServicioServidor implements PuertoServidoresACargo {
 
     /** idCuentaServicio nula: usa la cuenta predeterminada del sistema (RF06) */
     public record DatosConfiguracion(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
-                                     ModalidadPlanificacion modalidad, Integer idCuentaServicio) {
+                                     ModalidadPlanificacion modalidad, Integer idCuentaServicioEvaluacion, Integer idCuentaServicioMantenimiento) {
 
         public DatosConfiguracion(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
                                   ModalidadPlanificacion modalidad) {
-            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, null);
+            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, null, null);
         }
     }
 
     public record FichaServidor(Servidor servidor, Optional<ConfiguracionServidor> configuracion,
-                                Optional<CuentaEfectiva> cuentaServicio,
+                                Optional<CuentaEfectiva> cuentaServicioEvaluacion,
+                                Optional<CuentaEfectiva> cuentaServicioMantenimiento,
                                 List<GrupoMantenimiento> grupos, Optional<SolicitudBaja> bajaPendiente,
                                 List<SolicitudBaja> bajas, List<Reactivacion> reactivaciones) {
     }

@@ -75,7 +75,7 @@ public class ServicioEvaluaciones {
      */
     @Transactional(noRollbackFor = ReglaNegocioException.class)
     public Evaluacion iniciar(Servidor servidor, OrdenDetalle detalle, TipoEvaluacion tipo, Integer idCuenta) {
-        Integer cuenta = cuentaAplicable(idCuenta);
+        Integer cuenta = detalle == null ? cuentaAplicable(idCuenta) : idCuenta;
         if (cuenta == null) {
             throw new ReglaNegocioException(("Asigne una cuenta de servicio al servidor %s o defina la cuenta "
                     + "predeterminada para analizarlo").formatted(servidor.getHostname()));
@@ -103,7 +103,7 @@ public class ServicioEvaluaciones {
         return new SolicitudEjecucion(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(),
                 e.getIdCuentaServicio(), proposito, version.getContenido(),
                 ServicioCatalogoAutomatizacion.valoresDeEjecucion(version), maxMinutos(), referencia(contexto),
-                listas(contexto));
+                version.usaListasImplicitas() ? listas(contexto) : List.of());
     }
 
     /**
@@ -167,7 +167,7 @@ public class ServicioEvaluaciones {
     }
 
     public Integer cuentaAplicable(Integer idCuenta) {
-        return idCuenta != null ? idCuenta : parametros.obtener().getIdCuentaServicioPredeterminada();
+        return idCuenta != null ? idCuenta : parametros.obtener().getIdCuentaServicioEvaluacionPredeterminada();
     }
 
     public int maxMinutos() {

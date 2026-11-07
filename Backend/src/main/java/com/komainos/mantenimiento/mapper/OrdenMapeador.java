@@ -37,7 +37,8 @@ public final class OrdenMapeador {
                 resumen(o),
                 usuario(o.getUsuarioSolicitante()),
                 o.getModoEjecucionAplicado(),
-                detalle.cuentaServicio().map(nombre -> new ReferenciaSimple(o.getIdCuentaServicio(), nombre)).orElse(null),
+                detalle.cuentaServicioEvaluacion().map(nombre -> new ReferenciaSimple(o.getIdCuentaServicioEvaluacion(), nombre)).orElse(null),
+                detalle.cuentaServicioMantenimiento().map(nombre -> new ReferenciaSimple(o.getIdCuentaServicioMantenimiento(), nombre)).orElse(null),
                 o.getInicioVentanaAplicada(),
                 o.getFinVentanaAplicada(),
                 detalle.detalles().stream()

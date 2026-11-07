@@ -2,7 +2,8 @@
 
 El componente implementa el ciclo de R2.1/R2.3/R2.4: revisión periódica, evaluación
 previa, MOP, autorización, cola, ejecución, validaciones, incidencias y cierre.
-Reutiliza las tablas del esquema relacional final; no necesita migraciones.
+Reutiliza las tablas del esquema relacional. Las bases anteriores se actualizan con los scripts fechados de
+`scripts/bd/cambios`; una base nueva usa `01_esquema.sql` (DEC-34).
 
 Hay dos modos, con el mismo motor y las mismas reglas de negocio:
 
@@ -13,6 +14,22 @@ Hay dos modos, con el mismo motor y las mismas reglas de negocio:
 
 El modo y el estado del controlador se ven en **Automatización → Sala de
 operaciones** (barra superior desplegable) y en `GET /api/automatizacion/modo`.
+
+## Cuentas por finalidad
+
+Cada servidor o grupo puede definir una cuenta para **evaluación** y otra para **mantenimiento**, con predeterminadas
+independientes. Pueden ser la misma cuenta. Las revisiones y los análisis previo y posterior usan la de evaluación;
+la prueba de acceso antes de ejecutar y las tareas de la MOP usan la de mantenimiento.
+
+Las cuentas efectivas se guardan en la orden al programarla y una cuenta ya guardada no cambia cuando se modifica
+la configuración. Si una orden se creó cuando todavía faltaban cuentas, solo los campos nulos pueden completarse
+desde la configuración vigente del servidor/grupo o su predeterminada, inmediatamente antes de la primera evaluación.
+Se comprueban ambas cuentas antes de cambiar el estado o crear análisis. Si falta alguna o no es asignable, la orden
+sigue programada sin fijar valores parciales. La auditoría registra los valores antes y después de esa preparación.
+Los ciclos históricos con cuenta desconocida conservan el nulo; la migración no les atribuye la predeterminada actual.
+
+La prueba de acceso de evaluación verifica autenticación sin exigir administrador; el script de análisis debe tener
+los permisos que requieren sus métricas. La prueba de mantenimiento conserva la comprobación de privilegios.
 
 ## Variables de entorno
 
@@ -142,22 +159,23 @@ Cómo las obtienen los scripts de referencia del R3.2, en `Documentos/Scripts/` 
 Parámetros del análisis: `MUESTREO_SEGUNDOS` (5) y `VENTANA_HORAS` (24). Requieren
 privilegios de administrador.
 
-**Listas de los umbrales como entrada (DEC-52).** Lo que el análisis revisa no se
-repite en un parámetro: por cada métrica de lista que se mide en el servidor,
-KomainOS antepone al script, en el mismo bloque de los parámetros, el arreglo
-`KOMAINOS_LISTA_<CÓDIGO>` con la lista del umbral que rige para ese servidor
-(global o excepción, con la misma regla de resolución de la evaluación). Si
-ninguna lista aplica, el arreglo queda vacío. Así, el análisis de Linux revisa
-exactamente los archivos de «Permisos de archivos críticos»
-(`KOMAINOS_LISTA_ARCH_CRIT_PERMISOS`, elementos `ruta:modo`), y cambiar la lista
-no exige publicar otra versión del script. En Windows los puertos del rango
-dinámico se omiten siempre: Windows los asigna a RPC al azar y cambian en cada
-arranque, así que no se pueden autorizar en una lista.
+**Listas como parámetros explícitos (RF25).** En **Agregar parámetro**, seleccione el tipo **Lista**,
+el nombre que leerá el script y una lista de referencia del catálogo. KomainOS resuelve sus elementos
+vigentes al preparar el archivo y genera un arreglo Bash o PowerShell seguro. No copia valores a la
+versión ni deduce listas de los umbrales: una excepción de umbral cambia la comparación, no la entrada
+elegida por el script. Para Linux, declare `ARCHIVOS_CRITICOS` y seleccione la política de archivos que
+corresponda al alcance que quiere inspeccionar. Puertos y cuentas se descubren directamente en el servidor.
 
 ```bash
-KOMAINOS_LISTA_ARCH_CRIT_PERMISOS=('/etc/passwd:644' '/etc/shadow:0')   # Bash
-$KOMAINOS_LISTA_ARCH_CRIT_PERMISOS = @('/etc/passwd:644', '/etc/shadow:0')  # PowerShell
+ARCHIVOS_CRITICOS=('/etc/passwd:644' '/etc/shadow:0')   # Bash
+$ARCHIVOS_CRITICOS = @('/etc/passwd:644', '/etc/shadow:0')  # PowerShell
 ```
+
+Las versiones publicadas antes de `2026-11-06_parametros_listas.sql` conservan la inyección automática
+`KOMAINOS_LISTA_<CÓDIGO>` mediante `script_version.listas_explicitas = false`. Su código y parámetros no
+se reescriben. Las versiones nuevas usan únicamente parámetros declarados; al partir de una versión
+anterior, adapte el nombre de la variable y declare la lista. Los escalares históricos vacíos conservan
+su comportamiento (`''` en Bash y `$null` en PowerShell), pero no se permiten en publicaciones nuevas.
 
 Una base creada antes de este cambio se actualiza con
 `scripts/bd/cambios/2026-11-02_variables_salud_r31.sql` (respaldo previo con
@@ -235,7 +253,7 @@ reglas:
   idéntico en la vista previa y en la ejecución; la pestaña **Archivo que se
   ejecuta** lo muestra destacado y permite descargarlo para probarlo a mano.
 - **Valores.** Las MOP se ejecutan sin intervención: cada parámetro toma su valor
-  en todos los servidores, y un parámetro obligatorio debe tenerlo. Los nombres
+  en todos los servidores. Todo escalar necesita valor y toda lista una referencia de catálogo. Los nombres
   admiten letras sin tilde, números y guion bajo, y no pueden pisar variables del
   intérprete (`PATH`, `HOME`, `Error`…).
 - **Código de salida.** `0` es éxito; cualquier otro marca la tarea como fallida y
@@ -243,10 +261,11 @@ reglas:
   como causa del fallo, ambas sin contraseñas ni llaves.
 - **Tiempo.** La duración estimada de la tarea es su límite: al superarlo se
   detiene y se registra como tiempo excedido.
-- **Privilegios.** En Linux corre como root si la cuenta de servicio tiene clave de
-  `su`; si no, corre con la cuenta, que la prueba de acceso exige que sea root o
-  pueda usar `sudo` sin contraseña. En Windows la cuenta debe pertenecer al grupo
-  Administradores. El `.ps1` viaja en UTF-8 con BOM para Windows PowerShell 5.1.
+- **Privilegios por finalidad.** El mantenimiento conserva la comprobación de administrador
+  (root/sudo en Linux y grupo Administradores en Windows). La prueba de acceso de evaluación
+  verifica conectividad y autenticación sin exigir esos privilegios: el script de análisis
+  debe informar cualquier métrica que no pueda leer con los permisos concedidos.
+  El `.ps1` viaja en UTF-8 con BOM para Windows PowerShell 5.1.
 - **Análisis.** Solo lee. Su última línea es el JSON de métricas, con códigos del
   catálogo; el texto anterior se conserva como salida:
 
@@ -344,3 +363,40 @@ Ansible (inventario, playbook, entorno, script preparado) tienen pruebas
 unitarias propias.
 
 En el frontend: `npm run build`, `npm run lint` y `npm test`.
+
+## Cuentas de servicio por finalidad
+
+Cada servidor y grupo configura por separado **Cuenta para evaluaciones** y **Cuenta para
+mantenimiento**. Cada asignación puede heredar su predeterminada del sistema, y ambas pueden
+seleccionar la misma cuenta. La asignación masiva y la prueba de acceso indican la finalidad.
+
+| Etapa | Cuenta |
+|---|---|
+| Revisión periódica y análisis manual por API | Evaluaciones efectiva en ese momento |
+| Evaluación previa de una orden | Evaluaciones conservada en la orden |
+| Prueba de acceso antes de ejecutar tareas | Mantenimiento conservada en la orden |
+| Tareas de la MOP | Mantenimiento conservada en la orden y en cada tarea |
+| Validación técnica posterior | Evaluaciones conservada en la orden |
+
+La orden fija las dos cuentas resueltas al generarse. Los cambios posteriores de configuración
+no sustituyen identificadores ya fijados. Si una orden se creó antes de disponer de una cuenta,
+solo sus identificadores todavía vacíos se completan antes de la primera evaluación; se exige
+que ambas cuentas sean utilizables antes de iniciar esa evaluación. La revocación considera
+las dos asignaciones, las dos predeterminadas y ambas referencias de las órdenes pendientes.
+
+Las tablas y detalles del ciclo muestran el nombre de la cuenta de servicio asociada a cada análisis y tarea.
+La validación técnica muestra la cuenta del análisis posterior del servidor.
+
+### Actualizar una base existente
+
+Aplicar una vez, con el backend detenido, los scripts siguientes. Las bases nuevas ya incluyen
+estos cambios en `01_esquema.sql` y no deben ejecutar estos scripts de actualización:
+
+1. `scripts/bd/cambios/2026-11-06_cuentas_por_finalidad.sql`.
+2. `scripts/bd/cambios/2026-11-06_parametros_listas.sql`.
+3. `scripts/bd/cambios/2026-11-06_indicadores_auditoria.sql`.
+
+La cuenta anterior se copia a las dos finalidades. Las versiones publicadas conservan su código,
+los parámetros históricos vacíos y la inyección implícita anterior. Las nuevas versiones declaran
+sus listas como parámetros; el campo `obligatorio` deja de existir. La lista elegida como entrada
+es independiente de la lista efectiva con la que un umbral compara los resultados.

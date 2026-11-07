@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { cuentasServicioApi } from '@/api/credenciales'
 import { DIAS_SEMANA, type DiaSemana } from '@/api/dominio'
+import { SelectorCuentaServicio } from '@/components/credenciales/SelectorCuentaServicio'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Campo, Entrada, Selector } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { SelectorHora } from '@/components/ui/SelectorHora'
 import { useConsulta } from '@/hooks/useConsulta'
 import { ETIQUETA_DIA } from '@/utils/etiquetas'
+import { FINALIDADES_CUENTA } from '@/utils/cuentasServicio'
 import { VistaSemanalVentanas } from '../VistaSemanalVentanas'
 import { problemaMantenimiento, type ServidorPreparado } from './preparacion'
 
@@ -29,8 +31,6 @@ export function MantenimientoPaso({ servidores, onCambiar }: Props) {
   }
   const configurar = (cambios: Partial<typeof c>) => cambiar({ configuracion: { ...c, ...cambios }, ventanas })
   const cambiarVentana = (i: number, cambios: Partial<(typeof ventanas)[number]>) => cambiar({ configuracion: c, ventanas: ventanas.map((v, j) => i === j ? { ...v, ...cambios } : v) })
-  const cuentaEfectiva = c.idCuentaServicio ? cuentas.datos?.find((cuenta) => cuenta.id === c.idCuentaServicio) : cuentas.datos?.find((cuenta) => cuenta.predeterminada)
-  const incompatible = s.familia === 'WINDOWS' && cuentaEfectiva?.tipoAutenticacion === 'LLAVE_SSH'
   const problema = problemaMantenimiento(s)
 
   return (
@@ -49,14 +49,18 @@ export function MantenimientoPaso({ servidores, onCambiar }: Props) {
         <Campo etiqueta="Frecuencia de revisión (días)" obligatorio><Entrada type="number" min={1} step={1} value={c.frecuenciaRevisionDias ?? ''} onChange={(e) => configurar({ frecuenciaRevisionDias: e.target.value ? Number(e.target.value) : undefined })} /></Campo>
         <Campo etiqueta="Frecuencia de mantenimiento (días)" obligatorio><Entrada type="number" min={1} step={1} value={c.frecuenciaMantenimientoDias ?? ''} onChange={(e) => configurar({ frecuenciaMantenimientoDias: e.target.value ? Number(e.target.value) : undefined })} /></Campo>
       </div>
-      <Campo etiqueta="Cuenta de servicio" ayuda="Se usará para ejecutar los mantenimientos. Windows requiere autenticación con contraseña.">
-        <Selector value={c.idCuentaServicio ?? ''} onChange={(e) => configurar({ idCuentaServicio: e.target.value ? Number(e.target.value) : undefined })} disabled={cuentas.cargando}>
-          <option value="">Predeterminada del sistema</option>
-          {(cuentas.datos ?? []).filter((cuenta) => cuenta.estado === 'VIGENTE' || cuenta.id === c.idCuentaServicio).map((cuenta) => <option key={cuenta.id} value={cuenta.id} disabled={cuenta.estado !== 'VIGENTE' || (s.familia === 'WINDOWS' && cuenta.tipoAutenticacion === 'LLAVE_SSH')}>{cuenta.nombre} · {cuenta.usuarioAcceso}</option>)}
-        </Selector>
-      </Campo>
+      {FINALIDADES_CUENTA.map(({ finalidad, campoId }) => (
+        <SelectorCuentaServicio
+          key={finalidad}
+          finalidad={finalidad}
+          cuentas={cuentas.datos ?? []}
+          valor={c[campoId]}
+          onCambiar={(id) => configurar({ [campoId]: id })}
+          familia={s.familia}
+          deshabilitado={cuentas.cargando}
+        />
+      ))}
       <MensajeError error={cuentas.error} onReintentar={cuentas.recargar} />
-      {incompatible && <p role="alert" className="text-sm text-danger">La cuenta seleccionada usa llave SSH. Elija una cuenta con contraseña para Windows.</p>}
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-2 text-sm font-semibold">Ventana permisiva</legend>
         <p className="text-xs text-ink-soft">Defina cuándo se permite el mantenimiento. Para cruzar medianoche, elija el día siguiente como día de fin.</p>

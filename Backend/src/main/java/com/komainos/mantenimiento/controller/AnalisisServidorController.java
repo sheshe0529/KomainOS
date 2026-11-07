@@ -1,5 +1,7 @@
 package com.komainos.mantenimiento.controller;
 
+import com.komainos.inventario.model.FinalidadCuenta;
+
 import com.komainos.catalogo.mapper.CatalogoMapeador;
 import com.komainos.mantenimiento.dto.CicloPeticiones;
 import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta;
@@ -58,8 +60,9 @@ public class AnalisisServidorController {
     @Operation(summary = "Verifica conectividad, autenticación y permisos con la cuenta del servidor o una candidata")
     public OperacionRespuestas.ConexionRespuesta probarServidor(@PathVariable Integer id,
                                                                 @RequestParam(required = false) Integer idCuenta,
+                                                                @RequestParam(defaultValue = "MANTENIMIENTO") FinalidadCuenta finalidad,
                                                                 @AuthenticationPrincipal UsuarioAutenticado u) {
-        return conexion(conectividad.probarServidor(id, idCuenta, AlcanceUsuario.de(u).actor()));
+        return conexion(conectividad.probarServidor(id, idCuenta, finalidad, AlcanceUsuario.de(u).actor()));
     }
 
     @PostMapping("/grupos/{id}/conectividad")
@@ -67,8 +70,9 @@ public class AnalisisServidorController {
     @Operation(summary = "Verifica el acceso de la cuenta del grupo, o de una candidata, en cada integrante (CP021)")
     public List<OperacionRespuestas.ConexionRespuesta> probarGrupo(@PathVariable Integer id,
                                                                    @RequestParam(required = false) Integer idCuenta,
+                                                                @RequestParam(defaultValue = "MANTENIMIENTO") FinalidadCuenta finalidad,
                                                                    @AuthenticationPrincipal UsuarioAutenticado u) {
-        return conectividad.probarGrupo(id, idCuenta, AlcanceUsuario.de(u).actor()).stream()
+        return conectividad.probarGrupo(id, idCuenta, finalidad, AlcanceUsuario.de(u).actor()).stream()
                 .map(AnalisisServidorController::conexion).toList();
     }
 

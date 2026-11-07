@@ -37,6 +37,7 @@ public class ServicioListasReferencia {
     private final ListaReferenciaRepositorio listas;
     private final UmbralRepositorio umbrales;
     private final UmbralExcepcionRepositorio excepciones;
+    private final PuertoParametrosLista parametrosScripts;
     private final ServicioAuditoria auditoria;
     private final Clock reloj;
 
@@ -44,12 +45,13 @@ public class ServicioListasReferencia {
     public List<ListaConUso> listar() {
         Map<Integer, Long> enUmbrales = conteo(umbrales.contarPorLista());
         Map<Integer, Long> enExcepciones = conteo(excepciones.contarPorLista());
+        Map<Integer, Long> enScripts = parametrosScripts.contarPorLista();
         List<ListaReferencia> todas = listas.findAllByOrderByNombreAsc();
         // Con BatchSize los elementos de todas las listas se cargan en pocas consultas
         todas.forEach(l -> Hibernate.initialize(l.getItems()));
         return todas.stream()
                 .map(l -> new ListaConUso(l, enUmbrales.getOrDefault(l.getId(), 0L),
-                        enExcepciones.getOrDefault(l.getId(), 0L)))
+                        enExcepciones.getOrDefault(l.getId(), 0L), enScripts.getOrDefault(l.getId(), 0L)))
                 .toList();
     }
 
@@ -58,7 +60,7 @@ public class ServicioListasReferencia {
         ListaReferencia lista = buscar(id);
         Hibernate.initialize(lista.getItems());
         return new ListaConUso(lista, umbrales.findByListaIdOrderByNombreAsc(id).size(),
-                excepciones.findDeLista(id).size());
+                excepciones.findDeLista(id).size(), parametrosScripts.contarDeLista(id));
     }
 
     /** Se guarda primero sin elementos: la clave de cada elemento incluye el id de la lista */
@@ -125,6 +127,11 @@ public class ServicioListasReferencia {
     @Transactional
     public void eliminar(Integer id, Actor actor) {
         ListaReferencia lista = buscar(id);
+        long enScripts = parametrosScripts.contarDeLista(id);
+        if (enScripts > 0) {
+            throw new ConflictoException("La lista %s tiene %d referencia(s) en versiones de scripts; "
+                    .formatted(lista.getNombre(), enScripts) + "desactívela en lugar de eliminarla para conservar el historial");
+        }
         List<String> enUmbrales = umbrales.findByListaIdOrderByNombreAsc(id).stream().map(Umbral::getNombre).toList();
         if (!enUmbrales.isEmpty()) {
             throw new ReglaNegocioException("La lista %s es la de los umbrales %s: asígneles otra antes de eliminarla"
@@ -166,6 +173,6 @@ public class ServicioListasReferencia {
     public record DatosLista(String nombre, TipoDato tipoDato, boolean ignoraMayusculas, List<String> elementos) {
     }
 
-    public record ListaConUso(ListaReferencia lista, long umbrales, long excepciones) {
+    public record ListaConUso(ListaReferencia lista, long umbrales, long excepciones, long referenciasScript) {
     }
 }

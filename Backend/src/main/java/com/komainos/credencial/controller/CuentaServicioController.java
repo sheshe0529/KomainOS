@@ -67,7 +67,7 @@ public class CuentaServicioController {
     public ResultadoAsignacionRespuesta asignar(@PathVariable Integer id,
                                                 @Valid @RequestBody AsignacionServidoresPeticion peticion,
                                                 @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        int asignados = asignaciones.asignarAServidores(id, peticion.idsServidores(),
+        int asignados = asignaciones.asignarAServidores(id, peticion.idsServidores(), peticion.finalidad(),
                 AlcanceUsuario.de(solicitante).actor());
         return new ResultadoAsignacionRespuesta(asignados,
                 "Cuenta asignada a %d servidor(es). Aplica a las órdenes nuevas".formatted(asignados));
@@ -77,7 +77,7 @@ public class CuentaServicioController {
     @Operation(summary = "Define la cuenta que usan las configuraciones sin cuenta propia (RF06)")
     public List<CuentaServicioRespuesta> definirPredeterminada(@Valid @RequestBody CuentaPredeterminadaPeticion peticion,
                                                                @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        asignaciones.definirPredeterminada(peticion.idCuentaServicio(), AlcanceUsuario.de(solicitante).actor());
+        asignaciones.definirPredeterminada(peticion.idCuentaServicio(), peticion.finalidad(), AlcanceUsuario.de(solicitante).actor());
         return listar();
     }
 }

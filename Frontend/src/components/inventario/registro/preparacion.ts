@@ -41,7 +41,8 @@ export function prepararServidor(
         frecuenciaRevisionDias: actual?.frecuenciaRevisionDias ?? criticidad?.frecuenciaRevisionDias,
         frecuenciaMantenimientoDias: actual?.frecuenciaMantenimientoDias ?? criticidad?.frecuenciaMantenimientoDias,
         modalidadPlanificacion: actual?.modalidadPlanificacion ?? 'AUTOMATICA',
-        idCuentaServicio: actual?.idCuentaServicio,
+        idCuentaServicioEvaluacion: actual?.idCuentaServicioEvaluacion,
+        idCuentaServicioMantenimiento: actual?.idCuentaServicioMantenimiento,
         versionEsperada: actual?.fechaActualizacion,
       },
       ventanas: (existente?.ventanas ?? []).map((v) => ({

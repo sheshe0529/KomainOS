@@ -1,5 +1,6 @@
 import { consulta, descargar, http, todasLasPaginas } from './cliente'
 import type { FamiliaSistemaOperativo, Pagina } from './dominio'
+import type { FinalidadCuentaServicio } from './credenciales'
 import type {
   AlertaRespuesta,
   AnalisisRespuesta,
@@ -20,7 +21,6 @@ import type {
   PoliticaCambioPeticion,
   PoliticaCambioRespuesta,
   Preparacion,
-  PruebaAnalisisRespuesta,
   ReferenciaSimple,
   ResumenGraficos,
   ResumenProcesoRespuesta,
@@ -68,8 +68,6 @@ export const scriptsApi = {
   /** Con la familia, solo se exigen las métricas que su análisis informa (R3.1) */
   revisarSalida: (salida: string, familia?: FamiliaSistemaOperativo) =>
     http.post<RevisionSalidaRespuesta>('/scripts/revisar-salida', { salida, familia }),
-  probarAnalisis: (idVersion: number, idServidor: number) =>
-    http.post<PruebaAnalisisRespuesta>(`/scripts/versiones/${idVersion}/prueba`, { idServidor }),
   usosVersion: (idVersion: number, pagina = 0, tamano = 25) =>
     http.get<Pagina<UsoVersionRespuesta>>(
       `/scripts/versiones/${idVersion}/ejecuciones${consulta({ page: pagina, size: tamano })}`,
@@ -138,10 +136,10 @@ export const operacionApi = {
 
 /** Acceso y análisis de un servidor o grupo fuera del ciclo de una orden */
 export const analisisApi = {
-  probarServidor: (idServidor: number, idCuenta?: number) =>
-    http.post<ConexionRespuesta>(`/servidores/${idServidor}/conectividad${consulta({ idCuenta })}`),
-  probarGrupo: (idGrupo: number, idCuenta?: number) =>
-    http.post<ConexionRespuesta[]>(`/grupos/${idGrupo}/conectividad${consulta({ idCuenta })}`),
+  probarServidor: (idServidor: number, idCuenta?: number, finalidad: FinalidadCuentaServicio = 'MANTENIMIENTO') =>
+    http.post<ConexionRespuesta>(`/servidores/${idServidor}/conectividad${consulta({ idCuenta, finalidad })}`),
+  probarGrupo: (idGrupo: number, idCuenta?: number, finalidad: FinalidadCuentaServicio = 'MANTENIMIENTO') =>
+    http.post<ConexionRespuesta[]>(`/grupos/${idGrupo}/conectividad${consulta({ idCuenta, finalidad })}`),
   revisar: (idServidor: number) => http.post<AnalisisRespuesta>(`/servidores/${idServidor}/revision`),
   historial: (idServidor: number, pagina = 0, tamano = 25) =>
     http.get<Pagina<AnalisisRespuesta>>(`/servidores/${idServidor}/evaluaciones${consulta({ page: pagina, size: tamano })}`),

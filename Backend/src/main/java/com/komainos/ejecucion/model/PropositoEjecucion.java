@@ -5,6 +5,8 @@ public enum PropositoEjecucion {
 
     /** Conectividad, autenticación y permisos de la cuenta de servicio (RF71) y condición de inicio (RF52) */
     CONECTIVIDAD,
+    /** Autenticación de la cuenta evaluadora, sin exigir privilegios administrativos. */
+    CONECTIVIDAD_EVALUACION,
     /** Script de análisis en la revisión periódica (RF37) */
     ANALISIS_REVISION,
     /** Script de análisis en la evaluación previa (RF38) */

@@ -68,7 +68,7 @@ public class ServicioPruebaAnalisis {
                         servidor.getVersionSistemaOperativo().descripcionCompleta()));
             }
             Integer cuenta = evaluaciones.cuentaAplicable(configuraciones.findByServidorId(idServidor)
-                    .map(c -> c.getIdCuentaServicio()).orElse(null));
+                    .map(c -> c.getIdCuentaServicioEvaluacion()).orElse(null));
             if (cuenta == null) {
                 throw new ReglaNegocioException("Asigne una cuenta de servicio al servidor o defina la predeterminada");
             }
@@ -82,7 +82,7 @@ public class ServicioPruebaAnalisis {
             SolicitudEjecucion solicitud = new SolicitudEjecucion(servidor.getId(), servidor.getHostname(),
                     servidor.getDireccionIp(), servidor.familia(), cuenta, PropositoEjecucion.PRUEBA_ANALISIS,
                     version.getContenido(), ServicioCatalogoAutomatizacion.valoresDeEjecucion(version),
-                    evaluaciones.maxMinutos(), evaluaciones.referencia(contexto), evaluaciones.listas(contexto));
+                    evaluaciones.maxMinutos(), evaluaciones.referencia(contexto), version.usaListasImplicitas() ? evaluaciones.listas(contexto) : java.util.List.of());
             return new Preparada(solicitud, advertencia, "%s v%d".formatted(implementacion.getScript().getNombre(),
                     version.getNumeroVersion()));
         });

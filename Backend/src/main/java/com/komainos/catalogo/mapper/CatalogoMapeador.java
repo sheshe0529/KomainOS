@@ -14,6 +14,7 @@ import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosParametro;
 import com.komainos.ejecucion.model.ScriptPreparado;
 import com.komainos.ejecucion.service.PreparadorScript;
+import com.komainos.shared.dto.ReferenciaSimple;
 
 import java.time.Instant;
 import java.util.List;
@@ -39,8 +40,10 @@ public final class CatalogoMapeador {
         return new ScriptRespuesta.VersionRespuesta(v.getId(), v.getNumeroVersion(), v.getContenido(), v.getNotasCambio(),
                 v.isHabilitada(), v.getId().equals(vigente), v.getFechaCreacion(),
                 v.getParametros().stream()
-                        .map(p -> new ScriptRespuesta.ParametroRespuesta(p.getNombre(), p.getTipoDato(), p.isObligatorio(),
-                                p.getValorPorDefecto()))
+                        .map(p -> new ScriptRespuesta.ParametroRespuesta(p.getNombre(), p.getTipoDato(),
+                                p.getValorPorDefecto(), p.getListaReferencia() == null ? null : p.getListaReferencia().getId(),
+                                p.getListaReferencia() == null ? null : new ReferenciaSimple(
+                                        p.getListaReferencia().getId(), p.getListaReferencia().getNombre())))
                         .toList());
     }
 
@@ -67,7 +70,7 @@ public final class CatalogoMapeador {
 
     public static List<DatosParametro> parametros(List<ParametroPeticion> peticiones) {
         return peticiones == null ? List.of() : peticiones.stream()
-                .map(p -> new DatosParametro(p.nombre(), p.tipo(), p.obligatorio(), p.valorPorDefecto()))
+                .map(p -> new DatosParametro(p.nombre(), p.tipo(), p.valorPorDefecto(), p.idListaReferencia()))
                 .toList();
     }
 

@@ -1,5 +1,7 @@
 package com.komainos.inventario.service;
 
+import com.komainos.inventario.model.FinalidadCuenta;
+
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.inventario.event.ConfiguracionMantenimientoActualizada;
@@ -63,7 +65,7 @@ public class ServicioGrupo {
         }
         return visibles.stream()
                 .map(g -> new FichaGrupo(g, Optional.ofNullable(configuracionPorGrupo.get(g.getId())),
-                        Optional.empty(), g.criticidadEfectiva(), null))
+                        Optional.empty(), Optional.empty(), g.criticidadEfectiva(), null))
                 .toList();
     }
 
@@ -74,7 +76,8 @@ public class ServicioGrupo {
             throw RecursoNoEncontradoException.de("el grupo de mantenimiento", id);
         }
         Optional<ConfiguracionGrupo> configuracion = configuraciones.findByGrupoId(id);
-        return new FichaGrupo(grupo, configuracion, configuracion.flatMap(cuentasServicio::efectiva),
+        return new FichaGrupo(grupo, configuracion, configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.EVALUACION)),
+                configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.MANTENIMIENTO)),
                 grupo.criticidadEfectiva(), ventanaEfectiva(grupo).aIntervalos());
     }
 
@@ -175,11 +178,13 @@ public class ServicioGrupo {
         existente.ifPresent(c -> Concurrencia.exigirVersion(versionEsperada, c.getFechaActualizacion(),
                 "la configuración de mantenimiento del grupo " + grupo.getNombre()));
         Map<String, Object> anterior = existente.map(ServicioGrupo::instantanea).orElse(null);
-        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicio(), familia(grupo));
+        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicioEvaluacion(), FinalidadCuenta.EVALUACION, familia(grupo));
+        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicioMantenimiento(), FinalidadCuenta.MANTENIMIENTO, familia(grupo));
         ConfiguracionGrupo configuracion = existente.orElseGet(() -> ConfiguracionGrupo.nueva(
                 grupo, revision, mantenimiento, datos.modalidad(), datos.modoEjecucion(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad(), datos.modoEjecucion());
-        configuracion.setIdCuentaServicio(datos.idCuentaServicio());
+        configuracion.setIdCuentaServicioEvaluacion(datos.idCuentaServicioEvaluacion());
+        configuracion.setIdCuentaServicioMantenimiento(datos.idCuentaServicioMantenimiento());
         configuraciones.save(configuracion);
         grupo.alConfigurar();
 
@@ -267,24 +272,26 @@ public class ServicioGrupo {
         v.put("frecuenciaMantenimientoDias", c.getFrecuenciaMantenimientoDias());
         v.put("modalidadPlanificacion", c.getModalidadPlanificacion().name());
         v.put("modoEjecucion", c.getModoEjecucion().name());
-        v.put("idCuentaServicio", c.getIdCuentaServicio());
+        v.put("idCuentaServicioEvaluacion", c.getIdCuentaServicioEvaluacion());
+        v.put("idCuentaServicioMantenimiento", c.getIdCuentaServicioMantenimiento());
         return v;
     }
 
     /** idCuentaServicio nula: usa la cuenta predeterminada del sistema (RF06) */
     public record DatosConfiguracionGrupo(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
                                           ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion,
-                                          Integer idCuentaServicio) {
+                                          Integer idCuentaServicioEvaluacion, Integer idCuentaServicioMantenimiento) {
 
         public DatosConfiguracionGrupo(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
                                        ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion) {
-            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, modoEjecucion, null);
+            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, modoEjecucion, null, null);
         }
     }
 
     /** ventanaEfectiva y cuentaServicio quedan vacías en el listado para no calcularlas por cada grupo */
     public record FichaGrupo(GrupoMantenimiento grupo, Optional<ConfiguracionGrupo> configuracion,
-                             Optional<CuentaEfectiva> cuentaServicio,
+                             Optional<CuentaEfectiva> cuentaServicioEvaluacion,
+                                Optional<CuentaEfectiva> cuentaServicioMantenimiento,
                              Optional<NivelCriticidad> criticidadEfectiva, List<IntervaloSemanal> ventanaEfectiva) {
     }
 }

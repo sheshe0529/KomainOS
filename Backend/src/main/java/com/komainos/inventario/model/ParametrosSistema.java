@@ -28,8 +28,11 @@ public class ParametrosSistema {
     @Column(name = "id_configuracion_sistema")
     private Integer id;
 
-    @Column(name = "id_cuenta_servicio_predeterminada")
-    private Integer idCuentaServicioPredeterminada;
+    @Column(name = "id_cuenta_servicio_evaluacion_predeterminada")
+    private Integer idCuentaServicioEvaluacionPredeterminada;
+
+    @Column(name = "id_cuenta_servicio_mantenimiento_predeterminada")
+    private Integer idCuentaServicioMantenimientoPredeterminada;
 
     @Column(name = "max_ejecuciones_concurrentes", nullable = false)
     private Integer maxEjecucionesConcurrentes;

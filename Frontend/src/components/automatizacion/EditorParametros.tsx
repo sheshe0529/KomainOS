@@ -1,5 +1,7 @@
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import type { ParametroPeticion } from '@/api/types'
+import { listasApi } from '@/api/umbrales'
+import { useConsulta } from '@/hooks/useConsulta'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Entrada, Selector } from '@/components/ui/Campo'
 import { nuevaClave, problemaLocal, TIPOS_PARAMETRO, usoEnScript } from '@/utils/parametrosScript'
@@ -17,6 +19,7 @@ interface EditorParametrosProps {
  * vista previa y en la ejecución, así el script los usa directamente sin leer argumentos
  */
 export function EditorParametros({ parametros, onChange, lenguaje, soloLectura = false }: EditorParametrosProps) {
+  const listas = useConsulta(() => listasApi.listar(), [])
   const actualizar = (clave: string, cambios: Partial<ParametroPeticion>) =>
     onChange(parametros.map((p) => (p.clave === clave ? { ...p, ...cambios } : p)))
 
@@ -28,7 +31,7 @@ export function EditorParametros({ parametros, onChange, lenguaje, soloLectura =
   }
 
   const agregar = () =>
-    onChange([...parametros, { clave: nuevaClave(), nombre: '', tipo: 'STRING', obligatorio: true, valorPorDefecto: '' }])
+    onChange([...parametros, { clave: nuevaClave(), nombre: '', tipo: 'STRING', valorPorDefecto: '' }])
 
   return (
     <div className="flex flex-col gap-3">
@@ -44,7 +47,6 @@ export function EditorParametros({ parametros, onChange, lenguaje, soloLectura =
                 <th className="px-3 py-2 font-medium">Nombre</th>
                 <th className="px-3 py-2 font-medium">Tipo</th>
                 <th className="px-3 py-2 font-medium">Valor</th>
-                <th className="px-3 py-2 text-center font-medium">Obligatorio</th>
                 <th className="px-3 py-2 font-medium">En el script</th>
                 {!soloLectura && (
                   <th className="w-24 px-3 py-2">
@@ -87,6 +89,7 @@ export function EditorParametros({ parametros, onChange, lenguaje, soloLectura =
                             actualizar(p.clave, {
                               tipo: e.target.value as ParametroPeticion['tipo'],
                               valorPorDefecto: e.target.value === 'BOOLEAN' ? 'false' : p.valorPorDefecto,
+                              idListaReferencia: undefined,
                             })
                           }
                         >
@@ -100,7 +103,23 @@ export function EditorParametros({ parametros, onChange, lenguaje, soloLectura =
                     </td>
                     <td className="px-3 py-2">
                       {soloLectura ? (
-                        <span className="font-mono">{p.valorPorDefecto || '—'}</span>
+                        <span className="font-mono">{p.tipo === 'LISTA'
+                          ? listas.datos?.find((l) => l.id === p.idListaReferencia)?.nombre ?? `Lista #${p.idListaReferencia}`
+                          : p.valorPorDefecto || 'Sin valor (versión anterior)'}</span>
+                      ) : p.tipo === 'LISTA' ? (
+                        <div className="flex flex-col gap-1">
+                          <Selector value={p.idListaReferencia?.toString() ?? ''}
+                            disabled={listas.cargando}
+                            aria-label={`Lista del parámetro ${i + 1}`}
+                            onChange={(e) => actualizar(p.clave, { idListaReferencia: Number(e.target.value) || undefined, valorPorDefecto: undefined })}>
+                            <option value="">Seleccione una lista</option>
+                            {(listas.datos ?? []).filter((l) => l.activo || l.id === p.idListaReferencia).map((l) => (
+                              <option key={l.id} value={l.id} disabled={!l.activo}>{l.nombre}{!l.activo && ' (inactiva)'}</option>
+                            ))}
+                          </Selector>
+                          <span className="text-xs text-ink-faint">Usa los elementos del catálogo al ejecutar.</span>
+                          {!!listas.error && <span className="text-xs text-danger">No se pudieron cargar las listas.</span>}
+                        </div>
                       ) : p.tipo === 'BOOLEAN' ? (
                         <Selector
                           value={(p.valorPorDefecto ?? '').toLowerCase()}
@@ -123,19 +142,9 @@ export function EditorParametros({ parametros, onChange, lenguaje, soloLectura =
                         />
                       )}
                     </td>
-                    <td className="px-3 py-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={!!p.obligatorio}
-                        disabled={soloLectura}
-                        aria-label={`Parámetro ${i + 1} obligatorio`}
-                        onChange={(e) => actualizar(p.clave, { obligatorio: e.target.checked })}
-                        className="mt-2.5 h-4 w-4 accent-[var(--color-accent)]"
-                      />
-                    </td>
                     <td className="px-3 py-2">
                       <code className="mt-2 inline-block rounded bg-panel-muted px-1.5 py-0.5 font-mono text-xs text-ink-soft">
-                        {usoEnScript(p.nombre, lenguaje)}
+                        {usoEnScript(p.nombre, lenguaje, p.tipo === 'LISTA')}
                       </code>
                     </td>
                     {!soloLectura && (
@@ -166,7 +175,7 @@ export function EditorParametros({ parametros, onChange, lenguaje, soloLectura =
       {!soloLectura && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-ink-faint">
-            Las MOP se ejecutan sin intervención: cada parámetro toma este valor en todos los servidores.
+            Cada parámetro necesita un valor o una lista. Las listas se leen del catálogo; el script usa el nombre indicado.
           </p>
           <Boton icono={Plus} onClick={agregar}>
             Agregar parámetro

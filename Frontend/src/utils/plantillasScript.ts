@@ -10,7 +10,7 @@ export interface Plantilla {
 
 /**
  * Puntos de partida que ya cumplen los contratos de KomainOS: los análisis imprimen el JSON de métricas en la última
- * línea y leen las listas de los umbrales; los mantenimientos terminan con código distinto de cero cuando algo falla.
+ * línea y reciben solo las entradas declaradas; los mantenimientos terminan con código distinto de cero cuando algo falla.
  * Son esqueletos: los scripts completos están en el catálogo (el editor permite partir de otra versión) y en
  * Documentos/Scripts
  */
@@ -19,21 +19,22 @@ const PLANTILLAS: Record<TipoScript, Record<FamiliaSistemaOperativo, Plantilla>>
     LINUX: {
       titulo: 'Análisis de salud (Bash)',
       descripcion:
-        'Estructura de un análisis: una métrica de valor, una de lista que se revisa con la lista del umbral y el JSON final. Solo lee.',
-      parametros: [],
+        'Estructura de un análisis: una métrica de valor, una de lista con archivos elegidos del catálogo y el JSON final. Solo lee.',
+      parametros: [{ nombre: 'ARCHIVOS_CRITICOS', tipo: 'LISTA' }],
       contenido: `#!/usr/bin/env bash
-# Análisis: solo lee el servidor. Por cada métrica de lista, KomainOS define antes de este código el arreglo
-# KOMAINOS_LISTA_<CÓDIGO> con la lista del umbral que rige para el servidor.
+# Análisis: solo lee el servidor. Declare ARCHIVOS_CRITICOS como Lista y elija su lista de referencia.
+# KomainOS define el arreglo antes de este código; cada elemento contiene ruta:modo.
 # Informe cada métrica que tenga un umbral activo: si falta una, la evaluación queda fallida.
 # La última línea debe ser el JSON {"metricas": [...]} con los códigos del catálogo de métricas.
 set -u
+declare -p ARCHIVOS_CRITICOS >/dev/null 2>&1 || { echo "Falta la lista ARCHIVOS_CRITICOS" >&2; exit 2; }
 
 # Valor único: porcentaje de memoria en uso
 memoria=$(free | awk '/^Mem:/ { printf "%.1f", $3 * 100 / $2 }')
 
-# Lista: los archivos de la lista del umbral con su permiso actual (ruta:modo)
+# Lista: los archivos elegidos con su permiso actual (ruta:modo)
 archivos=""
-for esperado in "\${KOMAINOS_LISTA_ARCH_CRIT_PERMISOS[@]+"\${KOMAINOS_LISTA_ARCH_CRIT_PERMISOS[@]}"}"; do
+for esperado in "\${ARCHIVOS_CRITICOS[@]+"\${ARCHIVOS_CRITICOS[@]}"}"; do
     archivo=\${esperado%:*}
     [ -e "$archivo" ] && archivos="$archivos\${archivos:+,}\\"$archivo:$(stat -c '%a' "$archivo")\\""
 done
@@ -47,8 +48,8 @@ printf '{"metricas":[{"codigo":"mem_uso","valor":%s},{"codigo":"arch_crit_permis
       descripcion:
         'Estructura de un análisis: una métrica de valor, una de lista y el JSON final, con clases CIM que no dependen del idioma. Solo lee.',
       parametros: [],
-      contenido: `# Análisis: solo lee el servidor. Por cada métrica de lista, KomainOS define antes de este código el arreglo
-# $KOMAINOS_LISTA_<CÓDIGO> con la lista del umbral que rige para el servidor. No declare un bloque param().
+      contenido: `# Análisis: solo lee el servidor. Enumera los puertos por sí mismo; no necesita una lista de entrada.
+# Declare en el editor cualquier parámetro que necesite. No añada un bloque param().
 # Informe cada métrica que tenga un umbral activo: si falta una, la evaluación queda fallida.
 # La última línea debe ser el JSON {"metricas": [...]} con los códigos del catálogo de métricas.
 $ErrorActionPreference = 'Stop'
@@ -74,9 +75,9 @@ $metricas = @(
       titulo: 'Mantenimiento con parámetros (Bash)',
       descripcion: 'Estructura con validación de parámetros, modo simulación y códigos de salida.',
       parametros: [
-        { nombre: 'RUTA', tipo: 'STRING', obligatorio: true, valorPorDefecto: '/var/tmp' },
-        { nombre: 'DIAS_RETENCION', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '7' },
-        { nombre: 'SOLO_SIMULAR', tipo: 'BOOLEAN', obligatorio: true, valorPorDefecto: 'true' },
+        { nombre: 'RUTA', tipo: 'STRING', valorPorDefecto: '/var/tmp' },
+        { nombre: 'DIAS_RETENCION', tipo: 'INTEGER', valorPorDefecto: '7' },
+        { nombre: 'SOLO_SIMULAR', tipo: 'BOOLEAN', valorPorDefecto: 'true' },
       ],
       contenido: `#!/usr/bin/env bash
 # Mantenimiento: KomainOS define RUTA, DIAS_RETENCION y SOLO_SIMULAR antes de este código.
@@ -102,9 +103,9 @@ echo "Se procesaron $cantidad archivo(s) de $RUTA"
       titulo: 'Mantenimiento con parámetros (PowerShell)',
       descripcion: 'Estructura con validación de parámetros, modo simulación y códigos de salida.',
       parametros: [
-        { nombre: 'RUTA', tipo: 'STRING', obligatorio: true, valorPorDefecto: 'C:\\Windows\\Temp' },
-        { nombre: 'DIAS_RETENCION', tipo: 'INTEGER', obligatorio: true, valorPorDefecto: '7' },
-        { nombre: 'SOLO_SIMULAR', tipo: 'BOOLEAN', obligatorio: true, valorPorDefecto: 'true' },
+        { nombre: 'RUTA', tipo: 'STRING', valorPorDefecto: 'C:\\Windows\\Temp' },
+        { nombre: 'DIAS_RETENCION', tipo: 'INTEGER', valorPorDefecto: '7' },
+        { nombre: 'SOLO_SIMULAR', tipo: 'BOOLEAN', valorPorDefecto: 'true' },
       ],
       contenido: `# Mantenimiento: KomainOS define $RUTA, $DIAS_RETENCION y $SOLO_SIMULAR antes de este código.
 # No declare un bloque param(): las variables ya existen.

@@ -8,6 +8,7 @@ import com.komainos.catalogo.model.ParametroScript;
 import com.komainos.catalogo.model.Script;
 import com.komainos.catalogo.model.Tarea;
 import com.komainos.catalogo.model.TipoScript;
+import com.komainos.catalogo.model.TipoParametro;
 import com.komainos.catalogo.model.VersionScript;
 import com.komainos.catalogo.repository.ImplementacionScriptRepositorio;
 import com.komainos.catalogo.repository.ScriptRepositorio;
@@ -20,9 +21,11 @@ import com.komainos.ejecucion.service.ContratoAnalisis;
 import com.komainos.ejecucion.service.PreparadorScript;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.Metrica;
+import com.komainos.inventario.model.ListaReferencia;
 import com.komainos.inventario.model.TipoDato;
 import com.komainos.inventario.model.VersionSistemaOperativo;
 import com.komainos.inventario.repository.MetricaRepositorio;
+import com.komainos.inventario.repository.ListaReferenciaRepositorio;
 import com.komainos.inventario.repository.UmbralRepositorio;
 import com.komainos.inventario.service.ServicioCatalogos;
 import com.komainos.inventario.service.ServicioParametrosSistema;
@@ -74,6 +77,7 @@ public class ServicioCatalogoAutomatizacion {
     private final ServicioCatalogos catalogos;
     private final ServicioParametrosSistema parametros;
     private final MetricaRepositorio metricas;
+    private final ListaReferenciaRepositorio listas;
     private final UmbralRepositorio umbrales;
     private final ServicioAuditoria auditoria;
     private final UsuarioRepositorio usuarios;
@@ -210,6 +214,7 @@ public class ServicioCatalogoAutomatizacion {
         VersionScript version = versiones.findConDetalleById(id)
                 .orElseThrow(() -> RecursoNoEncontradoException.de("la versión de script", id));
         Hibernate.initialize(version.getImplementacion().getVersiones());
+        cargarParametros(version);
         return version;
     }
 
@@ -236,15 +241,27 @@ public class ServicioCatalogoAutomatizacion {
     }
 
     /** Lo que se ejecutará: el código con el bloque de parámetros de KomainOS (vista previa del editor) */
+    @Transactional(readOnly = true)
     public VistaPrevia vistaPrevia(FamiliaSistemaOperativo familia, String contenido, List<DatosParametro> datos) {
         List<String> problemas = new ArrayList<>(problemasParametros(datos));
         PreparadorScript.problemaContenido(familia, contenido, !datos.isEmpty()).ifPresent(problemas::add);
-        List<ParametroEjecucion> validos = datos.stream()
-                .filter(d -> PreparadorScript.problemaNombre(d.nombre()).isEmpty())
-                .map(d -> new ParametroEjecucion(d.nombre(), d.tipo(),
-                        PreparadorScript.problemaValor(d.nombre(), d.tipo(), vacioANulo(d.valorPorDefecto())).isEmpty()
-                                ? vacioANulo(d.valorPorDefecto()) : null))
-                .toList();
+        List<ParametroEjecucion> validos = new ArrayList<>();
+        for (DatosParametro d : datos) {
+            if (d.tipo() == null || PreparadorScript.problemaNombre(d.nombre()).isPresent()) {
+                continue;
+            }
+            if (d.tipo() == TipoParametro.LISTA) {
+                try {
+                    ListaReferencia lista = listaParaParametro(d.idListaReferencia());
+                    validos.add(ParametroEjecucion.lista(d.nombre(), lista.getTipoDato(), lista.elementosVigentes()));
+                } catch (ReglaNegocioException | RecursoNoEncontradoException ex) {
+                    problemas.add(ex.getMessage());
+                }
+            } else if (PreparadorScript.problemaValor(d.nombre(), d.tipo().tipoEscalar(),
+                    vacioANulo(d.valorPorDefecto())).isEmpty()) {
+                validos.add(new ParametroEjecucion(d.nombre(), d.tipo().tipoEscalar(), vacioANulo(d.valorPorDefecto())));
+            }
+        }
         return new VistaPrevia(PreparadorScript.preparar(familia, contenido, validos), problemas);
     }
 
@@ -257,17 +274,24 @@ public class ServicioCatalogoAutomatizacion {
 
     /**
      * Valores con los que se ejecuta una versión fijada (RF52). Las MOP no tienen valores por servidor: cada parámetro
-     * toma su valor por defecto, y la publicación ya garantiza que los obligatorios lo tienen.
+     * toma su valor o los elementos actuales de la lista elegida. Los escalares vacíos solo se conservan por
+     * compatibilidad con versiones históricas: la publicación de versiones nuevas los rechaza.
+     * Se arma dentro de la transacción de preparación; el adaptador remoto recibe solo valores ya materializados.
      */
     public static List<ParametroEjecucion> valoresDeEjecucion(VersionScript version) {
+        cargarParametros(version);
         List<ParametroEjecucion> valores = new ArrayList<>();
         for (ParametroScript p : version.getParametros()) {
-            String valor = vacioANulo(p.getValorPorDefecto());
-            if (valor == null && p.isObligatorio()) {
-                throw new ReglaNegocioException("El parámetro obligatorio %s de la versión %d no tiene valor"
-                        .formatted(p.getNombre(), version.getNumeroVersion()));
+            if (p.getTipoDato() == TipoParametro.LISTA) {
+                ListaReferencia lista = p.getListaReferencia();
+                if (lista == null) {
+                    throw new ReglaNegocioException("El parámetro %s no tiene lista de referencia".formatted(p.getNombre()));
+                }
+                valores.add(ParametroEjecucion.lista(p.getNombre(), lista.getTipoDato(), lista.elementosVigentes()));
+            } else {
+                valores.add(new ParametroEjecucion(p.getNombre(), p.getTipoDato().tipoEscalar(),
+                        vacioANulo(p.getValorPorDefecto())));
             }
-            valores.add(new ParametroEjecucion(p.getNombre(), p.getTipoDato(), valor));
         }
         return valores;
     }
@@ -402,8 +426,9 @@ public class ServicioCatalogoAutomatizacion {
                 datos.contenido(), datos.notasCambio(), Tiempo.ahora(reloj));
         int orden = 0;
         for (DatosParametro p : datos.parametros()) {
-            version.agregarParametro(ParametroScript.nuevo(version, p.nombre(), p.tipo(), p.obligatorio(),
-                    normalizarValor(p.tipo(), p.valorPorDefecto()), ++orden));
+            ListaReferencia lista = p.tipo() == TipoParametro.LISTA ? listaParaParametro(p.idListaReferencia()) : null;
+            version.agregarParametro(ParametroScript.nuevo(version, p.nombre(), p.tipo(),
+                    lista == null ? normalizarValor(p.tipo().tipoEscalar(), p.valorPorDefecto()) : null, lista, ++orden));
         }
         versiones.save(version);
         implementacion.agregarVersion(version);
@@ -427,10 +452,21 @@ public class ServicioCatalogoAutomatizacion {
                 problemas.add("Indique el tipo del parámetro %s".formatted(p.nombre()));
                 continue;
             }
-            PreparadorScript.problemaValor(p.nombre(), p.tipo(), valor).ifPresent(problemas::add);
-            if (valor == null && p.obligatorio()) {
-                problemas.add(("El parámetro obligatorio %s necesita un valor por defecto: la MOP se ejecuta sin "
-                        + "intervención").formatted(p.nombre()));
+            if (p.tipo() == TipoParametro.LISTA) {
+                if (p.idListaReferencia() == null) {
+                    problemas.add("Seleccione una lista para el parámetro %s".formatted(p.nombre()));
+                }
+                if (valor != null && !valor.isBlank()) {
+                    problemas.add("El parámetro de lista %s no admite un valor escalar".formatted(p.nombre()));
+                }
+            } else {
+                if (p.idListaReferencia() != null) {
+                    problemas.add("El parámetro escalar %s no admite una lista".formatted(p.nombre()));
+                }
+                PreparadorScript.problemaValor(p.nombre(), p.tipo().tipoEscalar(), valor).ifPresent(problemas::add);
+                if (valor == null || valor.isBlank()) {
+                    problemas.add("El parámetro %s necesita un valor: la ejecución es automática".formatted(p.nombre()));
+                }
             }
         }
         return problemas;
@@ -471,8 +507,30 @@ public class ServicioCatalogoAutomatizacion {
     private static void cargar(Script script) {
         script.getImplementaciones().forEach(i -> {
             Hibernate.initialize(i.getVersionSistemaOperativo().getSistemaOperativo());
-            i.getVersiones().forEach(v -> Hibernate.initialize(v.getParametros()));
+            i.getVersiones().forEach(ServicioCatalogoAutomatizacion::cargarParametros);
         });
+    }
+
+    private static void cargarParametros(VersionScript version) {
+        version.getParametros().forEach(p -> {
+            if (p.getListaReferencia() != null) {
+                Hibernate.initialize(p.getListaReferencia());
+                Hibernate.initialize(p.getListaReferencia().getItems());
+            }
+        });
+    }
+
+    private ListaReferencia listaParaParametro(Integer id) {
+        if (id == null) {
+            throw new ReglaNegocioException("Seleccione una lista de referencia para el parámetro");
+        }
+        ListaReferencia lista = listas.findById(id)
+                .orElseThrow(() -> RecursoNoEncontradoException.de("la lista de referencia", id));
+        if (!lista.isActivo()) {
+            throw new ReglaNegocioException("La lista %s está inactiva".formatted(lista.getNombre()));
+        }
+        Hibernate.initialize(lista.getItems());
+        return lista;
     }
 
     private static String normalizarValor(TipoDato tipo, String valor) {
@@ -518,7 +576,7 @@ public class ServicioCatalogoAutomatizacion {
     public record DatosScript(String nombre, TipoScript tipo, String descripcion, boolean activo) {
     }
 
-    public record DatosParametro(String nombre, TipoDato tipo, boolean obligatorio, String valorPorDefecto) {
+    public record DatosParametro(String nombre, TipoParametro tipo, String valorPorDefecto, Integer idListaReferencia) {
     }
 
     public record DatosVersion(String contenido, String notasCambio, List<DatosParametro> parametros) {

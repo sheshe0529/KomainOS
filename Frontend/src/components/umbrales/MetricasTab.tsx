@@ -16,15 +16,16 @@ import { MetricaFormulario } from './MetricaFormulario'
 
 interface MetricasTabProps {
   esAdmin: boolean
+  visita: number
 }
 
 /**
  * Métricas que informan los scripts de análisis (las variables de salud del R3.1); una métrica de lista se evalúa con
  * una lista de referencia
  */
-export function MetricasTab({ esAdmin }: MetricasTabProps) {
+export function MetricasTab({ esAdmin, visita }: MetricasTabProps) {
   const { avisar } = useAvisos()
-  const metricas = useConsulta(() => umbralesApi.metricas(), [])
+  const metricas = useConsulta(() => umbralesApi.metricas(), [visita])
   const tabla = usePaginacionLocal(metricas.datos ?? [], 'metricas')
   const [editando, setEditando] = useState<MetricaRespuesta | 'nueva' | null>(null)
 

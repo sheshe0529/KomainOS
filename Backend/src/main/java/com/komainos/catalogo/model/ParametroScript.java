@@ -1,6 +1,6 @@
 package com.komainos.catalogo.model;
 
-import com.komainos.inventario.model.TipoDato;
+import com.komainos.inventario.model.ListaReferencia;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -19,8 +19,8 @@ import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 /**
- * Parámetro declarado por una versión (RF25). En la ejecución se define como variable del mismo nombre con el valor por
- * defecto: un parámetro obligatorio necesita valor porque la MOP se ejecuta sin intervención (RF52).
+ * Parámetro declarado por una versión (RF25). En la ejecución se define como variable del mismo nombre:
+ * un escalar con valor o los elementos vigentes de una lista del catálogo (RF52).
  */
 @Entity
 @Table(name = "script_parametro")
@@ -42,11 +42,12 @@ public class ParametroScript {
 
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(name = "tipo_dato", nullable = false, columnDefinition = "enum_tipo_dato_parametro")
-    private TipoDato tipoDato;
+    @Column(name = "tipo_dato", nullable = false, columnDefinition = "enum_tipo_parametro_script")
+    private TipoParametro tipoDato;
 
-    @Column(name = "obligatorio", nullable = false)
-    private boolean obligatorio;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_lista_referencia")
+    private ListaReferencia listaReferencia;
 
     @Column(name = "valor_por_defecto", length = 1000)
     private String valorPorDefecto;
@@ -54,13 +55,13 @@ public class ParametroScript {
     @Column(name = "orden", nullable = false)
     private Integer orden;
 
-    public static ParametroScript nuevo(VersionScript version, String nombre, TipoDato tipo, boolean obligatorio,
-                                        String valorPorDefecto, int orden) {
+    public static ParametroScript nuevo(VersionScript version, String nombre, TipoParametro tipo,
+                                        String valorPorDefecto, ListaReferencia lista, int orden) {
         ParametroScript parametro = new ParametroScript();
         parametro.version = version;
         parametro.nombre = nombre;
         parametro.tipoDato = tipo;
-        parametro.obligatorio = obligatorio;
+        parametro.listaReferencia = lista;
         parametro.valorPorDefecto = valorPorDefecto;
         parametro.orden = orden;
         return parametro;

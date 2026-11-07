@@ -94,7 +94,7 @@ class ScriptControllerTest {
     void vistaPrevia() throws Exception {
         when(servicio.vistaPrevia(eq(FamiliaSistemaOperativo.LINUX), any(), anyList()))
                 .thenReturn(new VistaPrevia(new ScriptPreparado("tarea.sh", "bash", "#!/bin/bash\nDIAS=7\necho", 2, 2),
-                        List.of("El parámetro obligatorio DIAS necesita un valor por defecto")));
+                        List.of("El parámetro DIAS necesita un valor: la ejecución es automática")));
 
         mvc.perform(post("/api/scripts/vista-previa").with(user(DatosPrueba.autenticado(1, "oper", Rol.OPERADOR)))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -103,7 +103,7 @@ class ScriptControllerTest {
                 .andExpect(jsonPath("$.nombreArchivo").value("tarea.sh"))
                 .andExpect(jsonPath("$.lenguaje").value("bash"))
                 .andExpect(jsonPath("$.lineaInicioParametros").value(2))
-                .andExpect(jsonPath("$.problemas[0]").value("El parámetro obligatorio DIAS necesita un valor por defecto"));
+                .andExpect(jsonPath("$.problemas[0]").value("El parámetro DIAS necesita un valor: la ejecución es automática"));
     }
 
     @Test

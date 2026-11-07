@@ -18,6 +18,8 @@ describe('Selección y ubicación del menú', () => {
     ['/servidores/12', 'servidores'],
     ['/dashboard', 'dashboard'],
     ['/umbrales/3', 'umbrales'],
+    ['/ordenes/12', 'ordenes'],
+    ['/cronograma/dia/2026-11-06', 'cronograma'],
   ])('selecciona una sola sección para %s', (ruta, id) => expect(activas(ruta)).toEqual([id]))
   it('ubica las políticas dentro de Configuración', () => {
     const grupo = navigation.find((g) => isNavGroup(g) && g.children.some((h) => h.id === 'politicas'))
@@ -26,12 +28,12 @@ describe('Selección y ubicación del menú', () => {
   it('sigue el orden acordado de los módulos', () => {
     expect(navigation.map((m) => m.id)).toEqual([
       'dashboard',
-      'cronograma',
+      'planificacion',
       'inventario',
       'automatizacion',
-      'ordenes',
       'referencias',
       'alertas',
+      'auditoria',
       'configuracion',
     ])
   })
@@ -51,11 +53,19 @@ describe('Selección y ubicación del menú', () => {
     }
     expect(activas('/mi-cuenta')).toEqual(['mi-cuenta'])
   })
-  it('el responsable consulta las órdenes de sus servidores desde el menú', () => {
-    expect(navegacionPara('RESPONSABLE').some((m) => m.id === 'ordenes')).toBe(true)
+  it('el responsable consulta las órdenes y el cronograma desde Planificación', () => {
+    const grupo = navegacionPara('RESPONSABLE').find((m) => m.id === 'planificacion')
+    expect(grupo && isNavGroup(grupo) ? grupo.children.map((h) => h.id) : []).toEqual(['ordenes', 'cronograma'])
   })
   it('el responsable no recibe las políticas administrativas', () => {
     const visibles = navegacionPara('RESPONSABLE').flatMap((g) => (isNavGroup(g) ? g.children : [g]))
     expect(visibles.some((h) => h.id === 'politicas')).toBe(false)
+  })
+  it('la auditoría aparece como entrada principal para el administrador', () => {
+    for (const rol of ['ADMINISTRADOR', 'OPERADOR', 'RESPONSABLE'] as const) {
+      const visibles = navegacionPara(rol)
+      expect(visibles.some((h) => !isNavGroup(h) && h.id === 'auditoria')).toBe(rol === 'ADMINISTRADOR')
+    }
+    expect(activas('/configuracion/auditoria')).toEqual(['auditoria'])
   })
 })

@@ -1,7 +1,7 @@
 package com.komainos.catalogo.dto;
 
 import com.komainos.ejecucion.service.PreparadorScript;
-import com.komainos.inventario.model.TipoDato;
+import com.komainos.catalogo.model.TipoParametro;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -15,10 +15,10 @@ public record ParametroPeticion(
         String nombre,
 
         @NotNull(message = "Indique el tipo del parámetro")
-        TipoDato tipo,
-
-        boolean obligatorio,
+        TipoParametro tipo,
 
         @Size(max = 1000, message = "El valor por defecto no puede superar los 1000 caracteres")
-        String valorPorDefecto) {
+        String valorPorDefecto,
+
+        Integer idListaReferencia) {
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Ban, Eye, KeyRound, Pencil, Plus, Server, Star, StarOff } from 'lucide-react'
 import { credencialesApi, cuentasServicioApi } from '@/api/credenciales'
+import type { FinalidadCuentaServicio } from '@/api/credenciales'
 import type { CuentaServicioRespuesta } from '@/api/types'
 import { PageHeader } from '@/components/common/PageHeader'
 import { AsignarServidoresModal } from '@/components/credenciales/AsignarServidoresModal'
@@ -19,6 +20,7 @@ import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION } from '@/utils/etiquetas'
 import { formatearFecha } from '@/utils/formato'
 import { textoDeError } from '@/utils/errores'
+import { FINALIDADES_CUENTA } from '@/utils/cuentasServicio'
 
 type Dialogo =
   | { tipo: 'nueva' }
@@ -37,10 +39,10 @@ export function CuentasServicioPage() {
   const { avisar } = useAvisos()
   const cuentas = useConsulta(() => cuentasServicioApi.listar(), [])
   const [dialogo, setDialogo] = useState<Dialogo>(null)
+  const [cambiandoPredeterminada, setCambiandoPredeterminada] = useState(false)
 
   const lista = cuentas.datos ?? []
   const tabla = usePaginacionLocal(lista, 'cuentas-servicio')
-  const predeterminada = lista.find((c) => c.predeterminada)
 
   function listo(mensaje: string) {
     setDialogo(null)
@@ -48,12 +50,16 @@ export function CuentasServicioPage() {
     avisar(mensaje)
   }
 
-  async function cambiarPredeterminada(c: CuentaServicioRespuesta | null) {
+  async function cambiarPredeterminada(c: CuentaServicioRespuesta | null, finalidad: FinalidadCuentaServicio) {
+    setCambiandoPredeterminada(true)
     try {
-      cuentas.reemplazar(await cuentasServicioApi.definirPredeterminada(c?.id ?? null))
-      avisar(c ? `${c.nombre} es ahora la cuenta predeterminada.` : 'El sistema quedó sin cuenta predeterminada.')
+      cuentas.reemplazar(await cuentasServicioApi.definirPredeterminada(c?.id ?? null, finalidad))
+      const etiqueta = finalidad === 'EVALUACION' ? 'evaluación' : 'mantenimiento'
+      avisar(c ? `${c.nombre} es ahora la cuenta predeterminada de ${etiqueta}.` : `El sistema quedó sin cuenta predeterminada de ${etiqueta}.`)
     } catch (e) {
       avisar(textoDeError(e), 'error')
+    } finally {
+      setCambiandoPredeterminada(false)
     }
   }
 
@@ -61,7 +67,7 @@ export function CuentasServicioPage() {
     <>
       <PageHeader
         title="Cuentas de servicio"
-        description="Credenciales con las que se ejecutan los mantenimientos. Cada servidor y grupo usa la cuenta de su configuración y, si no tiene, la predeterminada."
+        description="Cada servidor y grupo puede evaluar con una cuenta y ejecutar el mantenimiento con otra. Cada finalidad tiene su propia cuenta predeterminada."
         actions={
           <Boton variante="primario" icono={Plus} onClick={() => setDialogo({ tipo: 'nueva' })}>
             Nueva cuenta
@@ -69,18 +75,17 @@ export function CuentasServicioPage() {
         }
       />
       <MensajeError error={cuentas.error} onReintentar={cuentas.recargar} />
-      {cuentas.datos && !predeterminada && (
-        <p className="mb-4 rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
-          No hay cuenta predeterminada: las configuraciones sin cuenta propia no tendrán con qué conectarse. Marque una con la
-          estrella.
+      {cuentas.datos && FINALIDADES_CUENTA.filter(({ campoPredeterminada }) => !lista.some((cuenta) => cuenta[campoPredeterminada])).map(({ finalidad, etiqueta }) => (
+        <p key={finalidad} className="mb-4 rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
+          {etiqueta}: no hay cuenta predeterminada. Las configuraciones sin cuenta propia para esta finalidad no tendrán con qué conectarse.
         </p>
-      )}
+      ))}
       {cuentas.cargando && !cuentas.datos ? (
         <Cargando />
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-panel">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
+            <table className="w-full min-w-[1000px] text-left text-sm">
               <thead>
                 <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
                   <th className="px-4 py-3 font-medium">Cuenta</th>
@@ -88,6 +93,7 @@ export function CuentasServicioPage() {
                   <th className="px-4 py-3 font-medium">Mecanismo</th>
                   <th className="px-4 py-3 font-medium">Secreto</th>
                   <th className="px-4 py-3 font-medium">Uso</th>
+                  <th className="px-4 py-3 font-medium">Predeterminada para</th>
                   <th className="px-4 py-3 font-medium">Estado</th>
                   <th className="px-4 py-3 text-right font-medium">Acciones</th>
                 </tr>
@@ -96,17 +102,19 @@ export function CuentasServicioPage() {
                 {tabla.filas.map((c) => {
                   const vigente = c.estado === 'VIGENTE'
                   const estado = c.estado ? ESTADO_CREDENCIAL[c.estado] : undefined
+                  const finalidadesPredeterminadas = FINALIDADES_CUENTA.filter(({ campoPredeterminada }) => c[campoPredeterminada])
+                    .map(({ etiqueta }) => etiqueta.toLowerCase())
                   return (
                     <tr key={c.id} className={`hover:bg-panel-muted ${vigente ? '' : 'text-ink-soft'}`}>
                       <td className="px-4 py-3">
                         <p className={`flex items-center gap-2 font-medium ${vigente ? 'text-ink' : ''}`}>
                           {c.nombre}
-                          {c.predeterminada && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
-                              <Star className="h-3 w-3 fill-current" aria-hidden="true" /> Predeterminada
-                            </span>
-                          )}
                         </p>
+                        {finalidadesPredeterminadas.length > 0 && (
+                          <em className="mt-0.5 block text-xs text-ink-faint">
+                            predeterminada del sistema para {finalidadesPredeterminadas.join(' y ')}
+                          </em>
+                        )}
                         {c.descripcion && <p className="line-clamp-2 max-w-xs text-xs text-ink-faint">{c.descripcion}</p>}
                       </td>
                       <td className="px-4 py-3 font-mono">{c.usuarioAcceso}</td>
@@ -115,17 +123,32 @@ export function CuentasServicioPage() {
                         {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}
                       </td>
                       <td className="px-4 py-3 text-ink-soft">{textoUso(c)}</td>
+                      <td className="px-4 py-3">
+                        {vigente ? (
+                          <div className="flex flex-col items-start gap-1">
+                            {FINALIDADES_CUENTA.map(({ finalidad, etiqueta, campoPredeterminada }) => (
+                              <Boton
+                                key={finalidad}
+                                variante="fantasma"
+                                className={`px-2 py-1 text-xs ${c[campoPredeterminada] ? 'text-accent' : ''}`}
+                                icono={c[campoPredeterminada] ? StarOff : Star}
+                                title={`${etiqueta}: ${c[campoPredeterminada] ? 'quitar cuenta predeterminada' : 'usar como predeterminada'}`}
+                                aria-pressed={!!c[campoPredeterminada]}
+                                disabled={cambiandoPredeterminada}
+                                onClick={() => cambiarPredeterminada(c[campoPredeterminada] ? null : c, finalidad)}
+                              >
+                                {etiqueta}
+                              </Boton>
+                            ))}
+                          </div>
+                        ) : '—'}
+                      </td>
                       <td className="px-4 py-3">{estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}</td>
                       <td className="px-4 py-3">
                         {vigente && (
                           <div className="flex justify-end gap-1">
                             <BotonIcono icono={Eye} etiqueta="Ver secreto" onClick={() => setDialogo({ tipo: 'revelar', cuenta: c })} />
                             <BotonIcono icono={Server} etiqueta="Asignar a servidores" onClick={() => setDialogo({ tipo: 'asignar', cuenta: c })} />
-                            {c.predeterminada ? (
-                              <BotonIcono icono={StarOff} etiqueta="Quitar como predeterminada" onClick={() => cambiarPredeterminada(null)} />
-                            ) : (
-                              <BotonIcono icono={Star} etiqueta="Usar como predeterminada" onClick={() => cambiarPredeterminada(c)} />
-                            )}
                             <BotonIcono icono={Pencil} etiqueta="Editar datos" onClick={() => setDialogo({ tipo: 'datos', cuenta: c })} />
                             <BotonIcono icono={KeyRound} etiqueta="Nuevo secreto" onClick={() => setDialogo({ tipo: 'secreto', cuenta: c })} />
                             <BotonIcono icono={Ban} etiqueta="Revocar" onClick={() => setDialogo({ tipo: 'revocar', cuenta: c })} />
@@ -137,7 +160,7 @@ export function CuentasServicioPage() {
                 })}
                 {lista.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
+                    <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
                       Aún no hay cuentas de servicio registradas.
                     </td>
                   </tr>
@@ -213,8 +236,8 @@ export function CuentasServicioPage() {
           cuenta={dialogo.cuenta}
           cuentas={lista}
           onCerrar={() => setDialogo(null)}
-          onAsignar={async (ids) => {
-            const resultado = await cuentasServicioApi.asignar(dialogo.cuenta.id!, ids)
+          onAsignar={async (ids, finalidad) => {
+            const resultado = await cuentasServicioApi.asignar(dialogo.cuenta.id!, ids, finalidad)
             listo(resultado.mensaje ?? 'Cuenta asignada.')
           }}
         />

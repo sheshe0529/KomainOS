@@ -90,7 +90,7 @@ public class GrupoController {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         servicio.configurar(id, new DatosConfiguracionGrupo(peticion.frecuenciaRevisionDias(),
                 peticion.frecuenciaMantenimientoDias(), peticion.modalidadPlanificacion(),
-                peticion.modoEjecucion(), peticion.idCuentaServicio()), peticion.versionEsperada(), alcance.actor());
+                peticion.modoEjecucion(), peticion.idCuentaServicioEvaluacion(), peticion.idCuentaServicioMantenimiento()), peticion.versionEsperada(), alcance.actor());
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 

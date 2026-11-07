@@ -27,15 +27,19 @@ public interface ConfiguracionServidorRepositorio extends JpaRepository<Configur
     List<ConfiguracionServidor> findAllByOrderByServidorHostnameAsc();
 
     @Query("""
-            select new com.komainos.inventario.repository.ConteoPorCuenta(c.idCuentaServicio, count(c))
-            from ConfiguracionServidor c where c.idCuentaServicio is not null group by c.idCuentaServicio""")
-    List<ConteoPorCuenta> contarPorCuenta();
+            select new com.komainos.inventario.repository.CuentasConfiguradas(c.idCuentaServicioEvaluacion, c.idCuentaServicioMantenimiento)
+            from ConfiguracionServidor c""")
+    List<CuentasConfiguradas> cuentasConfiguradas();
 
     /** Con incluirSinCuenta también cuentan los que usan la predeterminada */
     @Query("""
             select distinct so.familia from ConfiguracionServidor c
             join c.servidor s join s.versionSistemaOperativo v join v.sistemaOperativo so
-            where c.idCuentaServicio = :idCuenta or (:incluirSinCuenta = true and c.idCuentaServicio is null)""")
+            where (:evaluacion = true and (c.idCuentaServicioEvaluacion = :idCuenta
+                    or (:incluirSinCuenta = true and c.idCuentaServicioEvaluacion is null)))
+               or (:evaluacion = false and (c.idCuentaServicioMantenimiento = :idCuenta
+                    or (:incluirSinCuenta = true and c.idCuentaServicioMantenimiento is null)))""")
     Set<FamiliaSistemaOperativo> familiasQueUsan(@Param("idCuenta") Integer idCuenta,
-                                                 @Param("incluirSinCuenta") boolean incluirSinCuenta);
+                                                 @Param("incluirSinCuenta") boolean incluirSinCuenta,
+                                                 @Param("evaluacion") boolean evaluacion);
 }

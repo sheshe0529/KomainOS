@@ -81,7 +81,7 @@ public final class CredencialMapeador {
         CredencialRespuesta c = credencial(uso.cuenta());
         return new CuentaServicioRespuesta(c.id(), c.nombre(), c.usuarioAcceso(), c.descripcion(), c.estado(),
                 c.tipoAutenticacion(), c.fechaRegistro(), c.fechaSecreto(), c.fechaRevocacion(),
-                uso.servidores(), uso.grupos(), uso.predeterminada());
+                uso.servidores(), uso.grupos(), uso.predeterminadaEvaluacion(), uso.predeterminadaMantenimiento());
     }
 
     public static SecretoReveladoRespuesta revelado(Revelado r, int segundosVisible) {
@@ -93,6 +93,6 @@ public final class CredencialMapeador {
     public static ServidorAsignableRespuesta asignable(ConfiguracionServidor c) {
         Servidor s = c.getServidor();
         return new ServidorAsignableRespuesta(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(),
-                c.getIdCuentaServicio());
+                c.getIdCuentaServicioEvaluacion(), c.getIdCuentaServicioMantenimiento());
     }
 }

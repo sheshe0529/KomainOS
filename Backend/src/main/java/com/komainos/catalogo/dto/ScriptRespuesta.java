@@ -2,7 +2,8 @@ package com.komainos.catalogo.dto;
 
 import com.komainos.catalogo.model.TipoScript;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
-import com.komainos.inventario.model.TipoDato;
+import com.komainos.catalogo.model.TipoParametro;
+import com.komainos.shared.dto.ReferenciaSimple;
 
 import java.time.Instant;
 import java.util.List;
@@ -26,6 +27,7 @@ public record ScriptRespuesta(Integer id, String nombre, TipoScript tipo, String
                                    boolean vigente, Instant fechaCreacion, List<ParametroRespuesta> parametros) {
     }
 
-    public record ParametroRespuesta(String nombre, TipoDato tipo, boolean obligatorio, String valorPorDefecto) {
+    public record ParametroRespuesta(String nombre, TipoParametro tipo, String valorPorDefecto,
+                                     Integer idListaReferencia, ReferenciaSimple listaReferencia) {
     }
 }

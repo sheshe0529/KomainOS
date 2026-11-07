@@ -121,7 +121,7 @@ public class ServidorController {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
         servicio.configurar(id, new DatosConfiguracion(peticion.frecuenciaRevisionDias(),
                 peticion.frecuenciaMantenimientoDias(), peticion.modalidadPlanificacion(),
-                peticion.idCuentaServicio()), peticion.versionEsperada(), alcance.actor());
+                peticion.idCuentaServicioEvaluacion(), peticion.idCuentaServicioMantenimiento()), peticion.versionEsperada(), alcance.actor());
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 

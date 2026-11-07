@@ -1,27 +1,16 @@
 import type { ReactNode } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { TooltipContentProps } from 'recharts'
-import { CircleAlert, CircleCheck, CircleDashed, CircleX } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-import { operacionApi } from '@/api/automatizacion'
 import type { EstadoOrden, OrigenIncidencia } from '@/api/dominio'
-import type { Conteo, SaludServidores } from '@/api/types'
-import { useConsulta } from '@/hooks/useConsulta'
+import type { Conteo, ResumenGraficos } from '@/api/types'
+import type { Consulta } from '@/hooks/useConsulta'
 import { ChartCard } from '@/components/dashboard/ChartCard'
 import { ChartLegend } from '@/components/dashboard/ChartLegend'
 import { ChartTooltip } from '@/components/dashboard/ChartTooltip'
+import { EvolucionDashboard } from '@/components/dashboard/EvolucionDashboard'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { ORIGEN_INCIDENCIA } from '@/utils/automatizacion'
 import { ETIQUETA_ESTADO_ORDEN } from '@/utils/etiquetas'
-import { formatearFechaHora } from '@/utils/formato'
-
-interface GraficosAutomatizacionProps {
-  /** Periodo de los indicadores (ISO); sin él, los últimos 30 días */
-  desde?: string
-  hasta?: string
-  /** Cambiarlo vuelve a consultar */
-  version?: number
-}
 
 const COLOR = {
   exito: 'var(--color-grafico-exito)',
@@ -29,7 +18,6 @@ const COLOR = {
   advertencia: 'var(--color-grafico-advertencia)',
   error: 'var(--color-grafico-error)',
   neutro: 'var(--color-grafico-neutro)',
-  serie: 'var(--color-serie-1)',
 }
 
 /** Ejes y cuadrícula recesivos: líneas finas y sólidas, un tono sobre la superficie */
@@ -163,64 +151,8 @@ function OrdenesPorEstado({ conteos }: { conteos: Conteo[] }) {
   )
 }
 
-const SALUD: { clave: keyof SaludServidores; etiqueta: string; color: string; icono: LucideIcon; detalle: string }[] = [
-  { clave: 'normal', etiqueta: 'Normal', color: COLOR.exito, icono: CircleCheck, detalle: 'Todas sus métricas dentro de los umbrales' },
-  { clave: 'advertencia', etiqueta: 'Advertencia', color: COLOR.advertencia, icono: CircleAlert, detalle: 'Alguna métrica en advertencia' },
-  { clave: 'critico', etiqueta: 'Crítico', color: COLOR.error, icono: CircleX, detalle: 'Alguna métrica en nivel crítico' },
-  { clave: 'sinAnalisis', etiqueta: 'Sin análisis', color: COLOR.neutro, icono: CircleDashed, detalle: 'Aún no tiene un análisis concluyente' },
-]
-
-/** Parte de un todo con cuatro estados: una barra apilada y, debajo, la cifra de cada uno con su ícono */
-function SaludDeServidores({ salud }: { salud?: SaludServidores }) {
-  const cantidad = (clave: keyof SaludServidores) => salud?.[clave] ?? 0
-  const total = SALUD.reduce((suma, s) => suma + cantidad(s.clave), 0)
-  if (total === 0) {
-    return (
-      <div className="relative h-full">
-        <SinDatos>No hay servidores activos.</SinDatos>
-      </div>
-    )
-  }
-  return (
-    <div className="flex h-full flex-col justify-center gap-5">
-      <p className="text-sm text-ink-soft">
-        <span className="font-mono text-3xl font-semibold tabular-nums text-ink">{total}</span> servidores activos
-      </p>
-      <div className="flex h-6 w-full gap-0.5" role="img" aria-label="Distribución de los servidores por nivel">
-        {SALUD.filter((s) => cantidad(s.clave) > 0).map((s) => (
-          <span
-            key={s.clave}
-            title={`${s.etiqueta}: ${cantidad(s.clave)} de ${total}`}
-            className="h-full min-w-1.5 first:rounded-l last:rounded-r"
-            style={{ flexGrow: cantidad(s.clave), background: s.color }}
-          />
-        ))}
-      </div>
-      <ul className="grid grid-cols-2 gap-x-6 gap-y-3">
-        {SALUD.map(({ clave, etiqueta, color, icono: Icono, detalle }) => (
-          <li key={clave} className="flex items-start gap-2 text-sm">
-            <Icono className="mt-0.5 h-4 w-4 shrink-0" style={{ color }} aria-hidden="true" />
-            <span className="min-w-0">
-              <span className="flex items-baseline gap-2 text-ink">
-                {etiqueta}
-                <span className="font-mono font-semibold tabular-nums">{cantidad(clave)}</span>
-                <span className="text-xs text-ink-faint">{Math.round((cantidad(clave) / total) * 100)} %</span>
-              </span>
-              <span className="block text-xs text-ink-soft">{detalle}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-/**
- * Gráficos del dashboard (RF67). Cada uno responde una pregunta: cómo terminan los mantenimientos, en qué estado están
- * las órdenes, qué tan sanos están los servidores, de dónde vienen las incidencias y cómo van las ejecuciones
- */
-export function GraficosAutomatizacion({ desde, hasta, version = 0 }: GraficosAutomatizacionProps) {
-  const informe = useConsulta(() => operacionApi.graficos(desde, hasta), [desde, hasta, version])
+/** Gráficos de mantenimientos, órdenes, incidencias y ejecuciones del dashboard (RF67). */
+export function GraficosAutomatizacion({ informe }: { informe: Consulta<ResumenGraficos> }) {
   const datos = informe.datos
   const meses = (datos?.mantenimientosPorMes ?? []).map((m) => ({ ...m, etiqueta: mes(m.mes), titulo: mes(m.mes, true) }))
   const hayMantenimientos = meses.some((m) => (m.exitosos ?? 0) + (m.sinIntervencion ?? 0) + (m.conIncidencia ?? 0) + (m.noRealizados ?? 0) > 0)
@@ -233,6 +165,7 @@ export function GraficosAutomatizacion({ desde, hasta, version = 0 }: GraficosAu
   return (
     <section className="mt-6" aria-label="Gráficos del mantenimiento">
       <MensajeError error={informe.error} onReintentar={informe.recargar} />
+      <EvolucionDashboard servidores={datos?.servidoresPorMes} mantenimientos={datos?.mantenimientosEjecutadosPorMes} cargando={informe.cargando} />
       <div className="grid gap-5 xl:grid-cols-2">
         <ChartCard
           title="Mantenimientos por resultado"
@@ -271,10 +204,6 @@ export function GraficosAutomatizacion({ desde, hasta, version = 0 }: GraficosAu
 
         <ChartCard title="Órdenes por estado" description="Creadas en el periodo, según su estado actual">
           <OrdenesPorEstado conteos={datos?.ordenesPorEstado ?? []} />
-        </ChartCard>
-
-        <ChartCard title="Salud de los servidores" description="Nivel del último análisis concluyente de cada servidor activo">
-          <SaludDeServidores salud={datos?.saludServidores} />
         </ChartCard>
 
         <ChartCard
@@ -343,12 +272,6 @@ export function GraficosAutomatizacion({ desde, hasta, version = 0 }: GraficosAu
         </ChartCard>
 
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-ink-faint">
-        «No realizado» agrupa los mantenimientos rechazados, con la autorización vencida, cancelados o cerrados sin una
-        implementación compatible. En las ejecuciones, la advertencia identifica tareas terminadas cuya validación técnica
-        resultó no conforme; las tareas no iniciadas se excluyen.
-        {datos?.fechaActualizacion && ` Actualizado: ${formatearFechaHora(datos.fechaActualizacion)}.`}
-      </p>
     </section>
   )
 }

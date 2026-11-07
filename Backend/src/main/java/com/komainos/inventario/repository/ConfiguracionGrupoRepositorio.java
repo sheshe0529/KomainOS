@@ -21,16 +21,20 @@ public interface ConfiguracionGrupoRepositorio extends JpaRepository<Configuraci
     List<ConfiguracionGrupo> findByModalidadPlanificacion(ModalidadPlanificacion modalidad);
 
     @Query("""
-            select new com.komainos.inventario.repository.ConteoPorCuenta(c.idCuentaServicio, count(c))
-            from ConfiguracionGrupo c where c.idCuentaServicio is not null group by c.idCuentaServicio""")
-    List<ConteoPorCuenta> contarPorCuenta();
+            select new com.komainos.inventario.repository.CuentasConfiguradas(c.idCuentaServicioEvaluacion, c.idCuentaServicioMantenimiento)
+            from ConfiguracionGrupo c""")
+    List<CuentasConfiguradas> cuentasConfiguradas();
 
     /** La familia de un grupo es la de sus integrantes, que comparten sistema operativo (RF20) */
     @Query("""
             select distinct so.familia from ConfiguracionGrupo c
             join c.grupo g join g.integrantes i join i.servidor s
             join s.versionSistemaOperativo v join v.sistemaOperativo so
-            where c.idCuentaServicio = :idCuenta or (:incluirSinCuenta = true and c.idCuentaServicio is null)""")
+            where (:evaluacion = true and (c.idCuentaServicioEvaluacion = :idCuenta
+                    or (:incluirSinCuenta = true and c.idCuentaServicioEvaluacion is null)))
+               or (:evaluacion = false and (c.idCuentaServicioMantenimiento = :idCuenta
+                    or (:incluirSinCuenta = true and c.idCuentaServicioMantenimiento is null)))""")
     Set<FamiliaSistemaOperativo> familiasQueUsan(@Param("idCuenta") Integer idCuenta,
-                                                 @Param("incluirSinCuenta") boolean incluirSinCuenta);
+                                                 @Param("incluirSinCuenta") boolean incluirSinCuenta,
+                                                 @Param("evaluacion") boolean evaluacion);
 }

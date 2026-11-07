@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Download } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { bitacoraApi } from '@/api/automatizacion'
 import type { ResultadoMantenimiento } from '@/api/dominio'
-import type { MantenimientoBitacora, ParticipacionServidor, TareaBitacora } from '@/api/types'
+import type { MantenimientoBitacora } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
 import { Selector } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
@@ -11,7 +11,6 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { OrdenesDelObjetivo } from '@/components/planificacion/OrdenesDelObjetivo'
 import { useConsulta } from '@/hooks/useConsulta'
-import { formatearSegundos, NIVEL } from '@/utils/automatizacion'
 import {
   aniosDe,
   fechaDe,
@@ -20,7 +19,6 @@ import {
   posicionEnPeriodo,
   RESULTADO,
   resumenBitacora,
-  TONO_NIVEL,
 } from '@/utils/bitacora'
 import { ETIQUETA_ORIGEN } from '@/utils/etiquetas'
 import { formatearFecha, formatearFechaHora } from '@/utils/formato'
@@ -76,39 +74,6 @@ function Indicador({ etiqueta, valor, detalle }: { etiqueta: string; valor: stri
       <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-ink">{valor}</dd>
       {detalle && <dd className="mt-0.5 truncate text-xs text-ink-faint">{detalle}</dd>}
     </div>
-  )
-}
-
-/** Salud del servidor antes y después: lo que el mantenimiento logró */
-function Salud({ p }: { p: ParticipacionServidor }) {
-  if (!p.nivelAntes && !p.nivelDespues) return null
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-ink-soft" title="Nivel del análisis previo y de la validación técnica">
-      {p.nivelAntes ? <StatusPill tone={TONO_NIVEL[p.nivelAntes]} label={NIVEL[p.nivelAntes].etiqueta} /> : '—'}
-      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-      {p.nivelDespues ? (
-        <StatusPill tone={TONO_NIVEL[p.nivelDespues]} label={NIVEL[p.nivelDespues].etiqueta} />
-      ) : (
-        <span className="text-ink-faint">sin validar</span>
-      )}
-    </span>
-  )
-}
-
-/** Cuántas tareas tuvo y cómo terminaron: el detalle de cada una está en la orden */
-function ResumenTareas({ tareas }: { tareas: TareaBitacora[] }) {
-  const cuenta = (estado: string) => tareas.filter((t) => t.estado === estado).length
-  const fallidas = cuenta('FALLIDA')
-  const noIniciadas = cuenta('NO_INICIADA')
-  return (
-    <p className="text-xs text-ink-soft">
-      <span className="font-medium text-ink">
-        {tareas.length} {tareas.length === 1 ? 'tarea' : 'tareas'}
-      </span>
-      : {cuenta('FINALIZADA')} finalizada(s)
-      {fallidas > 0 && <span className="text-danger"> · {fallidas} fallida(s)</span>}
-      {noIniciadas > 0 && <> · {noIniciadas} sin iniciar</>}
-    </p>
   )
 }
 
@@ -227,13 +192,9 @@ function MapaDelGrupo({ mantenimientos }: { mantenimientos: MantenimientoBitacor
   )
 }
 
-function TarjetaMantenimiento({ m, grupal }: { m: MantenimientoBitacora; grupal: boolean }) {
+function TarjetaMantenimiento({ m }: { m: MantenimientoBitacora }) {
   const r = RESULTADO[m.resultado ?? 'EN_CURSO']
   const fecha = fechaDe(m)
-  const participaciones = m.servidores ?? []
-  const una = !grupal && participaciones.length === 1 ? participaciones[0] : undefined
-  const duracion =
-    m.inicioReal && m.finReal ? Math.round((new Date(m.finReal).getTime() - new Date(m.inicioReal).getTime()) / 1000) : undefined
 
   return (
     <li className="relative flex gap-4 pb-6 last:pb-0">
@@ -252,56 +213,8 @@ function TarjetaMantenimiento({ m, grupal }: { m: MantenimientoBitacora; grupal:
             {m.codigo}
           </Link>
           <StatusPill tone={r.tono} label={r.etiqueta} />
-          {m.prioridad === 'ALTA' && <span className="rounded bg-danger-soft px-1.5 py-0.5 text-xs font-medium text-danger">Alta</span>}
-          <span className="text-xs text-ink-soft">{m.origen ? ETIQUETA_ORIGEN[m.origen] : ''}</span>
-          {m.grupal && !grupal && <span className="text-xs text-ink-soft">· con el grupo {m.grupo}</span>}
-          <span className="ml-auto text-xs text-ink-faint">
-            {m.inicioReal ? `Ejecutado ${formatearFechaHora(m.inicioReal)}` : `Programado ${formatearFechaHora(m.inicioProgramado)}`}
-            {duracion !== undefined && ` · ${formatearSegundos(duracion)}`}
-          </span>
+          {m.origen && <span className="text-xs text-ink-soft">{ETIQUETA_ORIGEN[m.origen]}</span>}
         </header>
-
-        {una && (
-          <div className="mt-2 flex flex-col gap-2">
-            <Salud p={una} />
-            {(una.tareas ?? []).length > 0 ? (
-              <ResumenTareas tareas={una.tareas ?? []} />
-            ) : (
-              <p className="text-xs text-ink-faint">{r.descripcion}</p>
-            )}
-          </div>
-        )}
-
-        {!una && participaciones.length > 0 && (
-          <ul className="mt-2 flex flex-col gap-1.5">
-            {participaciones.map((p) => {
-              const rp = RESULTADO[p.resultado ?? 'EN_CURSO']
-              return (
-                <li key={p.idServidor} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                  <Punto resultado={p.resultado} className="h-2.5 w-2.5" />
-                  <Link to={`/servidores/${p.idServidor}`} className="font-mono text-ink hover:text-accent">
-                    {p.servidor}
-                  </Link>
-                  {p.piloto && <span className="rounded bg-accent-soft px-1.5 py-0.5 text-ink">Piloto</span>}
-                  <span className="text-ink-soft">{rp.etiqueta}</span>
-                  <Salud p={p} />
-                  <span className="text-ink-faint">
-                    {(p.tareas ?? []).filter((t) => t.estado === 'FINALIZADA').length}/{p.tareas?.length ?? 0} tareas
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-
-        {m.validacionFuncional && (
-          <p className="mt-2 text-xs text-ink-soft">
-            Conformidad del responsable:{' '}
-            <span className="font-medium text-ink">
-              {{ PENDIENTE: 'pendiente', CONFORME: 'conforme', RECHAZADA: 'no conforme', VENCIDA: 'vencida' }[m.validacionFuncional]}
-            </span>
-          </p>
-        )}
       </article>
     </li>
   )
@@ -466,7 +379,7 @@ export function BitacoraMantenimiento({ idServidor, idGrupo, integrantes = [], v
               ) : (
                 <ol aria-label="Historia de mantenimientos">
                   {filtrados.slice(0, visibles).map((m) => (
-                    <TarjetaMantenimiento key={m.idOrden} m={m} grupal={grupal} />
+                    <TarjetaMantenimiento key={m.idOrden} m={m} />
                   ))}
                 </ol>
               )}

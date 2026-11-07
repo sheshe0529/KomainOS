@@ -52,6 +52,10 @@ public class VersionScript {
     @Column(name = "habilitada", nullable = false)
     private boolean habilitada = true;
 
+    /** Las versiones migradas conservan la entrada automática histórica; las nuevas solo usan entradas declaradas. */
+    @Column(name = "listas_explicitas", nullable = false, updatable = false)
+    private boolean listasExplicitas = true;
+
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private Instant fechaCreacion;
 
@@ -77,5 +81,9 @@ public class VersionScript {
 
     public void habilitar(boolean valor) {
         habilitada = valor;
+    }
+
+    public boolean usaListasImplicitas() {
+        return !listasExplicitas;
     }
 }

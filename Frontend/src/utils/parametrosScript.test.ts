@@ -5,7 +5,6 @@ import { aPeticion, editables, problemaLocal, usoEnScript } from './parametrosSc
 const p = (cambios: Partial<ParametroPeticion>): ParametroPeticion => ({
   nombre: 'DIAS',
   tipo: 'INTEGER',
-  obligatorio: true,
   valorPorDefecto: '7',
   ...cambios,
 })
@@ -27,9 +26,14 @@ describe('problemaLocal: las mismas reglas que PreparadorScript del backend (RF2
     expect(problemaLocal(p({}), [p({}), p({ nombre: 'dias' })])).toBe('Nombre repetido')
   })
 
-  it('exige valor al obligatorio: la MOP se ejecuta sin intervención', () => {
+  it('exige valor a todos los escalares: la ejecución es automática', () => {
     expect(problemaLocal(p({ valorPorDefecto: '' }), [])).toContain('necesita valor')
-    expect(problemaLocal(p({ valorPorDefecto: '', obligatorio: false }), [])).toBeUndefined()
+    expect(problemaLocal(p({ valorPorDefecto: ' ' }), [])).toContain('necesita valor')
+  })
+
+  it('las listas necesitan una referencia y no un valor escrito', () => {
+    expect(problemaLocal(p({ tipo: 'LISTA', valorPorDefecto: undefined }), [])).toContain('Seleccione una lista')
+    expect(problemaLocal(p({ tipo: 'LISTA', idListaReferencia: 8, valorPorDefecto: undefined }), [])).toBeUndefined()
   })
 
   it('valida el valor según el tipo', () => {
@@ -40,13 +44,19 @@ describe('problemaLocal: las mismas reglas que PreparadorScript del backend (RF2
 
 describe('conversión de la tabla de parámetros', () => {
   it('quita la clave de edición y los espacios, y omite el valor vacío', () => {
-    const filas = editables([p({ nombre: ' RUTA ', tipo: 'STRING', valorPorDefecto: '  ', obligatorio: false })])
+    const filas = editables([p({ nombre: ' RUTA ', tipo: 'STRING', valorPorDefecto: '  ' })])
     expect(filas[0].clave).toBeTruthy()
-    expect(aPeticion(filas)).toEqual([{ nombre: 'RUTA', tipo: 'STRING', obligatorio: false, valorPorDefecto: undefined }])
+    expect(aPeticion(filas)).toEqual([{ nombre: 'RUTA', tipo: 'STRING', valorPorDefecto: undefined, idListaReferencia: undefined }])
+  })
+
+  it('envía una referencia de catálogo sin copiar elementos ni un valor escalar', () => {
+    const filas = editables([p({ nombre: 'ARCHIVOS', tipo: 'LISTA', idListaReferencia: 8, valorPorDefecto: 'anterior' })])
+    expect(aPeticion(filas)).toEqual([{ nombre: 'ARCHIVOS', tipo: 'LISTA', idListaReferencia: 8, valorPorDefecto: undefined }])
   })
 
   it('muestra cómo leer el parámetro en cada intérprete', () => {
     expect(usoEnScript('RUTA', 'bash')).toBe('"$RUTA"')
     expect(usoEnScript('RUTA', 'powershell')).toBe('$RUTA')
+    expect(usoEnScript('ARCHIVOS', 'bash', true)).toBe('"${ARCHIVOS[@]}"')
   })
 })

@@ -36,8 +36,11 @@ public abstract class ConfiguracionMantenimiento {
     @Column(name = "id_configuracion_mantenimiento")
     private Integer id;
 
-    @Column(name = "id_cuenta_servicio")
-    private Integer idCuentaServicio;
+    @Column(name = "id_cuenta_servicio_evaluacion")
+    private Integer idCuentaServicioEvaluacion;
+
+    @Column(name = "id_cuenta_servicio_mantenimiento")
+    private Integer idCuentaServicioMantenimiento;
 
     @Column(name = "frecuencia_revision_dias", nullable = false)
     private Integer frecuenciaRevisionDias;

@@ -10,6 +10,7 @@ import { MainLayout } from '@/components/layout/MainLayout'
 import { inicioPara } from '@/config/navigation'
 import {
   AlertasPage,
+  AuditoriaPage,
   AutomatizacionPage,
   CatalogosPage,
   CronogramaDiaPage,
@@ -156,6 +157,7 @@ function App() {
                 }
               />
               <Route path="/alertas" element={<AlertasPage />} />
+              <Route path="/configuracion/auditoria" element={<RutaProtegida roles={['ADMINISTRADOR']}><AuditoriaPage /></RutaProtegida>} />
               <Route path="/cronograma" element={<CronogramaPage />} />
               <Route path="/cronograma/dia/:fecha" element={<CronogramaDiaPage />} />
               <Route path="/ordenes" element={<OrdenesPage />} />

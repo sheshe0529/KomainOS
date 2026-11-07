@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -74,6 +75,10 @@ public class ServicioIncidencias {
 
         String texto = error + (orden.esGrupal() ? ". Estado de los servidores: " + estados(orden) : "");
         Incidencia incidencia = incidencias.save(Incidencia.abrir(detalle, origen, texto, ahora));
+        auditoria.registrar(Actor.sistema("AUTOMATIZACION"), Operacion.de("REGISTRAR_INCIDENCIA", "incidencia", incidencia.getId())
+                .sobreOrden(orden.getId()).sobreServidor(detalle.getServidor().getId())
+                .valores(null, Map.of("origen", origen, "estado", incidencia.getEstado()))
+                .motivo(recortar(error, 1000)));
         notificaciones.incidencia(detalle, incidencia.getId(),
                 origen == OrigenIncidencia.TIEMPO_EXCEDIDO ? TipoAlerta.VENTANA_EXCEDIDA : TipoAlerta.INCIDENCIA_REGISTRADA,
                 "Incidencia en %s · %s".formatted(orden.getCodigo(), detalle.getServidor().getHostname()),

@@ -228,7 +228,11 @@ function DetalleEtapa({
             titulo="Validación técnica"
             info="Al terminar las tareas, KomainOS vuelve a analizar cada servidor y compara cada métrica con su valor antes de intervenir. Pulse un servidor para ver la comparación de cada métrica."
           >
-            <ValidacionTecnica reporte={f.reporte ?? []} tecnicas={f.validacionesTecnicas ?? []} />
+            <ValidacionTecnica
+              reporte={f.reporte ?? []}
+              tecnicas={f.validacionesTecnicas ?? []}
+              posteriores={analisis.filter((a) => a.tipo === 'POSTERIOR')}
+            />
           </Seccion>
           <Seccion
             titulo="Conformidad del responsable"

@@ -136,13 +136,14 @@ class UmbralControllerTest {
         ListaReferencia web = ListaReferencia.nueva("Puertos web", TipoDato.INTEGER, false, AHORA);
         web.reemplazarElementos(List.of("22", "80", "443"), AHORA);
         web.reemplazarElementos(List.of("22", "443"), AHORA.plusSeconds(60));
-        when(listas.listar()).thenReturn(List.of(new ListaConUso(web, 1, 2)));
+        when(listas.listar()).thenReturn(List.of(new ListaConUso(web, 1, 2, 3)));
         mockMvc.perform(comoAdmin(get("/api/listas-referencia")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].elementos.length()").value(2))
                 .andExpect(jsonPath("$[0].elementos[1]").value("443"))
                 .andExpect(jsonPath("$[0].umbrales").value(1))
-                .andExpect(jsonPath("$[0].excepciones").value(2));
+                .andExpect(jsonPath("$[0].excepciones").value(2))
+                .andExpect(jsonPath("$[0].referenciasScript").value(3));
     }
 
     @Test

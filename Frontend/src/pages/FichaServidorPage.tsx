@@ -124,21 +124,19 @@ export function FichaServidorPage() {
       {pestana === 'datos' && (
         <>
           <div className="grid gap-6 lg:grid-cols-3">
-            <DatosGeneralesServidor servidor={s} className="lg:col-span-2" />
-            <Tarjeta titulo="Recursos">
-              <RecursosServidor cantidadCpu={s.cantidadCpu} ramGb={s.ramGb} hdVirtualGb={s.hdVirtualGb} />
-            </Tarjeta>
-          </div>
-          <div className="grid gap-6 lg:grid-cols-3">
-            <ConfiguracionMantenimientoTarjeta configuracion={s.configuracion} />
-            <div className="lg:col-span-2">
-              <VentanaPermisivaTarjeta
-                ventanas={s.ventanas ?? []}
-                vacio="Sin ventana definida: el servidor no puede planificarse."
-                onEditar={puedeEditarVentana && !dadoDeBaja ? () => setDialogo('ventanas') : undefined}
-              />
+            <DatosGeneralesServidor servidor={s} className="min-w-0 lg:col-span-2" />
+            <div className="flex min-w-0 flex-col gap-6">
+              <Tarjeta titulo="Recursos">
+                <RecursosServidor cantidadCpu={s.cantidadCpu} ramGb={s.ramGb} hdVirtualGb={s.hdVirtualGb} />
+              </Tarjeta>
+              <ConfiguracionMantenimientoTarjeta configuracion={s.configuracion} />
             </div>
           </div>
+          <VentanaPermisivaTarjeta
+            ventanas={s.ventanas ?? []}
+            vacio="Sin ventana definida: el servidor no puede planificarse."
+            onEditar={puedeEditarVentana && !dadoDeBaja ? () => setDialogo('ventanas') : undefined}
+          />
           {esAdmin && (
             <CredencialesDocumentales
               idServidor={idServidor}
@@ -200,7 +198,8 @@ export function FichaServidorPage() {
                 frecuenciaRevisionDias: datos.frecuenciaRevisionDias,
                 frecuenciaMantenimientoDias: datos.frecuenciaMantenimientoDias,
                 modalidadPlanificacion: datos.modalidadPlanificacion,
-                idCuentaServicio: datos.idCuentaServicio,
+                idCuentaServicioEvaluacion: datos.idCuentaServicioEvaluacion,
+                idCuentaServicioMantenimiento: datos.idCuentaServicioMantenimiento,
                 versionEsperada: s.configuracion?.fechaActualizacion,
               }),
               'Configuración de mantenimiento guardada.',

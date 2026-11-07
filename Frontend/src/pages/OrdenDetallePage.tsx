@@ -151,7 +151,8 @@ export function OrdenDetallePage() {
             <Dato etiqueta="Criticidad" valor={r.criticidad?.nombre} />
             <Dato etiqueta="Solicitada por" valor={o.solicitante?.nombre ?? 'Sistema'} />
             {grupal && <Dato etiqueta="Modo de ejecución" valor={o.modoEjecucionAplicado ? ETIQUETA_MODO[o.modoEjecucionAplicado] : undefined} />}
-            <Dato etiqueta="Cuenta de servicio" valor={o.cuentaServicio?.nombre ?? 'Sin cuenta asignada al generarse'} />
+            <Dato etiqueta="Cuenta de evaluación" valor={o.cuentaServicioEvaluacion?.nombre ?? 'Sin cuenta asignada al generarse'} />
+            <Dato etiqueta="Cuenta de mantenimiento" valor={o.cuentaServicioMantenimiento?.nombre ?? 'Sin cuenta asignada al generarse'} />
             <Dato etiqueta="Creada" valor={formatearFechaHora(r.fechaCreacion)} />
           </dl>
         </Tarjeta>

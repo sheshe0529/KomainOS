@@ -71,9 +71,10 @@ public class AnsibleReal implements PuertoAnsible {
 
     @Override
     public ResultadoEjecucion probarConexion(SolicitudEjecucion solicitud) {
-        String recurso = solicitud.familia() == FamiliaSistemaOperativo.WINDOWS
-                ? "/ansible/comprobaciones/acceso_windows.ps1"
-                : "/ansible/comprobaciones/acceso_linux.sh";
+        boolean evaluacion = solicitud.proposito() == com.komainos.ejecucion.model.PropositoEjecucion.CONECTIVIDAD_EVALUACION;
+        String base = evaluacion ? "acceso_evaluacion_" : "acceso_";
+        String recurso = "/ansible/comprobaciones/" + base
+                + (solicitud.familia() == FamiliaSistemaOperativo.WINDOWS ? "windows.ps1" : "linux.sh");
         try {
             return invocar(solicitud, recurso(recurso));
         } catch (IOException ex) {

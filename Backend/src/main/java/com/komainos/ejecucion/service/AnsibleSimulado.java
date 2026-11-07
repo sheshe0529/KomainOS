@@ -44,10 +44,14 @@ public class AnsibleSimulado implements PuertoAnsible {
         return switch (propiedades.escenario(s.hostname())) {
             case SIN_CONEXION -> falloConexion(s);
             case SIN_AUTENTICACION -> falloAutenticacion();
-            case SIN_PERMISOS -> ResultadoEjecucion.fallo(true, TipoFallo.PERMISOS,
+            case SIN_PERMISOS -> s.proposito() == com.komainos.ejecucion.model.PropositoEjecucion.CONECTIVIDAD_EVALUACION
+                    ? ResultadoEjecucion.exito(true, "Autenticación verificada sin exigir privilegios de administrador (simulado)", List.of())
+                    : ResultadoEjecucion.fallo(true, TipoFallo.PERMISOS,
                     "la cuenta se autenticó, pero no tiene privilegios de administrador (simulado)");
             default -> ResultadoEjecucion.exito(true,
-                    "Acceso verificado en %s (simulado): conectividad, autenticación y permisos de administrador"
+                    (s.proposito() == com.komainos.ejecucion.model.PropositoEjecucion.CONECTIVIDAD_EVALUACION
+                            ? "Acceso de evaluación verificado en %s (simulado): conectividad y autenticación"
+                            : "Acceso verificado en %s (simulado): conectividad, autenticación y permisos de administrador")
                             .formatted(s.hostname()), List.of());
         };
     }

@@ -3,6 +3,7 @@ import {
   BookOpen,
   Boxes,
   CalendarDays,
+  CalendarRange,
   ClipboardList,
   Gauge,
   KeyRound,
@@ -56,7 +57,15 @@ export const navigation: NavItem[] = [
     path: '/dashboard',
     roles: ['ADMINISTRADOR', 'OPERADOR'],
   },
-  { id: 'cronograma', label: 'Cronograma', icon: CalendarDays, path: '/cronograma' },
+  {
+    id: 'planificacion',
+    label: 'Planificación',
+    icon: CalendarRange,
+    children: [
+      { id: 'ordenes', label: 'Órdenes', icon: ClipboardList, path: '/ordenes' },
+      { id: 'cronograma', label: 'Cronograma', icon: CalendarDays, path: '/cronograma' },
+    ],
+  },
   {
     id: 'inventario',
     label: 'Inventario',
@@ -109,8 +118,6 @@ export const navigation: NavItem[] = [
       },
     ],
   },
-  // El responsable ve las órdenes de sus servidores: el backend aplica el alcance en la consulta (RF36)
-  { id: 'ordenes', label: 'Órdenes', icon: ClipboardList, path: '/ordenes' },
   // Rigen el inventario, la planificación y la evaluación de los servidores
   {
     id: 'referencias',
@@ -122,6 +129,13 @@ export const navigation: NavItem[] = [
     ],
   },
   { id: 'alertas', label: 'Mis alertas', icon: Bell, path: '/alertas' },
+  {
+    id: 'auditoria',
+    label: 'Auditoría',
+    icon: History,
+    path: '/configuracion/auditoria',
+    roles: ['ADMINISTRADOR'],
+  },
   {
     id: 'configuracion',
     label: 'Configuración',

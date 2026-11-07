@@ -40,6 +40,12 @@ public record SolicitudEjecucion(Integer idServidor, String hostname, String dir
                 PropositoEjecucion.CONECTIVIDAD, "", List.of(), maxMinutos, List.of(), List.of());
     }
 
+    public static SolicitudEjecucion conectividadEvaluacion(Integer idServidor, String hostname, String direccionIp,
+                                                            FamiliaSistemaOperativo familia, Integer cuenta, int maxMinutos) {
+        return new SolicitudEjecucion(idServidor, hostname, direccionIp, familia, cuenta,
+                PropositoEjecucion.CONECTIVIDAD_EVALUACION, "", List.of(), maxMinutos, List.of(), List.of());
+    }
+
     public boolean esAnalisis() {
         return proposito.esAnalisis();
     }

@@ -10,12 +10,14 @@ import java.util.Optional;
 public record ParametrosSistemaRespuesta(Integer maxEjecucionesConcurrentes, Integer maxDuracionTareaMinutos,
                                          Integer maxDuracionMopMinutos, Integer minCiclosRachaEstable,
                                          Integer minutosExpiracionToken, Instant fechaActualizacion,
-                                         ReferenciaSimple cuentaServicioPredeterminada) {
+                                         ReferenciaSimple cuentaServicioEvaluacionPredeterminada,
+                                         ReferenciaSimple cuentaServicioMantenimientoPredeterminada) {
 
-    public static ParametrosSistemaRespuesta de(ParametrosSistema p, Optional<CuentaEfectiva> predeterminada) {
+    public static ParametrosSistemaRespuesta de(ParametrosSistema p, Optional<CuentaEfectiva> evaluacion, Optional<CuentaEfectiva> mantenimiento) {
         return new ParametrosSistemaRespuesta(p.getMaxEjecucionesConcurrentes(), p.getMaxDuracionTareaMinutos(),
                 p.getMaxDuracionMopMinutos(), p.getMinCiclosRachaEstable(), p.getMinutosExpiracionToken(),
                 p.getFechaActualizacion(),
-                predeterminada.map(c -> new ReferenciaSimple(c.id(), c.nombre())).orElse(null));
+                evaluacion.map(c -> new ReferenciaSimple(c.id(), c.nombre())).orElse(null),
+                mantenimiento.map(c -> new ReferenciaSimple(c.id(), c.nombre())).orElse(null));
     }
 }

@@ -38,7 +38,7 @@ function Estado({ a }: { a: AnalisisRespuesta }) {
 function DetalleAnalisis({ a, onCerrar }: { a: AnalisisRespuesta; onCerrar: () => void }) {
   const titulo = `${a.tipo ? TIPO_EVALUACION[a.tipo] : 'Análisis'}${a.servidor ? ` · ${a.servidor}` : ''}`
   return (
-    <Modal abierto titulo={titulo} descripcion={formatearFechaHora(a.fechaInicio)} onCerrar={onCerrar} ancho="lg">
+    <Modal abierto titulo={titulo} descripcion={formatearFechaHora(a.fechaInicio)} onCerrar={onCerrar} ancho="2xl">
       <div className="flex flex-col gap-4">
         <dl className="grid gap-4 rounded-lg bg-panel-muted px-4 py-3 sm:grid-cols-3">
           <div>
@@ -55,7 +55,7 @@ function DetalleAnalisis({ a, onCerrar }: { a: AnalisisRespuesta; onCerrar: () =
           </div>
           <div>
             <dt className="text-xs text-ink-faint">Cuenta de servicio</dt>
-            <dd className="mt-0.5 text-sm text-ink">{a.cuenta ?? '—'}</dd>
+            <dd className="mt-0.5 break-words text-sm text-ink">{a.cuenta ?? '—'}</dd>
           </div>
         </dl>
         {a.error && <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{a.error}</p>}
@@ -77,12 +77,13 @@ export function TablaAnalisis({ analisis, conServidor = true }: TablaAnalisisPro
   return (
     <>
       <div className="overflow-x-auto rounded-lg border border-line">
-        <table className="w-full min-w-[560px] text-sm">
+        <table className="w-full min-w-[680px] text-sm">
           <thead>
             <tr className={ENCABEZADO}>
               <th className="px-3 py-2 font-medium">{conServidor ? 'Servidor' : 'Análisis'}</th>
               <th className="px-3 py-2 font-medium">Resultado</th>
               <th className="px-3 py-2 font-medium">Hallazgos</th>
+              <th className="px-3 py-2 font-medium">Cuenta de servicio</th>
               <th className="px-3 py-2 font-medium">Fecha</th>
             </tr>
           </thead>
@@ -100,6 +101,7 @@ export function TablaAnalisis({ analisis, conServidor = true }: TablaAnalisisPro
                     <Estado a={a} />
                   </td>
                   <td className={`${CELDA} ${a.estado === 'FALLIDA' ? 'text-danger' : 'text-ink-soft'}`}>{hallazgos(a)}</td>
+                  <td className={`${CELDA} break-words text-ink-soft`}>{a.cuenta ?? '—'}</td>
                   <td className={`${CELDA} whitespace-nowrap text-ink-soft`}>{formatearFechaHora(a.fechaInicio)}</td>
                 </FilaDetalle>
               )

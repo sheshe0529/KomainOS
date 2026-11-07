@@ -33,6 +33,7 @@ public class ServicioGraficosAutomatizacion {
 
     private final JdbcTemplate jdbc;
     private final Clock reloj;
+    private final ServicioEvolucionDashboard evolucion;
 
     /** Sin periodo, los últimos 30 días, igual que los indicadores (RF66) */
     @Transactional(readOnly = true)
@@ -73,8 +74,9 @@ public class ServicioGraficosAutomatizacion {
                 group by origen order by count(*) desc, origen
                 """, (rs, fila) -> new IncidenciasOrigen(rs.getString(1), rs.getLong(2), rs.getLong(3)),
                 desdePeriodo, hastaPeriodo);
+        var series = evolucion.consultar(ahora);
         return new ResumenGraficos(ahora, inicioPeriodo, finPeriodo, ejecuciones, mantenimientosPorMes(ahora),
-                ordenes, incidencias, salud());
+                ordenes, incidencias, salud(), series.servidores(), series.mantenimientos());
     }
 
     /**
@@ -143,7 +145,9 @@ public class ServicioGraficosAutomatizacion {
     public record ResumenGraficos(Instant fechaActualizacion, Instant desde, Instant hasta,
                                   List<EjecucionDia> ejecuciones, List<ResultadoMes> mantenimientosPorMes,
                                   List<Conteo> ordenesPorEstado, List<IncidenciasOrigen> incidenciasPorOrigen,
-                                  SaludServidores saludServidores) {
+                                  SaludServidores saludServidores,
+                                  List<ServicioEvolucionDashboard.ServidoresMes> servidoresPorMes,
+                                  List<ServicioEvolucionDashboard.MantenimientosMes> mantenimientosEjecutadosPorMes) {
     }
     /** @param mes AAAA-MM */
     public record ResultadoMes(String mes, long exitosos, long sinIntervencion, long conIncidencia, long noRealizados) {

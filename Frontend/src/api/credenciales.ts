@@ -1,6 +1,7 @@
 import { consulta, descargar, http } from './cliente'
 import type { FormatoArchivo } from './intercambio'
 import type {
+  AsignacionServidoresPeticion,
   CredencialPeticion,
   CredencialRespuesta,
   CuentaServicioRespuesta,
@@ -10,6 +11,8 @@ import type {
   SecretoReveladoRespuesta,
   ServidorAsignableRespuesta,
 } from './types'
+
+export type FinalidadCuentaServicio = AsignacionServidoresPeticion['finalidad']
 
 /** Operaciones comunes a credenciales documentales y cuentas de servicio (RF04, RF08) */
 export const credencialesApi = {
@@ -34,8 +37,8 @@ export const cuentasServicioApi = {
   listar: () => http.get<CuentaServicioRespuesta[]>('/cuentas-servicio'),
   registrar: (datos: CredencialPeticion) => http.post<CuentaServicioRespuesta>('/cuentas-servicio', datos),
   asignaciones: () => http.get<ServidorAsignableRespuesta[]>('/cuentas-servicio/asignaciones'),
-  asignar: (id: number, idsServidores: number[]) =>
-    http.put<ResultadoAsignacionRespuesta>(`/cuentas-servicio/${id}/servidores`, { idsServidores }),
-  definirPredeterminada: (idCuentaServicio: number | null) =>
-    http.put<CuentaServicioRespuesta[]>('/cuentas-servicio/predeterminada', { idCuentaServicio }),
+  asignar: (id: number, idsServidores: number[], finalidad: FinalidadCuentaServicio) =>
+    http.put<ResultadoAsignacionRespuesta>(`/cuentas-servicio/${id}/servidores`, { idsServidores, finalidad }),
+  definirPredeterminada: (idCuentaServicio: number | null, finalidad: FinalidadCuentaServicio) =>
+    http.put<CuentaServicioRespuesta[]>('/cuentas-servicio/predeterminada', { idCuentaServicio, finalidad }),
 }

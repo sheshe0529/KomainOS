@@ -18,7 +18,7 @@ public record MantenimientoRegistroPeticion(
     public DatosAltaMantenimiento aDatos() {
         return new DatosAltaMantenimiento(new DatosConfiguracion(configuracion.frecuenciaRevisionDias(),
                 configuracion.frecuenciaMantenimientoDias(), configuracion.modalidadPlanificacion(),
-                configuracion.idCuentaServicio()), ventanas.stream()
+                configuracion.idCuentaServicioEvaluacion(), configuracion.idCuentaServicioMantenimiento()), ventanas.stream()
                 .map(v -> new IntervaloSemanal(v.diaInicio(), v.horaInicio(), v.diaFin(), v.horaFin())).toList(),
                 configuracion.versionEsperada());
     }

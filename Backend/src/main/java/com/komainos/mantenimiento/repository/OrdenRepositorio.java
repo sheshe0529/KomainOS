@@ -113,7 +113,9 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
 
     boolean existsByServidorId(Integer idServidor);
 
-    long countByIdCuentaServicioAndEstadoIn(Integer idCuentaServicio, Collection<EstadoOrden> estados);
+    @Query("select count(o) from Orden o where o.estado in :estados and "
+            + "(o.idCuentaServicioEvaluacion = :idCuenta or o.idCuentaServicioMantenimiento = :idCuenta)")
+    long contarPendientesConCuenta(@Param("idCuenta") Integer idCuentaServicio, @Param("estados") Collection<EstadoOrden> estados);
 
     boolean existsByGrupoId(Integer idGrupo);
 

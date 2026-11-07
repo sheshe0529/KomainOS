@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { CopyPlus, FlaskConical, Pencil, Plus, Power, PowerOff } from 'lucide-react'
+import { CopyPlus, Pencil, Plus, Power, PowerOff } from 'lucide-react'
 import { scriptsApi } from '@/api/automatizacion'
 import type { ImplementacionRespuesta, ScriptRespuesta, VersionRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
@@ -8,7 +8,6 @@ import { EnlaceVolver, PageHeader } from '@/components/common/PageHeader'
 import { DiferenciasCodigo } from '@/components/automatizacion/DiferenciasCodigo'
 import { EditorCodigo } from '@/components/automatizacion/EditorCodigo'
 import { EditorParametros } from '@/components/automatizacion/EditorParametros'
-import { ProbarAnalisisModal } from '@/components/automatizacion/ProbarAnalisisModal'
 import { ScriptFormulario } from '@/components/automatizacion/ScriptFormulario'
 import { VistaPreviaScript } from '@/components/automatizacion/VistaPreviaScript'
 import { useAvisos } from '@/components/ui/avisos-context'
@@ -103,10 +102,9 @@ interface DetalleVersionProps {
   anterior?: VersionRespuesta
   esAdmin: boolean
   onCambiarEstado: () => void
-  onProbar: () => void
 }
 
-function DetalleVersion({ script, implementacion, version, anterior, esAdmin, onCambiarEstado, onProbar }: DetalleVersionProps) {
+function DetalleVersion({ script, implementacion, version, anterior, esAdmin, onCambiarEstado }: DetalleVersionProps) {
   const [pestana, setPestana] = useState<Pestana>('codigo')
   const lenguaje = lenguajeDe(implementacion)
   const parametros = version.parametros ?? []
@@ -130,16 +128,11 @@ function DetalleVersion({ script, implementacion, version, anterior, esAdmin, on
             {!version.habilitada && <StatusPill tone="neutral" label="Deshabilitada" />}
           </h3>
           <p className="mt-0.5 text-sm text-ink-soft">
-            Publicada el {formatearFechaHora(version.fechaCreacion)} · {lenguaje === 'bash' ? 'Bash' : 'PowerShell'}
+            Creada el {formatearFechaHora(version.fechaCreacion)}
           </p>
         </div>
         {esAdmin && (
           <div className="flex flex-wrap gap-2">
-            {script.tipo === 'ANALISIS' && version.habilitada && (
-              <Boton icono={FlaskConical} onClick={onProbar}>
-                Probar en un servidor
-              </Boton>
-            )}
             <Link
               to={`/automatizacion/scripts/${script.id}/publicar?implementacion=${implementacion.id}&base=${version.id}`}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3.5 py-2 text-sm font-medium text-ink transition hover:bg-panel-muted"
@@ -216,7 +209,6 @@ export function ScriptDetallePage() {
   const script = useConsulta(() => scriptsApi.obtener(idScript), [idScript])
   const [editando, setEditando] = useState(false)
   const [cambioEstado, setCambioEstado] = useState<VersionRespuesta>()
-  const [probando, setProbando] = useState(false)
   const [error, setError] = useState<unknown>()
   const [guardando, setGuardando] = useState(false)
 
@@ -379,18 +371,10 @@ export function ScriptDetallePage() {
                           v.id === version?.id ? 'border-accent bg-accent-soft' : 'border-line bg-panel hover:bg-panel-muted'
                         }`}
                       >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className={`font-mono text-sm font-medium ${v.habilitada ? 'text-ink' : 'text-ink-faint line-through'}`}>
-                            v{v.numero}
-                          </span>
-                          {v.vigente ? (
-                            <span className="text-xs font-medium text-success">Vigente</span>
-                          ) : (
-                            !v.habilitada && <span className="text-xs text-ink-faint">Deshabilitada</span>
-                          )}
+                        <span className={`block font-mono text-sm font-medium ${v.habilitada ? 'text-ink' : 'text-ink-faint line-through'}`}>
+                          v{v.numero}
                         </span>
                         <span className="block text-xs text-ink-faint">{formatearFechaHora(v.fechaCreacion)}</span>
-                        {v.notasCambio && <span className="mt-1 line-clamp-2 block text-xs text-ink-soft">{v.notasCambio}</span>}
                       </button>
                     </li>
                   ))}
@@ -410,7 +394,6 @@ export function ScriptDetallePage() {
                   anterior={anterior}
                   esAdmin={esAdmin}
                   onCambiarEstado={() => setCambioEstado(version)}
-                  onProbar={() => setProbando(true)}
                 />
               )}
             </div>
@@ -450,15 +433,6 @@ export function ScriptDetallePage() {
         </p>
       </Modal>
 
-      {probando && version && implementacion && (
-        <ProbarAnalisisModal
-          idVersion={version.id!}
-          numeroVersion={version.numero}
-          idVersionSistemaOperativo={implementacion.idVersionSistemaOperativo}
-          sistemaOperativo={implementacion.sistemaOperativo}
-          onCerrar={() => setProbando(false)}
-        />
-      )}
     </>
   )
 }

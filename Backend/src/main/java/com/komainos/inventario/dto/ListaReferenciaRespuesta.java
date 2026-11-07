@@ -19,11 +19,13 @@ public record ListaReferenciaRespuesta(
         long umbrales,
         /** Excepciones de umbral que la usan */
         long excepciones,
+        /** Parámetros de versiones de scripts, incluidas las históricas */
+        long referenciasScript,
         Instant fechaActualizacion) {
 
     public static ListaReferenciaRespuesta de(ListaConUso uso) {
         ListaReferencia l = uso.lista();
         return new ListaReferenciaRespuesta(l.getId(), l.getNombre(), l.getTipoDato(), l.isIgnoraMayusculas(),
-                l.isActivo(), l.elementosVigentes(), uso.umbrales(), uso.excepciones(), l.getFechaActualizacion());
+                l.isActivo(), l.elementosVigentes(), uso.umbrales(), uso.excepciones(), uso.referenciasScript(), l.getFechaActualizacion());
     }
 }

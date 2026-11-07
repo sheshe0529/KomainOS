@@ -60,6 +60,7 @@ class ServicioUmbralesTest {
     private final UmbralRepositorio umbrales = mock(UmbralRepositorio.class);
     private final UmbralExcepcionRepositorio excepciones = mock(UmbralExcepcionRepositorio.class);
     private final ListaReferenciaRepositorio listas = mock(ListaReferenciaRepositorio.class);
+    private final PuertoParametrosLista parametrosScripts = mock(PuertoParametrosLista.class);
     private final ServidorRepositorio servidores = mock(ServidorRepositorio.class);
     private final GrupoMantenimientoRepositorio grupos = mock(GrupoMantenimientoRepositorio.class);
     private final EntornoRepositorio entornos = mock(EntornoRepositorio.class);
@@ -103,7 +104,17 @@ class ServicioUmbralesTest {
     class Listas {
 
         private final ServicioListasReferencia servicio =
-                new ServicioListasReferencia(listas, umbrales, excepciones, auditoria, reloj);
+                new ServicioListasReferencia(listas, umbrales, excepciones, parametrosScripts, auditoria, reloj);
+
+        @Test
+        @DisplayName("RF25/RF26: una lista referenciada por un script responde conflicto y conserva el historial")
+        void eliminarUsadaEnScript() {
+            when(listas.findById(3)).thenReturn(Optional.of(ListaReferencia.nueva("Archivos", TipoDato.STRING, false, AHORA)));
+            when(parametrosScripts.contarDeLista(3)).thenReturn(2L);
+            assertThatThrownBy(() -> servicio.eliminar(3, ADMIN)).isInstanceOf(ConflictoException.class)
+                    .hasMessageContaining("2 referencia(s)").hasMessageContaining("versiones de scripts");
+            verify(listas, never()).delete(any());
+        }
 
         @Test
         @DisplayName("CP190: no se elimina la lista general de un umbral; el mensaje nombra el umbral")

@@ -24,6 +24,22 @@ class PreparadorScriptTest {
             new ParametroEjecucion("SIMULAR", TipoDato.BOOLEAN, "TRUE"),
             new ParametroEjecucion("OPCIONAL", TipoDato.STRING, null));
 
+    @Test
+    @DisplayName("RF25: listas declaradas conservan tipos, literales seguros y arreglos vacíos")
+    void listasExplicitas() {
+        var archivos = ParametroEjecucion.lista("ARCHIVOS", TipoDato.STRING, List.of("a' $(id)", "b"));
+        var puertos = ParametroEjecucion.lista("PUERTOS", TipoDato.INTEGER, List.of("022", "443"));
+        var vacia = ParametroEjecucion.lista("VACIA", TipoDato.STRING, List.of());
+        assertThat(PreparadorScript.literal(FamiliaSistemaOperativo.LINUX, archivos))
+                .isEqualTo("('a'\"'\"' $(id)' 'b')");
+        assertThat(PreparadorScript.literal(FamiliaSistemaOperativo.WINDOWS, archivos))
+                .isEqualTo("@('a'' $(id)', 'b')");
+        assertThat(PreparadorScript.literal(FamiliaSistemaOperativo.LINUX, puertos)).isEqualTo("(22 443)");
+        assertThat(PreparadorScript.literal(FamiliaSistemaOperativo.WINDOWS, puertos)).isEqualTo("@(22, 443)");
+        assertThat(PreparadorScript.literal(FamiliaSistemaOperativo.LINUX, vacia)).isEqualTo("()");
+        assertThat(PreparadorScript.literal(FamiliaSistemaOperativo.WINDOWS, vacia)).isEqualTo("@()");
+    }
+
     @Nested
     @DisplayName("Bash")
     class Bash {

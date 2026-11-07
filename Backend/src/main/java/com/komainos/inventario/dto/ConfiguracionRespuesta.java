@@ -12,10 +12,13 @@ public record ConfiguracionRespuesta(
         ModalidadPlanificacion modalidadPlanificacion,
         ModoEjecucion modoEjecucion,
         /** Cuenta propia, nula si usa la predeterminada */
-        Integer idCuentaServicio,
-        boolean usaCuentaPredeterminada,
+        Integer idCuentaServicioEvaluacion,
+        Integer idCuentaServicioMantenimiento,
+        boolean usaPredeterminadaEvaluacion,
+        boolean usaPredeterminadaMantenimiento,
         /** La que se usará: la propia o la predeterminada, nula si no hay ninguna */
-        ReferenciaSimple cuentaServicio,
+        ReferenciaSimple cuentaServicioEvaluacion,
+        ReferenciaSimple cuentaServicioMantenimiento,
         Instant fechaCreacion,
         Instant fechaActualizacion) {
 }

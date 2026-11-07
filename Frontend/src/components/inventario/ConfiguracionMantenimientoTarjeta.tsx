@@ -9,7 +9,7 @@ interface ConfiguracionMantenimientoTarjetaProps {
   conModoEjecucion?: boolean
 }
 
-/** Cada cuánto se revisa y se mantiene, cómo se planifica y con qué cuenta (RF05, RF26); la usan servidores y grupos */
+/** Frecuencias, planificación y cuentas de evaluación y mantenimiento para servidores y grupos (RF05, RF26). */
 export function ConfiguracionMantenimientoTarjeta({ configuracion, conModoEjecucion }: ConfiguracionMantenimientoTarjetaProps) {
   return (
     <Tarjeta titulo="Configuración de mantenimiento">

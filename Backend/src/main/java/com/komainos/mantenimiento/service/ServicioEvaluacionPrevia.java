@@ -7,12 +7,14 @@ import com.komainos.catalogo.model.Tarea;
 import com.komainos.catalogo.model.VersionScript;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.inventario.model.EstadoServidor;
+import com.komainos.inventario.model.ConfiguracionMantenimiento;
 import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionGrupoRepositorio;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.PuertoCuentasServicio;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
@@ -79,6 +81,7 @@ public class ServicioEvaluacionPrevia {
     private final GrupoMantenimientoRepositorio grupos;
     private final ConfiguracionServidorRepositorio configuracionesServidor;
     private final ConfiguracionGrupoRepositorio configuracionesGrupo;
+    private final PuertoCuentasServicio cuentas;
     private final BloqueoAutomatizacion bloqueo;
     private final ServicioAuditoria auditoria;
     private final Clock reloj;
@@ -94,7 +97,8 @@ public class ServicioEvaluacionPrevia {
                                     ServicioParametrosSistema parametros, ServicioServidor servidores,
                                     GrupoMantenimientoRepositorio grupos,
                                     ConfiguracionServidorRepositorio configuracionesServidor,
-                                    ConfiguracionGrupoRepositorio configuracionesGrupo, BloqueoAutomatizacion bloqueo,
+                                    ConfiguracionGrupoRepositorio configuracionesGrupo, PuertoCuentasServicio cuentas,
+                                    BloqueoAutomatizacion bloqueo,
                                     ServicioAuditoria auditoria, Clock reloj, PlatformTransactionManager transacciones) {
         this.ordenes = ordenes;
         this.mops = mops;
@@ -113,6 +117,7 @@ public class ServicioEvaluacionPrevia {
         this.grupos = grupos;
         this.configuracionesServidor = configuracionesServidor;
         this.configuracionesGrupo = configuracionesGrupo;
+        this.cuentas = cuentas;
         this.bloqueo = bloqueo;
         this.auditoria = auditoria;
         this.reloj = reloj;
@@ -157,10 +162,16 @@ public class ServicioEvaluacionPrevia {
             }
             politicas.exigirCompleta(integrantes.getFirst().getEntorno());
             Integer propia = idServidor != null
-                    ? configuracionesServidor.findByServidorId(idServidor).map(c -> c.getIdCuentaServicio()).orElse(null)
-                    : configuracionesGrupo.findByGrupoId(idGrupo).map(c -> c.getIdCuentaServicio()).orElse(null);
+                    ? configuracionesServidor.findByServidorId(idServidor).map(c -> c.getIdCuentaServicioEvaluacion()).orElse(null)
+                    : configuracionesGrupo.findByGrupoId(idGrupo).map(c -> c.getIdCuentaServicioEvaluacion()).orElse(null);
             if (evaluaciones.cuentaAplicable(propia) == null) {
                 throw new ReglaNegocioException("Asigne una cuenta de servicio o defina la predeterminada antes de lanzar");
+            }
+            Integer mantenimientoPropio = idServidor != null
+                    ? configuracionesServidor.findByServidorId(idServidor).map(c -> c.getIdCuentaServicioMantenimiento()).orElse(null)
+                    : configuracionesGrupo.findByGrupoId(idGrupo).map(c -> c.getIdCuentaServicioMantenimiento()).orElse(null);
+            if (mantenimientoPropio == null && parametros.obtener().getIdCuentaServicioMantenimientoPredeterminada() == null) {
+                throw new ReglaNegocioException("Asigne una cuenta para mantenimiento o defina su predeterminada antes de lanzar");
             }
             for (Servidor s : integrantes) {
                 if (catalogo.buscarAnalisis(s.getVersionSistemaOperativo().getId()).isEmpty()) {
@@ -203,14 +214,39 @@ public class ServicioEvaluacionPrevia {
                         .formatted(orden.getCodigo(), orden.getEstado()));
             }
             politicas.exigirCompleta(orden.getDetalles().getFirst().getServidor().getEntorno());
-            Integer cuenta = evaluaciones.cuentaAplicable(orden.getIdCuentaServicio());
+            ConfiguracionMantenimiento configuracion = null;
+            if (orden.getIdCuentaServicioEvaluacion() == null || orden.getIdCuentaServicioMantenimiento() == null) {
+                configuracion = orden.esGrupal()
+                        ? configuracionesGrupo.findByGrupoId(orden.getGrupo().getId()).orElse(null)
+                        : configuracionesServidor.findByServidorId(orden.getServidor().getId()).orElse(null);
+            }
+            Integer cuenta = orden.getIdCuentaServicioEvaluacion() != null ? orden.getIdCuentaServicioEvaluacion()
+                    : evaluaciones.cuentaAplicable(configuracion == null ? null : configuracion.getIdCuentaServicioEvaluacion());
+            Integer mantenimiento = orden.getIdCuentaServicioMantenimiento();
+            if (mantenimiento == null) {
+                mantenimiento = configuracion == null ? null : configuracion.getIdCuentaServicioMantenimiento();
+                if (mantenimiento == null) mantenimiento = parametros.obtener().getIdCuentaServicioMantenimientoPredeterminada();
+            }
             if (cuenta == null) {
-                throw new ReglaNegocioException("La orden %s no tiene cuenta de servicio y no hay una predeterminada"
+                throw new ReglaNegocioException("La orden %s no tiene cuenta de evaluación: asígnela al servidor o grupo, o defina su predeterminada"
                         .formatted(orden.getCodigo()));
             }
+            if (mantenimiento == null) {
+                throw new ReglaNegocioException("La orden %s no tiene cuenta de mantenimiento: asígnela al servidor o grupo, o defina su predeterminada"
+                        .formatted(orden.getCodigo()));
+            }
+            for (OrdenDetalle detalle : orden.getDetalles()) {
+                if (detalle.getEstado() != EstadoDetalleOrden.NO_INICIADO && detalle.getServidor().getEstado() == EstadoServidor.ACTIVO) {
+                    cuentas.exigirAsignable(cuenta, detalle.getServidor().familia());
+                    cuentas.exigirAsignable(mantenimiento, detalle.getServidor().familia());
+                }
+            }
+            Map<String, Object> cuentasAnteriores = new LinkedHashMap<>();
+            cuentasAnteriores.put("idCuentaServicioEvaluacion", orden.getIdCuentaServicioEvaluacion());
+            cuentasAnteriores.put("idCuentaServicioMantenimiento", orden.getIdCuentaServicioMantenimiento());
+            orden.completarCuentasPendientes(cuenta, mantenimiento);
             Instant ahora = Tiempo.ahora(reloj);
             orden.cambiarEstado(EstadoOrden.EN_EVALUACION, usuario(actor), "Evaluación previa del mantenimiento", ahora);
-            orden.fijarCuentaServicio(cuenta);
 
             List<Integer> iniciadas = new ArrayList<>();
             Map<Integer, String> problemas = new LinkedHashMap<>();
@@ -230,6 +266,8 @@ public class ServicioEvaluacionPrevia {
                 }
             }
             auditoria.registrar(actor, Operacion.de("INICIAR_EVALUACION_PREVIA", "orden", idOrden).sobreOrden(idOrden)
+                    .valores(cuentasAnteriores, Map.of("idCuentaServicioEvaluacion", cuenta,
+                            "idCuentaServicioMantenimiento", mantenimiento))
                     .motivo("%d servidor(es) en análisis".formatted(iniciadas.size())));
             return new Preparacion(iniciadas, problemas);
         });
@@ -284,7 +322,7 @@ public class ServicioEvaluacionPrevia {
             List<VersionScript> versiones = tareas.stream()
                     .map(t -> catalogo.compatible(t.getScript().getId(), idVersionSo).orElse(null))
                     .toList();
-            Mop mop = mops.save(Mop.generar(detalle, tareas, versiones, orden.getIdCuentaServicio(), ahora));
+            Mop mop = mops.save(Mop.generar(detalle, tareas, versiones, orden.getIdCuentaServicioMantenimiento(), ahora));
             generadas.add(mop);
             mop.getTareas().stream().filter(t -> t.getVersion() == null).map(MopTarea::getTarea).forEach(t ->
                     problemas.add("%s: la tarea «%s» no tiene una implementación habilitada para %s".formatted(servidor,

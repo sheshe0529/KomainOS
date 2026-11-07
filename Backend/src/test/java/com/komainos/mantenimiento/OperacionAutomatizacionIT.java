@@ -201,7 +201,7 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
                     Integer.class);
             String cuerpo = """
                     {"idVersionSistemaOperativo":%d,"contenido":"Get-Process | Select-Object -First $TOP","notasCambio":"Primera",
-                     "parametros":[{"nombre":"TOP","tipo":"INTEGER","obligatorio":true,"valorPorDefecto":"5"}]}""".formatted(version2022);
+                     "parametros":[{"nombre":"TOP","tipo":"INTEGER","valorPorDefecto":"5"}]}""".formatted(version2022);
 
             mvc.perform(post("/api/scripts/{id}/implementaciones", idScript).with(como(admin))
                             .contentType("application/json").content(cuerpo))
@@ -214,19 +214,19 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
         }
 
         @Test
-        @DisplayName("Un parámetro obligatorio sin valor y un param() en PowerShell se rechazan con el motivo")
+        @DisplayName("Un parámetro sin valor y un param() en PowerShell se rechazan con el motivo")
         void reglasDeParametros() throws Exception {
             Integer implementacion = jdbc.queryForObject("select i.id_script_implementacion from script_implementacion i "
                     + "join script s using (id_script) where s.nombre = 'Liberar archivos temporales'", Integer.class);
 
             mvc.perform(post("/api/scripts/implementaciones/{id}/versiones", implementacion).with(como(admin))
                             .contentType("application/json")
-                            .content("{\"contenido\":\"echo $DIAS\",\"parametros\":[{\"nombre\":\"DIAS\",\"tipo\":\"INTEGER\",\"obligatorio\":true}]}"))
+                            .content("{\"contenido\":\"echo $DIAS\",\"parametros\":[{\"nombre\":\"DIAS\",\"tipo\":\"INTEGER\"}]}"))
                     .andExpect(status().isUnprocessableEntity())
-                    .andExpect(jsonPath("$.mensaje").value(Matchers.containsString("necesita un valor por defecto")));
+                    .andExpect(jsonPath("$.mensaje").value(Matchers.containsString("necesita un valor")));
             mvc.perform(post("/api/scripts/vista-previa").with(como(operador)).contentType("application/json")
                             .content("{\"familia\":\"WINDOWS\",\"contenido\":\"param($X)\\nWrite-Output $X\",\"parametros\":"
-                                    + "[{\"nombre\":\"X\",\"tipo\":\"STRING\",\"obligatorio\":false,\"valorPorDefecto\":\"a\"}]}"))
+                                    + "[{\"nombre\":\"X\",\"tipo\":\"STRING\",\"valorPorDefecto\":\"a\"}]}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.problemas[0]").value(Matchers.containsString("param()")))
                     .andExpect(jsonPath("$.contenido").value(Matchers.containsString("$X = 'a'")));

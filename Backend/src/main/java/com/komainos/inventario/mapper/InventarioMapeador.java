@@ -71,7 +71,7 @@ public final class InventarioMapeador {
                 s.getEstado(),
                 s.getFechaAlta(),
                 s.getFechaActualizacion(),
-                ficha.configuracion().map(c -> configuracion(c, ficha.cuentaServicio())).orElse(null),
+                ficha.configuracion().map(c -> configuracion(c, ficha.cuentaServicioEvaluacion(), ficha.cuentaServicioMantenimiento())).orElse(null),
                 ventanas(s.getVentanas()),
                 ficha.grupos().stream().map(g -> new ReferenciaSimple(g.getId(), g.getNombre())).toList(),
                 ficha.bajaPendiente().map(InventarioMapeador::solicitud).orElse(null),
@@ -82,12 +82,14 @@ public final class InventarioMapeador {
                         .toList());
     }
 
-    public static ConfiguracionRespuesta configuracion(ConfiguracionMantenimiento c, Optional<CuentaEfectiva> cuenta) {
+    public static ConfiguracionRespuesta configuracion(ConfiguracionMantenimiento c, Optional<CuentaEfectiva> evaluacion, Optional<CuentaEfectiva> mantenimiento) {
         return new ConfiguracionRespuesta(
                 c.getFrecuenciaRevisionDias(), c.getFrecuenciaMantenimientoDias(), c.getModalidadPlanificacion(),
                 c instanceof ConfiguracionGrupo g ? g.getModoEjecucion() : null,
-                c.getIdCuentaServicio(), c.getIdCuentaServicio() == null,
-                cuenta.map(e -> new ReferenciaSimple(e.id(), e.nombre())).orElse(null),
+                c.getIdCuentaServicioEvaluacion(), c.getIdCuentaServicioMantenimiento(),
+                c.getIdCuentaServicioEvaluacion() == null, c.getIdCuentaServicioMantenimiento() == null,
+                evaluacion.map(e -> new ReferenciaSimple(e.id(), e.nombre())).orElse(null),
+                mantenimiento.map(e -> new ReferenciaSimple(e.id(), e.nombre())).orElse(null),
                 c.getFechaCreacion(), c.getFechaActualizacion());
     }
 
@@ -141,7 +143,7 @@ public final class InventarioMapeador {
                 referencia == null ? null : new ReferenciaSimple(referencia.getResponsable().getId(),
                         referencia.getResponsable().getNombreCompleto()),
                 referencia == null ? null : sistemaOperativo(referencia),
-                ficha.configuracion().map(c -> configuracion(c, ficha.cuentaServicio())).orElse(null),
+                ficha.configuracion().map(c -> configuracion(c, ficha.cuentaServicioEvaluacion(), ficha.cuentaServicioMantenimiento())).orElse(null),
                 servidores.stream().map(InventarioMapeador::resumen).toList(),
                 ficha.ventanaEfectiva() == null ? List.of() : intervalos(ficha.ventanaEfectiva()),
                 g.getFechaCreacion(), g.getFechaActualizacion());

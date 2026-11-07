@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Save, Search } from 'lucide-react'
 import { cuentasServicioApi } from '@/api/credenciales'
+import type { FinalidadCuentaServicio } from '@/api/credenciales'
 import type { CuentaServicioRespuesta, ServidorAsignableRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
+import { Campo, Selector } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { useConsulta } from '@/hooks/useConsulta'
 import { ETIQUETA_FAMILIA } from '@/utils/etiquetas'
+import { FINALIDADES_CUENTA } from '@/utils/cuentasServicio'
 
 interface AsignarServidoresModalProps {
   abierto: boolean
@@ -15,26 +18,28 @@ interface AsignarServidoresModalProps {
   /** Para mostrar el nombre de la cuenta que cada servidor tiene ahora */
   cuentas: CuentaServicioRespuesta[]
   onCerrar: () => void
-  onAsignar: (idsServidores: number[]) => Promise<void>
+  onAsignar: (idsServidores: number[], finalidad: FinalidadCuentaServicio) => Promise<void>
 }
 
 /** RF07: la cuenta vive en la configuración de mantenimiento, por eso solo se listan servidores configurados */
 export function AsignarServidoresModal({ abierto, cuenta, cuentas, onCerrar, onAsignar }: AsignarServidoresModalProps) {
   const [seleccion, setSeleccion] = useState<number[]>([])
   const [texto, setTexto] = useState('')
+  const [finalidad, setFinalidad] = useState<FinalidadCuentaServicio>('MANTENIMIENTO')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
   const servidores = useConsulta(() => cuentasServicioApi.asignaciones(), [])
 
   const nombres = useMemo(() => new Map(cuentas.map((c) => [c.id, c.nombre])), [cuentas])
-  const predeterminada = cuentas.find((c) => c.predeterminada)
+  const campos = FINALIDADES_CUENTA.find((item) => item.finalidad === finalidad)!
+  const predeterminada = cuentas.find((c) => c[campos.campoPredeterminada])
   const visibles = (servidores.datos ?? []).filter((s) => {
     const t = texto.trim().toLowerCase()
     return !t || s.hostname?.toLowerCase().includes(t) || s.direccionIp?.includes(t)
   })
 
   function motivoNoAsignable(s: ServidorAsignableRespuesta): string | null {
-    if (s.idCuentaServicio === cuenta.id) return 'Ya usa esta cuenta'
+    if (s[campos.campoId] === cuenta.id) return 'Ya usa esta cuenta'
     if (s.familia === 'WINDOWS' && cuenta.tipoAutenticacion === 'LLAVE_SSH') return 'Windows: requiere contraseña'
     return null
   }
@@ -54,7 +59,7 @@ export function AsignarServidoresModal({ abierto, cuenta, cuentas, onCerrar, onA
     setGuardando(true)
     setError(undefined)
     try {
-      await onAsignar(seleccion)
+      await onAsignar(seleccion, finalidad)
     } catch (e) {
       setError(e)
     } finally {
@@ -62,9 +67,14 @@ export function AsignarServidoresModal({ abierto, cuenta, cuentas, onCerrar, onA
     }
   }
 
-  function cuentaActual(s: ServidorAsignableRespuesta): string {
-    if (s.idCuentaServicio) return nombres.get(s.idCuentaServicio) ?? `#${s.idCuentaServicio}`
-    return predeterminada ? `Predeterminada (${predeterminada.nombre})` : 'Predeterminada (sin definir)'
+  function cuentaActual(s: ServidorAsignableRespuesta) {
+    const id = s[campos.campoId]
+    if (id) return nombres.get(id) ?? `#${id}`
+    return predeterminada ? (
+      <>{predeterminada.nombre} <em className="text-ink-faint">predeterminada del sistema</em></>
+    ) : (
+      <><em>Predeterminada del sistema</em> (sin definir)</>
+    )
   }
 
   return (
@@ -73,7 +83,7 @@ export function AsignarServidoresModal({ abierto, cuenta, cuentas, onCerrar, onA
       onCerrar={onCerrar}
       ancho="lg"
       titulo={`Asignar ${cuenta.nombre} a servidores`}
-      descripcion="Reemplaza la cuenta de servicio de la configuración de cada servidor seleccionado. Aplica a las órdenes que se generen después."
+      descripcion="Elija si la cuenta se usará para evaluar o para ejecutar el mantenimiento. Aplica a las órdenes que se generen después."
       pie={
         <>
           <span className="mr-auto self-center text-sm text-ink-soft">{seleccion.length} seleccionados</span>
@@ -86,6 +96,14 @@ export function AsignarServidoresModal({ abierto, cuenta, cuentas, onCerrar, onA
     >
       <div className="flex flex-col gap-3">
         <MensajeError error={error ?? servidores.error} />
+        <Campo etiqueta="Finalidad de la asignación">
+          <Selector value={finalidad} disabled={guardando} onChange={(evento) => {
+            setFinalidad(evento.target.value as FinalidadCuentaServicio)
+            setSeleccion([])
+          }}>
+            {FINALIDADES_CUENTA.map((item) => <option key={item.finalidad} value={item.finalidad}>{item.etiqueta}</option>)}
+          </Selector>
+        </Campo>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-line px-3 py-2">
             <Search className="h-4 w-4 text-ink-faint" aria-hidden="true" />
@@ -122,7 +140,7 @@ export function AsignarServidoresModal({ abierto, cuenta, cuentas, onCerrar, onA
                       <span className="font-mono text-ink">{s.hostname}</span>
                       <span className="ml-2 font-mono text-xs text-ink-faint">{s.direccionIp}</span>
                       <span className="block text-xs text-ink-soft">
-                        {s.familia ? ETIQUETA_FAMILIA[s.familia] : ''} · Cuenta actual: {cuentaActual(s)}
+                        {s.familia ? ETIQUETA_FAMILIA[s.familia] : ''} · {campos.etiqueta}: {cuentaActual(s)}
                       </span>
                     </span>
                     {motivo && <span className="text-xs text-ink-faint">{motivo}</span>}

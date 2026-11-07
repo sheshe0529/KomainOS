@@ -8,5 +8,5 @@ public record ServidorAsignableRespuesta(
         String hostname,
         String direccionIp,
         FamiliaSistemaOperativo familia,
-        Integer idCuentaServicio) {
+        Integer idCuentaServicioEvaluacion, Integer idCuentaServicioMantenimiento) {
 }

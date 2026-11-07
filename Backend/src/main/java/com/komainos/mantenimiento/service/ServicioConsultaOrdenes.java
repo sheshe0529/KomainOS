@@ -52,15 +52,17 @@ public class ServicioConsultaOrdenes {
     @Transactional(readOnly = true)
     public DetalleOrden detalle(Integer id, AlcanceUsuario alcance) {
         Orden orden = obtener(id, alcance);
-        Optional<String> cuenta = orden.getIdCuentaServicio() == null
-                ? Optional.empty() : cuentas.nombre(orden.getIdCuentaServicio());
+        Optional<String> evaluacion = orden.getIdCuentaServicioEvaluacion() == null
+                ? Optional.empty() : cuentas.nombre(orden.getIdCuentaServicioEvaluacion());
+        Optional<String> mantenimiento = orden.getIdCuentaServicioMantenimiento() == null
+                ? Optional.empty() : cuentas.nombre(orden.getIdCuentaServicioMantenimiento());
         List<OrdenDetalle> visibles = orden.getDetalles().stream()
                 .filter(d -> alcance.veTodoElInventario() || d.getServidor().esVisiblePara(alcance.usuarioId()))
                 .toList();
-        return new DetalleOrden(orden, cuenta, visibles);
+        return new DetalleOrden(orden, evaluacion, mantenimiento, visibles);
     }
 
     /** detalles: los que el usuario puede ver, no necesariamente todos los de la orden */
-    public record DetalleOrden(Orden orden, Optional<String> cuentaServicio, List<OrdenDetalle> detalles) {
+    public record DetalleOrden(Orden orden, Optional<String> cuentaServicioEvaluacion, Optional<String> cuentaServicioMantenimiento, List<OrdenDetalle> detalles) {
     }
 }

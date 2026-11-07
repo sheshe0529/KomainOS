@@ -61,7 +61,7 @@ public abstract class PruebaIntegracion {
         jdbc.update("""
                 UPDATE configuracion_sistema SET max_ejecuciones_concurrentes = 10, max_duracion_tarea_minutos = 60,
                     max_duracion_mop_minutos = 240, min_ciclos_racha_estable = 5, minutos_expiracion_token = 60,
-                    id_cuenta_servicio_predeterminada = NULL""");
+                    id_cuenta_servicio_evaluacion_predeterminada = NULL, id_cuenta_servicio_mantenimiento_predeterminada = NULL""");
         // configuracion_sistema referencia cuenta_servicio: TRUNCATE no la admite, se borra en cascada desde credencial
         jdbc.update("DELETE FROM credencial");
     }

@@ -4,12 +4,14 @@ import { Save } from 'lucide-react'
 import { cuentasServicioApi } from '@/api/credenciales'
 import type { FamiliaSistemaOperativo, ModalidadPlanificacion, ModoEjecucion } from '@/api/dominio'
 import type { ConfiguracionRespuesta } from '@/api/types'
+import { SelectorCuentaServicio } from '@/components/credenciales/SelectorCuentaServicio'
 import { Boton } from '@/components/ui/Boton'
-import { Campo, Entrada, Selector } from '@/components/ui/Campo'
+import { Campo, Entrada } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { useConsulta } from '@/hooks/useConsulta'
-import { ETIQUETA_AUTENTICACION, ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
+import { FINALIDADES_CUENTA } from '@/utils/cuentasServicio'
+import { ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
 
 export interface DatosConfiguracion {
@@ -17,8 +19,9 @@ export interface DatosConfiguracion {
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion: ModalidadPlanificacion
   modoEjecucion?: ModoEjecucion
-  /** Nula: usa la cuenta predeterminada del sistema (RF06) */
-  idCuentaServicio?: number
+  /** Cada asignación omitida usa la predeterminada de su finalidad (RF06). */
+  idCuentaServicioEvaluacion?: number
+  idCuentaServicioMantenimiento?: number
 }
 
 interface ConfiguracionModalProps {
@@ -50,11 +53,12 @@ export function ConfiguracionModal({
   const [mantenimiento, setMantenimiento] = useState(actual?.frecuenciaMantenimientoDias?.toString() ?? '')
   const [modalidad, setModalidad] = useState<ModalidadPlanificacion>(actual?.modalidadPlanificacion ?? 'AUTOMATICA')
   const [modo, setModo] = useState<ModoEjecucion>(actual?.modoEjecucion ?? 'SECUENCIAL')
-  const [cuenta, setCuenta] = useState(actual?.idCuentaServicio?.toString() ?? '')
+  const [asignaciones, setAsignaciones] = useState({
+    idCuentaServicioEvaluacion: actual?.idCuentaServicioEvaluacion,
+    idCuentaServicioMantenimiento: actual?.idCuentaServicioMantenimiento,
+  })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
-
-  const predeterminada = cuentas.datos?.find((c) => c.predeterminada)
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault()
@@ -66,7 +70,7 @@ export function ConfiguracionModal({
         frecuenciaMantenimientoDias: mantenimiento ? Number(mantenimiento) : undefined,
         modalidadPlanificacion: modalidad,
         modoEjecucion: conModoEjecucion ? modo : undefined,
-        idCuentaServicio: cuenta ? Number(cuenta) : undefined,
+        ...asignaciones,
       })
     } catch (e) {
       setError(e)
@@ -150,32 +154,18 @@ export function ConfiguracionModal({
           </fieldset>
         )}
 
-        <Campo
-          etiqueta="Cuenta de servicio"
-          error={errorDeCampo(error, 'idCuentaServicio')}
-          ayuda={
-            familia === 'WINDOWS'
-              ? 'Servidores Windows: solo cuentas con contraseña (WinRM).'
-              : 'Con la que se conectarán los mantenimientos. Se gestionan en Configuración › Cuentas de servicio.'
-          }
-        >
-          <Selector value={cuenta} onChange={(e) => setCuenta(e.target.value)} disabled={cuentas.cargando}>
-            <option value="">
-              {predeterminada ? `Predeterminada del sistema (${predeterminada.nombre})` : 'Predeterminada del sistema (sin definir)'}
-            </option>
-            {(cuentas.datos ?? [])
-              .filter((c) => c.estado === 'VIGENTE' || String(c.id) === cuenta)
-              .map((c) => (
-                <option
-                  key={c.id}
-                  value={String(c.id)}
-                  disabled={c.estado !== 'VIGENTE' || (familia === 'WINDOWS' && c.tipoAutenticacion === 'LLAVE_SSH')}
-                >
-                  {`${c.nombre} · ${c.usuarioAcceso} · ${c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : ''}`}
-                </option>
-              ))}
-          </Selector>
-        </Campo>
+        {FINALIDADES_CUENTA.map(({ finalidad, campoId }) => (
+          <SelectorCuentaServicio
+            key={finalidad}
+            finalidad={finalidad}
+            cuentas={cuentas.datos ?? []}
+            valor={asignaciones[campoId]}
+            onCambiar={(id) => setAsignaciones((actuales) => ({ ...actuales, [campoId]: id }))}
+            familia={familia}
+            deshabilitado={cuentas.cargando}
+            error={errorDeCampo(error, campoId)}
+          />
+        ))}
         {cuentas.error ? <MensajeError error={cuentas.error} /> : null}
       </form>
     </Modal>

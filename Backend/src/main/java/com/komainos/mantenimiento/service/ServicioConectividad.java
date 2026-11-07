@@ -7,6 +7,8 @@ import com.komainos.ejecucion.model.SolicitudEjecucion;
 import com.komainos.ejecucion.model.TipoFallo;
 import com.komainos.ejecucion.service.EjecutorRemoto;
 import com.komainos.inventario.model.GrupoMantenimiento;
+import com.komainos.inventario.model.FinalidadCuenta;
+import com.komainos.inventario.service.ServicioAsignacionCuentas;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionGrupoRepositorio;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
@@ -64,19 +66,20 @@ public class ServicioConectividad {
         this.transaccion = new TransactionTemplate(transacciones);
     }
 
-    public ResultadoConexion probarServidor(Integer idServidor, Integer idCuentaCandidata, Actor actor) {
+    public ResultadoConexion probarServidor(Integer idServidor, Integer idCuentaCandidata, FinalidadCuenta finalidad, Actor actor) {
         Prueba prueba = transaccion.execute(estado -> {
             Servidor s = servidores.obtenerSinAlcance(idServidor);
             Integer cuenta = idCuentaCandidata != null ? idCuentaCandidata : configuracionesServidor.findByServidorId(idServidor)
-                    .map(c -> c.getIdCuentaServicio()).orElse(parametros.obtener().getIdCuentaServicioPredeterminada());
-            return preparar(s, cuenta);
+                    .map(c -> ServicioAsignacionCuentas.propia(c, finalidad))
+                    .orElse(ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad));
+            return preparar(s, cuenta, finalidad);
         });
         ResultadoConexion resultado = ejecutar(prueba);
-        auditar(actor, "servidor " + prueba.hostname(), List.of(resultado), idServidor);
+        auditar(actor, "servidor " + prueba.hostname() + " · " + finalidad, List.of(resultado), idServidor);
         return resultado;
     }
 
-    public List<ResultadoConexion> probarGrupo(Integer idGrupo, Integer idCuentaCandidata, Actor actor) {
+    public List<ResultadoConexion> probarGrupo(Integer idGrupo, Integer idCuentaCandidata, FinalidadCuenta finalidad, Actor actor) {
         List<Prueba> pruebas = transaccion.execute(estado -> {
             GrupoMantenimiento grupo = grupos.findConIntegrantesById(idGrupo)
                     .orElseThrow(() -> RecursoNoEncontradoException.de("el grupo", idGrupo));
@@ -84,8 +87,9 @@ public class ServicioConectividad {
                 throw new ReglaNegocioException("El grupo %s no tiene integrantes".formatted(grupo.getNombre()));
             }
             Integer cuenta = idCuentaCandidata != null ? idCuentaCandidata : configuracionesGrupo.findByGrupoId(idGrupo)
-                    .map(c -> c.getIdCuentaServicio()).orElse(parametros.obtener().getIdCuentaServicioPredeterminada());
-            return grupo.servidores().stream().map(s -> preparar(s, cuenta)).toList();
+                    .map(c -> ServicioAsignacionCuentas.propia(c, finalidad))
+                    .orElse(ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad));
+            return grupo.servidores().stream().map(s -> preparar(s, cuenta, finalidad)).toList();
         });
         List<ResultadoConexion> resultados = Collections.synchronizedList(new ArrayList<>());
         Paralelo.paraCada(pruebas, p -> resultados.add(ejecutar(p)))
@@ -93,12 +97,12 @@ public class ServicioConectividad {
         List<ResultadoConexion> ordenados = resultados.stream()
                 .sorted(Comparator.comparing(ResultadoConexion::servidor))
                 .toList();
-        auditar(actor, "grupo " + idGrupo, ordenados, null);
+        auditar(actor, "grupo " + idGrupo + " · " + finalidad, ordenados, null);
         return ordenados;
     }
 
     /** La cuenta debe existir, estar vigente y servir para la familia del servidor (una llave SSH no sirve en WinRM) */
-    private Prueba preparar(Servidor s, Integer cuenta) {
+    private Prueba preparar(Servidor s, Integer cuenta, FinalidadCuenta finalidad) {
         if (cuenta == null) {
             throw new ReglaNegocioException("Asigne una cuenta de servicio o defina la predeterminada para probar el acceso");
         }
@@ -109,8 +113,10 @@ public class ServicioConectividad {
         } catch (ReglaNegocioException ex) {
             problema = ex.getMessage();
         }
-        return new Prueba(s.getId(), s.getHostname(), cuenta, nombre, problema, SolicitudEjecucion.conectividad(
-                s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(), cuenta, 2));
+        SolicitudEjecucion solicitud = finalidad == FinalidadCuenta.EVALUACION
+                ? SolicitudEjecucion.conectividadEvaluacion(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(), cuenta, 2)
+                : SolicitudEjecucion.conectividad(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(), cuenta, 2);
+        return new Prueba(s.getId(), s.getHostname(), cuenta, nombre, problema, solicitud);
     }
 
     private ResultadoConexion ejecutar(Prueba p) {

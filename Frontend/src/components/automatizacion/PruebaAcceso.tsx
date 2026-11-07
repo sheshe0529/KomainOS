@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { PlugZap } from 'lucide-react'
 import { analisisApi } from '@/api/automatizacion'
 import { cuentasServicioApi } from '@/api/credenciales'
+import type { FinalidadCuentaServicio } from '@/api/credenciales'
 import type { ConexionRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
 import { Selector } from '@/components/ui/Campo'
@@ -9,6 +10,7 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { detalleFallo, FALLO } from '@/utils/automatizacion'
+import { FINALIDADES_CUENTA, rotuloCuentaServicio } from '@/utils/cuentasServicio'
 import { ResultadoFallo } from './ResultadoFallo'
 
 interface PruebaAccesoProps {
@@ -19,12 +21,12 @@ interface PruebaAccesoProps {
 }
 
 /**
- * Verifica conectividad, autenticación y permisos de administrador (RF71, CP021) con la cuenta asignada o con una
- * candidata antes de asignarla. No ejecuta ningún mantenimiento
+ * Prueba la cuenta asignada o una candidata con los permisos de su finalidad (RF71, CP021).
  */
 export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoProps) {
   const cuentas = useConsulta(() => cuentasServicioApi.listar(), [])
   const [idCuenta, setIdCuenta] = useState('')
+  const [finalidad, setFinalidad] = useState<FinalidadCuentaServicio>('MANTENIMIENTO')
   const [resultados, setResultados] = useState<ConexionRespuesta[]>()
   const [probando, setProbando] = useState(false)
   const [error, setError] = useState<unknown>()
@@ -36,7 +38,7 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
     try {
       const cuenta = idCuenta ? Number(idCuenta) : undefined
       setResultados(
-        idGrupo ? await analisisApi.probarGrupo(idGrupo, cuenta) : [await analisisApi.probarServidor(idServidor!, cuenta)],
+        idGrupo ? await analisisApi.probarGrupo(idGrupo, cuenta, finalidad) : [await analisisApi.probarServidor(idServidor!, cuenta, finalidad)],
       )
     } catch (e) {
       setError(e)
@@ -52,17 +54,33 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
       <div className="flex flex-wrap items-center gap-2">
         {descripcion && <p className="min-w-0 flex-1 basis-72 text-sm text-ink-soft">{descripcion}</p>}
         <Selector
+          aria-label="Finalidad del acceso a probar"
+          className="!w-auto"
+          value={finalidad}
+          disabled={probando}
+          onChange={(evento) => {
+            setFinalidad(evento.target.value as FinalidadCuentaServicio)
+            setResultados(undefined)
+          }}
+        >
+          {FINALIDADES_CUENTA.map((item) => <option key={item.finalidad} value={item.finalidad}>{item.etiqueta}</option>)}
+        </Selector>
+        <Selector
           aria-label="Cuenta de servicio a probar"
           className="!w-auto min-w-56"
           value={idCuenta}
-          onChange={(e) => setIdCuenta(e.target.value)}
+          disabled={probando}
+          onChange={(e) => {
+            setIdCuenta(e.target.value)
+            setResultados(undefined)
+          }}
         >
-          <option value="">{idGrupo ? 'Cuenta asignada a cada servidor' : 'Cuenta asignada al servidor'}</option>
+          <option value="">Cuenta de {finalidad === 'EVALUACION' ? 'evaluación' : 'mantenimiento'} del {idGrupo ? 'grupo' : 'servidor'}</option>
           {cuentas.datos
             ?.filter((c) => c.estado === 'VIGENTE')
             .map((c) => (
               <option key={c.id} value={c.id}>
-                Probar con {c.nombre}
+                Probar con {rotuloCuentaServicio(c)}
               </option>
             ))}
         </Selector>
@@ -70,6 +88,11 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
           {idGrupo ? 'Probar todos los integrantes' : 'Probar acceso'}
         </Boton>
       </div>
+      <p className="text-xs text-ink-faint">
+        {finalidad === 'EVALUACION'
+          ? 'Comprueba la conexión para evaluar sin exigir privilegios de administrador.'
+          : 'Comprueba la conexión y los privilegios necesarios para ejecutar el mantenimiento.'}
+      </p>
 
       <MensajeError error={error} />
 

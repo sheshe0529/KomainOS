@@ -17,9 +17,9 @@ import { ETIQUETA_TIPO_DATO } from '@/utils/umbrales'
 import { ListaFormulario } from './ListaFormulario'
 
 /** Listas de referencia: conjuntos esperados o permitidos con los que se comparan las métricas de lista */
-export function ListasTab({ esAdmin = false }: { esAdmin?: boolean }) {
+export function ListasTab({ esAdmin = false, visita }: { esAdmin?: boolean; visita: number }) {
   const { avisar } = useAvisos()
-  const listas = useConsulta(() => listasApi.listar(), [])
+  const listas = useConsulta(() => listasApi.listar(), [visita])
   const tabla = usePaginacionLocal(listas.datos ?? [], 'listas')
   const [editando, setEditando] = useState<ListaReferenciaRespuesta | 'nueva' | null>(null)
   const [eliminando, setEliminando] = useState<ListaReferenciaRespuesta | null>(null)
@@ -49,7 +49,7 @@ export function ListasTab({ esAdmin = false }: { esAdmin?: boolean }) {
     }
   }
 
-  const usos = (l: ListaReferenciaRespuesta) => (l.umbrales ?? 0) + (l.excepciones ?? 0)
+  const usos = (l: ListaReferenciaRespuesta) => (l.umbrales ?? 0) + (l.excepciones ?? 0) + (l.referenciasScript ?? 0)
 
   return (
     <div className="flex flex-col gap-4">
@@ -88,9 +88,10 @@ export function ListasTab({ esAdmin = false }: { esAdmin?: boolean }) {
                     </td>
                     <td
                       className="px-4 py-3 tabular-nums text-ink-soft"
-                      title={`${l.umbrales ?? 0} umbral(es) y ${l.excepciones ?? 0} excepción(es)`}
+                      title={`${l.umbrales ?? 0} umbral(es), ${l.excepciones ?? 0} excepción(es) y ${l.referenciasScript ?? 0} referencia(s) de scripts`}
                     >
                       {usos(l)}
+                      {!!l.referenciasScript && <span className="block text-xs text-ink-faint">{l.referenciasScript} en scripts</span>}
                     </td>
                     <td className="px-4 py-3">
                       <StatusPill tone={l.activo ? 'success' : 'neutral'} label={l.activo ? 'Activa' : 'Inactiva'} />
@@ -103,7 +104,9 @@ export function ListasTab({ esAdmin = false }: { esAdmin?: boolean }) {
                           etiqueta={l.activo ? 'Desactivar' : 'Activar'}
                           onClick={() => cambiarEstado(l)}
                         />
-                        <BotonIcono icono={Trash2} etiqueta={`Eliminar ${l.nombre}`} onClick={() => setEliminando(l)} />
+                        <BotonIcono icono={Trash2} disabled={usos(l) > 0}
+                          etiqueta={usos(l) > 0 ? 'Lista en uso: puede desactivarla' : `Eliminar ${l.nombre}`}
+                          onClick={() => setEliminando(l)} />
                       </div>}
                     </td>
                   </tr>
@@ -149,7 +152,7 @@ export function ListasTab({ esAdmin = false }: { esAdmin?: boolean }) {
         >
           <p className="text-sm text-ink-soft">
             <strong className="text-ink">{eliminando.nombre}</strong> se eliminará.
-            {usos(eliminando) > 0 && ' Está en uso: desactívela o cambie antes la lista de los umbrales que la usan.'}
+            {usos(eliminando) > 0 && ' Está en uso por umbrales o versiones de scripts: desactívela para conservar el historial.'}
           </p>
         </Modal>
       )}

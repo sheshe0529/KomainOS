@@ -14,6 +14,7 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { useConsulta } from '@/hooks/useConsulta'
 import { formatearFechaHora } from '@/utils/formato'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
+import { FINALIDADES_CUENTA } from '@/utils/cuentasServicio'
 
 type CampoParametro = Exclude<keyof ParametrosSistemaPeticion, 'versionEsperada'>
 type Formulario = Record<CampoParametro, string>
@@ -140,15 +141,18 @@ export function ParametrosPage() {
             <KeyRound className="h-5 w-5" aria-hidden="true" />
           </span>
           <div>
-            <h3 className="text-sm font-semibold text-ink">Cuenta de servicio predeterminada</h3>
-            <p className="mt-0.5 text-sm text-ink-soft">
-              {parametros.datos?.cuentaServicioPredeterminada?.nombre ? (
-                <span className="font-medium text-ink">{parametros.datos.cuentaServicioPredeterminada.nombre}</span>
-              ) : (
-                <span className="text-warning">No definida</span>
-              )}
-              . La usan las configuraciones de mantenimiento que no tienen una cuenta propia.
-            </p>
+            <h3 className="text-sm font-semibold text-ink">Cuentas de servicio predeterminadas del sistema</h3>
+            <dl className="mt-2 flex flex-col gap-1 text-sm">
+              {FINALIDADES_CUENTA.map(({ finalidad, etiqueta, campoPredeterminadaSistema }) => (
+                <div key={finalidad} className="flex flex-wrap gap-x-2">
+                  <dt className="text-ink-soft">{etiqueta}:</dt>
+                  <dd className={parametros.datos?.[campoPredeterminadaSistema] ? 'font-medium text-ink' : 'text-warning'}>
+                    {parametros.datos?.[campoPredeterminadaSistema]?.nombre ?? 'No definida'}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-2 text-sm text-ink-soft">Cada una se usa cuando la configuración no tiene una cuenta propia para esa finalidad.</p>
           </div>
         </div>
         {esAdmin && (

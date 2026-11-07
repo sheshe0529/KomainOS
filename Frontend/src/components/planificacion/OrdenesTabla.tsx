@@ -11,11 +11,12 @@ interface OrdenesTablaProps {
   ordenes: OrdenResumenRespuesta[]
   /** Oculta la columna del objetivo (por ejemplo, en la ficha de un servidor) */
   sinObjetivo?: boolean
+  estadoEnTexto?: boolean
   vacio?: string
 }
 
 /** Misma presentación que la tabla de la sala de operaciones: la fila completa abre la orden */
-export function OrdenesTabla({ ordenes, sinObjetivo, vacio = 'No hay órdenes para mostrar.' }: OrdenesTablaProps) {
+export function OrdenesTabla({ ordenes, sinObjetivo, estadoEnTexto, vacio = 'No hay órdenes para mostrar.' }: OrdenesTablaProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] text-left text-sm">
@@ -49,7 +50,11 @@ export function OrdenesTabla({ ordenes, sinObjetivo, vacio = 'No hay órdenes pa
                 </td>
               )}
               <td className="px-3 py-3">
-                {o.estado && <StatusPill tone={TONO_ESTADO_ORDEN[o.estado]} label={ETIQUETA_ESTADO_ORDEN[o.estado]} />}
+                {o.estado && (estadoEnTexto ? (
+                  <span className="text-ink-soft">{ETIQUETA_ESTADO_ORDEN[o.estado]}</span>
+                ) : (
+                  <StatusPill tone={TONO_ESTADO_ORDEN[o.estado]} label={ETIQUETA_ESTADO_ORDEN[o.estado]} />
+                ))}
               </td>
               <td className="px-3 py-3 text-ink-soft">{o.origen ? ETIQUETA_ORIGEN[o.origen] : '—'}</td>
               <td className="px-3 py-3 whitespace-nowrap text-ink-soft">

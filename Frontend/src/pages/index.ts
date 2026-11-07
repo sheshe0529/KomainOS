@@ -2,6 +2,7 @@ import { lazy } from 'react'
 
 /** Cada pantalla se descarga al visitarla por primera vez: el archivo inicial solo lleva el esqueleto del panel */
 export const DashboardPage = lazy(() => import('./DashboardPage').then((m) => ({ default: m.DashboardPage })))
+export const AuditoriaPage = lazy(() => import('./AuditoriaPage').then((m) => ({ default: m.AuditoriaPage })))
 export const LoginPage = lazy(() => import('./LoginPage').then((m) => ({ default: m.LoginPage })))
 export const CronogramaPage = lazy(() => import('./CronogramaPage').then((m) => ({ default: m.CronogramaPage })))
 export const CronogramaDiaPage = lazy(() => import('./CronogramaDiaPage').then((m) => ({ default: m.CronogramaDiaPage })))

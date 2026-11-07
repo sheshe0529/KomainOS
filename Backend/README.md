@@ -53,7 +53,7 @@ se cambia con `KOMAINOS_PUERTO`.
 
 | Script | Uso |
 |---|---|
-| `01_esquema.sql` | Crea el esquema `KomainOS` completo: 52 tablas, 89 claves foráneas y 31 enumerados, igual a `Documentos/Docs/01_esquema_vfinal.sql` y al R2.4 final (DEC-40). Requiere PostgreSQL 15 o superior. `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
+| `01_esquema.sql` | Crea el esquema `KomainOS` completo: 52 tablas, 94 claves foráneas y 32 enumerados, igual a `Documentos/Docs/01_esquema_vfinal.sql` y al R2.4 final (DEC-40). Requiere PostgreSQL 15 o superior. `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
 | `02_datos_sistema.sql` | Datos sin los cuales el sistema no opera: factores de ciclo, parámetros globales y las 21 variables de salud del R3.1 (catálogo de métricas). Idempotente. |
 | `03_datos_prueba.sql` | Datos de demostración: un usuario por rol (contraseña `Cambiar.2026`), catálogos, 8 servidores con ventanas y configuración, un grupo, órdenes en distintos estados y una baja. Las fechas de las órdenes se calculan al ejecutarlo. Solo sobre una base sin datos de negocio. |
 | `04_umbrales_variables.sql` | Umbrales iniciales de las variables del R3.1 para cualquier base (DEC-48): listas de referencia de base, un umbral global por cada variable que no tenga ninguno y excepciones por sistema operativo para Windows Server y la familia de RHEL. Idempotente y no modifica lo existente; se vuelve a ejecutar después de registrar un sistema operativo. Límites genéricos, ajustables en Umbrales. |
@@ -140,3 +140,12 @@ Cada componente solo tiene las carpetas que necesita.
 
 El algoritmo de planificación está especificado en
 `Documentos/Decisiones/Algoritmo_planificacion_voraz.md`.
+
+La consulta administrativa del historial y las dos series temporales del dashboard se describen en
+[Auditoría y evolución del dashboard](AUDITORIA.md).
+
+### Cambios de noviembre de 2026
+
+La [guía de automatización](AUTOMATIZACION.md#cuentas-de-servicio-por-finalidad) detalla las dos
+cuentas, los parámetros de lista y los scripts necesarios para actualizar una base existente.
+La [consulta de auditoría](AUDITORIA.md) describe los filtros administrativos y los gráficos históricos.

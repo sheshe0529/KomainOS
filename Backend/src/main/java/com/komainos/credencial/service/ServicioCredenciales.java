@@ -99,7 +99,7 @@ public class ServicioCredenciales {
         UsosCuentas usos = asignaciones.usos();
         return cuentas.findAllByOrderByEstadoAscNombreAsc().stream()
                 .map(c -> new CuentaConUso(c, usos.servidoresDe(c.getId()), usos.gruposDe(c.getId()),
-                        usos.esPredeterminada(c.getId())))
+                        usos.esPredeterminadaEvaluacion(c.getId()), usos.esPredeterminadaMantenimiento(c.getId())))
                 .toList();
     }
 
@@ -475,7 +475,7 @@ public class ServicioCredenciales {
     public record DatosCredencial(String nombre, String usuarioAcceso, String descripcion, Secreto secreto) {
     }
 
-    public record CuentaConUso(CuentaServicio cuenta, long servidores, long grupos, boolean predeterminada) {
+    public record CuentaConUso(CuentaServicio cuenta, long servidores, long grupos, boolean predeterminadaEvaluacion, boolean predeterminadaMantenimiento) {
     }
 
     public record Revelado(Credencial credencial, CredencialSecreto vigente, String secreto, String su) {

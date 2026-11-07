@@ -5,6 +5,8 @@ import com.komainos.catalogo.model.VersionScript;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.ejecucion.service.DiagnosticoAutomatizacion;
 import com.komainos.inventario.model.ConfiguracionServidor;
+import com.komainos.inventario.model.FinalidadCuenta;
+import com.komainos.inventario.service.ServicioAsignacionCuentas;
 import com.komainos.inventario.model.EstadoServidor;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
@@ -67,7 +69,9 @@ public class ServicioPreparacionAutomatizacion {
                 : Comprobacion.error("CONFIGURACION", "Sin configuración de mantenimiento",
                 "Defina frecuencias, modalidad y cuenta en la ficha del servidor"));
 
-        lista.add(cuenta(servidor, config.map(ConfiguracionServidor::getIdCuentaServicio).orElse(null)));
+        for (FinalidadCuenta finalidad : FinalidadCuenta.values()) {
+            lista.add(cuenta(servidor, config.map(c -> ServicioAsignacionCuentas.propia(c, finalidad)).orElse(null), finalidad));
+        }
         lista.add(analisis(servidor));
         lista.add(politica(servidor));
         lista.add(servidor.getVentanas().isEmpty()
@@ -84,20 +88,20 @@ public class ServicioPreparacionAutomatizacion {
         return new Preparacion(servidor.getId(), servidor.getHostname(), listo, lista);
     }
 
-    private Comprobacion cuenta(Servidor servidor, Integer propia) {
-        Integer cuenta = propia != null ? propia : parametros.obtener().getIdCuentaServicioPredeterminada();
+    private Comprobacion cuenta(Servidor servidor, Integer propia, FinalidadCuenta finalidad) {
+        Integer cuenta = propia != null ? propia : ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad);
         if (cuenta == null) {
-            return Comprobacion.error("CUENTA", "Sin cuenta de servicio",
+            return Comprobacion.error("CUENTA_" + finalidad, "Sin cuenta para " + finalidad.name().toLowerCase(java.util.Locale.ROOT),
                     "Asigne una al servidor o defina la cuenta predeterminada (RF05, RF06)");
         }
         String nombre = cuentas.nombre(cuenta).orElse("#" + cuenta);
         try {
             cuentas.exigirAsignable(cuenta, servidor.familia());
-            return Comprobacion.ok("CUENTA", "Cuenta de servicio",
+            return Comprobacion.ok("CUENTA_" + finalidad, "Cuenta para " + finalidad.name().toLowerCase(java.util.Locale.ROOT),
                     "%s (%s). Use «Probar acceso» para verificarla".formatted(nombre,
                             propia != null ? "propia" : "predeterminada"));
         } catch (ReglaNegocioException ex) {
-            return Comprobacion.error("CUENTA", "Cuenta de servicio no utilizable", ex.getMessage());
+            return Comprobacion.error("CUENTA_" + finalidad, "Cuenta para " + finalidad + " no utilizable", ex.getMessage());
         }
     }
 

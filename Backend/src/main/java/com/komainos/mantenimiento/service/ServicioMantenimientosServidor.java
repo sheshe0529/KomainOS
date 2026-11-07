@@ -38,7 +38,7 @@ public class ServicioMantenimientosServidor implements PuertoMantenimientos {
     @Override
     @Transactional(readOnly = true)
     public long ordenesPendientesConCuenta(Integer idCuentaServicio) {
-        return ordenes.countByIdCuentaServicioAndEstadoIn(idCuentaServicio, EstadoOrden.queOcupanCronograma());
+        return ordenes.contarPendientesConCuenta(idCuentaServicio, EstadoOrden.queOcupanCronograma());
     }
 
     @Override

@@ -189,6 +189,11 @@ function TareaEjecutada({ t }: { t: TareaMopRespuesta }) {
           <p className="mt-0.5 text-xs text-ink-soft">
             <Script t={t} />
           </p>
+          {t.fechaInicio && t.cuenta && (
+            <p className="mt-0.5 text-xs text-ink-soft">
+              Cuenta de servicio <span className="break-words text-ink">{t.cuenta}</span>
+            </p>
+          )}
           {t.error && !abierta && <p className="mt-0.5 line-clamp-1 text-xs text-danger">{t.error}</p>}
         </div>
         <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-ink-soft">
@@ -237,12 +242,13 @@ export function EjecucionMop({ mops }: { mops: PlanMop[] }) {
   return (
     <>
       <div className="overflow-x-auto rounded-lg border border-line">
-        <table className="w-full min-w-[560px] text-sm">
+        <table className="w-full min-w-[680px] text-sm">
           <thead>
             <tr className={ENCABEZADO}>
               <th className="px-3 py-2 font-medium">Servidor</th>
               <th className="px-3 py-2 font-medium">Tareas</th>
               <th className="px-3 py-2 font-medium">Estado</th>
+              <th className="px-3 py-2 font-medium">Cuenta de servicio</th>
               <th className="px-3 py-2 font-medium">Duración</th>
             </tr>
           </thead>
@@ -250,6 +256,7 @@ export function EjecucionMop({ mops }: { mops: PlanMop[] }) {
             {mops.map((m) => {
               const tareas = m.tareas ?? []
               const finalizadas = tareas.filter((t) => t.estado === 'FINALIZADA').length
+              const cuentas = [...new Set(tareas.flatMap((t) => t.fechaInicio && t.cuenta ? [t.cuenta] : []))]
               return (
                 <FilaDetalle key={m.id} onAbrir={() => setIdAbierto(m.id)} className="align-middle">
                   <td className={CELDA}>
@@ -268,6 +275,7 @@ export function EjecucionMop({ mops }: { mops: PlanMop[] }) {
                       <StatusPill tone={TONO_ESTADO_DETALLE[m.estadoServidor]} label={ETIQUETA_ESTADO_DETALLE[m.estadoServidor]} />
                     )}
                   </td>
+                  <td className={`${CELDA} break-words text-ink-soft`}>{cuentas.join(', ') || '—'}</td>
                   <td className={`${CELDA} whitespace-nowrap tabular-nums text-ink-soft`}>{duracionServidor(m)}</td>
                 </FilaDetalle>
               )

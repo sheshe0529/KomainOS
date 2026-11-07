@@ -22,7 +22,8 @@ public record ConfiguracionGrupoPeticion(
         ModoEjecucion modoEjecucion,
 
         /** Nula: usa la cuenta predeterminada del sistema (RF05, RF06) */
-        Integer idCuentaServicio,
+        Integer idCuentaServicioEvaluacion,
+        Integer idCuentaServicioMantenimiento,
 
         /** Al actualizar, la fechaActualizacion que leyó el formulario: si otro la cambió después, responde 409 */
         Instant versionEsperada) {

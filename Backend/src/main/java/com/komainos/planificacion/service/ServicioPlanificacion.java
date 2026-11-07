@@ -557,10 +557,13 @@ public class ServicioPlanificacion {
     /** ck_orden_evaluacion_origen: la evaluación de origen se asigna antes de insertar */
     private Orden crearOrden(Objetivo o, ResultadoPlanificacion r, OrigenOrden origen, Usuario solicitante,
                              String motivo, Instant ahora, Integer idEvaluacionOrigen) {
-        Integer idCuenta = o.configuracion().getIdCuentaServicio() != null
-                ? o.configuracion().getIdCuentaServicio()
-                : parametros.obtener().getIdCuentaServicioPredeterminada();
-        Orden orden = Orden.nueva(ordenes.siguienteId(), o.servidor(), o.grupo(), o.criticidad(), idCuenta,
+        Integer evaluacion = o.configuracion().getIdCuentaServicioEvaluacion() != null
+                ? o.configuracion().getIdCuentaServicioEvaluacion()
+                : parametros.obtener().getIdCuentaServicioEvaluacionPredeterminada();
+        Integer mantenimiento = o.configuracion().getIdCuentaServicioMantenimiento() != null
+                ? o.configuracion().getIdCuentaServicioMantenimiento()
+                : parametros.obtener().getIdCuentaServicioMantenimientoPredeterminada();
+        Orden orden = Orden.nueva(ordenes.siguienteId(), o.servidor(), o.grupo(), o.criticidad(), evaluacion, mantenimiento,
                 solicitante, origen, o.modo(), programacion(r), ahora, motivo);
         if (idEvaluacionOrigen != null) {
             orden.definirEvaluacionOrigen(idEvaluacionOrigen);

@@ -113,7 +113,7 @@ export function OrdenesPage() {
         {ordenes.cargando && !pagina ? (
           <Cargando />
         ) : (
-          <OrdenesTabla ordenes={pagina?.contenido ?? []} vacio="No se encontraron órdenes con los filtros aplicados." />
+          <OrdenesTabla ordenes={pagina?.contenido ?? []} estadoEnTexto vacio="No se encontraron órdenes con los filtros aplicados." />
         )}
         <Paginacion
           pagina={pagina?.pagina ?? 0}

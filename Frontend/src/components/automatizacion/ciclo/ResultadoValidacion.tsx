@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { NivelAlerta } from '@/api/dominio'
-import type { FilaComparativa, ReporteServidor, ValidacionFuncionalRespuesta, ValidacionTecnicaRespuesta } from '@/api/types'
+import type { AnalisisRespuesta, FilaComparativa, ReporteServidor, ValidacionFuncionalRespuesta, ValidacionTecnicaRespuesta } from '@/api/types'
 import { BotonDetalle, FilaDetalle } from '@/components/ui/FilaDetalle'
 import { Modal } from '@/components/ui/Modal'
 import { StatusPill } from '@/components/ui/StatusPill'
@@ -31,7 +31,7 @@ function Valor({ texto, nivel }: { texto?: string; nivel?: NivelAlerta }) {
 /** Lo que logró el mantenimiento en una frase: cuántas métricas se corrigieron, siguen fuera de umbral o empeoraron */
 function cambios(r: ReporteServidor): string {
   const metricas = r.metricas ?? []
-  if (metricas.length === 0 || metricas.every((m) => !m.despues)) return 'Sin medir aún'
+  if (metricas.every((m) => !m.despues)) return 'Sin medir aún'
   const etiquetas = metricas.map((m) => cambio(m).etiqueta)
   const corregidas = etiquetas.filter((e) => e === 'Corregida' || e === 'Mejoró').length
   const siguen = etiquetas.filter((e) => e.startsWith('Sigue')).length
@@ -54,7 +54,12 @@ function Resultado({ tecnica }: { tecnica?: ValidacionTecnicaRespuesta }) {
 }
 
 /** Detalle de un servidor: el resultado, sus tareas y cada métrica antes y después de intervenir */
-function DetalleServidor({ r, tecnica, onCerrar }: { r: ReporteServidor; tecnica?: ValidacionTecnicaRespuesta; onCerrar: () => void }) {
+function DetalleServidor({ r, tecnica, cuenta, onCerrar }: {
+  r: ReporteServidor
+  tecnica?: ValidacionTecnicaRespuesta
+  cuenta?: string
+  onCerrar: () => void
+}) {
   const metricas = r.metricas ?? []
   const total = (r.tareasFinalizadas ?? 0) + (r.tareasFallidas ?? 0) + (r.tareasNoIniciadas ?? 0)
   return (
@@ -63,10 +68,10 @@ function DetalleServidor({ r, tecnica, onCerrar }: { r: ReporteServidor; tecnica
       titulo={`Validación técnica · ${r.servidor}`}
       descripcion={tecnica?.fecha ? formatearFechaHora(tecnica.fecha) : 'El análisis posterior todavía no termina.'}
       onCerrar={onCerrar}
-      ancho="lg"
+      ancho="2xl"
     >
       <div className="flex flex-col gap-4">
-        <dl className="grid gap-4 rounded-lg bg-panel-muted px-4 py-3 sm:grid-cols-2">
+        <dl className="grid gap-4 rounded-lg bg-panel-muted px-4 py-3 sm:grid-cols-3">
           <div>
             <dt className="text-xs text-ink-faint">Resultado</dt>
             <dd className="mt-1">
@@ -80,8 +85,12 @@ function DetalleServidor({ r, tecnica, onCerrar }: { r: ReporteServidor; tecnica
               {(r.tareasFallidas ?? 0) > 0 && <span className="text-danger"> · {r.tareasFallidas} fallida(s)</span>}
             </dd>
           </div>
+          <div>
+            <dt className="text-xs text-ink-faint">Cuenta de servicio</dt>
+            <dd className="mt-0.5 break-words text-sm text-ink">{cuenta ?? '—'}</dd>
+          </div>
           {tecnica?.observaciones && (
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-3">
               <dt className="text-xs text-ink-faint">Observaciones</dt>
               <dd className="mt-0.5 text-sm text-ink">{tecnica.observaciones}</dd>
             </div>
@@ -149,24 +158,32 @@ function DetalleServidor({ r, tecnica, onCerrar }: { r: ReporteServidor; tecnica
  * Validación técnica por servidor (RF54-RF56), como la evaluación previa: una fila por servidor con su resultado y lo
  * que cambió; al pulsarla se abre la comparación de cada métrica antes y después de intervenir
  */
-export function ValidacionTecnica({ reporte, tecnicas }: { reporte: ReporteServidor[]; tecnicas: ValidacionTecnicaRespuesta[] }) {
+export function ValidacionTecnica({ reporte, tecnicas, posteriores }: {
+  reporte: ReporteServidor[]
+  tecnicas: ValidacionTecnicaRespuesta[]
+  posteriores: AnalisisRespuesta[]
+}) {
   // Se guarda el servidor y no la fila: mientras la orden avanza, la ficha se refresca y el detalle abierto también
   const [idAbierto, setIdAbierto] = useState<number>()
   if (reporte.length === 0) {
     return <p className="text-sm text-ink-soft">Al terminar las tareas, KomainOS vuelve a analizar cada servidor.</p>
   }
   const tecnicaDe = (r: ReporteServidor) => tecnicas.find((t) => t.servidor === r.servidor)
+  const cuentaDe = (r: ReporteServidor) => r.idServidor == null
+    ? undefined
+    : posteriores.findLast((a) => a.idServidor === r.idServidor)?.cuenta
   const abierto = reporte.find((r) => r.idServidor === idAbierto)
 
   return (
     <>
       <div className="overflow-x-auto rounded-lg border border-line">
-        <table className="w-full min-w-[560px] text-sm">
+        <table className="w-full min-w-[680px] text-sm">
           <thead>
             <tr className={ENCABEZADO}>
               <th className="px-3 py-2 font-medium">Servidor</th>
               <th className="px-3 py-2 font-medium">Resultado</th>
               <th className="px-3 py-2 font-medium">Cambios</th>
+              <th className="px-3 py-2 font-medium">Cuenta de servicio</th>
               <th className="px-3 py-2 font-medium">Fecha</th>
             </tr>
           </thead>
@@ -184,6 +201,7 @@ export function ValidacionTecnica({ reporte, tecnicas }: { reporte: ReporteServi
                     <Resultado tecnica={tecnica} />
                   </td>
                   <td className={`${CELDA} text-ink-soft`}>{cambios(r)}</td>
+                  <td className={`${CELDA} break-words text-ink-soft`}>{cuentaDe(r) ?? '—'}</td>
                   <td className={`${CELDA} whitespace-nowrap text-ink-soft`}>{tecnica?.fecha ? formatearFechaHora(tecnica.fecha) : '—'}</td>
                 </FilaDetalle>
               )
@@ -191,7 +209,7 @@ export function ValidacionTecnica({ reporte, tecnicas }: { reporte: ReporteServi
           </tbody>
         </table>
       </div>
-      {abierto && <DetalleServidor r={abierto} tecnica={tecnicaDe(abierto)} onCerrar={() => setIdAbierto(undefined)} />}
+      {abierto && <DetalleServidor r={abierto} tecnica={tecnicaDe(abierto)} cuenta={cuentaDe(abierto)} onCerrar={() => setIdAbierto(undefined)} />}
     </>
   )
 }
@@ -202,6 +220,8 @@ export function ValidacionFuncional({ funcional }: { funcional?: ValidacionFunci
     return <p className="text-sm text-ink-soft">Se solicita al responsable cuando la validación técnica es conforme.</p>
   }
   const estado = funcional.estado ? ESTADO_VALIDACION[funcional.estado] : undefined
+  const respondida = funcional.estado === 'CONFORME' || funcional.estado === 'RECHAZADA'
+  const etiquetaFecha = respondida ? 'Fecha de respuesta' : funcional.estado === 'VENCIDA' ? 'Venció' : 'Plazo'
   return (
     <dl className="grid gap-4 rounded-lg border border-line px-4 py-3 sm:grid-cols-4">
       <div>
@@ -217,7 +237,7 @@ export function ValidacionFuncional({ funcional }: { funcional?: ValidacionFunci
         <dd className="mt-0.5 text-sm text-ink">{formatearFechaHora(funcional.fechaSolicitud)}</dd>
       </div>
       <div>
-        <dt className="text-xs text-ink-faint">{funcional.fechaRespuesta ? 'Respondió' : 'Plazo'}</dt>
+        <dt className="text-xs text-ink-faint">{etiquetaFecha}</dt>
         <dd className="mt-0.5 text-sm text-ink">{formatearFechaHora(funcional.fechaRespuesta ?? funcional.fechaLimite)}</dd>
       </div>
       {funcional.observaciones && (

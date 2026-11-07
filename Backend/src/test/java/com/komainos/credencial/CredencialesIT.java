@@ -278,33 +278,33 @@ class CredencialesIT extends PruebaIntegracion {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.mensaje").value(containsString("no llevan")));
 
-        configurar(idLinux, llave)
+        configurar(idLinux, null, llave)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.configuracion.idCuentaServicio").value(llave))
-                .andExpect(jsonPath("$.configuracion.cuentaServicio.nombre").value("svc-llave"));
+                .andExpect(jsonPath("$.configuracion.idCuentaServicioMantenimiento").value(llave))
+                .andExpect(jsonPath("$.configuracion.cuentaServicioMantenimiento.nombre").value("svc-llave"));
         configurar(idWindows, llave)
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.mensaje").value(containsString("WinRM")));
         configurar(idWindows, null)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.configuracion.usaCuentaPredeterminada").value(true))
-                .andExpect(jsonPath("$.configuracion.cuentaServicio").doesNotExist());
+                .andExpect(jsonPath("$.configuracion.usaPredeterminadaMantenimiento").value(true))
+                .andExpect(jsonPath("$.configuracion.cuentaServicioMantenimiento").doesNotExist());
 
         // srv-win-01 usa la predeterminada: una cuenta con llave SSH no puede serlo
         predeterminada(llave).andExpect(status().isUnprocessableEntity());
         predeterminada(svc).andExpect(status().isOk());
         mockMvc.perform(comoAdmin(get("/api/servidores/{id}", idWindows)))
-                .andExpect(jsonPath("$.configuracion.cuentaServicio.nombre").value("svc-ansible"));
+                .andExpect(jsonPath("$.configuracion.cuentaServicioMantenimiento.nombre").value("svc-ansible"));
         mockMvc.perform(comoAdmin(get("/api/parametros-sistema")))
-                .andExpect(jsonPath("$.cuentaServicioPredeterminada.nombre").value("svc-ansible"));
+                .andExpect(jsonPath("$.cuentaServicioMantenimientoPredeterminada.nombre").value("svc-ansible"));
 
         mockMvc.perform(comoAdmin(put("/api/cuentas-servicio/{id}/servidores", svc))
-                        .content(json.writeValueAsString(Map.of("idsServidores", List.of(idLinux)))))
+                         .content(json.writeValueAsString(Map.of("idsServidores", List.of(idLinux), "finalidad", "MANTENIMIENTO"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.asignados").value(1));
         mockMvc.perform(comoAdmin(get("/api/cuentas-servicio")))
                 .andExpect(jsonPath("$[?(@.nombre == 'svc-ansible')].servidores").value(1))
-                .andExpect(jsonPath("$[?(@.nombre == 'svc-ansible')].predeterminada").value(true))
+                .andExpect(jsonPath("$[?(@.nombre == 'svc-ansible')].predeterminadaMantenimiento").value(true))
                 .andExpect(jsonPath("$[?(@.nombre == 'svc-llave')].servidores").value(0))
                 .andExpect(jsonPath("$..secreto").isEmpty());
 
@@ -314,7 +314,7 @@ class CredencialesIT extends PruebaIntegracion {
 
         predeterminada(null).andExpect(status().isOk());
         mockMvc.perform(comoAdmin(put("/api/cuentas-servicio/{id}/servidores", llave))
-                        .content(json.writeValueAsString(Map.of("idsServidores", List.of(idLinux)))))
+                         .content(json.writeValueAsString(Map.of("idsServidores", List.of(idLinux), "finalidad", "MANTENIMIENTO"))))
                 .andExpect(status().isOk());
         revocar(svc).andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("REVOCADA"))
@@ -329,6 +329,47 @@ class CredencialesIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$.mensaje").value(containsString("revocada")));
         mockMvc.perform(comoAdmin(post("/api/credenciales/{id}/revelado", svc)).content(cuerpo("contrasena", CLAVE_ADMIN)))
                 .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    @DisplayName("RF05-RF07: cada finalidad conserva su cuenta propia, su predeterminada y su asignación masiva")
+    void cuentasIndependientesPorFinalidad() throws Exception {
+        Integer evaluacion = idDe(crearCuenta("svc-evaluacion", "lector", "PASSWORD", "Clave-Evaluacion-1"));
+        Integer mantenimiento = idDe(crearCuenta("svc-mantenimiento", "administrador", "PASSWORD", "Clave-Mantenimiento-1"));
+        Integer otraEvaluacion = idDe(crearCuenta("svc-evaluacion-nueva", "lector2", "PASSWORD", "Clave-Evaluacion-2"));
+
+        configurar(idLinux, evaluacion, mantenimiento)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.configuracion.cuentaServicioEvaluacion.nombre").value("svc-evaluacion"))
+                .andExpect(jsonPath("$.configuracion.cuentaServicioMantenimiento.nombre").value("svc-mantenimiento"))
+                .andExpect(jsonPath("$.configuracion.usaPredeterminadaEvaluacion").value(false))
+                .andExpect(jsonPath("$.configuracion.usaPredeterminadaMantenimiento").value(false));
+
+        predeterminada(evaluacion, "EVALUACION").andExpect(status().isOk());
+        predeterminada(mantenimiento, "MANTENIMIENTO").andExpect(status().isOk());
+        configurar(idWindows, null, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.configuracion.cuentaServicioEvaluacion.nombre").value("svc-evaluacion"))
+                .andExpect(jsonPath("$.configuracion.cuentaServicioMantenimiento.nombre").value("svc-mantenimiento"))
+                .andExpect(jsonPath("$.configuracion.usaPredeterminadaEvaluacion").value(true))
+                .andExpect(jsonPath("$.configuracion.usaPredeterminadaMantenimiento").value(true));
+        mockMvc.perform(comoAdmin(get("/api/parametros-sistema")))
+                .andExpect(jsonPath("$.cuentaServicioEvaluacionPredeterminada.id").value(evaluacion))
+                .andExpect(jsonPath("$.cuentaServicioMantenimientoPredeterminada.id").value(mantenimiento));
+
+        mockMvc.perform(comoAdmin(put("/api/cuentas-servicio/{id}/servidores", otraEvaluacion))
+                        .content(json.writeValueAsString(Map.of("idsServidores", List.of(idLinux), "finalidad", "EVALUACION"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.asignados").value(1));
+        mockMvc.perform(comoAdmin(get("/api/servidores/{id}", idLinux)))
+                .andExpect(jsonPath("$.configuracion.idCuentaServicioEvaluacion").value(otraEvaluacion))
+                .andExpect(jsonPath("$.configuracion.idCuentaServicioMantenimiento").value(mantenimiento));
+        mockMvc.perform(comoAdmin(get("/api/cuentas-servicio")))
+                .andExpect(jsonPath("$[?(@.nombre == 'svc-evaluacion')].predeterminadaEvaluacion").value(true))
+                .andExpect(jsonPath("$[?(@.nombre == 'svc-evaluacion')].predeterminadaMantenimiento").value(false))
+                .andExpect(jsonPath("$[?(@.nombre == 'svc-mantenimiento')].predeterminadaMantenimiento").value(true));
+        revocar(otraEvaluacion).andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.mensaje").value(containsString("1 servidor(es)")));
     }
 
     @Test
@@ -370,7 +411,7 @@ class CredencialesIT extends PruebaIntegracion {
         Integer svc = idDe(crearCuenta("svc-ansible", "ansible", "PASSWORD", "Clave-Svc-1"));
 
         mockMvc.perform(comoAdmin(put("/api/cuentas-servicio/{id}/servidores", svc))
-                        .content(json.writeValueAsString(Map.of("idsServidores", List.of(idLinux)))))
+                         .content(json.writeValueAsString(Map.of("idsServidores", List.of(idLinux), "finalidad", "MANTENIMIENTO"))))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.mensaje").value(containsString("srv-app-01 no tiene configuración")));
     }
@@ -408,16 +449,26 @@ class CredencialesIT extends PruebaIntegracion {
     }
 
     private ResultActions configurar(Integer idServidor, Integer idCuenta) throws Exception {
+        return configurar(idServidor, idCuenta, idCuenta);
+    }
+
+    private ResultActions configurar(Integer idServidor, Integer idEvaluacion, Integer idMantenimiento) throws Exception {
         Map<String, Object> cuerpo = new HashMap<>();
         cuerpo.put("modalidadPlanificacion", "BAJO_DEMANDA");
-        cuerpo.put("idCuentaServicio", idCuenta);
+        cuerpo.put("idCuentaServicioEvaluacion", idEvaluacion);
+        cuerpo.put("idCuentaServicioMantenimiento", idMantenimiento);
         return mockMvc.perform(comoAdmin(put("/api/servidores/{id}/configuracion", idServidor))
                 .content(json.writeValueAsString(cuerpo)));
     }
 
     private ResultActions predeterminada(Integer idCuenta) throws Exception {
+        return predeterminada(idCuenta, "MANTENIMIENTO");
+    }
+
+    private ResultActions predeterminada(Integer idCuenta, String finalidad) throws Exception {
         Map<String, Object> cuerpo = new HashMap<>();
         cuerpo.put("idCuentaServicio", idCuenta);
+        cuerpo.put("finalidad", finalidad);
         return mockMvc.perform(comoAdmin(put("/api/cuentas-servicio/predeterminada")).content(json.writeValueAsString(cuerpo)));
     }
 
