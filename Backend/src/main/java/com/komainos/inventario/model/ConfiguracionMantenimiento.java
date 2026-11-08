@@ -66,6 +66,8 @@ public abstract class ConfiguracionMantenimiento {
         this.modalidadPlanificacion = modalidad;
     }
 
+    public abstract boolean isRevisionPeriodicaHabilitada();
+
     public boolean esAutomatica() {
         return modalidadPlanificacion == ModalidadPlanificacion.AUTOMATICA;
     }

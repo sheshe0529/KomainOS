@@ -154,7 +154,8 @@ public class ServicioPreparacionAutomatizacion {
     }
 
     private Comprobacion ultimaRevision(Integer idServidor) {
-        return evaluaciones.findFirstByServidorIdAndTipoOrderByFechaInicioDesc(idServidor, TipoEvaluacion.REVISION_PERIODICA)
+        return evaluaciones.findFirstByServidorIdAndTipoAndRevisionGrupoIsNullOrderByFechaInicioDesc(
+                        idServidor, TipoEvaluacion.REVISION_PERIODICA)
                 .map(e -> e.estaFinalizada()
                         ? Comprobacion.ok("REVISION", "Última revisión", "%s · nivel %s".formatted(
                         FECHA.format(e.getFechaInicio()), e.nivel()))

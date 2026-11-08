@@ -151,7 +151,7 @@ export function SistemasOperativosTab() {
               <Entrada value={nombre} onChange={(e) => setNombre(e.target.value)} required autoFocus />
             </Campo>
             {dialogo.tipo === 'so' && (
-              <Campo etiqueta="Familia" obligatorio ayuda="Determina el canal remoto de ejecución sin agentes.">
+              <Campo etiqueta="Familia" obligatorio info="Determina el canal remoto de ejecución sin agentes: SSH en Linux y WinRM en Windows.">
                 <Selector value={familia} onChange={(e) => setFamilia(e.target.value as FamiliaSistemaOperativo)}>
                   <option value="LINUX">{ETIQUETA_FAMILIA.LINUX}</option>
                   <option value="WINDOWS">{ETIQUETA_FAMILIA.WINDOWS}</option>

@@ -12,17 +12,37 @@ const datos = { hostname: 'srv-01', direccionIp: '10.0.0.1', idNivelCriticidad: 
 describe('Registro por etapas (RF09, RF12, RF17-RF19)', () => {
   it('copia las frecuencias de criticidad y exige una ventana antes de continuar', () => {
     const s = prepararServidor(datos, catalogos)
-    expect(s.mantenimiento.configuracion).toMatchObject({ frecuenciaRevisionDias: 7, frecuenciaMantenimientoDias: 30, modalidadPlanificacion: 'AUTOMATICA' })
+    expect(s.mantenimiento.configuracion).toMatchObject({
+      frecuenciaRevisionDias: 7,
+      frecuenciaMantenimientoDias: 30,
+      revisionPeriodicaHabilitada: true,
+      modalidadPlanificacion: 'AUTOMATICA',
+    })
     expect(problemaMantenimiento(s)).toContain('intervalo')
     expect(catalogos.criticidades[0].frecuenciaRevisionDias).toBe(7)
   })
 
-  it('conserva configuración, cuenta, modalidad y ventana de un servidor existente', () => {
+  it('conserva la configuración de un servidor existente con revisión desactivada', () => {
     const s = prepararServidor(datos, catalogos, 3, { id: 8, fechaActualizacion: '2026-10-24T12:00:00Z',
-      configuracion: { frecuenciaRevisionDias: 5, frecuenciaMantenimientoDias: 15, modalidadPlanificacion: 'BAJO_DEMANDA', idCuentaServicioEvaluacion: 4, idCuentaServicioMantenimiento: 9, fechaActualizacion: '2026-10-24T10:00:00Z' },
+      configuracion: {
+        frecuenciaRevisionDias: 5,
+        frecuenciaMantenimientoDias: 15,
+        revisionPeriodicaHabilitada: false,
+        modalidadPlanificacion: 'BAJO_DEMANDA',
+        idCuentaServicioEvaluacion: 4,
+        idCuentaServicioMantenimiento: 9,
+        fechaActualizacion: '2026-10-24T10:00:00Z',
+      },
       ventanas: [{ diaInicio: 'SABADO', horaInicio: '22:00:00', diaFin: 'DOMINGO', horaFin: '02:00:00' }],
     })
-    expect(s.mantenimiento.configuracion).toMatchObject({ frecuenciaRevisionDias: 5, modalidadPlanificacion: 'BAJO_DEMANDA', idCuentaServicioEvaluacion: 4, idCuentaServicioMantenimiento: 9, versionEsperada: '2026-10-24T10:00:00Z' })
+    expect(s.mantenimiento.configuracion).toMatchObject({
+      frecuenciaRevisionDias: 5,
+      revisionPeriodicaHabilitada: false,
+      modalidadPlanificacion: 'BAJO_DEMANDA',
+      idCuentaServicioEvaluacion: 4,
+      idCuentaServicioMantenimiento: 9,
+      versionEsperada: '2026-10-24T10:00:00Z',
+    })
     expect(s.idServidorExistente).toBe(8)
     expect(s.mantenimiento.ventanas[0].horaInicio).toBe('22:00')
     expect(problemaMantenimiento(s)).toBeUndefined()
@@ -35,6 +55,17 @@ describe('Registro por etapas (RF09, RF12, RF17-RF19)', () => {
       { fila: 6, estado: 'DUPLICADA', sobrescribible: true },
     ], [3, 4, 5])
     expect(seleccionadas.map((s) => s.fila)).toEqual([2, 3])
+  })
+
+  it('con la revisión periódica inactiva no exige su frecuencia, que el formulario ya no muestra', () => {
+    const s = prepararServidor(datos, catalogos)
+    const listo = { ...s, mantenimiento: { ...s.mantenimiento, ventanas: [{ diaInicio: 'SABADO' as const, horaInicio: '22:00', diaFin: 'DOMINGO' as const, horaFin: '02:00' }] } }
+    const sinFrecuencia = (habilitada: boolean) => ({
+      ...listo,
+      mantenimiento: { ...listo.mantenimiento, configuracion: { ...listo.mantenimiento.configuracion, frecuenciaRevisionDias: undefined, revisionPeriodicaHabilitada: habilitada } },
+    })
+    expect(problemaMantenimiento(sinFrecuencia(false))).toBeUndefined()
+    expect(problemaMantenimiento(sinFrecuencia(true))).toContain('frecuencias')
   })
 
   it('rechaza frecuencias vacías, decimales y ventanas con fin anterior o igual al inicio', () => {

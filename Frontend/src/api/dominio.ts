@@ -39,6 +39,8 @@ export type ModoEjecucion = ConfiguracionGrupoPeticion['modoEjecucion']
 export type EstadoSolicitudBaja = NonNullable<SolicitudBajaRespuesta['estado']>
 export type EstadoOrden = NonNullable<OrdenResumenRespuesta['estado']>
 export type EtapaOrden = NonNullable<OrdenResumenRespuesta['etapa']>
+/** Filtro de órdenes por el motivo de su cierre (GET /ordenes?motivoCierre): no forma parte de ningún esquema */
+export type MotivoCierre = 'NO_AUTORIZADO' | 'VALIDACION_VENCIDA'
 export type OrigenOrden = NonNullable<OrdenResumenRespuesta['origen']>
 export type EstadoDetalleOrden = NonNullable<Detalle['estado']>
 export type TipoAutenticacion = SecretoPeticion['tipoAutenticacion']

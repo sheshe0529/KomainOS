@@ -75,7 +75,7 @@ public class ProcesoAutomatizacion {
     /** Un ciclo a la vez: si ya hay uno en curso, el llamado no hace nada */
     public Resumen procesar() {
         if (!ocupado.compareAndSet(false, true)) {
-            return new Resumen(false, 0, 0, 0, 0);
+            return new Resumen(false, 0, 0, 0, 0, 0);
         }
         try {
             int vencidas = autorizaciones.vencer() + validaciones.vencer() + transaccion.execute(estado -> {
@@ -98,15 +98,23 @@ public class ProcesoAutomatizacion {
             AtomicInteger revisadas = new AtomicInteger();
             Paralelo.paraCada(revision.pendientes(LIMITE_POR_CICLO), id -> {
                 try {
-                    revision.revisar(id, REVISION);
-                    revisadas.incrementAndGet();
+                    if (revision.revisarPendiente(id, REVISION)) {
+                        revisadas.incrementAndGet();
+                    }
                     ultimosAvisos.remove("servidor:" + id);
                 } catch (ReglaNegocioException ex) {
                     avisarUnaVez("servidor:" + id, "Revisión del servidor %d pendiente: %s".formatted(id, ex.getMessage()));
                 }
             }).forEach(ex -> log.error("Error inesperado en una revisión periódica", ex));
 
-            return new Resumen(true, vencidas, despachadas, evaluadas.get(), revisadas.get());
+            AtomicInteger gruposRevisados = new AtomicInteger();
+            Paralelo.paraCada(revision.gruposPendientes(LIMITE_POR_CICLO), id -> {
+                if (revision.revisarGrupoPendiente(id, REVISION)) {
+                    gruposRevisados.incrementAndGet();
+                }
+            }).forEach(ex -> log.error("Error inesperado en una revisión periódica grupal", ex));
+
+            return new Resumen(true, vencidas, despachadas, evaluadas.get(), revisadas.get(), gruposRevisados.get());
         } finally {
             ocupado.set(false);
         }
@@ -134,14 +142,15 @@ public class ProcesoAutomatizacion {
     }
 
     /** Lo que hizo el ciclo, para el aviso del panel */
-    public record Resumen(boolean ejecutado, int vencidas, int despachadas, int evaluadas, int revisadas) {
+    public record Resumen(boolean ejecutado, int vencidas, int despachadas, int evaluadas, int revisadas,
+                          int gruposRevisados) {
 
         public List<String> descripcion() {
             if (!ejecutado) {
                 return List.of("Ya hay un procesamiento en curso; intente de nuevo en unos segundos");
             }
             return List.of("%d orden(es) evaluada(s)".formatted(evaluadas),
-                    "%d revisión(es) periódica(s)".formatted(revisadas),
+                    "%d revisión(es) individual(es) y %d grupal(es)".formatted(revisadas, gruposRevisados),
                     "%d servidor(es) iniciado(s) desde la cola".formatted(despachadas),
                     "%d plazo(s) vencido(s) o cancelación(es) cerradas".formatted(vencidas));
         }

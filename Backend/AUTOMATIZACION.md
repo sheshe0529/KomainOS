@@ -188,7 +188,8 @@ informe los códigos nuevos (el de `Documentos/Scripts/` ya lo hace).
 
 ## Recorrido de prueba desde el panel
 
-1. **Sala de operaciones → Cargar demostración** (el panel lo ofrece en modo simulado): agrega
+1. **Datos de demostración** (`POST /api/automatizacion/demostracion`, administrador; el panel ya no
+   ofrece el botón): agrega
    las variables del R3.1 que falten, umbrales genéricos de CPU, memoria y disco
    si esas métricas no tienen uno activo y las reglas de política que falten. Es
    idempotente y no modifica lo existente. No trae scripts ni tareas: se
@@ -209,8 +210,9 @@ informe los códigos nuevos (el de `Documentos/Scripts/` ya lo hace).
 6. Programe desde el cronograma o use **Lanzamiento inmediato**. El proceso
    automático revisa cada `KOMAINOS_AUTOMATIZACION_INTERVALO_MS` los plazos
    vencidos, las evaluaciones previas que llegaron a su fecha, las revisiones
-   periódicas pendientes y la cola; **Ejecutar proceso automático** en la sala lo
-   adelanta sin esperar (útil en pruebas o con el proceso desactivado).
+   periódicas pendientes y la cola; `POST /api/automatizacion/procesar` lo adelanta
+   sin esperar (útil en pruebas o con el proceso desactivado). La sala ya no ofrece
+   ese botón ni los de despachar la cola y cargar la demostración.
 7. La orden muestra el **ciclo de mantenimiento**: etapas, el siguiente paso en una
    frase y los botones que el usuario puede usar ahora (evaluar, aprobar, rechazar,
    proponer fecha, aceptar la propuesta, validar, cerrar sin intervenir, despachar
@@ -230,14 +232,21 @@ informe los códigos nuevos (el de `Documentos/Scripts/` ya lo hace).
    con la salud antes y después y las tareas de cada ciclo; la del grupo agrega un
    mapa de resultados por integrante. Se exporta completa o, en un grupo, la de un
    integrante (`/api/servidores/{id}/bitacora`, `/api/grupos/{id}/bitacora` y sus
-   `/exportacion?formato=XLSX|CSV|JSON`).
+   `/exportacion?formato=XLSX|CSV|JSON`). Debajo, el **análisis** de cada uno: en
+   el grupo, una fila por revisión periódica del grupo y por evaluación previa o
+   validación técnica de sus órdenes, con el análisis de cada integrante
+   (`/api/grupos/{id}/evaluaciones`).
 9. **Historial de ejecución** lista cada tarea ejecutada con versión, cuenta,
    duración, código de salida y salida; se filtra y se exporta a CSV.
 10. **Incidencias**: diagnóstico, acciones y resultado; al cerrar la última, la
    orden continúa a su cierre sin reanudar tareas.
 11. **Órdenes** (todos los roles): el responsable ve solo las de sus servidores. El
    filtro por estado muestra las que esperan una decisión (pendiente de
-   autorización o de validación); cada fila abre la orden, donde se decide.
+   autorización o de validación); cada fila abre la orden, donde se decide. El
+   rechazo y los vencimientos pasan a Cerrada en la misma operación, así que no
+   figuran en el filtro por estado: el filtro **Motivo de cierre**
+   (`motivoCierre=NO_AUTORIZADO|VALIDACION_VENCIDA`) las busca en el historial.
+   No autorizado agrupa el rechazo y el vencimiento de la autorización.
 
 ## Escribir scripts
 

@@ -9,10 +9,8 @@ import { ENLACE_FILA } from '@/components/ui/estilos'
 import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
-import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
-import { TONO_ESTADO_ORDEN } from '@/utils/automatizacion'
 import { ETIQUETA_ESTADO_ORDEN, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
 import { claveDia, formatearFechaHora, formatearFechaLarga, formatearHora } from '@/utils/formato'
 
@@ -102,9 +100,7 @@ export function CronogramaDiaPage() {
                         </td>
                         <td className="px-4 py-3 text-ink-soft">{o.origen ? ETIQUETA_ORIGEN[o.origen] : ''}</td>
                         <td className="px-4 py-3 text-ink-soft">{o.criticidad?.nombre}</td>
-                        <td className="px-4 py-3">
-                          {o.estado && <StatusPill tone={TONO_ESTADO_ORDEN[o.estado]} label={ETIQUETA_ESTADO_ORDEN[o.estado]} />}
-                        </td>
+                        <td className="px-4 py-3 text-ink-soft">{o.estado ? ETIQUETA_ESTADO_ORDEN[o.estado] : '—'}</td>
                       </FilaNavegable>
                     )
                   })}

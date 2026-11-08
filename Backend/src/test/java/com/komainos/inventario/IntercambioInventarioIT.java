@@ -141,17 +141,20 @@ class IntercambioInventarioIT extends PruebaIntegracion {
     @DisplayName("RF09/RF17: el análisis no escribe y la confirmación guarda servidor, configuración y ventana")
     void registroPorEtapas() throws Exception {
         String datos = datosRegistro("srv-asistente");
+        String configuracion = mantenimiento("BAJO_DEMANDA", "05:00", null)
+                .replace("\"configuracion\":{", "\"configuracion\":{\"revisionPeriodicaHabilitada\":false,");
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/servidores/registro/analisis")
                         .with(user(comoAdmin)).contentType("application/json").content(datos))
                 .andExpect(status().isNoContent());
         assertThat(jdbc.queryForObject("select count(*) from servidor where hostname = 'srv-asistente'", Integer.class)).isZero();
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/servidores/registro")
                         .with(user(comoAdmin)).contentType("application/json")
-                        .content("{\"servidor\":" + datos + ",\"mantenimiento\":" + mantenimiento("BAJO_DEMANDA", "05:00", null) + "}"))
+                        .content("{\"servidor\":" + datos + ",\"mantenimiento\":" + configuracion + "}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.estado").value("ACTIVO"))
                 .andExpect(jsonPath("$.configuracion.modalidadPlanificacion").value("BAJO_DEMANDA"))
                 .andExpect(jsonPath("$.configuracion.frecuenciaRevisionDias").value(3))
+                .andExpect(jsonPath("$.configuracion.revisionPeriodicaHabilitada").value(false))
                 .andExpect(jsonPath("$.ventanas.length()").value(1));
     }
 

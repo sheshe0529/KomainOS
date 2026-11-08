@@ -122,7 +122,7 @@ class PlanificacionIT extends PruebaIntegracion {
 
     private List<Orden> ordenesDe(Integer idServidor) {
         return consulta.listar(new com.komainos.mantenimiento.model.FiltroOrdenes(null, idServidor, null, null,
-                null, null, null), alcanceAdmin, org.springframework.data.domain.PageRequest.of(0, 50)).getContent();
+                null, null, null, null), alcanceAdmin, org.springframework.data.domain.PageRequest.of(0, 50)).getContent();
     }
 
     private void capacidad(int maximo) {

@@ -120,4 +120,6 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
     boolean existsByGrupoId(Integer idGrupo);
 
     List<Orden> findByGrupoIdAndEstadoIn(Integer idGrupo, Collection<EstadoOrden> estados);
+
+    List<Orden> findByServidorIdAndEstadoIn(Integer idServidor, Collection<EstadoOrden> estados);
 }

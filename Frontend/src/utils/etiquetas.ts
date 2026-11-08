@@ -10,6 +10,7 @@ import type {
   FamiliaSistemaOperativo,
   ModalidadPlanificacion,
   ModoEjecucion,
+  MotivoCierre,
   Rol,
   TipoAutenticacion,
   TipoUsuario,
@@ -100,6 +101,15 @@ export const ETIQUETA_ESTADO_ORDEN: Record<EstadoOrden, string> = {
   VALIDACION_VENCIDA: 'Validación vencida',
   CANCELADA: 'Cancelada',
   CERRADA: 'Cerrada',
+}
+
+/** Estados que pasan a Cerrada en la misma operación: el filtro por estado actual nunca los encuentra */
+export const ESTADOS_DE_CIERRE: EstadoOrden[] = ['RECHAZADA', 'AUTORIZACION_VENCIDA', 'VALIDACION_VENCIDA']
+
+/** Por qué se cerró la orden según su historial; no autorizado agrupa el rechazo y el vencimiento, como la bitácora */
+export const ETIQUETA_MOTIVO_CIERRE: Record<MotivoCierre, string> = {
+  NO_AUTORIZADO: 'No autorizado',
+  VALIDACION_VENCIDA: 'Validación funcional vencida',
 }
 
 /** Estados del detalle de orden (R2.1, tabla 7) */

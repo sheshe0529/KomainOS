@@ -1,5 +1,5 @@
 import { consulta, http } from './cliente'
-import type { EstadoOrden, Pagina } from './dominio'
+import type { EstadoOrden, MotivoCierre, Pagina } from './dominio'
 import type {
   CancelarOrdenPeticion,
   OrdenDetalleRespuesta,
@@ -14,6 +14,7 @@ export interface FiltroOrdenes {
   idServidor?: number
   idGrupo?: number
   estado?: EstadoOrden | ''
+  motivoCierre?: MotivoCierre | ''
   idNivelCriticidad?: number | ''
   desde?: string
   hasta?: string
@@ -32,6 +33,7 @@ export const planificacionApi = {
         idServidor: f.idServidor,
         idGrupo: f.idGrupo,
         estado: f.estado,
+        motivoCierre: f.motivoCierre,
         idNivelCriticidad: f.idNivelCriticidad,
         desde: f.desde,
         hasta: f.hasta,

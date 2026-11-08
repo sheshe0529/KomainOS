@@ -25,6 +25,7 @@ import com.komainos.mantenimiento.model.Evaluacion;
 import com.komainos.mantenimiento.model.EvaluacionUmbral;
 import com.komainos.mantenimiento.model.MedicionMetrica;
 import com.komainos.mantenimiento.model.OrdenDetalle;
+import com.komainos.mantenimiento.model.RevisionPeriodicaGrupo;
 import com.komainos.mantenimiento.model.TipoEvaluacion;
 import com.komainos.mantenimiento.repository.EvaluacionRepositorio;
 import com.komainos.seguridad.model.AlcanceUsuario;
@@ -44,6 +45,7 @@ import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -75,8 +77,22 @@ public class ServicioEvaluaciones {
      */
     @Transactional(noRollbackFor = ReglaNegocioException.class)
     public Evaluacion iniciar(Servidor servidor, OrdenDetalle detalle, TipoEvaluacion tipo, Integer idCuenta) {
+        return iniciar(servidor, detalle, tipo, idCuenta, null);
+    }
+
+    @Transactional(noRollbackFor = ReglaNegocioException.class)
+    public Evaluacion iniciarRevisionGrupal(Servidor servidor, RevisionPeriodicaGrupo revisionGrupo, Integer idCuenta) {
+        return iniciar(servidor, null, TipoEvaluacion.REVISION_PERIODICA, idCuenta, Objects.requireNonNull(revisionGrupo));
+    }
+
+    private Evaluacion iniciar(Servidor servidor, OrdenDetalle detalle, TipoEvaluacion tipo, Integer idCuenta,
+                                RevisionPeriodicaGrupo revisionGrupo) {
         Integer cuenta = detalle == null ? cuentaAplicable(idCuenta) : idCuenta;
         if (cuenta == null) {
+            if (revisionGrupo != null) {
+                throw new ReglaNegocioException(("Asigne una cuenta de servicio al grupo o defina la cuenta "
+                        + "predeterminada para analizar el servidor %s").formatted(servidor.getHostname()));
+            }
             throw new ReglaNegocioException(("Asigne una cuenta de servicio al servidor %s o defina la cuenta "
                     + "predeterminada para analizarlo").formatted(servidor.getHostname()));
         }
@@ -85,7 +101,11 @@ public class ServicioEvaluaciones {
                 .orElseThrow(() -> new ReglaNegocioException(
                         "No hay un script de análisis activo y habilitado para %s (servidor %s)".formatted(
                                 servidor.getVersionSistemaOperativo().descripcionCompleta(), servidor.getHostname())));
-        return evaluaciones.save(Evaluacion.iniciar(servidor, detalle, version, cuenta, tipo, Tiempo.ahora(reloj)));
+        Instant ahora = Tiempo.ahora(reloj);
+        Evaluacion evaluacion = revisionGrupo == null
+                ? Evaluacion.iniciar(servidor, detalle, version, cuenta, tipo, ahora)
+                : Evaluacion.iniciarRevisionGrupal(servidor, revisionGrupo, version, cuenta, ahora);
+        return evaluaciones.save(evaluacion);
     }
 
     /** Todo lo que el adaptador necesita, armado antes de salir de la transacción */
@@ -99,7 +119,7 @@ public class ServicioEvaluaciones {
             case PREVIA -> PropositoEjecucion.ANALISIS_PREVIO;
             case POSTERIOR -> PropositoEjecucion.ANALISIS_POSTERIOR;
         };
-        ContextoEvaluacion contexto = contexto(s, e.getDetalle());
+        ContextoEvaluacion contexto = contexto(e);
         return new SolicitudEjecucion(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(),
                 e.getIdCuentaServicio(), proposito, version.getContenido(),
                 ServicioCatalogoAutomatizacion.valoresDeEjecucion(version), maxMinutos(), referencia(contexto),
@@ -142,7 +162,8 @@ public class ServicioEvaluaciones {
     @Transactional(readOnly = true)
     public Page<Evaluacion> historial(Integer idServidor, AlcanceUsuario alcance, Pageable pagina) {
         servidores.obtener(idServidor, alcance);
-        Page<Evaluacion> resultado = evaluaciones.findByServidorIdOrderByFechaInicioDesc(idServidor, pagina);
+        Page<Evaluacion> resultado = evaluaciones.findByServidorIdAndRevisionGrupoIsNullOrderByFechaInicioDesc(
+                idServidor, pagina);
         resultado.forEach(ServicioEvaluaciones::cargar);
         return resultado;
     }
@@ -174,12 +195,16 @@ public class ServicioEvaluaciones {
         return parametros.obtener().getMaxDuracionTareaMinutos();
     }
 
-    /** El grupo cuenta solo si la orden es grupal: en la revisión y en la orden individual no hay grupo (DEC-41) */
-    public static ContextoEvaluacion contexto(Servidor servidor, OrdenDetalle detalle) {
-        if (detalle == null || !detalle.getOrden().esGrupal()) {
-            return ContextoEvaluacion.individual(servidor);
+    /** El grupo lo fija la revisión o la orden grupal que originó el análisis. */
+    private static ContextoEvaluacion contexto(Evaluacion evaluacion) {
+        Servidor servidor = evaluacion.getServidor();
+        if (evaluacion.getRevisionGrupo() != null) {
+            return ContextoEvaluacion.enGrupo(servidor, evaluacion.getRevisionGrupo().getGrupo().getId());
         }
-        return ContextoEvaluacion.enGrupo(servidor, detalle.getOrden().getGrupo().getId());
+        OrdenDetalle detalle = evaluacion.getDetalle();
+        return detalle != null && detalle.getOrden().esGrupal()
+                ? ContextoEvaluacion.enGrupo(servidor, detalle.getOrden().getGrupo().getId())
+                : ContextoEvaluacion.individual(servidor);
     }
 
     public static void cargar(Evaluacion e) {
@@ -196,7 +221,7 @@ public class ServicioEvaluaciones {
         Map<String, Metrica> catalogoMetricas = metricas.findAllByOrderByNombreAsc().stream()
                 .filter(Metrica::isActivo)
                 .collect(Collectors.toMap(Metrica::getCodigo, Function.identity(), (a, b) -> a));
-        ContextoEvaluacion contexto = contexto(e.getServidor(), e.getDetalle());
+        ContextoEvaluacion contexto = contexto(e);
         // R3.1: una métrica que no se mide en este sistema operativo ni se exige ni se evalúa
         List<Umbral> vigentes = umbrales.findAplicables().stream().filter(u -> contexto.mide(u.getMetrica())).toList();
         Set<String> recibidas = new LinkedHashSet<>();

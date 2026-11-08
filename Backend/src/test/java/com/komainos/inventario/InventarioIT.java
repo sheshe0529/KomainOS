@@ -148,6 +148,55 @@ class InventarioIT extends PruebaIntegracion {
     }
 
     @Test
+    @DisplayName("RF17: los interruptores de revisión se persisten y auditan por separado")
+    void configuraRevisionesPeriodicasIndependientes() throws Exception {
+        var servidor = crearServidor("srv-revision-01", "10.21.0.1", idAlta, responsable);
+        int idGrupo = grupos.crear("Grupo revisión IT", null, sistema).getId();
+        grupos.reemplazarIntegrantes(idGrupo, List.of(servidor.getId()), sistema);
+        String rutaServidor = "/api/servidores/" + servidor.getId() + "/configuracion";
+        String rutaGrupo = "/api/grupos/" + idGrupo + "/configuracion";
+        String datosServidor = """
+                {"modalidadPlanificacion":"BAJO_DEMANDA"}
+                """;
+        String datosGrupo = """
+                {"modalidadPlanificacion":"BAJO_DEMANDA","modoEjecucion":"PARALELO"}
+                """;
+
+        comprobarConfiguracionRevision(rutaServidor, datosServidor, true);
+        comprobarConfiguracionRevision(rutaGrupo, datosGrupo, false);
+
+        comprobarConfiguracionRevision(rutaServidor, """
+                {"modalidadPlanificacion":"BAJO_DEMANDA","revisionPeriodicaHabilitada":false}
+                """, false);
+        comprobarConfiguracionRevision(rutaGrupo, """
+                {"modalidadPlanificacion":"BAJO_DEMANDA","modoEjecucion":"PARALELO","revisionPeriodicaHabilitada":true}
+                """, true);
+
+        comprobarConfiguracionRevision(rutaServidor, datosServidor, false);
+        comprobarConfiguracionRevision(rutaGrupo, datosGrupo, true);
+        assertThat(jdbc.queryForObject("""
+                select revision_periodica_habilitada from configuracion_servidor where id_servidor = ?
+                """, Boolean.class, servidor.getId())).isFalse();
+        assertThat(jdbc.queryForObject("""
+                select revision_periodica_habilitada from configuracion_grupo where id_grupo_mantenimiento = ?
+                """, Boolean.class, idGrupo)).isTrue();
+        assertThat(jdbc.queryForList("""
+                select entidad from auditoria where operacion = 'CONFIGURAR_MANTENIMIENTO' and id_usuario = ?
+                  and valor_anterior::jsonb ->> 'revisionPeriodicaHabilitada'
+                      <> valor_nuevo::jsonb ->> 'revisionPeriodicaHabilitada'
+                """, String.class, admin.getId())).containsExactlyInAnyOrder("configuracion_servidor", "configuracion_grupo");
+    }
+
+    private void comprobarConfiguracionRevision(String ruta, String datos, boolean habilitada) throws Exception {
+        mockMvc.perform(put(ruta).with(user(new UsuarioAutenticado(admin)))
+                        .contentType(MediaType.APPLICATION_JSON).content(datos))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.configuracion.revisionPeriodicaHabilitada").value(habilitada));
+        em.flush();
+        em.clear();
+    }
+
+    @Test
     @DisplayName("RF20: un grupo no admite integrantes con distinto responsable")
     void grupoRechazaIntegrantesIncompatibles() {
         Servidor a = crearServidor("srv-web-01", "10.30.1.20", idMedia, responsable);

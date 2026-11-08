@@ -40,6 +40,7 @@ export function prepararServidor(
       configuracion: {
         frecuenciaRevisionDias: actual?.frecuenciaRevisionDias ?? criticidad?.frecuenciaRevisionDias,
         frecuenciaMantenimientoDias: actual?.frecuenciaMantenimientoDias ?? criticidad?.frecuenciaMantenimientoDias,
+        revisionPeriodicaHabilitada: actual?.revisionPeriodicaHabilitada ?? true,
         modalidadPlanificacion: actual?.modalidadPlanificacion ?? 'AUTOMATICA',
         idCuentaServicioEvaluacion: actual?.idCuentaServicioEvaluacion,
         idCuentaServicioMantenimiento: actual?.idCuentaServicioMantenimiento,
@@ -59,8 +60,10 @@ export function filasSeleccionadas(filas: FilaAnalisisRespuesta[], sobrescribir:
 
 export function problemaMantenimiento(s: ServidorPreparado): string | undefined {
   const { configuracion: c, ventanas } = s.mantenimiento
-  if (!Number.isInteger(c.frecuenciaRevisionDias) || c.frecuenciaRevisionDias! < 1 ||
-      !Number.isInteger(c.frecuenciaMantenimientoDias) || c.frecuenciaMantenimientoDias! < 1) {
+  // Con la revisión inactiva su frecuencia no se muestra ni se exige: si falta, el backend usa la de la criticidad
+  const revisionInvalida = c.revisionPeriodicaHabilitada !== false &&
+    (!Number.isInteger(c.frecuenciaRevisionDias) || c.frecuenciaRevisionDias! < 1)
+  if (revisionInvalida || !Number.isInteger(c.frecuenciaMantenimientoDias) || c.frecuenciaMantenimientoDias! < 1) {
     return `${s.hostname}: las frecuencias deben ser números enteros mayores que cero.`
   }
   if (ventanas.length === 0) return `${s.hostname}: agregue al menos un intervalo de mantenimiento.`

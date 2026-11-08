@@ -7,6 +7,7 @@ import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
 import { Campo, Entrada } from '@/components/ui/Campo'
 import { Cargando } from '@/components/ui/Cargando'
+import { TituloConInfo } from '@/components/ui/Info'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { Paginacion } from '@/components/ui/Paginacion'
@@ -87,8 +88,8 @@ export function CriticidadesTab() {
     }
   }
 
-  const numero = (campo: keyof Formulario, etiqueta: string, minimo: number, ayuda?: string) => (
-    <Campo etiqueta={etiqueta} obligatorio error={errorDeCampo(error, campo)} ayuda={ayuda}>
+  const numero = (campo: keyof Formulario, etiqueta: string, minimo: number, info?: string) => (
+    <Campo etiqueta={etiqueta} obligatorio error={errorDeCampo(error, campo)} info={info}>
       <Entrada type="number" min={minimo} value={f[campo]} onChange={(e) => setF((p) => ({ ...p, [campo]: e.target.value }))} required />
     </Campo>
   )
@@ -96,10 +97,10 @@ export function CriticidadesTab() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-ink-soft">
+        <TituloConInfo titulo="Niveles de criticidad" nivel="h4">
           Menor prioridad = mayor criticidad. Las frecuencias se copian al crear una configuración de mantenimiento; cambiarlas no
           altera configuraciones existentes.
-        </p>
+        </TituloConInfo>
         <Boton variante="primario" icono={Plus} onClick={() => abrir('nuevo')}>
           Nuevo nivel
         </Boton>
@@ -189,10 +190,10 @@ export function CriticidadesTab() {
             <Campo etiqueta="Nombre" obligatorio error={errorDeCampo(error, 'nombre')}>
               <Entrada value={f.nombre} onChange={(e) => setF((p) => ({ ...p, nombre: e.target.value }))} required />
             </Campo>
-            {numero('prioridad', 'Prioridad', 0, 'Única; 1 es la más crítica')}
+            {numero('prioridad', 'Prioridad', 0, 'Única para cada nivel; 1 es la más crítica.')}
             {numero('frecuenciaRevisionDias', 'Frecuencia de revisión (días)', 1)}
             {numero('frecuenciaMantenimientoDias', 'Frecuencia de mantenimiento (días)', 1)}
-            {numero('plazoAutorizacionHoras', 'Plazo de autorización (horas)', 1, 'Anticipación de la evaluación previa')}
+            {numero('plazoAutorizacionHoras', 'Plazo de autorización (horas)', 1, 'Con cuánta anticipación al inicio programado se hace la evaluación previa: es el tiempo para reunir las aprobaciones. En un lanzamiento inmediato, es el plazo para aprobar.')}
             {numero('plazoValidacionHoras', 'Plazo de validación (horas)', 1)}
           </form>
         </Modal>

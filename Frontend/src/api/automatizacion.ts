@@ -3,6 +3,7 @@ import type { FamiliaSistemaOperativo, Pagina } from './dominio'
 import type { FinalidadCuentaServicio } from './credenciales'
 import type {
   AlertaRespuesta,
+  AnalisisGrupoRespuesta,
   AnalisisRespuesta,
   Bitacora,
   ColaRespuesta,
@@ -23,7 +24,6 @@ import type {
   Preparacion,
   ReferenciaSimple,
   ResumenGraficos,
-  ResumenProcesoRespuesta,
   RevisionSalidaRespuesta,
   ScriptPeticion,
   ScriptPreparadoRespuesta,
@@ -129,9 +129,7 @@ export const operacionApi = {
     ),
   ejecucion: (id: number) => http.get<EjecucionDetalleRespuesta>(`/automatizacion/ejecuciones/${id}`),
   inmediata: (datos: LanzamientoInmediatoPeticion) => http.post<ReferenciaSimple>('/automatizacion/inmediata', datos),
-  procesar: () => http.post<ResumenProcesoRespuesta>('/automatizacion/procesar'),
   ejecutarCola: () => http.post<DespachoRespuesta>('/automatizacion/ejecutar-cola'),
-  demostracion: () => http.post<Record<string, number>>('/automatizacion/demostracion'),
 }
 
 /** Acceso y análisis de un servidor o grupo fuera del ciclo de una orden */
@@ -144,6 +142,8 @@ export const analisisApi = {
   historial: (idServidor: number, pagina = 0, tamano = 25) =>
     http.get<Pagina<AnalisisRespuesta>>(`/servidores/${idServidor}/evaluaciones${consulta({ page: pagina, size: tamano })}`),
   preparacion: (idServidor: number) => http.get<Preparacion>(`/servidores/${idServidor}/preparacion-automatizacion`),
+  historialGrupo: (idGrupo: number, pagina = 0, tamano = 25) =>
+    http.get<Pagina<AnalisisGrupoRespuesta>>(`/grupos/${idGrupo}/evaluaciones${consulta({ page: pagina, size: tamano })}`),
 }
 
 export const politicasApi = {

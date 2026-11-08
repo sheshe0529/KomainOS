@@ -7,6 +7,7 @@ import type { ScriptResumenRespuesta, TareaRespuesta, UmbralRespuesta } from '@/
 import { Boton } from '@/components/ui/Boton'
 import { AreaTexto, Campo, Entrada, Selector } from '@/components/ui/Campo'
 import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
+import { Info } from '@/components/ui/Info'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { StatusPill } from '@/components/ui/StatusPill'
@@ -141,6 +142,7 @@ export function TareaFormulario({ tarea, scripts, umbrales, maxDuracionMinutos, 
             <Campo
               etiqueta="Script de mantenimiento"
               obligatorio
+              info="Debajo se ven los sistemas operativos en los que tiene una versión. En servidores con otro sistema operativo la tarea queda sin implementación y la orden lo advierte."
               error={faltaScript ? 'El script está inactivo o no tiene una versión habilitada' : errorDeCampo(error, 'idScript')}
             >
               <Selector value={idScript} onChange={(e) => setIdScript(e.target.value)}>
@@ -169,16 +171,18 @@ export function TareaFormulario({ tarea, scripts, umbrales, maxDuracionMinutos, 
                     </span>
                   ))
                 )}
-                <p className="w-full text-xs text-ink-faint">
-                  En servidores con otro sistema operativo la tarea queda sin implementación y la orden lo advierte.
-                </p>
               </div>
             )}
           </div>
 
           <div className="flex flex-col gap-4">
             <fieldset>
-              <legend className="mb-2 text-sm font-medium text-ink">Afectación del servicio</legend>
+              <legend className="mb-2 flex items-center gap-1 text-sm font-medium text-ink">
+                Afectación del servicio
+                <Info etiqueta="Sobre: Afectación del servicio">
+                  La política de cambio del entorno decide quién autoriza según esta afectación.
+                </Info>
+              </legend>
               <div className="flex flex-col gap-2">
                 {NIVELES.map((n) => (
                   <label
@@ -201,13 +205,10 @@ export function TareaFormulario({ tarea, scripts, umbrales, maxDuracionMinutos, 
                   </label>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-ink-faint">
-                La política de cambio del entorno decide quién autoriza según esta afectación.
-              </p>
             </fieldset>
 
             <div className="grid grid-cols-2 gap-4">
-              <Campo etiqueta="Prioridad" obligatorio ayuda="Menor número, se ejecuta antes" error={errorDeCampo(error, 'prioridad')}>
+              <Campo etiqueta="Prioridad" obligatorio info="Menor número, se ejecuta antes." error={errorDeCampo(error, 'prioridad')}>
                 <Entrada type="number" min={0} value={prioridad} onChange={(e) => setPrioridad(e.target.value)} />
               </Campo>
               <Campo
@@ -218,24 +219,27 @@ export function TareaFormulario({ tarea, scripts, umbrales, maxDuracionMinutos, 
                     ? `Supera el máximo por tarea (${formatearDuracion(maxDuracionMinutos)})`
                     : errorDeCampo(error, 'duracionEstimadaMinutos')
                 }
-                ayuda={maxDuracionMinutos ? `Máximo ${formatearDuracion(maxDuracionMinutos)}; al superarla se detiene` : undefined}
+                info={
+                  maxDuracionMinutos
+                    ? `Es también el tiempo máximo de ejecución de la tarea: al superarlo se detiene. No puede pasar de ${formatearDuracion(maxDuracionMinutos)}.`
+                    : 'Es también el tiempo máximo de ejecución de la tarea: al superarlo se detiene.'
+                }
               >
                 <Entrada type="number" min={1} value={duracion} onChange={(e) => setDuracion(e.target.value)} />
               </Campo>
             </div>
 
-            <label className="flex items-start gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={activo}
                 onChange={(e) => setActivo(e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-[var(--color-accent)]"
+                className="h-4 w-4 accent-[var(--color-accent)]"
               />
-              <span>
-                <span className="font-medium text-ink">Activa</span>
-                <span className="block text-xs text-ink-soft">
-                  Solo las tareas activas entran en las MOP. Necesita al menos un umbral.
-                </span>
+              <span className="font-medium text-ink">Activa</span>
+              {/* Dentro de la etiqueta, un clic en la explicación no debe marcar la casilla */}
+              <span className="inline-flex" onClick={(e) => e.preventDefault()}>
+                <Info etiqueta="Sobre: Activa">Solo las tareas activas entran en las MOP. Necesita al menos un umbral.</Info>
               </span>
             </label>
           </div>
@@ -244,13 +248,15 @@ export function TareaFormulario({ tarea, scripts, umbrales, maxDuracionMinutos, 
         <section className="flex flex-col gap-3 border-t border-line pt-5" aria-labelledby="umbrales-tarea">
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-0 flex-1 basis-80">
-              <h4 id="umbrales-tarea" className="text-sm font-semibold text-ink">
-                ¿Cuándo se ejecuta? Umbrales que la activan {activo && <span className="text-danger">*</span>}
-              </h4>
-              <p className="mt-0.5 text-sm text-ink-soft">
-                La tarea entra en el plan de un servidor cuando su análisis previo deja alguno de los umbrales marcados en
-                advertencia o crítico. Marque uno o más.
-              </p>
+              <div className="flex items-center gap-1.5">
+                <h4 id="umbrales-tarea" className="text-sm font-semibold text-ink">
+                  ¿Cuándo se ejecuta? Umbrales que la activan {activo && <span className="text-danger">*</span>}
+                </h4>
+                <Info etiqueta="Sobre: umbrales que activan la tarea">
+                  La tarea entra en el plan de un servidor cuando su análisis previo deja alguno de los umbrales marcados en
+                  advertencia o crítico. Marque uno o más.
+                </Info>
+              </div>
             </div>
             <label className="flex items-center gap-2 text-sm text-ink-soft">
               <input

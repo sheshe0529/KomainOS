@@ -236,6 +236,9 @@ public class ServicioServidor implements PuertoServidoresACargo {
         ConfiguracionServidor configuracion = existente.orElseGet(() ->
                 ConfiguracionServidor.nueva(servidor, revision, mantenimiento, datos.modalidad(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad());
+        if (datos.revisionPeriodicaHabilitada() != null) {
+            configuracion.setRevisionPeriodicaHabilitada(datos.revisionPeriodicaHabilitada());
+        }
         configuracion.setIdCuentaServicioEvaluacion(datos.idCuentaServicioEvaluacion());
         configuracion.setIdCuentaServicioMantenimiento(datos.idCuentaServicioMantenimiento());
         configuraciones.save(configuracion);
@@ -513,6 +516,7 @@ public class ServicioServidor implements PuertoServidoresACargo {
     private static Map<String, Object> instantanea(ConfiguracionServidor c) {
         Map<String, Object> v = new HashMap<>();
         v.put("frecuenciaRevisionDias", c.getFrecuenciaRevisionDias());
+        v.put("revisionPeriodicaHabilitada", c.isRevisionPeriodicaHabilitada());
         v.put("frecuenciaMantenimientoDias", c.getFrecuenciaMantenimientoDias());
         v.put("modalidadPlanificacion", c.getModalidadPlanificacion().name());
         v.put("idCuentaServicioEvaluacion", c.getIdCuentaServicioEvaluacion());
@@ -527,11 +531,19 @@ public class ServicioServidor implements PuertoServidoresACargo {
 
     /** idCuentaServicio nula: usa la cuenta predeterminada del sistema (RF06) */
     public record DatosConfiguracion(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
-                                     ModalidadPlanificacion modalidad, Integer idCuentaServicioEvaluacion, Integer idCuentaServicioMantenimiento) {
+                                     ModalidadPlanificacion modalidad, Integer idCuentaServicioEvaluacion,
+                                     Integer idCuentaServicioMantenimiento, Boolean revisionPeriodicaHabilitada) {
+
+        public DatosConfiguracion(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
+                                  ModalidadPlanificacion modalidad, Integer idCuentaServicioEvaluacion,
+                                  Integer idCuentaServicioMantenimiento) {
+            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, idCuentaServicioEvaluacion,
+                    idCuentaServicioMantenimiento, null);
+        }
 
         public DatosConfiguracion(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
                                   ModalidadPlanificacion modalidad) {
-            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, null, null);
+            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, null, null, null);
         }
     }
 

@@ -1,22 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import {
-  Activity,
-  Archive,
-  ClipboardCheck,
-  ClipboardList,
-  Database,
-  History,
-  Play,
-  RefreshCw,
-  ShieldAlert,
-  ShieldCheck,
-  Zap,
-} from 'lucide-react'
+import { Activity, Archive, ClipboardCheck, ClipboardList, Play, ShieldAlert, ShieldCheck, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { operacionApi } from '@/api/automatizacion'
 import type { EtapaOrden } from '@/api/dominio'
-import type { ResumenProcesoRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
 import { PageHeader } from '@/components/common/PageHeader'
 import { DiagnosticoAutomatizacion } from '@/components/automatizacion/DiagnosticoAutomatizacion'
@@ -32,12 +19,10 @@ import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { Paginacion } from '@/components/ui/Paginacion'
-import { StatusPill } from '@/components/ui/StatusPill'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacion } from '@/hooks/usePaginacion'
 import { useTextoDiferido } from '@/hooks/useTextoDiferido'
-import { TONO_ESTADO_DETALLE, TONO_ESTADO_ORDEN } from '@/utils/automatizacion'
 import { ETIQUETA_ESTADO_DETALLE, ETIQUETA_ESTADO_ORDEN, ETIQUETA_ETAPA, ETIQUETA_ORIGEN } from '@/utils/etiquetas'
 import { formatearFechaHora } from '@/utils/formato'
 
@@ -92,9 +77,8 @@ export function AutomatizacionPage() {
     [paginacionCola.pagina, paginacionCola.tamano],
   )
 
-  const [trabajando, setTrabajando] = useState<'procesar' | 'cola' | 'demo' | 'lanzar'>()
+  const [trabajando, setTrabajando] = useState<'lanzar'>()
   const [error, setError] = useState<unknown>()
-  const [resumen, setResumen] = useState<ResumenProcesoRespuesta>()
   const [eligiendo, setEligiendo] = useState(false)
   const [objetivo, setObjetivo] = useState<ObjetivoProgramacion>()
   const [motivo, setMotivo] = useState('')
@@ -133,31 +117,6 @@ export function AutomatizacionPage() {
     }
   }
 
-  const procesar = () =>
-    ejecutar('procesar', async () => {
-      setResumen(await operacionApi.procesar())
-    })
-
-  const despacharCola = () =>
-    ejecutar('cola', async () => {
-      const r = await operacionApi.ejecutarCola()
-      avisar(r.mensaje ?? `${r.despachados} servidores despachados.`)
-    })
-
-  const cargarDemostracion = () =>
-    ejecutar('demo', async () => {
-      const agregados = await operacionApi.demostracion()
-      const total = Object.values(agregados).reduce((a, b) => a + b, 0)
-      avisar(
-        total === 0
-          ? 'Los datos de demostración ya estaban cargados.'
-          : `Demostración cargada: ${Object.entries(agregados)
-              .filter(([, n]) => n > 0)
-              .map(([clave, n]) => `${n} ${clave}`)
-              .join(', ')}.`,
-      )
-    })
-
   const lanzar = () =>
     ejecutar('lanzar', async () => {
       if (!objetivo) return
@@ -181,62 +140,17 @@ export function AutomatizacionPage() {
         title="Sala de operaciones"
         description="El ciclo de mantenimiento de un vistazo: en qué etapa está cada orden y qué espera para avanzar."
         actions={
-          <>
-            <Link
-              to="/automatizacion/ejecuciones"
-              className="inline-flex items-center gap-2 rounded-lg border border-line bg-panel px-3.5 py-2 text-sm font-medium text-ink transition hover:bg-panel-muted"
-            >
-              <History className="h-4 w-4" aria-hidden="true" />
-              Historial de ejecución
-            </Link>
-            {esAdmin && (
-              <>
-                <Boton
-                  icono={RefreshCw}
-                  cargando={trabajando === 'procesar'}
-                  onClick={procesar}
-                  title="El sistema hace esta revisión solo cada pocos segundos: vence plazos, inicia las evaluaciones que llegaron a su fecha y las revisiones periódicas pendientes, y despacha la cola. Este botón la adelanta."
-                >
-                  Ejecutar proceso automático
-                </Boton>
-                <Boton variante="primario" icono={Zap} onClick={() => setEligiendo(true)}>
-                  Lanzamiento inmediato
-                </Boton>
-              </>
-            )}
-          </>
+          esAdmin && (
+            <Boton variante="primario" icono={Zap} onClick={() => setEligiendo(true)}>
+              Lanzamiento inmediato
+            </Boton>
+          )
         }
       />
 
       {diagnostico.datos && <DiagnosticoAutomatizacion diagnostico={diagnostico.datos} />}
 
       <MensajeError error={error ?? diagnostico.error} />
-
-      {resumen && (
-        <section className="mb-6 rounded-xl border border-line bg-panel px-5 py-4" aria-live="polite">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-ink">
-                {resumen.ejecutado ? 'Proceso automático ejecutado' : 'El proceso automático ya estaba en curso'}
-              </h3>
-              <p className="mt-0.5 text-sm text-ink-soft">
-                {resumen.evaluadas} evaluaciones iniciadas · {resumen.revisadas} servidores revisados ·{' '}
-                {resumen.despachadas} despachados a ejecución · {resumen.vencidas} plazos vencidos
-              </p>
-            </div>
-            <Boton variante="fantasma" onClick={() => setResumen(undefined)}>
-              Cerrar
-            </Boton>
-          </div>
-          {(resumen.mensajes ?? []).length > 0 && (
-            <ul className="mt-3 flex list-disc flex-col gap-1 pl-5 text-sm text-ink-soft">
-              {resumen.mensajes?.map((m, i) => (
-                <li key={i}>{m}</li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
         {ETAPAS.map(({ etapa: e, icono: Icono, detalle }) => {
@@ -392,9 +306,7 @@ export function AutomatizacionPage() {
                             <span className="block text-xs text-ink-faint">{o.cantidadServidores} servidores</span>
                           )}
                         </td>
-                        <td className="px-3 py-3">
-                          {o.estado && <StatusPill tone={TONO_ESTADO_ORDEN[o.estado]} label={ETIQUETA_ESTADO_ORDEN[o.estado]} />}
-                        </td>
+                        <td className="px-3 py-3 text-ink-soft">{o.estado ? ETIQUETA_ESTADO_ORDEN[o.estado] : '—'}</td>
                         <td className="px-3 py-3 text-ink-soft">{o.origen ? ETIQUETA_ORIGEN[o.origen] : '—'}</td>
                         <td className="px-3 py-3 whitespace-nowrap text-ink-soft">{formatearFechaHora(o.inicioProgramado)}</td>
                         <td className="px-3 py-3 text-ink-soft">{o.criticidad?.nombre}</td>
@@ -418,17 +330,9 @@ export function AutomatizacionPage() {
 
       {vista === 'cola' && (
         <>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-ink-soft">
-              Un servidor ejecuta una sola MOP a la vez; el piloto de un grupo va primero y, si falla, el resto no
-              inicia.
-            </p>
-            {esAdmin && (
-              <Boton icono={Play} cargando={trabajando === 'cola'} onClick={despacharCola}>
-                Despachar cola ahora
-              </Boton>
-            )}
-          </div>
+          <p className="mb-4 text-sm text-ink-soft">
+            Un servidor ejecuta una sola MOP a la vez; el piloto de un grupo va primero y, si falla, el resto no inicia.
+          </p>
           <MensajeError error={cola.error} onReintentar={cola.recargar} />
           {cola.cargando && !cola.datos ? (
             <Cargando />
@@ -468,11 +372,7 @@ export function AutomatizacionPage() {
                           </Link>
                           {d.prioridad === 'ALTA' && <span className="ml-2 text-xs font-medium text-danger">Alta</span>}
                         </td>
-                        <td className="px-3 py-3">
-                          {d.estado && (
-                            <StatusPill tone={TONO_ESTADO_DETALLE[d.estado]} label={ETIQUETA_ESTADO_DETALLE[d.estado]} />
-                          )}
-                        </td>
+                        <td className="px-3 py-3 text-ink-soft">{d.estado ? ETIQUETA_ESTADO_DETALLE[d.estado] : '—'}</td>
                         <td className="px-3 py-3 whitespace-nowrap text-ink-soft">{formatearFechaHora(d.inicioPrevisto)}</td>
                         <td className="px-3 py-3 whitespace-nowrap text-ink-soft">{formatearFechaHora(d.inicioReal)}</td>
                       </FilaNavegable>
@@ -491,18 +391,6 @@ export function AutomatizacionPage() {
             </div>
           )}
         </>
-      )}
-
-      {esAdmin && diagnostico.datos?.simulado && (
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-line px-5 py-4 text-sm text-ink-soft">
-          <span>
-            ¿Primera vez? Cargue las métricas de salud, umbrales genéricos y las políticas de cambio. Los scripts y las
-            tareas se registran en sus catálogos.
-          </span>
-          <Boton icono={Database} cargando={trabajando === 'demo'} onClick={cargarDemostracion}>
-            Cargar demostración
-          </Boton>
-        </div>
       )}
 
       {eligiendo && (

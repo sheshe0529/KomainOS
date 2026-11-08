@@ -15,7 +15,10 @@ export function ResumenRegistro({ servidores, omitidos = 0 }: { servidores: Serv
         const c = s.mantenimiento.configuracion
         return <tr key={s.clave}>
           <td className="px-3 py-3 align-top"><span className="block font-mono font-medium">{s.hostname}</span><span className="block text-xs text-ink-soft">{s.direccionIp} · {s.idServidorExistente ? 'Actualizar' : 'Nuevo'}</span><span className="block text-xs text-ink-soft">{s.criticidad} · {s.sistemaOperativo}</span></td>
-          <td className="px-3 py-3 align-top text-xs">Revisión: {c.frecuenciaRevisionDias} días<br />Mantenimiento: {c.frecuenciaMantenimientoDias} días</td>
+          <td className="px-3 py-3 align-top text-xs">
+            Revisión: {c.revisionPeriodicaHabilitada === false ? 'inactiva' : `cada ${c.frecuenciaRevisionDias} días`}
+            <br />Mantenimiento: cada {c.frecuenciaMantenimientoDias} días
+          </td>
           <td className="px-3 py-3 align-top text-xs">
             {FINALIDADES_CUENTA.map(({ finalidad, etiqueta, campoId, campoPredeterminada }) => {
               const id = c[campoId]

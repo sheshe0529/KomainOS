@@ -1,9 +1,12 @@
 package com.komainos.inventario.repository;
 
 import com.komainos.inventario.model.ConfiguracionGrupo;
+import com.komainos.inventario.model.EstadoGrupo;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.ModalidadPlanificacion;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,6 +18,12 @@ import java.util.Set;
 public interface ConfiguracionGrupoRepositorio extends JpaRepository<ConfiguracionGrupo, Integer> {
 
     Optional<ConfiguracionGrupo> findByGrupoId(Integer idGrupo);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from ConfiguracionGrupo c where c.grupo.id = :idGrupo")
+    Optional<ConfiguracionGrupo> findParaRevision(@Param("idGrupo") Integer idGrupo);
+
+    List<ConfiguracionGrupo> findByRevisionPeriodicaHabilitadaTrueAndGrupoEstadoOrderByGrupoNombreAsc(EstadoGrupo estado);
 
     List<ConfiguracionGrupo> findByGrupoIdIn(Collection<Integer> idsGrupos);
 

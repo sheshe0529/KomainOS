@@ -12,7 +12,6 @@ import com.komainos.inventario.mapper.InventarioMapeador;
 import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
 import com.komainos.inventario.model.EstadoServidor;
 import com.komainos.inventario.model.FiltroServidores;
-import com.komainos.inventario.service.ServicioServidor.DatosConfiguracion;
 import com.komainos.inventario.service.ServicioServidor.ResultadoBaja;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.seguridad.model.AlcanceUsuario;
@@ -119,9 +118,7 @@ public class ServidorController {
                                              @Valid @RequestBody ConfiguracionPeticion peticion,
                                              @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
-        servicio.configurar(id, new DatosConfiguracion(peticion.frecuenciaRevisionDias(),
-                peticion.frecuenciaMantenimientoDias(), peticion.modalidadPlanificacion(),
-                peticion.idCuentaServicioEvaluacion(), peticion.idCuentaServicioMantenimiento()), peticion.versionEsperada(), alcance.actor());
+        servicio.configurar(id, peticion.aDatos(), peticion.versionEsperada(), alcance.actor());
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 

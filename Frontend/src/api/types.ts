@@ -60,6 +60,14 @@ export interface AlertaRespuesta {
   leida?: boolean
 }
 
+export interface AnalisisGrupoRespuesta {
+  tipo?: 'REVISION_PERIODICA' | 'PREVIA' | 'POSTERIOR'
+  idOrden?: number
+  orden?: string
+  fecha?: string
+  analisis?: AnalisisRespuesta[]
+}
+
 export interface AnalisisImportacionRespuesta {
   formato?: string
   registros?: number
@@ -196,6 +204,7 @@ export interface ConexionRespuesta {
 
 export interface ConfiguracionGrupoPeticion {
   frecuenciaRevisionDias?: number
+  revisionPeriodicaHabilitada?: boolean
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
   modoEjecucion: 'SECUENCIAL' | 'PARALELO'
@@ -206,6 +215,7 @@ export interface ConfiguracionGrupoPeticion {
 
 export interface ConfiguracionPeticion {
   frecuenciaRevisionDias?: number
+  revisionPeriodicaHabilitada?: boolean
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
   idCuentaServicioEvaluacion?: number
@@ -215,6 +225,7 @@ export interface ConfiguracionPeticion {
 
 export interface ConfiguracionRespuesta {
   frecuenciaRevisionDias?: number
+  revisionPeriodicaHabilitada?: boolean
   frecuenciaMantenimientoDias?: number
   modalidadPlanificacion?: 'AUTOMATICA' | 'BAJO_DEMANDA'
   modoEjecucion?: 'SECUENCIAL' | 'PARALELO'
@@ -1188,6 +1199,7 @@ export interface ResumenProcesoRespuesta {
   ejecutado?: boolean
   evaluadas?: number
   revisadas?: number
+  gruposRevisados?: number
   despachadas?: number
   vencidas?: number
   mensajes?: string[]

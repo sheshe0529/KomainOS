@@ -13,10 +13,12 @@ import { useConsulta } from '@/hooks/useConsulta'
 import { FINALIDADES_CUENTA } from '@/utils/cuentasServicio'
 import { ETIQUETA_MODALIDAD, ETIQUETA_MODO } from '@/utils/etiquetas'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
+import { RevisionPeriodicaCampo } from './RevisionPeriodicaCampo'
 
 export interface DatosConfiguracion {
   frecuenciaRevisionDias?: number
   frecuenciaMantenimientoDias?: number
+  revisionPeriodicaHabilitada: boolean
   modalidadPlanificacion: ModalidadPlanificacion
   modoEjecucion?: ModoEjecucion
   /** Cada asignación omitida usa la predeterminada de su finalidad (RF06). */
@@ -51,6 +53,7 @@ export function ConfiguracionModal({
   const cuentas = useConsulta(() => cuentasServicioApi.listar(), [])
   const [revision, setRevision] = useState(actual?.frecuenciaRevisionDias?.toString() ?? '')
   const [mantenimiento, setMantenimiento] = useState(actual?.frecuenciaMantenimientoDias?.toString() ?? '')
+  const [revisionPeriodicaHabilitada, setRevisionPeriodicaHabilitada] = useState(actual?.revisionPeriodicaHabilitada ?? !conModoEjecucion)
   const [modalidad, setModalidad] = useState<ModalidadPlanificacion>(actual?.modalidadPlanificacion ?? 'AUTOMATICA')
   const [modo, setModo] = useState<ModoEjecucion>(actual?.modoEjecucion ?? 'SECUENCIAL')
   const [asignaciones, setAsignaciones] = useState({
@@ -68,6 +71,7 @@ export function ConfiguracionModal({
       await onGuardar({
         frecuenciaRevisionDias: revision ? Number(revision) : undefined,
         frecuenciaMantenimientoDias: mantenimiento ? Number(mantenimiento) : undefined,
+        revisionPeriodicaHabilitada,
         modalidadPlanificacion: modalidad,
         modoEjecucion: conModoEjecucion ? modo : undefined,
         ...asignaciones,
@@ -84,7 +88,7 @@ export function ConfiguracionModal({
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={titulo}
-      descripcion="Los cambios aplican solo a las órdenes nuevas; las existentes conservan su configuración."
+      descripcion="La planificación de las órdenes nuevas usa esta configuración."
       pie={
         <>
           <Boton onClick={onCerrar}>Cancelar</Boton>
@@ -96,32 +100,39 @@ export function ConfiguracionModal({
     >
       <form id="form-configuracion" onSubmit={guardar} className="flex flex-col gap-4">
         {!tieneErroresDeCampo(error) && <MensajeError error={error} />}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <RevisionPeriodicaCampo
+          habilitada={revisionPeriodicaHabilitada}
+          onCambiar={setRevisionPeriodicaHabilitada}
+          grupo={conModoEjecucion}
+          error={errorDeCampo(error, 'revisionPeriodicaHabilitada')}
+        >
           <Campo
             etiqueta="Frecuencia de revisión (días)"
+            className="sm:max-w-xs"
             error={errorDeCampo(error, 'frecuenciaRevisionDias')}
             ayuda={recomendadas?.revision ? `Si la deja vacía se usa la de la criticidad: ${recomendadas.revision} días` : undefined}
           >
             <Entrada type="number" min={1} value={revision} placeholder={recomendadas?.revision?.toString()} onChange={(e) => setRevision(e.target.value)} />
           </Campo>
-          <Campo
-            etiqueta="Frecuencia de mantenimiento (días)"
-            error={errorDeCampo(error, 'frecuenciaMantenimientoDias')}
-            ayuda={
-              recomendadas?.mantenimiento
-                ? `Si la deja vacía se usa la de la criticidad: ${recomendadas.mantenimiento} días`
-                : undefined
-            }
-          >
-            <Entrada
-              type="number"
-              min={1}
-              value={mantenimiento}
-              placeholder={recomendadas?.mantenimiento?.toString()}
-              onChange={(e) => setMantenimiento(e.target.value)}
-            />
-          </Campo>
-        </div>
+        </RevisionPeriodicaCampo>
+        <Campo
+          etiqueta="Frecuencia de mantenimiento (días)"
+          className="sm:max-w-xs"
+          error={errorDeCampo(error, 'frecuenciaMantenimientoDias')}
+          ayuda={
+            recomendadas?.mantenimiento
+              ? `Si la deja vacía se usa la de la criticidad: ${recomendadas.mantenimiento} días`
+              : undefined
+          }
+        >
+          <Entrada
+            type="number"
+            min={1}
+            value={mantenimiento}
+            placeholder={recomendadas?.mantenimiento?.toString()}
+            onChange={(e) => setMantenimiento(e.target.value)}
+          />
+        </Campo>
 
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium text-ink">Modalidad de planificación</legend>

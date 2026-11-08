@@ -10,6 +10,7 @@ import { SelectorHora } from '@/components/ui/SelectorHora'
 import { useConsulta } from '@/hooks/useConsulta'
 import { ETIQUETA_DIA } from '@/utils/etiquetas'
 import { FINALIDADES_CUENTA } from '@/utils/cuentasServicio'
+import { RevisionPeriodicaCampo } from '../RevisionPeriodicaCampo'
 import { VistaSemanalVentanas } from '../VistaSemanalVentanas'
 import { problemaMantenimiento, type ServidorPreparado } from './preparacion'
 
@@ -45,10 +46,13 @@ export function MantenimientoPaso({ servidores, onCambiar }: Props) {
         </Selector>
       </Campo>}
       <div className="rounded-lg bg-panel-muted p-3 text-sm"><span className="font-mono font-medium">{s.hostname}</span><span className="ml-3 text-ink-soft">{s.criticidad} · {s.sistemaOperativo}</span></div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Campo etiqueta="Frecuencia de revisión (días)" obligatorio><Entrada type="number" min={1} step={1} value={c.frecuenciaRevisionDias ?? ''} onChange={(e) => configurar({ frecuenciaRevisionDias: e.target.value ? Number(e.target.value) : undefined })} /></Campo>
-        <Campo etiqueta="Frecuencia de mantenimiento (días)" obligatorio><Entrada type="number" min={1} step={1} value={c.frecuenciaMantenimientoDias ?? ''} onChange={(e) => configurar({ frecuenciaMantenimientoDias: e.target.value ? Number(e.target.value) : undefined })} /></Campo>
-      </div>
+      <RevisionPeriodicaCampo
+        habilitada={c.revisionPeriodicaHabilitada ?? true}
+        onCambiar={(revisionPeriodicaHabilitada) => configurar({ revisionPeriodicaHabilitada })}
+      >
+        <Campo etiqueta="Frecuencia de revisión (días)" obligatorio className="sm:max-w-xs"><Entrada type="number" min={1} step={1} value={c.frecuenciaRevisionDias ?? ''} onChange={(e) => configurar({ frecuenciaRevisionDias: e.target.value ? Number(e.target.value) : undefined })} /></Campo>
+      </RevisionPeriodicaCampo>
+      <Campo etiqueta="Frecuencia de mantenimiento (días)" obligatorio className="sm:max-w-xs"><Entrada type="number" min={1} step={1} value={c.frecuenciaMantenimientoDias ?? ''} onChange={(e) => configurar({ frecuenciaMantenimientoDias: e.target.value ? Number(e.target.value) : undefined })} /></Campo>
       {FINALIDADES_CUENTA.map(({ finalidad, campoId }) => (
         <SelectorCuentaServicio
           key={finalidad}
@@ -76,7 +80,7 @@ export function MantenimientoPaso({ servidores, onCambiar }: Props) {
       {servidores.length > 1 && <div className="flex flex-col items-start gap-2 border-t border-line pt-4">
         <Boton onClick={() => {
           onCambiar(servidores.map((item) => ({ ...item, mantenimiento: { ...item.mantenimiento, ventanas: ventanas.map((v) => ({ ...v })), configuracion: { ...item.mantenimiento.configuracion, frecuenciaRevisionDias: c.frecuenciaRevisionDias, frecuenciaMantenimientoDias: c.frecuenciaMantenimientoDias } } })))
-          setAviso('Frecuencias y ventana aplicadas a todos los servidores. Las cuentas de servicio conservan su selección individual.')
+          setAviso('Frecuencias y ventana aplicadas a todos los servidores. Configure las revisiones periódicas y las cuentas por servidor.')
         }}>Aplicar frecuencias y ventana a todos</Boton>
         <p className="text-xs text-ink-soft" role="status">{aviso || `${servidores.filter((item) => !problemaMantenimiento(item)).length} de ${servidores.length} servidores con mantenimiento definido.`}</p>
       </div>}

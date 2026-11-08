@@ -197,6 +197,7 @@ export function FichaServidorPage() {
               await servidoresApi.configurar(idServidor, {
                 frecuenciaRevisionDias: datos.frecuenciaRevisionDias,
                 frecuenciaMantenimientoDias: datos.frecuenciaMantenimientoDias,
+                revisionPeriodicaHabilitada: datos.revisionPeriodicaHabilitada,
                 modalidadPlanificacion: datos.modalidadPlanificacion,
                 idCuentaServicioEvaluacion: datos.idCuentaServicioEvaluacion,
                 idCuentaServicioMantenimiento: datos.idCuentaServicioMantenimiento,

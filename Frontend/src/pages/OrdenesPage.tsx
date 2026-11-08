@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
-import type { EstadoOrden } from '@/api/dominio'
+import type { EstadoOrden, MotivoCierre } from '@/api/dominio'
 import { planificacionApi, type FiltroOrdenes } from '@/api/planificacion'
 import { useSesion } from '@/auth/sesion-context'
 import { PageHeader } from '@/components/common/PageHeader'
@@ -13,12 +13,20 @@ import { SelectorFecha } from '@/components/ui/SelectorFecha'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { guardarTamano, leerTamanoGuardado } from '@/hooks/usePaginacion'
-import { ETIQUETA_ESTADO_ORDEN } from '@/utils/etiquetas'
+import { ESTADOS_DE_CIERRE, ETIQUETA_ESTADO_ORDEN, ETIQUETA_MOTIVO_CIERRE } from '@/utils/etiquetas'
+
+/** Los estados que la orden conserva; los de cierre se buscan por el motivo, en el historial */
+const ESTADOS = (Object.keys(ETIQUETA_ESTADO_ORDEN) as EstadoOrden[]).filter((e) => !ESTADOS_DE_CIERRE.includes(e))
 
 export function OrdenesPage() {
   const { tieneRol } = useSesion()
   const [codigo, setCodigo] = useState('')
-  const [filtro, setFiltro] = useState<FiltroOrdenes>({ estado: '', pagina: 0, tamano: leerTamanoGuardado('ordenes') })
+  const [filtro, setFiltro] = useState<FiltroOrdenes>({
+    estado: '',
+    motivoCierre: '',
+    pagina: 0,
+    tamano: leerTamanoGuardado('ordenes'),
+  })
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const catalogos = useCatalogos()
@@ -67,12 +75,30 @@ export function OrdenesPage() {
           aria-label="Estado"
           className="!w-auto"
           value={filtro.estado ?? ''}
-          onChange={(e) => setFiltro((f) => ({ ...f, estado: e.target.value as EstadoOrden | '', pagina: 0 }))}
+          onChange={(e) =>
+            setFiltro((f) => ({ ...f, estado: e.target.value as EstadoOrden | '', motivoCierre: e.target.value ? '' : f.motivoCierre, pagina: 0 }))
+          }
         >
           <option value="">Todos los estados</option>
-          {(Object.keys(ETIQUETA_ESTADO_ORDEN) as EstadoOrden[]).map((e) => (
+          {ESTADOS.map((e) => (
             <option key={e} value={e}>
               {ETIQUETA_ESTADO_ORDEN[e]}
+            </option>
+          ))}
+        </Selector>
+        {/* Una orden con motivo de cierre figura como Cerrada: elegir un motivo deja el estado en todos */}
+        <Selector
+          aria-label="Motivo de cierre"
+          className="!w-auto"
+          value={filtro.motivoCierre ?? ''}
+          onChange={(e) =>
+            setFiltro((f) => ({ ...f, motivoCierre: e.target.value as MotivoCierre | '', estado: e.target.value ? '' : f.estado, pagina: 0 }))
+          }
+        >
+          <option value="">Cualquier motivo de cierre</option>
+          {(Object.keys(ETIQUETA_MOTIVO_CIERRE) as MotivoCierre[]).map((m) => (
+            <option key={m} value={m}>
+              {ETIQUETA_MOTIVO_CIERRE[m]}
             </option>
           ))}
         </Selector>
@@ -113,7 +139,7 @@ export function OrdenesPage() {
         {ordenes.cargando && !pagina ? (
           <Cargando />
         ) : (
-          <OrdenesTabla ordenes={pagina?.contenido ?? []} estadoEnTexto vacio="No se encontraron órdenes con los filtros aplicados." />
+          <OrdenesTabla ordenes={pagina?.contenido ?? []} vacio="No se encontraron órdenes con los filtros aplicados." />
         )}
         <Paginacion
           pagina={pagina?.pagina ?? 0}

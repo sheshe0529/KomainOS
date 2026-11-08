@@ -12,6 +12,9 @@ public record ConfiguracionGrupoPeticion(
         @Min(value = 1, message = "La frecuencia de revisión debe ser de al menos 1 día")
         Integer frecuenciaRevisionDias,
 
+        /** Si se omite, conserva la selección actual. Una configuración nueva empieza con las revisiones deshabilitadas. */
+        Boolean revisionPeriodicaHabilitada,
+
         @Min(value = 1, message = "La frecuencia de mantenimiento debe ser de al menos 1 día")
         Integer frecuenciaMantenimientoDias,
 

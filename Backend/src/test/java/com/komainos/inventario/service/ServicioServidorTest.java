@@ -198,6 +198,7 @@ class ServicioServidorTest {
 
             assertThat(config.getFrecuenciaRevisionDias()).isEqualTo(7);
             assertThat(config.getFrecuenciaMantenimientoDias()).isEqualTo(30);
+            assertThat(config.isRevisionPeriodicaHabilitada()).isTrue();
             assertThat(servidor.getEstado()).isEqualTo(EstadoServidor.ACTIVO);
             verify(eventos).publishEvent(new ConfiguracionMantenimientoActualizada(3, null));
         }

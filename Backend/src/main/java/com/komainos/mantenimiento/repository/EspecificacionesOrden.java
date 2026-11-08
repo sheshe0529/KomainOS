@@ -1,6 +1,8 @@
 package com.komainos.mantenimiento.repository;
 
+import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.FiltroOrdenes;
+import com.komainos.mantenimiento.model.HistorialEstadoOrden;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrdenDetalle;
 import com.komainos.seguridad.model.AlcanceUsuario;
@@ -38,6 +40,15 @@ public final class EspecificacionesOrden {
             }
             if (f.estado() != null) {
                 condiciones.add(cb.equal(raiz.get("estado"), f.estado()));
+            }
+            if (f.motivoCierre() != null) {
+                // El estado del motivo dura solo hasta el cierre: queda en el historial de la orden
+                Subquery<Integer> historial = consulta.subquery(Integer.class);
+                Root<HistorialEstadoOrden> h = historial.from(HistorialEstadoOrden.class);
+                historial.select(h.get("id")).where(cb.equal(h.get("orden"), raiz),
+                        h.get("estadoNuevo").in(f.motivoCierre().estados()));
+                condiciones.add(cb.equal(raiz.get("estado"), EstadoOrden.CERRADA));
+                condiciones.add(cb.exists(historial));
             }
             if (f.idNivelCriticidad() != null) {
                 condiciones.add(cb.equal(raiz.get("nivelCriticidad").get("id"), f.idNivelCriticidad()));

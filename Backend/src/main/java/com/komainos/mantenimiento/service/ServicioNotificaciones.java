@@ -3,6 +3,7 @@ package com.komainos.mantenimiento.service;
 import com.komainos.alerta.model.TipoAlerta;
 import com.komainos.alerta.service.ServicioAlertas;
 import com.komainos.alerta.service.ServicioAlertas.DatosAlerta;
+import com.komainos.inventario.model.GrupoMantenimiento;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrdenDetalle;
@@ -40,6 +41,13 @@ public class ServicioNotificaciones {
     @Transactional
     public void aServidor(Servidor servidor, TipoAlerta tipo, String titulo, String mensaje) {
         alertas.emitir(DatosAlerta.de(tipo, titulo, mensaje).servidor(servidor.getId()), deServidor(servidor));
+    }
+
+    @Transactional
+    public void aGrupo(GrupoMantenimiento grupo, TipoAlerta tipo, String titulo, String mensaje) {
+        Set<Integer> destinatarios = administradores();
+        grupo.servidores().forEach(s -> destinatarios.add(s.getResponsable().getId()));
+        alertas.emitir(DatosAlerta.de(tipo, titulo, mensaje).grupo(grupo.getId()), destinatarios);
     }
 
     @Transactional

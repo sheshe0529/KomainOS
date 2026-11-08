@@ -3,11 +3,13 @@ package com.komainos.mantenimiento.controller;
 import com.komainos.inventario.model.FinalidadCuenta;
 
 import com.komainos.catalogo.mapper.CatalogoMapeador;
+import com.komainos.mantenimiento.dto.AnalisisGrupoRespuesta;
 import com.komainos.mantenimiento.dto.CicloPeticiones;
 import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta;
 import com.komainos.mantenimiento.dto.OperacionRespuestas;
 import com.komainos.mantenimiento.mapper.AutomatizacionMapeador;
 import com.komainos.mantenimiento.model.Evaluacion;
+import com.komainos.mantenimiento.service.ServicioAnalisisGrupo;
 import com.komainos.mantenimiento.service.ServicioConectividad;
 import com.komainos.mantenimiento.service.ServicioConectividad.ResultadoConexion;
 import com.komainos.mantenimiento.service.ServicioConsultaAutomatizacion;
@@ -40,7 +42,8 @@ import java.util.Map;
 
 /**
  * Lo que se hace sobre un servidor fuera de una orden: verificar el acceso de la cuenta (RF71), revisarlo ahora (RF37),
- * consultar sus análisis y su preparación, y probar una versión de análisis antes de usarla en el ciclo.
+ * consultar sus análisis y su preparación, y probar una versión de análisis antes de usarla en el ciclo. También los
+ * análisis de un grupo, agrupados por evento.
  */
 @RestController
 @RequestMapping("/api")
@@ -54,6 +57,7 @@ public class AnalisisServidorController {
     private final ServicioPreparacionAutomatizacion preparacion;
     private final ServicioPruebaAnalisis pruebas;
     private final ServicioConsultaAutomatizacion consulta;
+    private final ServicioAnalisisGrupo analisisGrupo;
 
     @PostMapping("/servidores/{id}/conectividad")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
@@ -91,6 +95,23 @@ public class AnalisisServidorController {
             @PageableDefault(size = 20) Pageable pagina,
             @AuthenticationPrincipal UsuarioAutenticado u) {
         return PaginaRespuesta.de(evaluaciones.historial(id, AlcanceUsuario.de(u), pagina), this::analisis);
+    }
+
+    @GetMapping("/grupos/{id}/evaluaciones")
+    @Operation(summary = "Análisis del grupo por evento: revisiones periódicas, evaluaciones previas y validaciones técnicas")
+    public PaginaRespuesta<AnalisisGrupoRespuesta> historialGrupo(
+            @PathVariable Integer id,
+            @PageableDefault(size = 20) Pageable pagina,
+            @AuthenticationPrincipal UsuarioAutenticado u) {
+        return PaginaRespuesta.de(analisisGrupo.historial(id, AlcanceUsuario.de(u), pagina), a -> {
+            // Los integrantes suelen compartir la cuenta: cada nombre se busca una sola vez
+            Map<Integer, String> cuentas = new HashMap<>();
+            a.evaluaciones().stream().map(Evaluacion::getIdCuentaServicio).distinct()
+                    .forEach(c -> consulta.nombreCuenta(c).ifPresent(n -> cuentas.put(c, n)));
+            return new AnalisisGrupoRespuesta(a.tipo(), a.orden() == null ? null : a.orden().getId(),
+                    a.orden() == null ? null : a.orden().getCodigo(), a.fecha(),
+                    a.evaluaciones().stream().map(e -> AutomatizacionMapeador.analisis(e, cuentas)).toList());
+        });
     }
 
     @GetMapping("/servidores/{id}/preparacion-automatizacion")

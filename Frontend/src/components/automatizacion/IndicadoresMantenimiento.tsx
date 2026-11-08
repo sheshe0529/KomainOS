@@ -68,9 +68,6 @@ export function IndicadoresMantenimiento() {
       {informe.cargando && !informe.datos && <Cargando texto="Calculando indicadores…" />}
       {informe.datos && (
         <>
-          <p className="mb-4 text-xs text-ink-soft">
-            Periodo: {formatearFechaHora(informe.datos.desde)} a {formatearFechaHora(informe.datos.hasta)} (fin exclusivo).
-          </p>
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             {informe.datos.indicadores?.map((k) => (
               <article key={k.codigo} className="min-w-0 rounded-xl border border-line bg-panel p-3">

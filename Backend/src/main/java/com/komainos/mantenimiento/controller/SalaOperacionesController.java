@@ -159,7 +159,7 @@ public class SalaOperacionesController {
     public OperacionRespuestas.ResumenProcesoRespuesta procesar() {
         ProcesoAutomatizacion.Resumen r = proceso.procesar();
         return new OperacionRespuestas.ResumenProcesoRespuesta(r.ejecutado(), r.evaluadas(), r.revisadas(), r.despachadas(),
-                r.vencidas(), r.descripcion());
+                r.vencidas(), r.descripcion(), r.gruposRevisados());
     }
 
     @PostMapping("/ejecutar-cola")

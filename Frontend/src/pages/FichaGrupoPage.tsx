@@ -4,6 +4,7 @@ import { CalendarPlus, Pencil, Power, PowerOff, Users, Wrench } from 'lucide-rea
 import { gruposApi } from '@/api/inventario'
 import type { FichaGrupoRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
+import { AnalisisGrupo } from '@/components/automatizacion/AnalisisGrupo'
 import { BitacoraMantenimiento } from '@/components/automatizacion/BitacoraMantenimiento'
 import { ConectividadGrupo } from '@/components/automatizacion/ConectividadGrupo'
 import { EnlaceVolver, PageHeader } from '@/components/common/PageHeader'
@@ -220,8 +221,12 @@ export function FichaGrupoPage() {
         </>
       )}
 
+      {/* Como en la ficha del servidor: lo que se le ha hecho al grupo y lo que encontraron sus análisis */}
       {pestana === 'historial' && (
-        <BitacoraMantenimiento idGrupo={idGrupo} integrantes={g.integrantes ?? []} version={versionOrdenes} />
+        <>
+          <BitacoraMantenimiento idGrupo={idGrupo} integrantes={g.integrantes ?? []} version={versionOrdenes} />
+          <AnalisisGrupo idGrupo={idGrupo} />
+        </>
       )}
 
       {dialogo === 'programar' && (
@@ -269,6 +274,7 @@ export function FichaGrupoPage() {
               await gruposApi.configurar(idGrupo, {
                 frecuenciaRevisionDias: datos.frecuenciaRevisionDias,
                 frecuenciaMantenimientoDias: datos.frecuenciaMantenimientoDias,
+                revisionPeriodicaHabilitada: datos.revisionPeriodicaHabilitada,
                 modalidadPlanificacion: datos.modalidadPlanificacion,
                 modoEjecucion: datos.modoEjecucion ?? 'SECUENCIAL',
                 idCuentaServicioEvaluacion: datos.idCuentaServicioEvaluacion,

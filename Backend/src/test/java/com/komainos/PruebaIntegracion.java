@@ -50,7 +50,7 @@ public abstract class PruebaIntegracion {
                 TRUNCATE TABLE alerta_destinatario, alerta, auditoria, incidencia, validacion_funcional,
                     validacion_tecnica, autorizacion_detalle, solicitud_autorizacion, notificacion_regla,
                     regla_politica_cambio, mop_tarea, mop, evaluacion_umbral, medicion_lista_item, medicion_metrica,
-                    evaluacion, cierre_orden, confirmacion_fuera_ventana, orden_detalle, historial_estado_orden,
+                    evaluacion, revision_periodica_grupo, cierre_orden, confirmacion_fuera_ventana, orden_detalle, historial_estado_orden,
                     orden, umbral_tarea, tarea, script_parametro, script_version, script_implementacion, script,
                     umbral_excepcion, umbral, lista_referencia_item, lista_referencia, metrica,
                     configuracion_grupo, configuracion_servidor,

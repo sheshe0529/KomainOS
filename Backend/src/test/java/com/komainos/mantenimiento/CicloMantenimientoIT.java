@@ -11,17 +11,20 @@ import com.komainos.inventario.model.CalendarioSemanal;
 import com.komainos.inventario.model.AlcanceExcepcion;
 import com.komainos.inventario.model.DiaSemana;
 import com.komainos.inventario.model.ModalidadPlanificacion;
+import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.model.NivelAlerta;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.model.TipoDato;
 import com.komainos.inventario.service.ServicioListasReferencia;
 import com.komainos.inventario.service.ServicioListasReferencia.DatosLista;
+import com.komainos.inventario.service.ServicioGrupo.DatosConfiguracionGrupo;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.inventario.service.ServicioUmbrales;
 import com.komainos.inventario.service.ServicioUmbrales.DatosExcepcion;
 import com.komainos.inventario.service.ServicioUmbrales.DatosUmbral;
 import com.komainos.mantenimiento.model.EstadoAutorizacion;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.service.ProcesoAutomatizacion;
 import com.komainos.mantenimiento.service.ServicioEvaluaciones;
 import com.komainos.mantenimiento.service.ServicioIncidencias;
 import com.komainos.mantenimiento.service.ServicioRevisionPeriodica;
@@ -29,7 +32,9 @@ import com.komainos.mantenimiento.service.ServicioAutorizaciones;
 import com.komainos.mantenimiento.service.ServicioValidaciones;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.Rol;
+import com.komainos.seguridad.model.Usuario;
 import com.komainos.shared.exception.ReglaNegocioException;
+import com.komainos.shared.model.Actor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -60,6 +65,8 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
     ServicioIncidencias incidencias;
     @Autowired
     ServicioRevisionPeriodica revision;
+    @Autowired
+    ProcesoAutomatizacion proceso;
     @Autowired
     ServicioEvaluaciones evaluaciones;
     @Autowired
@@ -303,6 +310,15 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
                     .isEqualTo(1);
             assertThat(contar("select count(*) from incidencia i join orden_detalle d using (id_orden_detalle) where d.id_orden = ?", id))
                     .isZero();
+            // El estado RECHAZADA dura hasta el cierre: la orden se encuentra por su motivo de cierre
+            mvc.perform(get("/api/ordenes").param("estado", "RECHAZADA").with(como(admin)))
+                    .andExpect(jsonPath("$.totalElementos").value(0));
+            mvc.perform(get("/api/ordenes").param("motivoCierre", "NO_AUTORIZADO").with(como(admin)))
+                    .andExpect(jsonPath("$.totalElementos").value(1))
+                    .andExpect(jsonPath("$.contenido[0].id").value(id))
+                    .andExpect(jsonPath("$.contenido[0].estado").value("CERRADA"));
+            mvc.perform(get("/api/ordenes").param("motivoCierre", "VALIDACION_VENCIDA").with(como(admin)))
+                    .andExpect(jsonPath("$.totalElementos").value(0));
         }
 
         @Test
@@ -435,7 +451,7 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
 
         @Test
         @DisplayName("CP148: una validación vencida cierra el ciclo sin registrar conformidad")
-        void vencimientoDeValidacion() {
+        void vencimientoDeValidacion() throws Exception {
             Integer id = lanzarAutorizada(servidor);
             orquestador.drenar();
             jdbc.update("update validacion_funcional set fecha_solicitud = ?, fecha_limite = ? where id_orden = ?",
@@ -447,6 +463,12 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
             assertThat(jdbc.queryForObject("select estado::text from validacion_funcional", String.class)).isEqualTo("VENCIDA");
             assertThat(contar("select count(*) from historial_estado_orden where id_orden = ? and estado_nuevo = 'VALIDACION_VENCIDA'", id))
                     .isEqualTo(1);
+            // Se ejecutó sin conformidad: es un motivo aparte de la falta de autorización
+            mvc.perform(get("/api/ordenes").param("motivoCierre", "VALIDACION_VENCIDA").with(como(admin)))
+                    .andExpect(jsonPath("$.totalElementos").value(1))
+                    .andExpect(jsonPath("$.contenido[0].id").value(id));
+            mvc.perform(get("/api/ordenes").param("motivoCierre", "NO_AUTORIZADO").with(como(admin)))
+                    .andExpect(jsonPath("$.totalElementos").value(0));
         }
 
         @Test
@@ -475,6 +497,77 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
     @Nested
     @DisplayName("Revisión periódica (RF37, RF40)")
     class Revision {
+
+        @Test
+        @DisplayName("Desactivar la revisión individual excluye el proceso automático y permite Revisar ahora")
+        void desactivarIndividual() {
+            assertThat(revision.pendientes(10)).contains(servidor.getId());
+            servidores.configurar(servidor.getId(), new ServicioServidor.DatosConfiguracion(7, 30,
+                    ModalidadPlanificacion.BAJO_DEMANDA, cuenta, cuenta, false), actor);
+
+            assertThat(revision.pendientes(10)).doesNotContain(servidor.getId());
+            assertThat(revision.revisarPendiente(servidor.getId(), actor)).isFalse();
+            assertThat(revision.revisar(servidor.getId(), actor).getRevisionGrupo()).isNull();
+            assertThat(contar("select count(*) from evaluacion where id_servidor = ?", servidor.getId())).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("RF37: el historial del grupo agrupa por evento la revisión grupal y la evaluación previa de su orden")
+        void historialDelGrupo() throws Exception {
+            Servidor segundo = crear("srv-integrante", "10.90.0.12");
+            var objetivo = grupo("Grupo con historial", ModoEjecucion.SECUENCIAL, servidor, segundo);
+            grupos.configurar(objetivo.getId(), new DatosConfiguracionGrupo(7, 30, ModalidadPlanificacion.BAJO_DEMANDA,
+                    ModoEjecucion.SECUENCIAL, cuenta, cuenta, true), actor);
+            assertThat(revision.revisarGrupoPendiente(objetivo.getId(), actor)).isTrue();
+            Integer idOrden = lanzarGrupo(objetivo);
+            String codigo = jdbc.queryForObject("select codigo from orden where id_orden = ?", String.class, idOrden);
+
+            // Con el reloj fijo, el evento posterior se reconoce por sus identificadores
+            mvc.perform(get("/api/grupos/{id}/evaluaciones", objetivo.getId()).with(como(admin)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalElementos").value(2))
+                    .andExpect(jsonPath("$.contenido[0].tipo").value("PREVIA"))
+                    .andExpect(jsonPath("$.contenido[0].idOrden").value(idOrden))
+                    .andExpect(jsonPath("$.contenido[0].orden").value(codigo))
+                    .andExpect(jsonPath("$.contenido[0].analisis.length()").value(2))
+                    .andExpect(jsonPath("$.contenido[1].tipo").value("REVISION_PERIODICA"))
+                    .andExpect(jsonPath("$.contenido[1].idOrden").doesNotExist())
+                    .andExpect(jsonPath("$.contenido[1].analisis.length()").value(2))
+                    .andExpect(jsonPath("$.contenido[1].analisis[*].servidor",
+                            org.hamcrest.Matchers.containsInAnyOrder("srv-prueba", "srv-integrante")));
+
+            Usuario otro = usuarios.crear("otro.resp", "Otro responsable", "Clave-prueba-5", Rol.RESPONSABLE,
+                    Actor.sistema("PRUEBA"));
+            mvc.perform(get("/api/grupos/{id}/evaluaciones", objetivo.getId()).with(como(otro)))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("La revisión grupal tiene calendario propio y una condición crítica crea una orden del grupo")
+        void calendarioGrupalIndependiente() {
+            Servidor critico = crear("srv-critico", "10.90.0.8");
+            var objetivo = grupo("Grupo de revisión", ModoEjecucion.SECUENCIAL, critico);
+            assertThat(revision.pendientes(10)).contains(critico.getId());
+            assertThat(revision.gruposPendientes(10)).doesNotContain(objetivo.getId());
+            assertThat(revision.revisarGrupoPendiente(objetivo.getId(), actor)).isFalse();
+
+            servidores.configurar(critico.getId(), new ServicioServidor.DatosConfiguracion(7, 30,
+                    ModalidadPlanificacion.BAJO_DEMANDA, cuenta, cuenta, false), actor);
+            grupos.configurar(objetivo.getId(), new DatosConfiguracionGrupo(7, 30, ModalidadPlanificacion.BAJO_DEMANDA,
+                    ModoEjecucion.SECUENCIAL, cuenta, cuenta, true), actor);
+            assertThat(proceso.procesar().gruposRevisados()).isEqualTo(1);
+
+            assertThat(contar("select count(*) from revision_periodica_grupo where id_grupo_mantenimiento = ?",
+                    objetivo.getId())).isEqualTo(1);
+            assertThat(contar("select count(*) from orden where id_grupo_mantenimiento = ? and origen = 'CONDICION_CRITICA'",
+                    objetivo.getId())).isEqualTo(1);
+            assertThat(contar("select count(*) from orden where id_servidor = ?", critico.getId())).isZero();
+            assertThat(revision.gruposPendientes(10)).doesNotContain(objetivo.getId());
+
+            servidores.configurar(critico.getId(), new ServicioServidor.DatosConfiguracion(7, 30,
+                    ModalidadPlanificacion.BAJO_DEMANDA, cuenta, cuenta, true), actor);
+            assertThat(revision.pendientes(10)).contains(critico.getId());
+        }
 
         @Test
         @DisplayName("CP102: una advertencia alerta al responsable y al administrador sin generar una orden")

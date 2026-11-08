@@ -71,10 +71,7 @@ public class ServicioGrupo {
 
     @Transactional(readOnly = true)
     public FichaGrupo ficha(Integer id, AlcanceUsuario alcance) {
-        GrupoMantenimiento grupo = buscar(id);
-        if (!esVisible(grupo, alcance)) {
-            throw RecursoNoEncontradoException.de("el grupo de mantenimiento", id);
-        }
+        GrupoMantenimiento grupo = visible(id, alcance);
         Optional<ConfiguracionGrupo> configuracion = configuraciones.findByGrupoId(id);
         return new FichaGrupo(grupo, configuracion, configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.EVALUACION)),
                 configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.MANTENIMIENTO)),
@@ -183,6 +180,9 @@ public class ServicioGrupo {
         ConfiguracionGrupo configuracion = existente.orElseGet(() -> ConfiguracionGrupo.nueva(
                 grupo, revision, mantenimiento, datos.modalidad(), datos.modoEjecucion(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad(), datos.modoEjecucion());
+        if (datos.revisionPeriodicaHabilitada() != null) {
+            configuracion.setRevisionPeriodicaHabilitada(datos.revisionPeriodicaHabilitada());
+        }
         configuracion.setIdCuentaServicioEvaluacion(datos.idCuentaServicioEvaluacion());
         configuracion.setIdCuentaServicioMantenimiento(datos.idCuentaServicioMantenimiento());
         configuraciones.save(configuracion);
@@ -215,6 +215,16 @@ public class ServicioGrupo {
         return CalendarioSemanal.interseccionDe(grupo.servidores().stream()
                 .map(s -> CalendarioSemanal.de(s.getVentanas()))
                 .toList());
+    }
+
+    /** El grupo con sus integrantes si el usuario puede verlo; si no, 404 como si no existiera */
+    @Transactional(readOnly = true)
+    public GrupoMantenimiento visible(Integer id, AlcanceUsuario alcance) {
+        GrupoMantenimiento grupo = buscar(id);
+        if (!esVisible(grupo, alcance)) {
+            throw RecursoNoEncontradoException.de("el grupo de mantenimiento", id);
+        }
+        return grupo;
     }
 
     private GrupoMantenimiento buscar(Integer id) {
@@ -269,6 +279,7 @@ public class ServicioGrupo {
     private static Map<String, Object> instantanea(ConfiguracionGrupo c) {
         Map<String, Object> v = new HashMap<>();
         v.put("frecuenciaRevisionDias", c.getFrecuenciaRevisionDias());
+        v.put("revisionPeriodicaHabilitada", c.isRevisionPeriodicaHabilitada());
         v.put("frecuenciaMantenimientoDias", c.getFrecuenciaMantenimientoDias());
         v.put("modalidadPlanificacion", c.getModalidadPlanificacion().name());
         v.put("modoEjecucion", c.getModoEjecucion().name());
@@ -280,11 +291,19 @@ public class ServicioGrupo {
     /** idCuentaServicio nula: usa la cuenta predeterminada del sistema (RF06) */
     public record DatosConfiguracionGrupo(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
                                           ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion,
-                                          Integer idCuentaServicioEvaluacion, Integer idCuentaServicioMantenimiento) {
+                                          Integer idCuentaServicioEvaluacion, Integer idCuentaServicioMantenimiento,
+                                          Boolean revisionPeriodicaHabilitada) {
+
+        public DatosConfiguracionGrupo(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
+                                       ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion,
+                                       Integer idCuentaServicioEvaluacion, Integer idCuentaServicioMantenimiento) {
+            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, modoEjecucion,
+                    idCuentaServicioEvaluacion, idCuentaServicioMantenimiento, null);
+        }
 
         public DatosConfiguracionGrupo(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
                                        ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion) {
-            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, modoEjecucion, null, null);
+            this(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, modoEjecucion, null, null, null);
         }
     }
 

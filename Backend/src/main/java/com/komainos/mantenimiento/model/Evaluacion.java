@@ -29,12 +29,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * Una ejecución del script de análisis sobre un servidor (RF37, RF38, RF55): conserva la versión del script, la cuenta,
  * las mediciones y los valores de umbral aplicados. Una revisión periódica no pertenece a una orden; la evaluación
- * previa y la posterior sí (ck_evaluacion_detalle_tipo).
+ * previa y la posterior sí. Las revisiones de un grupo vinculan el análisis a la revisión compartida.
  */
 @Entity
 @Table(name = "evaluacion")
@@ -54,6 +55,10 @@ public class Evaluacion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_orden_detalle")
     private OrdenDetalle detalle;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_revision_periodica_grupo", updatable = false)
+    private RevisionPeriodicaGrupo revisionGrupo;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_script_version", nullable = false)
@@ -99,6 +104,13 @@ public class Evaluacion {
         evaluacion.tipo = tipo;
         evaluacion.estado = EstadoEvaluacion.EN_CURSO;
         evaluacion.fechaInicio = ahora;
+        return evaluacion;
+    }
+
+    public static Evaluacion iniciarRevisionGrupal(Servidor servidor, RevisionPeriodicaGrupo revisionGrupo,
+                                                   VersionScript version, Integer idCuentaServicio, Instant ahora) {
+        Evaluacion evaluacion = iniciar(servidor, null, version, idCuentaServicio, TipoEvaluacion.REVISION_PERIODICA, ahora);
+        evaluacion.revisionGrupo = Objects.requireNonNull(revisionGrupo);
         return evaluacion;
     }
 

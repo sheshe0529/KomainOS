@@ -5,6 +5,7 @@ import com.komainos.mantenimiento.dto.OrdenResumenRespuesta;
 import com.komainos.mantenimiento.mapper.OrdenMapeador;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.FiltroOrdenes;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.service.ServicioConsultaOrdenes;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.UsuarioAutenticado;
@@ -34,19 +35,20 @@ public class OrdenController {
     private final ServicioConsultaOrdenes servicio;
 
     @GetMapping
-    @Operation(summary = "Consulta órdenes por código, servidor, grupo, estado, criticidad y fechas (RF36)")
+    @Operation(summary = "Consulta órdenes por código, servidor, grupo, estado, motivo de cierre, criticidad y fechas (RF36)")
     public PaginaRespuesta<OrdenResumenRespuesta> listar(
             @RequestParam(required = false) String codigo,
             @RequestParam(required = false) Integer idServidor,
             @RequestParam(required = false) Integer idGrupo,
             @RequestParam(required = false) EstadoOrden estado,
             @RequestParam(required = false) Integer idNivelCriticidad,
+            @RequestParam(required = false) MotivoCierre motivoCierre,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime hasta,
             @PageableDefault(size = 20, sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable paginacion,
             @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         var filtro = new FiltroOrdenes(codigo, idServidor, idGrupo, estado, idNivelCriticidad,
-                desde == null ? null : desde.toInstant(), hasta == null ? null : hasta.toInstant());
+                desde == null ? null : desde.toInstant(), hasta == null ? null : hasta.toInstant(), motivoCierre);
         return PaginaRespuesta.de(servicio.listar(filtro, AlcanceUsuario.de(solicitante), paginacion),
                 OrdenMapeador::resumen);
     }

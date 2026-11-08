@@ -64,6 +64,12 @@ se cambia con `KOMAINOS_PUERTO`.
 `scripts/cargar_datos_ejemplo.py` es una alternativa anterior que carga un
 conjunto parecido a través de la API REST, con el backend corriendo.
 
+Para actualizar una base existente con la configuración de revisiones periódicas,
+aplique `2026-11-07_revision_periodica_habilitada.sql` y
+`2026-11-07_revisiones_periodicas_grupales.sql` antes de iniciar esta versión.
+Los servidores conservan la revisión automática habilitada. La revisión grupal
+se habilita desde la configuración de cada grupo.
+
 ## Ciclo de verificación
 
 ```bash

@@ -84,7 +84,8 @@ public final class InventarioMapeador {
 
     public static ConfiguracionRespuesta configuracion(ConfiguracionMantenimiento c, Optional<CuentaEfectiva> evaluacion, Optional<CuentaEfectiva> mantenimiento) {
         return new ConfiguracionRespuesta(
-                c.getFrecuenciaRevisionDias(), c.getFrecuenciaMantenimientoDias(), c.getModalidadPlanificacion(),
+                c.getFrecuenciaRevisionDias(), c.isRevisionPeriodicaHabilitada(),
+                c.getFrecuenciaMantenimientoDias(), c.getModalidadPlanificacion(),
                 c instanceof ConfiguracionGrupo g ? g.getModoEjecucion() : null,
                 c.getIdCuentaServicioEvaluacion(), c.getIdCuentaServicioMantenimiento(),
                 c.getIdCuentaServicioEvaluacion() == null, c.getIdCuentaServicioMantenimiento() == null,

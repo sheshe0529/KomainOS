@@ -52,7 +52,7 @@ public final class OperacionRespuestas {
     }
 
     public record ResumenProcesoRespuesta(boolean ejecutado, int evaluadas, int revisadas, int despachadas,
-                                          int vencidas, List<String> mensajes) {
+                                          int vencidas, List<String> mensajes, int gruposRevisados) {
     }
 
     public record DespachoRespuesta(int despachados, String mensaje) {

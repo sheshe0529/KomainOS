@@ -8,6 +8,7 @@ import java.time.Instant;
 
 public record ConfiguracionRespuesta(
         Integer frecuenciaRevisionDias,
+        boolean revisionPeriodicaHabilitada,
         Integer frecuenciaMantenimientoDias,
         ModalidadPlanificacion modalidadPlanificacion,
         ModoEjecucion modoEjecucion,

@@ -3,8 +3,10 @@ package com.komainos.inventario.repository;
 import com.komainos.inventario.model.ConfiguracionServidor;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.ModalidadPlanificacion;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,6 +18,10 @@ import java.util.Set;
 public interface ConfiguracionServidorRepositorio extends JpaRepository<ConfiguracionServidor, Integer> {
 
     Optional<ConfiguracionServidor> findByServidorId(Integer idServidor);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from ConfiguracionServidor c where c.servidor.id = :idServidor")
+    Optional<ConfiguracionServidor> findParaRevision(@Param("idServidor") Integer idServidor);
 
     @EntityGraph(attributePaths = {"servidor.nivelCriticidad", "servidor.ventanas", "servidor.responsable"})
     List<ConfiguracionServidor> findByModalidadPlanificacion(ModalidadPlanificacion modalidad);
