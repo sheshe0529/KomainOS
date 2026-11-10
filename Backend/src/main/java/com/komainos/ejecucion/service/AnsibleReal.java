@@ -25,7 +25,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
 /**
@@ -43,7 +43,7 @@ public class AnsibleReal implements PuertoAnsible {
             PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
     private static final FileAttribute<Set<PosixFilePermission>> ARCHIVO_PRIVADO =
             PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
-    private static final long REGISTRO_MAXIMO = 8L * 1024 * 1024;
+    private static final int REGISTRO_MAXIMO = 8 * 1024 * 1024;
 
     private final PuertoConexionAutomatizacion conexiones;
     private final ObjectMapper json;
@@ -86,7 +86,7 @@ public class AnsibleReal implements PuertoAnsible {
         Instant inicio = Instant.now();
         Conexion conexion;
         try {
-            conexion = conexiones.resolver(s.idCuentaServicio(), s.familia());
+            conexion = conexiones.resolver(s.idCuentaServicio(), s.familia(), s.proposito());
         } catch (RuntimeException ex) {
             return ResultadoEjecucion.fallo(false, TipoFallo.CONFIGURACION,
                     "la cuenta de servicio no está disponible: " + ex.getMessage());
@@ -126,12 +126,10 @@ public class AnsibleReal implements PuertoAnsible {
                 ArtefactosAnsible.playbook(script, s.familia(), s.maxMinutos())));
         escribir(directorio, ArtefactosAnsible.CALLBACK + ".py", recurso("/ansible/callback_plugins/komainos_json.py"));
 
-        Path registro = directorio.resolve("registro.log");
         ProcessBuilder constructor = new ProcessBuilder(config.ejecutable(), "-i", inventario.toString(),
                 playbook.toString())
                 .directory(directorio.toFile())
-                .redirectErrorStream(true)
-                .redirectOutput(registro.toFile());
+                .redirectErrorStream(true);
         constructor.environment().putAll(ArtefactosAnsible.entorno(directorio, config));
 
         Process proceso;
@@ -142,17 +140,18 @@ public class AnsibleReal implements PuertoAnsible {
                     "no se encontró «%s» en el controlador; instale Ansible o ajuste KOMAINOS_ANSIBLE_EJECUTABLE"
                             .formatted(config.ejecutable()));
         }
-        // Margen sobre el timeout de la tarea, que Ansible aplica primero
-        if (!proceso.waitFor(Math.max(1, s.maxMinutos()) + 1L, TimeUnit.MINUTES)) {
-            detener(proceso);
+        ProcesoAnsible.Salida salida;
+        try {
+            // Margen sobre el timeout de la tarea, que Ansible aplica primero
+            salida = ProcesoAnsible.esperar(proceso, Duration.ofMinutes(Math.max(1, s.maxMinutos()) + 1L), REGISTRO_MAXIMO);
+        } catch (TimeoutException ex) {
             return ResultadoEjecucion.fallo(false, TipoFallo.TIEMPO_EXCEDIDO,
                     "la operación superó %d minutos y se canceló".formatted(s.maxMinutos()));
-        }
-        if (Files.size(registro) > REGISTRO_MAXIMO) {
+        } catch (ProcesoAnsible.SalidaExcedida ex) {
             return ResultadoEjecucion.fallo(false, TipoFallo.EJECUCION,
                     "la salida supera el tamaño permitido de 8 MB");
         }
-        return InterpreteAnsible.interpretar(Files.readString(registro, StandardCharsets.UTF_8), proceso.exitValue(),
+        return InterpreteAnsible.interpretar(salida.texto(), salida.codigo(),
                 s.proposito(), json, conexion.secreto(), conexion.secretoSu());
     }
 
@@ -173,15 +172,6 @@ public class AnsibleReal implements PuertoAnsible {
                 throw new IOException("Recurso inexistente: " + ruta);
             }
             return new String(entrada.readAllBytes(), StandardCharsets.UTF_8);
-        }
-    }
-
-    private static void detener(Process proceso) throws InterruptedException {
-        proceso.descendants().forEach(ProcessHandle::destroy);
-        proceso.destroy();
-        if (!proceso.waitFor(5, TimeUnit.SECONDS)) {
-            proceso.descendants().forEach(ProcessHandle::destroyForcibly);
-            proceso.destroyForcibly();
         }
     }
 

@@ -4,6 +4,7 @@ import com.komainos.credencial.model.CredencialSecreto;
 import com.komainos.credencial.model.CuentaServicio;
 import com.komainos.credencial.model.TipoAutenticacion;
 import com.komainos.credencial.repository.CuentaServicioRepositorio;
+import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.ejecucion.service.PuertoConexionAutomatizacion;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
@@ -26,14 +27,16 @@ public class AdaptadorConexionAutomatizacion implements PuertoConexionAutomatiza
 
     @Override
     @Transactional(readOnly = true)
-    public Conexion resolver(Integer idCuenta, FamiliaSistemaOperativo familia) {
+    public Conexion resolver(Integer idCuenta, FamiliaSistemaOperativo familia, PropositoEjecucion proposito) {
         validacion.exigirAsignable(idCuenta, familia);
         CuentaServicio cuenta = cuentas.findConSecretoById(idCuenta)
                 .orElseThrow(() -> RecursoNoEncontradoException.de("la cuenta de servicio", idCuenta));
         CredencialSecreto secreto = cuenta.secretoVigente()
                 .orElseThrow(() -> new ReglaNegocioException("La cuenta de servicio %s no tiene un secreto vigente"
                         .formatted(cuenta.getNombre())));
-        String claveSu = secreto.secretoSu().map(su -> cifrador.descifrarSu(su, idCuenta)).orElse(null);
+        boolean elevar = familia == FamiliaSistemaOperativo.LINUX
+                && (proposito == PropositoEjecucion.TAREA || proposito == PropositoEjecucion.CONECTIVIDAD);
+        String claveSu = elevar ? secreto.secretoSu().map(su -> cifrador.descifrarSu(su, idCuenta)).orElse(null) : null;
         return new Conexion(cuenta.getUsuarioAcceso(), cifrador.descifrar(secreto.secreto(), idCuenta), claveSu,
                 secreto.getTipoAutenticacion() == TipoAutenticacion.LLAVE_SSH);
     }

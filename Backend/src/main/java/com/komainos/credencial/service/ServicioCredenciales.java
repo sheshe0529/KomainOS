@@ -109,7 +109,7 @@ public class ServicioCredenciales {
         if (cuentas.existsByNombreIgnoreCase(nombre)) {
             throw new ConflictoException("Ya existe una cuenta de servicio con el nombre %s".formatted(nombre));
         }
-        Secreto acceso = completo(formaCuenta(datos.secreto(), null), null, null);
+        Secreto acceso = completo(formaCuenta(datos.secreto(), null, null), null, null);
 
         CuentaServicio cuenta = cuentas.save(CuentaServicio.nueva(nombre, datos.usuarioAcceso().trim(),
                 vacioANulo(datos.descripcion()), ahora()));
@@ -138,10 +138,10 @@ public class ServicioCredenciales {
     public Credencial actualizarSecreto(Integer id, Secreto secreto, Actor actor) {
         Credencial credencial = buscar(id);
         credencial.exigirVigente("actualizar su secreto");
+        CredencialSecreto actual = credencial.secretoVigente().orElse(null);
         Secreto forma = credencial instanceof CredencialDocumental documental
                 ? formaDocumental(secreto, documental.getServidor())
-                : formaCuenta(secreto, id);
-        CredencialSecreto actual = credencial.secretoVigente().orElse(null);
+                : formaCuenta(secreto, id, actual);
         Secreto acceso = completo(forma, actual, id);
 
         Map<String, Object> anterior = instantanea(credencial, actual);
@@ -360,18 +360,21 @@ public class ServicioCredenciales {
     }
 
     /** Las familias que ya usan la cuenta limitan su mecanismo: WinRM solo admite contraseña */
-    private Secreto formaCuenta(Secreto s, Integer idCuenta) {
+    private Secreto formaCuenta(Secreto s, Integer idCuenta, CredencialSecreto actual) {
         if (s.tipo() == null) {
             throw new ReglaNegocioException("Indique el mecanismo de acceso: contraseña o llave SSH");
         }
-        if (s.tipoUsuario() != null || tieneTexto(s.su())) {
-            throw new ReglaNegocioException("Las cuentas de servicio no llevan tipo de usuario ni contraseña su");
+        // Omitir el tipo al rotar la contraseña SSH conserva la elevación vigente.
+        boolean conSu = s.tipoUsuario() == TipoUsuario.GENERICO
+                || (s.tipoUsuario() == null && actual != null && actual.tieneSu());
+        if (!conSu && tieneTexto(s.su())) {
+            throw new ReglaNegocioException("Para guardar una contraseña su, habilite la elevación con su");
         }
         if (idCuenta != null && !s.tipo().admitidoEn(FamiliaSistemaOperativo.WINDOWS)
                 && asignaciones.familiasQueUsan(idCuenta).contains(FamiliaSistemaOperativo.WINDOWS)) {
             throw new ReglaNegocioException("La cuenta la usan servidores Windows: WinRM solo admite usuario y contraseña");
         }
-        return s;
+        return new Secreto(s.tipo(), conSu ? TipoUsuario.GENERICO : null, s.valor(), s.su());
     }
 
     /** Completa con el secreto vigente lo que llega vacío y exige lo que falte */
@@ -470,6 +473,11 @@ public class ServicioCredenciales {
         public Secreto(TipoAutenticacion tipo, String valor) {
             this(tipo, null, valor, null);
         }
+
+        @Override
+        public String toString() {
+            return "Secreto[tipo=%s, tipoUsuario=%s]".formatted(tipo, tipoUsuario);
+        }
     }
 
     public record DatosCredencial(String nombre, String usuarioAcceso, String descripcion, Secreto secreto) {
@@ -479,10 +487,20 @@ public class ServicioCredenciales {
     }
 
     public record Revelado(Credencial credencial, CredencialSecreto vigente, String secreto, String su) {
+
+        @Override
+        public String toString() {
+            return "Revelado[protegido]";
+        }
     }
 
     public record AccesoExportado(TipoAutenticacion tipo, TipoUsuario tipoUsuario, String usuario, String secreto,
                                   String su) {
+
+        @Override
+        public String toString() {
+            return "AccesoExportado[tipo=%s, tipoUsuario=%s]".formatted(tipo, tipoUsuario);
+        }
     }
 
     public record CredencialExportada(CredencialDocumental credencial, CredencialSecreto secreto,
@@ -490,5 +508,10 @@ public class ServicioCredenciales {
     }
 
     private record AccesoClaro(String secreto, String su) {
+
+        @Override
+        public String toString() {
+            return "AccesoClaro[protegido]";
+        }
     }
 }

@@ -18,4 +18,9 @@ public record SecretoReveladoRespuesta(
         /** Contraseña su, solo con un usuario Genérico */
         String secretoSu,
         int segundosVisible) {
+
+    @Override
+    public String toString() {
+        return "SecretoReveladoRespuesta[id=%s, tipoAutenticacion=%s]".formatted(id, tipoAutenticacion);
+    }
 }

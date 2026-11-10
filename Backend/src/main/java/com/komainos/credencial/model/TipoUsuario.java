@@ -1,6 +1,6 @@
 package com.komainos.credencial.model;
 
-/** Solo para credenciales documentales de servidores Linux (DEC-39) */
+/** Tipo de acceso Linux (DEC-39). En cuentas de servicio, GENERICO habilita la elevación con su. */
 public enum TipoUsuario {
     /** Tiene privilegios de administrador por sí mismo */
     ADMINISTRADOR("Administrador"),

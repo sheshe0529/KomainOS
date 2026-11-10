@@ -2,7 +2,6 @@ package com.komainos.seguridad.service;
 
 import com.komainos.seguridad.config.CodificadorContrasena;
 import com.komainos.seguridad.config.PropiedadesJwt;
-import com.komainos.seguridad.service.ServicioJwt.TokenVerificado;
 import com.komainos.shared.exception.DemasiadosIntentosException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -148,30 +147,32 @@ class SesionesTest {
         void cierreDeSesion() {
             String cerrado = jwt.generar("admin", "ADMINISTRADOR", 60);
             String otro = jwt.generar("admin", "ADMINISTRADOR", 60);
-            TokenVerificado verificado = jwt.verificar(cerrado).orElseThrow();
-
-            jwt.revocar(verificado);
+            jwt.revocarSesion(cerrado);
 
             assertThat(jwt.verificar(cerrado)).isEmpty();
             assertThat(jwt.codigoUsuarioSiEsValido(otro)).contains("admin");
         }
 
         @Test
-        @DisplayName("RF02: el token que reemplaza una renovación vale solo la gracia; el nuevo sigue vigente")
+        @DisplayName("RF02: el token anterior conserva su gracia y puede cerrar la sesión aunque ya fue reemplazado")
         void reemplazoPorRenovacion() {
             RelojManual reloj = new RelojManual();
             ServicioJwt conReloj = new ServicioJwt(new PropiedadesJwt(
                     Base64.getEncoder().encodeToString("clave-de-prueba-de-32-bytes-o-mas!!".getBytes()), 60),
                     new RegistroRevocaciones(reloj));
             String anterior = conReloj.generar("admin", "ADMINISTRADOR", 60);
-            String nuevo = conReloj.generar("admin", "ADMINISTRADOR", 60);
-
-            conReloj.reemplazar(conReloj.verificar(anterior).orElseThrow(), Duration.ofSeconds(30));
+            String nuevo = conReloj.renovar(anterior, "admin", "ADMINISTRADOR", 60, Duration.ofSeconds(30))
+                    .orElseThrow();
 
             assertThat(conReloj.verificar(anterior)).isPresent();
             reloj.avanzar(Duration.ofSeconds(31));
             assertThat(conReloj.verificar(anterior)).isEmpty();
             assertThat(conReloj.verificar(nuevo)).isPresent();
+
+            conReloj.revocarSesion(anterior);
+
+            assertThat(conReloj.verificar(nuevo)).isEmpty();
+            assertThat(conReloj.renovar(nuevo, "admin", "ADMINISTRADOR", 60, Duration.ofSeconds(30))).isEmpty();
         }
 
         @Test
@@ -182,7 +183,7 @@ class SesionesTest {
             registro.revocarSesionesDe("operador");
 
             assertThat(jwt.verificar(anterior)).isEmpty();
-            assertThat(registro.estaRevocado("otro-id", "OPERADOR", Instant.now().plusSeconds(5))).isFalse();
+            assertThat(registro.estaRevocado("otro-id", "otra-sesion", "OPERADOR", Instant.now().plusSeconds(5))).isFalse();
         }
 
         @Test

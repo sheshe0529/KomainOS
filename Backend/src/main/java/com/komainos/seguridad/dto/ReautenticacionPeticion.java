@@ -6,4 +6,9 @@ import jakarta.validation.constraints.NotBlank;
 public record ReautenticacionPeticion(
         @NotBlank(message = "Ingrese su contraseña para continuar")
         String contrasena) {
+
+    @Override
+    public String toString() {
+        return "ReautenticacionPeticion[protegida]";
+    }
 }

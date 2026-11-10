@@ -54,7 +54,7 @@ public class AutenticacionController {
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Cierra la sesión: el token deja de valer en el servidor aunque no haya vencido (RF02)")
+    @Operation(summary = "Cierra la sesión e invalida los tokens de sus renovaciones (RF02)")
     public void logout(HttpServletRequest solicitud) {
         String cabecera = solicitud.getHeader(HttpHeaders.AUTHORIZATION);
         if (cabecera != null && cabecera.startsWith(PREFIJO)) {

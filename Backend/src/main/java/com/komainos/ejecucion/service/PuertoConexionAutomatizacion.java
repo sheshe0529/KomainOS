@@ -1,5 +1,6 @@
 package com.komainos.ejecucion.service;
 
+import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 
 /**
@@ -8,7 +9,7 @@ import com.komainos.inventario.model.FamiliaSistemaOperativo;
  */
 public interface PuertoConexionAutomatizacion {
 
-    Conexion resolver(Integer idCuenta, FamiliaSistemaOperativo familia);
+    Conexion resolver(Integer idCuenta, FamiliaSistemaOperativo familia, PropositoEjecucion proposito);
 
     /** Datos de acceso en claro: solo viven en memoria durante la ejecución */
     final class Conexion {
@@ -19,7 +20,7 @@ public interface PuertoConexionAutomatizacion {
         private final boolean llave;
 
         /**
-         * @param secretoSu contraseña de su para escalar a root en Linux; nula si la cuenta ya tiene privilegios
+         * @param secretoSu contraseña para elevar a root cuando la operación la requiere y la cuenta la configura
          * @param llave     el secreto es una llave privada SSH y no una contraseña
          */
         public Conexion(String usuario, String secreto, String secretoSu, boolean llave) {

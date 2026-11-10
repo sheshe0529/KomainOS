@@ -92,7 +92,7 @@ class AutenticacionIT extends PruebaIntegracion {
     }
 
     @Test
-    @DisplayName("RF02: renovar por actividad entrega otro token; al cerrar sesión con él, la sesión termina")
+    @DisplayName("RF02: cerrar sesión con el token inicial invalida también su renovación")
     void renovacion() throws Exception {
         String inicial = token("admin.sesion", "clave-segura-1", "10.9.0.6");
 
@@ -106,8 +106,9 @@ class AutenticacionIT extends PruebaIntegracion {
         yo(renovado).andExpect(status().isOk());
         // El anterior vale unos segundos más para las peticiones que ya estaban en curso en otras pestañas
         yo(inicial).andExpect(status().isOk());
-        mockMvc.perform(post("/api/auth/logout").header(HttpHeaders.AUTHORIZATION, "Bearer " + renovado))
+        mockMvc.perform(post("/api/auth/logout").header(HttpHeaders.AUTHORIZATION, "Bearer " + inicial))
                 .andExpect(status().isNoContent());
+        yo(inicial).andExpect(status().isUnauthorized());
         yo(renovado).andExpect(status().isUnauthorized());
         // Sin sesión no hay nada que renovar
         mockMvc.perform(post("/api/auth/renovar")).andExpect(status().isUnauthorized());

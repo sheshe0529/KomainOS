@@ -118,7 +118,10 @@ export function CuentasServicioPage() {
                         {c.descripcion && <p className="line-clamp-2 max-w-xs text-xs text-ink-faint">{c.descripcion}</p>}
                       </td>
                       <td className="px-4 py-3 font-mono">{c.usuarioAcceso}</td>
-                      <td className="px-4 py-3">{c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}</td>
+                      <td className="px-4 py-3">
+                        {c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}
+                        {c.conSu && <span className="block text-xs text-ink-soft">Elevación con su en Linux</span>}
+                      </td>
                       <td className="px-4 py-3 text-xs text-ink-soft">
                         {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}
                       </td>
@@ -190,7 +193,7 @@ export function CuentasServicioPage() {
         <CredencialFormulario
           abierto
           titulo={`Editar ${dialogo.cuenta.nombre}`}
-          descripcion="Para cambiar la contraseña o la llave use «Nuevo secreto»."
+          descripcion="Use «Nuevo secreto» para cambiar el acceso o la elevación con su."
           clase="cuenta"
           credencial={dialogo.cuenta}
           onCerrar={() => setDialogo(null)}

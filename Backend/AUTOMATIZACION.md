@@ -270,8 +270,9 @@ reglas:
   como causa del fallo, ambas sin contraseñas ni llaves.
 - **Tiempo.** La duración estimada de la tarea es su límite: al superarlo se
   detiene y se registra como tiempo excedido.
-- **Privilegios por finalidad.** El mantenimiento conserva la comprobación de administrador
-  (root/sudo en Linux y grupo Administradores en Windows). La prueba de acceso de evaluación
+- **Privilegios por finalidad.** En Linux, el mantenimiento comprueba acceso como root o mediante
+  `sudo` sin contraseña. Una cuenta con elevación `su` configurada ejecuta esa prueba y las tareas
+  como root. En Windows se comprueba la pertenencia al grupo Administradores. La prueba de acceso de evaluación
   verifica conectividad y autenticación sin exigir esos privilegios: el script de análisis
   debe informar cualquier métrica que no pueda leer con los permisos concedidos.
   El `.ps1` viaja en UTF-8 con BOM para Windows PowerShell 5.1.
@@ -378,6 +379,11 @@ En el frontend: `npm run build`, `npm run lint` y `npm test`.
 Cada servidor y grupo configura por separado **Cuenta para evaluaciones** y **Cuenta para
 mantenimiento**. Cada asignación puede heredar su predeterminada del sistema, y ambas pueden
 seleccionar la misma cuenta. La asignación masiva y la prueba de acceso indican la finalidad.
+
+En **Nueva cuenta de servicio** o **Nuevo secreto**, seleccione **Genérico** en **Tipo de usuario**
+para registrar la contraseña de root por separado del acceso SSH. Si la cuenta se comparte entre
+finalidades, la elevación se usa únicamente en la prueba de acceso de mantenimiento y en las tareas
+de la MOP en Linux.
 
 | Etapa | Cuenta |
 |---|---|

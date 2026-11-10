@@ -77,7 +77,13 @@ export function SelectorMecanismo({ valor, onCambiar, familia }: MecanismoProps)
   )
 }
 
-export function SelectorTipoUsuario({ valor, onCambiar }: { valor: TipoUsuario; onCambiar: (tipo: TipoUsuario) => void }) {
+interface TipoUsuarioProps {
+  valor: TipoUsuario
+  onCambiar: (tipo: TipoUsuario) => void
+  cuentaServicio?: boolean
+}
+
+export function SelectorTipoUsuario({ valor, onCambiar, cuentaServicio = false }: TipoUsuarioProps) {
   return (
     <Opciones
       leyenda="Tipo de usuario"
@@ -85,7 +91,10 @@ export function SelectorTipoUsuario({ valor, onCambiar }: { valor: TipoUsuario; 
       opciones={TIPOS_USUARIO}
       valor={valor}
       etiquetas={ETIQUETA_TIPO_USUARIO}
-      detalle={{ ADMINISTRADOR: 'Tiene privilegios de administrador.', GENERICO: 'Para subir a root necesita la contraseña su.' }}
+      detalle={{
+        ADMINISTRADOR: cuentaServicio ? 'Usa los permisos del usuario de acceso.' : 'Tiene privilegios de administrador.',
+        GENERICO: cuentaServicio ? 'Usa la contraseña su para mantenimiento Linux.' : 'Para subir a root necesita la contraseña su.',
+      }}
       onCambiar={onCambiar}
     />
   )

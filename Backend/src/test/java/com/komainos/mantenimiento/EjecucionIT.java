@@ -11,6 +11,7 @@ import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.service.ServicioRecuperacion;
+import com.komainos.seguridad.model.Rol;
 import com.komainos.shared.exception.ReglaNegocioException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.DisplayName;
@@ -76,7 +77,8 @@ class EjecucionIT extends BaseAutomatizacionIT {
         @Test
         @DisplayName("RF53: la bitácora del grupo muestra a cada integrante y se exporta completa o de uno solo")
         void bitacoraDelGrupo() throws Exception {
-            GrupoMantenimiento g = grupo("Grupo bitácora", ModoEjecucion.PARALELO, servidor, crear("srv-segundo", "10.90.0.2"));
+            Servidor segundo = crear("srv-segundo", "10.90.0.2");
+            GrupoMantenimiento g = grupo("Grupo bitácora", ModoEjecucion.PARALELO, servidor, segundo);
             Integer id = lanzarGrupo(g);
             aprobarComoResponsable(id);
             orquestador.drenar();
@@ -100,6 +102,17 @@ class EjecucionIT extends BaseAutomatizacionIT {
             mvc.perform(get("/api/servidores/{id}/bitacora", servidor.getId()).with(como(admin)))
                     .andExpect(jsonPath("$.mantenimientos[0].grupo").value("Grupo bitácora"))
                     .andExpect(jsonPath("$.mantenimientos[0].servidores.length()").value(1));
+
+            var otroResponsable = usuarios.crear("resp.otro", "Otro responsable", "Clave-prueba-4",
+                    Rol.RESPONSABLE, actor);
+            jdbc.update("update servidor set id_usuario_responsable = ? where id_servidor = ?",
+                    otroResponsable.getId(), segundo.getId());
+            mvc.perform(get("/api/grupos/{id}/bitacora", g.getId()).with(como(responsable)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.mantenimientos[0].servidores.length()").value(1))
+                    .andExpect(jsonPath("$.mantenimientos[0].servidores[0].idServidor").value(servidor.getId()));
+            mvc.perform(get("/api/servidores/{id}/bitacora", segundo.getId()).with(como(responsable)))
+                    .andExpect(status().isNotFound());
         }
 
         @Test

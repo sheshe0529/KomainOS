@@ -56,34 +56,35 @@ export function consulta(parametros: Record<string, ValorParametro | ValorParame
 
 /** Un FormData viaja sin Content-Type para que el navegador agregue el separador del multipart */
 async function solicitar(ruta: string, opciones: RequestInit = {}): Promise<Response> {
-  const token = leerToken()
-  const esFormulario = opciones.body instanceof FormData
+  const headers = new Headers(opciones.headers)
+  if (!(opciones.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (!headers.has('Authorization')) {
+    const actual = leerToken()
+    if (actual) headers.set('Authorization', `Bearer ${actual}`)
+  }
+  const autorizacion = headers.get('Authorization')
+  const token = autorizacion?.startsWith('Bearer ') ? autorizacion.slice('Bearer '.length) : null
 
   let respuesta: Response
   try {
-    respuesta = await fetch(`${BASE}${ruta}`, {
-      ...opciones,
-      headers: {
-        ...(esFormulario ? {} : { 'Content-Type': 'application/json' }),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...opciones.headers,
-      },
-    })
+    respuesta = await fetch(`${BASE}${ruta}`, { ...opciones, headers })
   } catch {
     throw new ErrorApi(0, 'SIN_CONEXION', 'No se pudo conectar con el servidor. Verifique que el backend esté en ejecución')
   }
 
   if (!respuesta.ok) {
+    if (respuesta.status === 401 && token && leerToken() === token) {
+      borrarToken()
+      window.dispatchEvent(new Event(EVENTO_SESION_EXPIRADA))
+    }
+
     let detalle: ErrorRespuesta | null = null
     try {
       detalle = (await respuesta.json()) as ErrorRespuesta
     } catch {
       throw new ErrorApi(respuesta.status, 'ERROR_INTERNO', 'El servidor respondió con un error inesperado')
-    }
-
-    if (respuesta.status === 401 && token) {
-      borrarToken()
-      window.dispatchEvent(new Event(EVENTO_SESION_EXPIRADA))
     }
 
     throw new ErrorApi(

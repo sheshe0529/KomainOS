@@ -27,15 +27,16 @@ export function SesionProvider({ children }: { children: ReactNode }) {
 
   // El token guardado se valida contra el backend: pudo vencer o la cuenta pudo desactivarse (RNF01)
   useEffect(() => {
-    if (!leerToken()) return
+    const token = leerToken()
+    if (!token) return
     let cancelado = false
     autenticacionApi
       .sesionActual()
       .then((u) => {
-        if (!cancelado) setUsuario(u)
+        if (!cancelado && leerToken()) setUsuario(u)
       })
       .catch(() => {
-        borrarToken()
+        if (!cancelado && leerToken() === token) borrarToken()
       })
       .finally(() => {
         if (!cancelado) setCargando(false)
@@ -45,7 +46,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Cualquier 401 del backend cierra la sesión en el panel (RF02)
+  // El rechazo del token vigente cierra la sesión en el panel (RF02)
   useEffect(() => {
     function alExpirar() {
       setUsuario(null)
@@ -58,14 +59,12 @@ export function SesionProvider({ children }: { children: ReactNode }) {
 
   const renovar = useCallback(async () => {
     try {
-      const respuesta = await autenticacionApi.renovar()
-      if (respuesta.token) {
-        guardarToken(respuesta.token)
+      if (await autenticacionApi.renovar()) {
         ultimaRenovacion.current = Date.now()
         setAviso(false)
       }
     } catch {
-      // Un 401 ya cerró la sesión por el evento; un fallo de red se reintenta en la siguiente revisión
+      // El 401 del token vigente se atiende por el evento. Un fallo de red se reintenta en la siguiente revisión
     }
   }, [])
 

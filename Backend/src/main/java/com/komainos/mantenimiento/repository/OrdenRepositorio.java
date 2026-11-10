@@ -102,9 +102,12 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
     @Query("""
             select o.id from Orden o
             where o.grupo.id = :idGrupo
+              and (:todos = true or exists (select d.id from OrdenDetalle d
+                   where d.orden = o and d.servidor.responsable.id = :idUsuario))
             order by o.fechaInicioProgramada desc, o.id desc
             """)
-    List<Integer> findIdsDelGrupo(@Param("idGrupo") Integer idGrupo, Pageable limite);
+    List<Integer> findIdsDelGrupo(@Param("idGrupo") Integer idGrupo, @Param("todos") boolean todos,
+                                  @Param("idUsuario") Integer idUsuario, Pageable limite);
 
     /** Evita duplicar el ciclo automático (RF27) */
     boolean existsByServidorIdAndEstadoIn(Integer idServidor, Collection<EstadoOrden> estados);

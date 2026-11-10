@@ -25,14 +25,16 @@ import com.komainos.mantenimiento.model.PrioridadOrden;
 import com.komainos.mantenimiento.model.ResultadoValidacionTecnica;
 import com.komainos.mantenimiento.model.SolicitudAutorizacion;
 import com.komainos.mantenimiento.model.TipoEvaluacion;
-import com.komainos.mantenimiento.model.ValidacionFuncional;
 import com.komainos.mantenimiento.model.ValidacionTecnica;
+import com.komainos.mantenimiento.repository.BitacoraRepositorio;
 import com.komainos.mantenimiento.repository.OrdenRepositorio;
 import com.komainos.mantenimiento.service.ServicioConsultaAutomatizacion.FichaAutomatizacion;
 import com.komainos.seguridad.model.AlcanceUsuario;
+import com.komainos.shared.exception.RecursoNoEncontradoException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -42,17 +44,18 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
  * Bitácora de mantenimiento (RF53) de una orden, de un servidor o de un grupo: los eventos de cada ciclo en orden
- * cronológico, para exportarlos, y un resumen por mantenimiento para la vista gráfica. Se arma con la misma ficha que
- * ve el panel, así el alcance del responsable y los datos coinciden.
+ * cronológico, para exportarlos, y un resumen por mantenimiento para la vista gráfica.
  */
 @Service
 @RequiredArgsConstructor
@@ -61,6 +64,8 @@ public class ServicioBitacora {
     /** Tope por consulta: la bitácora de un servidor con mantenimiento mensual cubre ocho años */
     public static final int MAXIMO_MANTENIMIENTOS = 100;
 
+    // Cada participación agrega un parámetro a la consulta, incluso si todas pertenecen a una misma orden.
+    private static final int PARTICIPACIONES_POR_LOTE = 10_000;
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.of("America/Lima"));
     private static final Set<EstadoOrden> SIN_AUTORIZAR = EnumSet.of(EstadoOrden.RECHAZADA,
@@ -73,6 +78,7 @@ public class ServicioBitacora {
     private final ServicioServidor servidores;
     private final ServicioGrupo grupos;
     private final OrdenRepositorio ordenes;
+    private final BitacoraRepositorio bitacora;
 
     @Transactional(readOnly = true)
     public EventosBitacora eventosDeOrden(Integer idOrden, AlcanceUsuario alcance) {
@@ -85,8 +91,7 @@ public class ServicioBitacora {
     public Bitacora delServidor(Integer idServidor, AlcanceUsuario alcance) {
         Servidor servidor = servidores.obtener(idServidor, alcance);
         List<Integer> ids = ordenes.findIdsDelServidor(idServidor, PageRequest.of(0, MAXIMO_MANTENIMIENTOS + 1));
-        List<FichaAutomatizacion> fichas = fichas(ids, alcance);
-        return new Bitacora(servidor.getHostname(), fichas.stream().map(f -> mantenimiento(f, idServidor, alcance)).toList(),
+        return new Bitacora(servidor.getHostname(), mantenimientos(ids, idServidor, alcance),
                 ids.size() > MAXIMO_MANTENIMIENTOS);
     }
 
@@ -97,24 +102,25 @@ public class ServicioBitacora {
         return new EventosBitacora(servidor.getHostname(), cronologia(fichas(ids, alcance), idServidor));
     }
 
-    /** Los mantenimientos del grupo como tal: cada orden grupal con el resultado de cada integrante */
-    @Transactional(readOnly = true)
+    /** El acceso al grupo y el alcance de sus participaciones se leen en la misma instantánea. */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Bitacora delGrupo(Integer idGrupo, AlcanceUsuario alcance) {
-        String nombre = grupos.ficha(idGrupo, alcance).grupo().getNombre();
-        List<Integer> ids = ordenes.findIdsDelGrupo(idGrupo, PageRequest.of(0, MAXIMO_MANTENIMIENTOS + 1));
-        List<FichaAutomatizacion> fichas = fichas(ids, alcance);
-        return new Bitacora(nombre, fichas.stream().map(f -> mantenimiento(f, null, alcance)).toList(),
+        String nombre = grupos.visible(idGrupo, alcance).getNombre();
+        List<Integer> ids = ordenes.findIdsDelGrupo(idGrupo, alcance.veTodoElInventario(), alcance.usuarioId(),
+                PageRequest.of(0, MAXIMO_MANTENIMIENTOS + 1));
+        return new Bitacora(nombre, mantenimientos(ids, null, alcance),
                 ids.size() > MAXIMO_MANTENIMIENTOS);
     }
 
     /** @param idServidor solo los eventos de ese integrante y los de la orden; nulo para todo el grupo */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public EventosBitacora eventosDelGrupo(Integer idGrupo, Integer idServidor, AlcanceUsuario alcance) {
         String nombre = grupos.ficha(idGrupo, alcance).grupo().getNombre();
         if (idServidor != null) {
             nombre += " " + servidores.obtener(idServidor, alcance).getHostname();
         }
-        List<Integer> ids = ordenes.findIdsDelGrupo(idGrupo, PageRequest.of(0, MAXIMO_MANTENIMIENTOS));
+        List<Integer> ids = ordenes.findIdsDelGrupo(idGrupo, alcance.veTodoElInventario(), alcance.usuarioId(),
+                PageRequest.of(0, MAXIMO_MANTENIMIENTOS));
         return new EventosBitacora(nombre, cronologia(fichas(ids, alcance), idServidor));
     }
 
@@ -259,20 +265,63 @@ public class ServicioBitacora {
 
     // ---------------------------------------------------------------- Resumen para la vista gráfica
 
-    /**
-     * @param idServidor resume solo la participación de ese servidor; nulo para todos los integrantes que el usuario
-     *                   puede ver
-     */
-    static MantenimientoBitacora mantenimiento(FichaAutomatizacion f, Integer idServidor, AlcanceUsuario alcance) {
-        Orden orden = f.orden();
-        Map<Integer, Mop> mops = f.mops().stream()
-                .collect(Collectors.toMap(m -> m.getDetalle().getId(), m -> m, (a, b) -> a));
-        List<ParticipacionServidor> participaciones = orden.getDetalles().stream()
-                .filter(d -> delServidor(d.getServidor().getId(), idServidor))
-                .filter(d -> alcance.veTodoElInventario() || d.getServidor().esVisiblePara(alcance.usuarioId()))
-                .sorted(Comparator.comparing(OrdenDetalle::getPosicionEjecucion))
-                .map(d -> participacion(f, d, mops.get(d.getId())))
-                .toList();
+    private List<MantenimientoBitacora> mantenimientos(List<Integer> candidatos, Integer idServidor, AlcanceUsuario alcance) {
+        List<Integer> ids = candidatos.stream().limit(MAXIMO_MANTENIMIENTOS).toList();
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        List<OrdenDetalle> visibles = bitacora.participaciones(ids, idServidor, alcance.veTodoElInventario(), alcance.usuarioId());
+        Map<Integer, List<OrdenDetalle>> porOrden = visibles.stream()
+                .collect(Collectors.groupingBy(d -> d.getOrden().getId()));
+        Map<Integer, Orden> porId = bitacora.findByIdIn(ids).stream()
+                .collect(Collectors.toMap(Orden::getId, Function.identity()));
+        Map<Integer, EstadoValidacionFuncional> validaciones = bitacora
+                .validacionesFuncionales(ids, alcance.veTodoElInventario(), alcance.usuarioId()).stream()
+                .collect(Collectors.toMap(BitacoraRepositorio.ValidacionFuncional::getIdOrden,
+                        BitacoraRepositorio.ValidacionFuncional::getEstado));
+        DatosParticipacion datos = datosParticipacion(visibles.stream().map(OrdenDetalle::getId).toList());
+        return ids.stream().map(id -> {
+            Orden orden = porId.get(id);
+            List<OrdenDetalle> detalles = porOrden.getOrDefault(id, List.of());
+            if (orden == null || (!alcance.veTodoElInventario() && detalles.isEmpty())) {
+                throw RecursoNoEncontradoException.de("la orden", id);
+            }
+            return mantenimiento(orden, detalles, datos, validaciones.get(id));
+        }).toList();
+    }
+
+    private DatosParticipacion datosParticipacion(List<Integer> idsDetalle) {
+        Map<Integer, List<TareaBitacora>> tareas = new HashMap<>();
+        Map<Integer, Map<TipoEvaluacion, NivelAlerta>> niveles = new HashMap<>();
+        Map<Integer, ResultadoValidacionTecnica> validaciones = new HashMap<>();
+        Map<Integer, Integer> incidencias = new HashMap<>();
+        for (int i = 0; i < idsDetalle.size(); i += PARTICIPACIONES_POR_LOTE) {
+            List<Integer> lote = idsDetalle.subList(i, Math.min(i + PARTICIPACIONES_POR_LOTE, idsDetalle.size()));
+            tareas.putAll(bitacora.tareas(lote).stream()
+                    .collect(Collectors.groupingBy(BitacoraRepositorio.Tarea::getIdDetalle,
+                            Collectors.mapping(ServicioBitacora::tarea, Collectors.toList()))));
+            niveles.putAll(bitacora.niveles(lote, EstadoEvaluacion.FINALIZADA).stream()
+                    .collect(Collectors.groupingBy(BitacoraRepositorio.NivelEvaluacion::getIdDetalle,
+                            Collectors.toMap(BitacoraRepositorio.NivelEvaluacion::getTipo,
+                                    n -> Objects.requireNonNullElse(n.getNivel(), NivelAlerta.NORMAL), NivelAlerta::peor))));
+            bitacora.validacionesTecnicas(lote).forEach(v -> validaciones.put(v.getIdDetalle(), v.getResultado()));
+            bitacora.incidencias(lote).forEach(c -> incidencias.put(c.getIdDetalle(), (int) c.getCantidad()));
+        }
+        return new DatosParticipacion(tareas, niveles, validaciones, incidencias);
+    }
+
+    private static TareaBitacora tarea(BitacoraRepositorio.Tarea tarea) {
+        Instant inicio = tarea.getInicio();
+        Instant fin = tarea.getFin();
+        return new TareaBitacora(tarea.getNombre(), tarea.getEstado(),
+                inicio == null || fin == null ? null : Duration.between(inicio, fin).toSeconds());
+    }
+
+    private static MantenimientoBitacora mantenimiento(Orden orden, List<OrdenDetalle> detalles, DatosParticipacion datos,
+                                                       EstadoValidacionFuncional validacionFuncional) {
+        EstadoOrden alCerrar = estadoAlCerrar(orden);
+        List<ParticipacionServidor> participaciones = detalles.stream()
+                .map(d -> participacion(d, orden.getEstado(), alCerrar, datos)).toList();
 
         Instant inicioReal = participaciones.stream().map(ParticipacionServidor::inicioReal).filter(Objects::nonNull)
                 .min(Comparator.naturalOrder()).orElse(null);
@@ -283,39 +332,37 @@ public class ServicioBitacora {
                 .orElse(null)
                 : null;
         boolean conIncidencias = participaciones.stream().anyMatch(p -> p.incidencias() > 0);
-        boolean intervino = participaciones.stream().anyMatch(p -> p.tareas().stream()
-                .anyMatch(t -> t.estado() == EstadoTareaMop.FINALIZADA || t.estado() == EstadoTareaMop.FALLIDA));
+        boolean intervino = participaciones.stream().anyMatch(p -> intervino(p.tareas()));
 
         return new MantenimientoBitacora(orden.getId(), orden.getCodigo(), orden.esGrupal(),
                 orden.esGrupal() ? orden.getGrupo().getNombre() : null, orden.getOrigen(), orden.prioridad(),
                 orden.getEstado(), orden.getEstado().etapa(),
-                resultado(orden.getEstado(), estadoAlCerrar(orden), intervino, conIncidencias),
+                resultado(orden.getEstado(), alCerrar, intervino, conIncidencias),
                 orden.getFechaInicioProgramada(), orden.getFechaFinProgramada(), inicioReal, finReal, cierre,
-                f.validacion().map(ValidacionFuncional::getEstado).orElse(null), participaciones);
+                validacionFuncional, participaciones);
     }
 
-    private static ParticipacionServidor participacion(FichaAutomatizacion f, OrdenDetalle d, Mop mop) {
+    private static ParticipacionServidor participacion(OrdenDetalle d, EstadoOrden estado, EstadoOrden alCerrar,
+                                                       DatosParticipacion datos) {
         Integer idDetalle = d.getId();
-        List<Evaluacion> analisis = f.evaluaciones().stream()
-                .filter(e -> e.getDetalle() != null && e.getDetalle().getId().equals(idDetalle))
-                .toList();
-        List<TareaBitacora> tareas = mop == null ? List.of() : mop.getTareas().stream()
-                .map(t -> new TareaBitacora(t.getTarea().getNombre(), t.getEstado(),
-                        t.getFechaInicio() == null || t.getFechaFin() == null ? null
-                                : Duration.between(t.getFechaInicio(), t.getFechaFin()).toSeconds()))
-                .toList();
-        ResultadoValidacionTecnica validacion = f.validacionesTecnicas().stream()
-                .filter(v -> v.getDetalle().getId().equals(idDetalle))
-                .map(ValidacionTecnica::getResultado)
-                .reduce((a, b) -> b).orElse(null);
-        int incidencias = (int) f.incidencias().stream().filter(i -> i.getDetalle().getId().equals(idDetalle)).count();
-        boolean intervino = tareas.stream()
-                .anyMatch(t -> t.estado() == EstadoTareaMop.FINALIZADA || t.estado() == EstadoTareaMop.FALLIDA);
+        List<TareaBitacora> tareas = datos.tareas().getOrDefault(idDetalle, List.of());
+        Map<TipoEvaluacion, NivelAlerta> niveles = datos.niveles().getOrDefault(idDetalle, Map.of());
+        int incidencias = datos.incidencias().getOrDefault(idDetalle, 0);
         return new ParticipacionServidor(d.getServidor().getId(), d.getServidor().getHostname(), d.getEstado(),
-                d.isEsServidorPiloto(), nivel(analisis, TipoEvaluacion.PREVIA), nivel(analisis, TipoEvaluacion.POSTERIOR),
-                validacion, incidencias,
-                resultado(f.orden().getEstado(), estadoAlCerrar(f.orden()), intervino, incidencias > 0), d.getFechaRealInicio(),
+                d.isEsServidorPiloto(), niveles.get(TipoEvaluacion.PREVIA), niveles.get(TipoEvaluacion.POSTERIOR),
+                datos.validaciones().get(idDetalle), incidencias,
+                resultado(estado, alCerrar, intervino(tareas), incidencias > 0), d.getFechaRealInicio(),
                 d.getFechaRealFin(), tareas);
+    }
+
+    private static boolean intervino(List<TareaBitacora> tareas) {
+        return tareas.stream().anyMatch(t -> t.estado() == EstadoTareaMop.FINALIZADA || t.estado() == EstadoTareaMop.FALLIDA);
+    }
+
+    private record DatosParticipacion(Map<Integer, List<TareaBitacora>> tareas,
+                                      Map<Integer, Map<TipoEvaluacion, NivelAlerta>> niveles,
+                                      Map<Integer, ResultadoValidacionTecnica> validaciones,
+                                      Map<Integer, Integer> incidencias) {
     }
 
     /**
@@ -359,15 +406,6 @@ public class ServicioBitacora {
             return ResultadoMantenimiento.REQUIERE_ATENCION;
         }
         return PROGRAMADAS.contains(estado) ? ResultadoMantenimiento.PROGRAMADO : ResultadoMantenimiento.EN_CURSO;
-    }
-
-    /** Nivel de la última evaluación de ese tipo que terminó; nulo si no hubo o no fue concluyente */
-    private static NivelAlerta nivel(List<Evaluacion> analisis, TipoEvaluacion tipo) {
-        return analisis.stream()
-                .filter(e -> e.getTipo() == tipo && e.getEstado() == EstadoEvaluacion.FINALIZADA)
-                .reduce((a, b) -> b)
-                .map(Evaluacion::nivel)
-                .orElse(null);
     }
 
     // ---------------------------------------------------------------- Etiquetas

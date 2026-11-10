@@ -11,6 +11,7 @@ public record SecretoPeticion(
         @NotNull(message = "El mecanismo de autenticación es obligatorio")
         TipoAutenticacion tipoAutenticacion,
 
+        /** En cuentas de servicio, GENERICO habilita su, ADMINISTRADOR lo desactiva y omitirlo conserva el estado. */
         TipoUsuario tipoUsuario,
 
         @Size(max = SecretoPeticion.MAXIMO, message = "El secreto admite hasta 16384 caracteres")
@@ -24,5 +25,10 @@ public record SecretoPeticion(
 
     public Secreto aSecreto() {
         return new Secreto(tipoAutenticacion, tipoUsuario, secreto, secretoSu);
+    }
+
+    @Override
+    public String toString() {
+        return "SecretoPeticion[tipoAutenticacion=%s, tipoUsuario=%s]".formatted(tipoAutenticacion, tipoUsuario);
     }
 }

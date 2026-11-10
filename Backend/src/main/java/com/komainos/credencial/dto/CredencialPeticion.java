@@ -24,7 +24,7 @@ public record CredencialPeticion(
         @NotNull(message = "El mecanismo de autenticación es obligatorio")
         TipoAutenticacion tipoAutenticacion,
 
-        /** Solo credenciales documentales de servidores Linux (DEC-39) */
+        /** En cuentas de servicio, GENERICO habilita su para mantenimiento Linux. */
         TipoUsuario tipoUsuario,
 
         @NotBlank(message = "El secreto es obligatorio")
@@ -38,5 +38,10 @@ public record CredencialPeticion(
     public DatosCredencial aDatos() {
         return new DatosCredencial(nombre, usuarioAcceso, descripcion,
                 new Secreto(tipoAutenticacion, tipoUsuario, secreto, secretoSu));
+    }
+
+    @Override
+    public String toString() {
+        return "CredencialPeticion[tipoAutenticacion=%s, tipoUsuario=%s]".formatted(tipoAutenticacion, tipoUsuario);
     }
 }

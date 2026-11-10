@@ -46,8 +46,7 @@ export function CredencialFormulario({
   const [error, setError] = useState<unknown>()
 
   const windows = clase === 'documental' && familia === 'WINDOWS'
-  const conTipoUsuario = clase === 'documental' && !windows
-  const conSu = conTipoUsuario && tipoUsuario === 'GENERICO'
+  const conSu = !windows && tipoUsuario === 'GENERICO'
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault()
@@ -59,7 +58,7 @@ export function CredencialFormulario({
         usuarioAcceso: usuario.trim(),
         descripcion: detalle.trim() || undefined,
         tipoAutenticacion: windows ? 'PASSWORD' : tipo,
-        tipoUsuario: conTipoUsuario ? tipoUsuario : undefined,
+        tipoUsuario: windows ? undefined : tipoUsuario,
         secreto,
         secretoSu: conSu ? su : undefined,
       })
@@ -114,7 +113,9 @@ export function CredencialFormulario({
             ) : (
               <SelectorMecanismo valor={tipo} onCambiar={setTipo} familia={clase === 'documental' ? familia : undefined} />
             )}
-            {conTipoUsuario && <SelectorTipoUsuario valor={tipoUsuario} onCambiar={setTipoUsuario} />}
+            {!windows && (
+              <SelectorTipoUsuario valor={tipoUsuario} onCambiar={setTipoUsuario} cuentaServicio={clase === 'cuenta'} />
+            )}
             <CampoSecreto tipo={windows ? 'PASSWORD' : tipo} valor={secreto} onCambiar={setSecreto} error={errorDeCampo(error, 'secreto')} />
             {conSu && (
               <CampoContrasena

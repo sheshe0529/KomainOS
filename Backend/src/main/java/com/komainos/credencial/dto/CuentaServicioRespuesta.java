@@ -13,6 +13,7 @@ public record CuentaServicioRespuesta(
         String descripcion,
         EstadoCredencial estado,
         TipoAutenticacion tipoAutenticacion,
+        boolean conSu,
         Instant fechaRegistro,
         Instant fechaSecreto,
         Instant fechaRevocacion,

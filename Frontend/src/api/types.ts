@@ -294,6 +294,7 @@ export interface CuentaServicioRespuesta {
   descripcion?: string
   estado?: 'VIGENTE' | 'REVOCADA'
   tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
+  conSu?: boolean
   fechaRegistro?: string
   fechaSecreto?: string
   fechaRevocacion?: string

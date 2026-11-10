@@ -3,6 +3,8 @@ package com.komainos.credencial;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import com.komainos.PruebaIntegracion;
+import com.komainos.ejecucion.model.PropositoEjecucion;
+import com.komainos.ejecucion.service.PuertoConexionAutomatizacion;
 import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
 import com.komainos.inventario.model.DatosServidor;
 import com.komainos.inventario.model.DiaSemana;
@@ -66,6 +68,7 @@ class CredencialesIT extends PruebaIntegracion {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper json;
     @Autowired EntityManager em;
+    @Autowired PuertoConexionAutomatizacion conexiones;
 
     private Usuario admin;
     private Usuario operador;
@@ -276,7 +279,7 @@ class CredencialesIT extends PruebaIntegracion {
         mockMvc.perform(comoAdmin(post("/api/cuentas-servicio")).content(cuerpo("nombre", "svc-su", "usuarioAcceso", "a",
                         "tipoAutenticacion", "PASSWORD", "secreto", "x", "secretoSu", "root")))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.mensaje").value(containsString("no llevan")));
+                .andExpect(jsonPath("$.mensaje").value(containsString("habilite la elevación")));
 
         configurar(idLinux, null, llave)
                 .andExpect(status().isOk())
@@ -329,6 +332,54 @@ class CredencialesIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$.mensaje").value(containsString("revocada")));
         mockMvc.perform(comoAdmin(post("/api/credenciales/{id}/revelado", svc)).content(cuerpo("contrasena", CLAVE_ADMIN)))
                 .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    @DisplayName("La cuenta guarda su cifrado y solo eleva para mantenimiento Linux")
+    void cuentaConSu() throws Exception {
+        mockMvc.perform(comoAdmin(post("/api/cuentas-servicio"))
+                        .content(cuerpo("nombre", "svc-sin-clave-su", "usuarioAcceso", "deploy",
+                                "tipoAutenticacion", "PASSWORD", "tipoUsuario", "GENERICO", "secreto", "clave-ssh")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.mensaje").value(containsString("contraseña su")));
+
+        Integer id = idDe(mockMvc.perform(comoAdmin(post("/api/cuentas-servicio"))
+                        .content(cuerpo("nombre", "svc-su", "usuarioAcceso", "deploy", "tipoAutenticacion", "PASSWORD",
+                                "tipoUsuario", "GENERICO", "secreto", "clave-ssh", "secretoSu", "clave-root")))
+                .andExpect(jsonPath("$.conSu").value(true))
+                .andExpect(jsonPath("$.secretoSu").doesNotExist()));
+        em.flush();
+        em.clear();
+        assertThat(jdbc.queryForObject("""
+                select su_secreto_cifrado <> convert_to(?, 'UTF8') from credencial_secreto where id_credencial = ?
+                """, Boolean.class, "clave-root", id)).isTrue();
+
+        for (PropositoEjecucion proposito : PropositoEjecucion.values()) {
+            var acceso = conexiones.resolver(id, FamiliaSistemaOperativo.LINUX, proposito);
+            assertThat(acceso.usuario()).isEqualTo("deploy");
+            assertThat(acceso.secretoSu()).as("elevación para %s", proposito)
+                    .isEqualTo(proposito == PropositoEjecucion.TAREA || proposito == PropositoEjecucion.CONECTIVIDAD
+                            ? "clave-root" : null);
+        }
+        assertThat(conexiones.resolver(id, FamiliaSistemaOperativo.WINDOWS, PropositoEjecucion.TAREA).secretoSu()).isNull();
+
+        // Rotar el acceso SSH sin indicar el tipo mantiene la elevación ya configurada.
+        mockMvc.perform(comoAdmin(put("/api/credenciales/{id}/secreto", id))
+                        .content(cuerpo("tipoAutenticacion", "LLAVE_SSH", "secreto", LLAVE_SSH)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conSu").value(true));
+        var conLlave = conexiones.resolver(id, FamiliaSistemaOperativo.LINUX, PropositoEjecucion.TAREA);
+        assertThat(conLlave.llave()).isTrue();
+        assertThat(conLlave.secretoSu()).isEqualTo("clave-root");
+
+        mockMvc.perform(comoAdmin(put("/api/credenciales/{id}/secreto", id))
+                        .content(cuerpo("tipoAutenticacion", "LLAVE_SSH", "tipoUsuario", "ADMINISTRADOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conSu").value(false));
+        em.flush();
+        assertThat(jdbc.queryForObject("select su_secreto_cifrado from credencial_secreto where id_credencial = ?",
+                byte[].class, id)).isNull();
+        assertThat(auditorias()).noneMatch(v -> v.contains("clave-root") || v.contains("clave-ssh"));
     }
 
     @Test

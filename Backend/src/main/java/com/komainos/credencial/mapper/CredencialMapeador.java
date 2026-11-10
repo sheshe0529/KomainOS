@@ -80,7 +80,7 @@ public final class CredencialMapeador {
     public static CuentaServicioRespuesta cuenta(CuentaConUso uso) {
         CredencialRespuesta c = credencial(uso.cuenta());
         return new CuentaServicioRespuesta(c.id(), c.nombre(), c.usuarioAcceso(), c.descripcion(), c.estado(),
-                c.tipoAutenticacion(), c.fechaRegistro(), c.fechaSecreto(), c.fechaRevocacion(),
+                c.tipoAutenticacion(), c.conSu(), c.fechaRegistro(), c.fechaSecreto(), c.fechaRevocacion(),
                 uso.servidores(), uso.grupos(), uso.predeterminadaEvaluacion(), uso.predeterminadaMantenimiento());
     }
 

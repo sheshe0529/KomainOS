@@ -10,18 +10,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Tokens que dejan de valer antes de vencer: el que se cierra con «Cerrar sesión», el que reemplaza una renovación y
- * todos los de una cuenta que se desactiva o cambia de rol, para que reactivarla no reviva una sesión anterior. El modelo de datos no guarda sesiones,
- * así que vive en memoria: tras reiniciar el backend solo se pierden revocaciones de tokens que igual vencen en pocos
- * minutos (configuracion_sistema.minutos_expiracion_token).
+ * Revocaciones en memoria por sesión cerrada, token reemplazado y cuenta desactivada o con cambio de rol.
  */
 @Component
 public class RegistroRevocaciones {
 
-    /** Una revocación por cuenta se recuerda al menos esto, y más si se emitieron tokens más largos */
+    /** Retención mínima para revocaciones de sesiones y cuentas. */
     private static final Duration RETENCION_MINIMA = Duration.ofDays(1);
 
-    private final Map<String, Instant> tokens = new ConcurrentHashMap<>();
+    private final Map<String, Instant> sesiones = new ConcurrentHashMap<>();
     private final Map<String, Reemplazo> reemplazados = new ConcurrentHashMap<>();
     private final Map<String, Instant> cuentas = new ConcurrentHashMap<>();
     private final AtomicLong retencionSegundos = new AtomicLong(RETENCION_MINIMA.toSeconds());
@@ -44,15 +41,17 @@ public class RegistroRevocaciones {
         retencionSegundos.accumulateAndGet(vigencia.toSeconds(), Math::max);
     }
 
-    /** Se recuerda hasta que el token vence por sí solo */
-    public void revocarToken(String id, Instant vence) {
+    /** El cierre cubre la mayor vigencia emitida, incluidas las renovaciones en curso. */
+    public void revocarSesion(String idSesion, Instant vence) {
         purgar();
-        tokens.put(id, vence);
+        Instant retenerHasta = reloj.instant().plusSeconds(retencionSegundos.get());
+        Instant caducidad = vence.isAfter(retenerHasta) ? vence : retenerHasta;
+        sesiones.merge(idSesion, caducidad, (anterior, nueva) -> anterior.isAfter(nueva) ? anterior : nueva);
     }
 
     /**
      * Token reemplazado por una renovación: sigue valiendo la gracia indicada, para las peticiones en curso de otras
-     * pestañas, y después ya no. Así, al cerrar la sesión solo queda vigente el último token emitido
+     * pestañas.
      */
     public void reemplazarToken(String id, Instant vence, Duration gracia) {
         purgar();
@@ -66,8 +65,8 @@ public class RegistroRevocaciones {
     }
 
     /** emitido tiene precisión de segundos: un token del mismo segundo que la revocación también cae */
-    public boolean estaRevocado(String id, String codigoUsuario, Instant emitido) {
-        if (id != null && tokens.containsKey(id)) {
+    public boolean estaRevocado(String id, String idSesion, String codigoUsuario, Instant emitido) {
+        if (idSesion != null && sesiones.containsKey(idSesion)) {
             return true;
         }
         Reemplazo reemplazo = id == null ? null : reemplazados.get(id);
@@ -80,7 +79,7 @@ public class RegistroRevocaciones {
 
     private void purgar() {
         Instant ahora = reloj.instant();
-        tokens.values().removeIf(vence -> vence.isBefore(ahora));
+        sesiones.values().removeIf(vence -> vence.isBefore(ahora));
         reemplazados.values().removeIf(r -> r.vence().isBefore(ahora));
         Duration retencion = Duration.ofSeconds(retencionSegundos.get());
         cuentas.values().removeIf(desde -> desde.plus(retencion).isBefore(ahora));

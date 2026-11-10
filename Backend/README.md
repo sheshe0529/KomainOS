@@ -93,9 +93,9 @@ python <skill komainos-backend>/scripts/generar_tipos_ts.py --origen target/open
 ## Sesiones y concurrencia (DEC-42)
 
 - Tras cinco fallos de una cuenta desde un mismo origen (30 por origen), el inicio de sesión responde 429 con
-  `Retry-After`; la espera empieza en un minuto y se duplica hasta 15. `POST /api/auth/logout` invalida el token, y un
-  cambio de rol o una desactivación invalida las sesiones de la cuenta. El limitador y las revocaciones viven en
-  memoria: se pierden al reiniciar, y con varias instancias haría falta un almacén compartido.
+  `Retry-After`. La espera empieza en un minuto y se duplica hasta 15. `POST /api/auth/logout` invalida los tokens
+  de esa sesión. Un cambio de rol o una desactivación invalida las sesiones de la cuenta. Cada instancia mantiene
+  el limitador y las revocaciones en memoria hasta que se reinicia.
 - Las actualizaciones aceptan `versionEsperada`, la `fechaActualizacion` que leyó el formulario: si el registro cambió
   después, responden 409 en vez de sobrescribir.
 

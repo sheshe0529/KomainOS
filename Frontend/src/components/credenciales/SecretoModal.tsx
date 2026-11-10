@@ -21,15 +21,16 @@ interface SecretoModalProps {
 /** Rota el secreto: reemplaza al vigente sin conservarlo, y un campo vacío copia el vigente si sigue aplicando (RF04, R2.4) */
 export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, onCerrar, onGuardar }: SecretoModalProps) {
   const [tipo, setTipo] = useState<TipoAutenticacion>(credencial.tipoAutenticacion ?? 'PASSWORD')
-  const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>(credencial.tipoUsuario ?? 'ADMINISTRADOR')
+  const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>(
+    credencial.tipoUsuario ?? (credencial.conSu ? 'GENERICO' : 'ADMINISTRADOR'),
+  )
   const [secreto, setSecreto] = useState('')
   const [su, setSu] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
 
   const windows = clase === 'documental' && familia === 'WINDOWS'
-  const conTipoUsuario = clase === 'documental' && !windows
-  const conSu = conTipoUsuario && tipoUsuario === 'GENERICO'
+  const conSu = !windows && tipoUsuario === 'GENERICO'
   const conservaSecreto = tipo === credencial.tipoAutenticacion
   const conservaSu = conSu && !!credencial.conSu
 
@@ -40,7 +41,7 @@ export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, o
     try {
       await onGuardar({
         tipoAutenticacion: windows ? 'PASSWORD' : tipo,
-        tipoUsuario: conTipoUsuario ? tipoUsuario : undefined,
+        tipoUsuario: windows ? undefined : tipoUsuario,
         secreto: secreto || undefined,
         secretoSu: conSu ? su || undefined : undefined,
       })
@@ -72,7 +73,9 @@ export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, o
           Usuario de acceso: <span className="font-mono text-ink">{credencial.usuarioAcceso}</span>
         </p>
         {!windows && <SelectorMecanismo valor={tipo} onCambiar={setTipo} familia={clase === 'documental' ? familia : undefined} />}
-        {conTipoUsuario && <SelectorTipoUsuario valor={tipoUsuario} onCambiar={setTipoUsuario} />}
+        {!windows && (
+          <SelectorTipoUsuario valor={tipoUsuario} onCambiar={setTipoUsuario} cuentaServicio={clase === 'cuenta'} />
+        )}
         <CampoSecreto
           tipo={windows ? 'PASSWORD' : tipo}
           valor={secreto}
