@@ -1,0 +1,32 @@
+# KomainOS en una instancia EC2: un contenedor con el panel, la API y Ansible; la base de datos vive en Amazon RDS.
+#
+#   cp .env.produccion.example .env     # completar los valores
+#   docker compose up -d --build
+#   docker compose logs -f komainos
+#
+# Guía completa: DESPLIEGUE.md
+
+services:
+  komainos:
+    build: .
+    image: komainos:latest
+    container_name: komainos
+    env_file: .env
+    environment:
+      # El puerto interno es fijo: el que se publica se elige abajo con KOMAINOS_PUERTO_PUBLICO
+      KOMAINOS_PUERTO: "8080"
+    ports:
+      - "${KOMAINOS_PUERTO_PUBLICO:-80}:8080"
+    volumes:
+      # known_hosts de los servidores gestionados: sobrevive a las actualizaciones de la imagen
+      - komainos-ssh:/home/komainos/.ssh
+    restart: unless-stopped
+    stop_grace_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  komainos-ssh:

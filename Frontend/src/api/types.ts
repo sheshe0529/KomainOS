@@ -196,7 +196,6 @@ export interface ConexionRespuesta {
   servidor?: string
   idCuenta?: number
   cuenta?: string
-  simulado?: boolean
   correcto?: boolean
   fallo?: 'COMUNICACION' | 'AUTENTICACION' | 'PERMISOS' | 'TIEMPO_EXCEDIDO' | 'EJECUCION' | 'CONTRATO' | 'CONFIGURACION'
   mensaje?: string
@@ -350,8 +349,6 @@ export interface Detalle {
 }
 
 export interface Diagnostico {
-  modo?: 'SIMULADO' | 'REAL'
-  simulado?: boolean
   procesoHabilitado?: boolean
   intervaloSegundos?: number
   maxConexionesSimultaneas?: number
@@ -471,7 +468,6 @@ export interface ExcepcionUmbralRespuesta {
 
 export interface FichaAutomatizacionRespuesta {
   idOrden?: number
-  simulado?: boolean
   orden?: OrdenResumenRespuesta
   siguientePaso?: string
   acciones?: AccionesOrden
@@ -1086,7 +1082,6 @@ export interface PropuestaRespuesta {
 }
 
 export interface PruebaAnalisisRespuesta {
-  simulado?: boolean
   correcto?: boolean
   fallo?: 'COMUNICACION' | 'AUTENTICACION' | 'PERMISOS' | 'TIEMPO_EXCEDIDO' | 'EJECUCION' | 'CONTRATO' | 'CONFIGURACION'
   error?: string

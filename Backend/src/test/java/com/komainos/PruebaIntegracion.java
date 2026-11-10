@@ -1,7 +1,20 @@
 package com.komainos;
 
-import com.komainos.ejecucion.service.AnsibleSimulado;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.komainos.ejecucion.model.SolicitudEjecucion;
+import com.komainos.ejecucion.service.DiagnosticoAutomatizacion;
+import com.komainos.ejecucion.simulacion.AnsibleSimulado;
+import com.komainos.ejecucion.simulacion.ValoresReferencia;
+import com.komainos.inventario.model.ContextoEvaluacion;
+import com.komainos.inventario.repository.MetricaRepositorio;
+import com.komainos.inventario.repository.ServidorRepositorio;
+import com.komainos.inventario.repository.UmbralRepositorio;
+import com.komainos.mantenimiento.DatosDemostracionAutomatizacion;
+import com.komainos.mantenimiento.repository.EvaluacionRepositorio;
+import com.komainos.mantenimiento.service.ServicioEvaluaciones;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer;
 import org.springframework.boot.sql.init.DatabaseInitializationMode;
 import org.springframework.boot.sql.init.DatabaseInitializationSettings;
@@ -11,9 +24,12 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
@@ -21,20 +37,28 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 
 /** Contexto completo contra dbkomainos_test, nunca DBKomainOS, con el reloj fijo en AHORA para que la planificación sea reproducible */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(PruebaIntegracion.ConfiguracionPruebas.class)
+@Import({PruebaIntegracion.ConfiguracionPruebas.class, DatosDemostracionAutomatizacion.class})
 public abstract class PruebaIntegracion {
 
     /**
-     * Espía del adaptador simulado en el contexto común: un contexto distinto recrearía el esquema y conservaría en JDBC
-     * los OID anteriores de los enumerados de PostgreSQL. Las pruebas lo usan para detener o fallar una operación.
+     * Espía del doble del adaptador Ansible en el contexto común: un contexto distinto recrearía el esquema y conservaría
+     * en JDBC los OID anteriores de los enumerados de PostgreSQL. Las pruebas lo usan para detener o fallar una operación.
      */
     @MockitoSpyBean
     protected AnsibleSimulado transporte;
+
+    /**
+     * Espía del diagnóstico del controlador real. La máquina de pruebas no tiene Ansible (y en Windows no es un
+     * controlador compatible): las pruebas que dependen de un controlador listo lo declaran con doReturn.
+     */
+    @MockitoSpyBean
+    protected DiagnosticoAutomatizacion diagnostico;
 
     public static final Instant AHORA = Instant.parse("2026-09-28T14:00:00Z");
 
@@ -78,6 +102,35 @@ public abstract class PruebaIntegracion {
         @Primary
         Clock relojFijo() {
             return Clock.fixed(AHORA, ZoneOffset.UTC);
+        }
+
+        /**
+         * Reemplaza al adaptador real: ninguna prueba se conecta a un servidor. Los escenarios por hostname salen de
+         * komainos.pruebas.escenarios (application-test.yml) y los valores de cada análisis, de los umbrales que rigen
+         * para el servidor en el contexto de su evaluación (orden o revisión de grupo incluidas).
+         */
+        @Bean
+        @Primary
+        AnsibleSimulado transporteSimulado(ObjectMapper json, Environment entorno, PlatformTransactionManager transacciones,
+                                           EvaluacionRepositorio evaluaciones, ServidorRepositorio servidores,
+                                           MetricaRepositorio metricas, UmbralRepositorio umbrales) {
+            Map<String, String> escenarios = Binder.get(entorno)
+                    .bind("komainos.pruebas.escenarios", Bindable.mapOf(String.class, String.class))
+                    .orElse(Map.of());
+            TransactionTemplate lectura = new TransactionTemplate(transacciones);
+            lectura.setReadOnly(true);
+            return new AnsibleSimulado(json, escenarios, solicitud -> lectura.execute(estado -> {
+                ContextoEvaluacion contexto = contexto(solicitud, evaluaciones, servidores);
+                return ValoresReferencia.calcular(metricas.findAllByOrderByNombreAsc(), umbrales.findAplicables(), contexto);
+            }));
+        }
+
+        private static ContextoEvaluacion contexto(SolicitudEjecucion solicitud, EvaluacionRepositorio evaluaciones,
+                                                   ServidorRepositorio servidores) {
+            if (solicitud.idEvaluacion() != null) {
+                return ServicioEvaluaciones.contexto(evaluaciones.findById(solicitud.idEvaluacion()).orElseThrow());
+            }
+            return ContextoEvaluacion.individual(servidores.findById(solicitud.idServidor()).orElseThrow());
         }
     }
 

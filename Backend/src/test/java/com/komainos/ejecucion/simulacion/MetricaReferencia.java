@@ -1,11 +1,11 @@
-package com.komainos.ejecucion.model;
+package com.komainos.ejecucion.simulacion;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Valores de una métrica que corresponden a cada nivel según los umbrales que rigen para el servidor. El adaptador real
- * los ignora: el modo simulado responde con ellos, así el ciclo se prueba con cualquier catálogo de métricas.
+ * Valores de una métrica que corresponden a cada nivel según los umbrales que rigen para el servidor. El doble de
+ * pruebas {@link AnsibleSimulado} responde con ellos, así el ciclo se prueba con cualquier catálogo de métricas.
  *
  * @param advertencia nulo si ningún umbral define ese nivel
  * @param critico     nulo si ningún umbral define ese nivel

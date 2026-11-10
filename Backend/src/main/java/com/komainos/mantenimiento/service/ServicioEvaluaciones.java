@@ -4,7 +4,6 @@ import com.komainos.catalogo.model.VersionScript;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.ejecucion.model.ListaEjecucion;
 import com.komainos.ejecucion.model.MedicionInformada;
-import com.komainos.ejecucion.model.MetricaReferencia;
 import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.ejecucion.model.ResultadoEjecucion;
 import com.komainos.ejecucion.model.SolicitudEjecucion;
@@ -122,7 +121,7 @@ public class ServicioEvaluaciones {
         ContextoEvaluacion contexto = contexto(e);
         return new SolicitudEjecucion(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(),
                 e.getIdCuentaServicio(), proposito, version.getContenido(),
-                ServicioCatalogoAutomatizacion.valoresDeEjecucion(version), maxMinutos(), referencia(contexto),
+                ServicioCatalogoAutomatizacion.valoresDeEjecucion(version), maxMinutos(), e.getId(),
                 version.usaListasImplicitas() ? listas(contexto) : List.of());
     }
 
@@ -175,12 +174,6 @@ public class ServicioEvaluaciones {
         return e;
     }
 
-    /** Valores esperados de cada métrica que se mide en el servidor, según sus umbrales; los usa el modo simulado */
-    @Transactional(readOnly = true)
-    public List<MetricaReferencia> referencia(ContextoEvaluacion contexto) {
-        return ValoresReferencia.calcular(metricas.findAllByOrderByNombreAsc(), umbrales.findAplicables(), contexto);
-    }
-
     /** Las listas de referencia que rigen para el servidor: el análisis revisa lo que ellas definen */
     @Transactional(readOnly = true)
     public List<ListaEjecucion> listas(ContextoEvaluacion contexto) {
@@ -195,8 +188,8 @@ public class ServicioEvaluaciones {
         return parametros.obtener().getMaxDuracionTareaMinutos();
     }
 
-    /** El grupo lo fija la revisión o la orden grupal que originó el análisis. */
-    private static ContextoEvaluacion contexto(Evaluacion evaluacion) {
+    /** El grupo lo fija la revisión o la orden grupal que originó el análisis. Requiere una transacción abierta. */
+    public static ContextoEvaluacion contexto(Evaluacion evaluacion) {
         Servidor servidor = evaluacion.getServidor();
         if (evaluacion.getRevisionGrupo() != null) {
             return ContextoEvaluacion.enGrupo(servidor, evaluacion.getRevisionGrupo().getGrupo().getId());

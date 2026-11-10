@@ -24,7 +24,7 @@ import java.util.List;
  * @param siguientePaso qué espera la orden para avanzar, en una frase
  * @param acciones      lo que el usuario autenticado puede hacer ahora
  */
-public record FichaAutomatizacionRespuesta(Integer idOrden, boolean simulado, OrdenResumenRespuesta orden,
+public record FichaAutomatizacionRespuesta(Integer idOrden, OrdenResumenRespuesta orden,
                                            String siguientePaso, AccionesOrden acciones, List<PlanMop> mops,
                                            ResumenPlan resumenPlan,
                                            List<AnalisisRespuesta> evaluaciones, List<RondaAutorizacion> autorizaciones,

@@ -1,6 +1,5 @@
 package com.komainos.ejecucion.service;
 
-import com.komainos.ejecucion.config.ModoAutomatizacion;
 import com.komainos.ejecucion.config.PropiedadesAutomatizacion;
 import com.komainos.shared.util.Tiempo;
 import org.springframework.stereotype.Service;
@@ -16,9 +15,9 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Estado del transporte para el panel: modo, controlador y si ansible-playbook responde. Así se sabe antes de habilitar
- * el modo REAL si el controlador está listo. No expone secretos ni rutas de archivos de credenciales. La comprobación de
- * Ansible se guarda unos minutos porque lanza un proceso.
+ * Estado del transporte para el panel: controlador y si ansible-playbook responde. Así se sabe, antes de lanzar un
+ * mantenimiento, si el controlador puede llegar a los servidores. No expone secretos ni rutas de archivos de
+ * credenciales. La comprobación de Ansible se guarda unos minutos porque lanza un proceso.
  */
 @Service
 public class DiagnosticoAutomatizacion {
@@ -41,11 +40,8 @@ public class DiagnosticoAutomatizacion {
         boolean controladorLinux = sistema.toLowerCase(Locale.ROOT).contains("linux");
 
         List<String> avisos = new ArrayList<>();
-        if (propiedades.simulada()) {
-            avisos.add("Modo simulado: los análisis y las tareas devuelven resultados de prueba y no se conecta a los "
-                    + "servidores.");
-        } else if (!ansible.disponible()) {
-            avisos.add("Modo REAL sin Ansible disponible: las operaciones remotas fallarán hasta instalarlo.");
+        if (!ansible.disponible()) {
+            avisos.add("Ansible no está disponible en el controlador: las operaciones remotas fallarán hasta instalarlo.");
         }
         if (!config.ssh().verificarClaveHost()) {
             avisos.add("La verificación de la clave SSH de los servidores está desactivada: úsela solo en laboratorio.");
@@ -54,15 +50,16 @@ public class DiagnosticoAutomatizacion {
             avisos.add("La validación del certificado WinRM está desactivada: úsela solo en laboratorio.");
         }
         if (!controladorLinux) {
-            avisos.add("El controlador es %s: el modo REAL requiere Linux.".formatted(sistema));
+            avisos.add("El controlador es %s: la ejecución con Ansible requiere Linux.".formatted(sistema));
         }
         if (!propiedades.procesoHabilitado()) {
-            avisos.add("El proceso automático está desactivado: use «Procesar ciclo» para avanzar las órdenes.");
+            avisos.add("El proceso automático está desactivado (KOMAINOS_AUTOMATIZACION_PROCESO_HABILITADO=false): "
+                    + "las órdenes no avanzan solas.");
         }
         Transporte transporte = new Transporte(config.ssh().puerto(), config.ssh().verificarClaveHost(),
                 config.winrm().puerto(), config.winrm().esquema(), config.winrm().transporte(),
                 config.winrm().validarCertificado(), config.timeoutConexionSegundos());
-        return new Diagnostico(propiedades.modo(), propiedades.simulada(), propiedades.procesoHabilitado(),
+        return new Diagnostico(propiedades.procesoHabilitado(),
                 propiedades.intervaloMs() / 1000, propiedades.maxConexionesSimultaneas(), sistema, controladorLinux,
                 ansible.disponible(), ansible.version(), config.ejecutable(), transporte, avisos, ansible.verificado());
     }
@@ -101,7 +98,7 @@ public class DiagnosticoAutomatizacion {
                              String transporteWinrm, boolean validarCertificadoWinrm, int timeoutConexionSegundos) {
     }
 
-    public record Diagnostico(ModoAutomatizacion modo, boolean simulado, boolean procesoHabilitado,
+    public record Diagnostico(boolean procesoHabilitado,
                               long intervaloSegundos, int maxConexionesSimultaneas, String controlador,
                               boolean controladorCompatible, boolean ansibleDisponible, String versionAnsible,
                               String ejecutable, Transporte transporte, List<String> avisos, Instant verificado) {

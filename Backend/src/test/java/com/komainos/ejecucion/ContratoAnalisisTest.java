@@ -69,7 +69,7 @@ class ContratoAnalisisTest {
     @Test
     @DisplayName("Un análisis que no cumple el contrato falla como CONTRATO y conserva la salida para corregirlo")
     void aplicarConservaSalida() {
-        ResultadoEjecucion r = ContratoAnalisis.aplicar(ResultadoEjecucion.exito(false, "sin json", List.of()), json);
+        ResultadoEjecucion r = ContratoAnalisis.aplicar(ResultadoEjecucion.exito("sin json", List.of()), json);
 
         assertThat(r.correcto()).isFalse();
         assertThat(r.fallo()).isEqualTo(TipoFallo.CONTRATO);

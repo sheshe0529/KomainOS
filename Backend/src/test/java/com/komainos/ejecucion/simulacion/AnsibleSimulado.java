@@ -1,66 +1,80 @@
-package com.komainos.ejecucion.service;
+package com.komainos.ejecucion.simulacion;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.komainos.ejecucion.config.EscenarioSimulado;
-import com.komainos.ejecucion.config.PropiedadesAutomatizacion;
-import com.komainos.ejecucion.model.MetricaReferencia;
+import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.ejecucion.model.ResultadoEjecucion;
 import com.komainos.ejecucion.model.ScriptPreparado;
 import com.komainos.ejecucion.model.SolicitudEjecucion;
 import com.komainos.ejecucion.model.TipoFallo;
+import com.komainos.ejecucion.service.ContratoAnalisis;
+import com.komainos.ejecucion.service.PreparadorScript;
+import com.komainos.ejecucion.service.PuertoAnsible;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Modo local por defecto (DEC-44): no abre conexiones, no descifra secretos ni crea archivos. Prepara el script igual
- * que el adaptador real, así un parámetro inválido falla de la misma forma, y responde según el escenario del servidor
- * ({@link EscenarioSimulado}). Los análisis informan los valores de referencia que el dominio calcula con los umbrales
- * vigentes, por lo que el ciclo se puede probar con cualquier catálogo de métricas.
+ * Doble de pruebas del adaptador Ansible: no abre conexiones, no descifra secretos ni crea archivos. Prepara el script
+ * igual que el adaptador real, así un parámetro inválido falla de la misma forma, y responde según el escenario del
+ * servidor ({@link EscenarioSimulado}). Los análisis informan los valores de referencia que producen cada nivel con los
+ * umbrales vigentes del servidor ({@link ValoresReferencia}), así el ciclo se prueba con cualquier catálogo de métricas.
+ * Solo existe en las pruebas: el backend desplegado ejecuta siempre con {@code AnsibleReal}.
  */
-@Service
-@ConditionalOnProperty(prefix = "komainos.automatizacion", name = "modo", havingValue = "SIMULADO", matchIfMissing = true)
 public class AnsibleSimulado implements PuertoAnsible {
 
     private enum Nivel { NORMAL, ADVERTENCIA, CRITICO }
 
     private final ObjectMapper json;
-    private final PropiedadesAutomatizacion propiedades;
+    private final Map<String, EscenarioSimulado> escenarios;
+    private final Function<SolicitudEjecucion, List<MetricaReferencia>> referencias;
 
-    public AnsibleSimulado(ObjectMapper json, PropiedadesAutomatizacion propiedades) {
+    /**
+     * @param escenarios  hostname y comportamiento que se reproduce para ese servidor; los demás usan ESTANDAR
+     * @param referencias valores de cada métrica por nivel para el servidor del análisis
+     */
+    public AnsibleSimulado(ObjectMapper json, Map<String, String> escenarios,
+                           Function<SolicitudEjecucion, List<MetricaReferencia>> referencias) {
         this.json = json;
-        this.propiedades = propiedades;
+        // El hostname se compara sin distinguir mayúsculas: el inventario los guarda en mayúsculas
+        this.escenarios = escenarios.entrySet().stream().collect(Collectors.toUnmodifiableMap(
+                e -> e.getKey().toLowerCase(Locale.ROOT),
+                e -> EscenarioSimulado.valueOf(e.getValue().trim().toUpperCase(Locale.ROOT))));
+        this.referencias = referencias;
+    }
+
+    public EscenarioSimulado escenario(String hostname) {
+        return hostname == null ? EscenarioSimulado.ESTANDAR
+                : escenarios.getOrDefault(hostname.toLowerCase(Locale.ROOT), EscenarioSimulado.ESTANDAR);
     }
 
     @Override
     public ResultadoEjecucion probarConexion(SolicitudEjecucion s) {
-        esperar();
-        return switch (propiedades.escenario(s.hostname())) {
+        boolean evaluacion = s.proposito() == PropositoEjecucion.CONECTIVIDAD_EVALUACION;
+        return switch (escenario(s.hostname())) {
             case SIN_CONEXION -> falloConexion(s);
             case SIN_AUTENTICACION -> falloAutenticacion();
-            case SIN_PERMISOS -> s.proposito() == com.komainos.ejecucion.model.PropositoEjecucion.CONECTIVIDAD_EVALUACION
-                    ? ResultadoEjecucion.exito(true, "Autenticación verificada sin exigir privilegios de administrador (simulado)", List.of())
-                    : ResultadoEjecucion.fallo(true, TipoFallo.PERMISOS,
+            case SIN_PERMISOS -> evaluacion
+                    ? ResultadoEjecucion.exito("Autenticación verificada sin exigir privilegios de administrador (simulado)", List.of())
+                    : ResultadoEjecucion.fallo(TipoFallo.PERMISOS,
                     "la cuenta se autenticó, pero no tiene privilegios de administrador (simulado)");
-            default -> ResultadoEjecucion.exito(true,
-                    (s.proposito() == com.komainos.ejecucion.model.PropositoEjecucion.CONECTIVIDAD_EVALUACION
-                            ? "Acceso de evaluación verificado en %s (simulado): conectividad y autenticación"
-                            : "Acceso verificado en %s (simulado): conectividad, autenticación y permisos de administrador")
-                            .formatted(s.hostname()), List.of());
+            default -> ResultadoEjecucion.exito((evaluacion
+                    ? "Acceso de evaluación verificado en %s (simulado): conectividad y autenticación"
+                    : "Acceso verificado en %s (simulado): conectividad, autenticación y permisos de administrador")
+                    .formatted(s.hostname()), List.of());
         };
     }
 
     @Override
     public ResultadoEjecucion ejecutar(SolicitudEjecucion s) {
-        esperar();
         ScriptPreparado script = PreparadorScript.preparar(s.familia(), s.contenido(), s.parametros(), s.listas());
-        EscenarioSimulado escenario = propiedades.escenario(s.hostname());
+        EscenarioSimulado escenario = escenario(s.hostname());
         if (escenario == EscenarioSimulado.SIN_CONEXION) {
             return falloConexion(s);
         }
@@ -68,17 +82,16 @@ public class AnsibleSimulado implements PuertoAnsible {
             return falloAutenticacion();
         }
         if (s.esAnalisis()) {
-            return ContratoAnalisis.aplicar(ResultadoEjecucion.exito(true, salidaAnalisis(s, escenario), List.of()), json);
+            return ContratoAnalisis.aplicar(ResultadoEjecucion.exito(salidaAnalisis(s, escenario), List.of()), json);
         }
         if (escenario == EscenarioSimulado.SIN_PERMISOS) {
-            return ResultadoEjecucion.fallo(true, TipoFallo.PERMISOS,
-                    "la cuenta no tiene privilegios de administrador (simulado)");
+            return ResultadoEjecucion.fallo(TipoFallo.PERMISOS, "la cuenta no tiene privilegios de administrador (simulado)");
         }
         if (escenario == EscenarioSimulado.FALLO_TAREA) {
-            return ResultadoEjecucion.codigoError(true, 1, registroTarea(s, script, false),
+            return ResultadoEjecucion.codigoError(1, registroTarea(s, script, false),
                     "el script terminó con el código 1 (fallo simulado)");
         }
-        return ResultadoEjecucion.exito(true, registroTarea(s, script, true), List.of());
+        return ResultadoEjecucion.exito(registroTarea(s, script, true), List.of());
     }
 
     /** Previa en advertencia para que haya algo que mantener; revisión y posterior normales, salvo el escenario */
@@ -96,7 +109,7 @@ public class AnsibleSimulado implements PuertoAnsible {
         Nivel nivel = nivel(s, escenario);
         ObjectNode raiz = json.createObjectNode();
         ArrayNode metricas = raiz.putArray("metricas");
-        for (MetricaReferencia referencia : s.referencia()) {
+        for (MetricaReferencia referencia : referencias.apply(s)) {
             MetricaReferencia.Valor valor = valor(referencia, nivel);
             ObjectNode m = metricas.addObject();
             m.put("codigo", referencia.codigo());
@@ -108,7 +121,7 @@ public class AnsibleSimulado implements PuertoAnsible {
             }
         }
         try {
-            return "Análisis simulado de %s (%s)%n%s".formatted(s.hostname(), nivel.name().toLowerCase(),
+            return "Análisis simulado de %s (%s)%n%s".formatted(s.hostname(), nivel.name().toLowerCase(Locale.ROOT),
                     json.writeValueAsString(raiz));
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("No se pudo generar la salida simulada", ex);
@@ -144,24 +157,12 @@ public class AnsibleSimulado implements PuertoAnsible {
 
     private static ResultadoEjecucion falloConexion(SolicitudEjecucion s) {
         String puerto = s.familia() == FamiliaSistemaOperativo.WINDOWS ? "WinRM" : "SSH";
-        return ResultadoEjecucion.fallo(true, TipoFallo.COMUNICACION,
+        return ResultadoEjecucion.fallo(TipoFallo.COMUNICACION,
                 "%s (%s) no respondió por %s (simulado)".formatted(s.hostname(), s.direccionIp(), puerto));
     }
 
     private static ResultadoEjecucion falloAutenticacion() {
-        return ResultadoEjecucion.fallo(true, TipoFallo.AUTENTICACION,
+        return ResultadoEjecucion.fallo(TipoFallo.AUTENTICACION,
                 "el servidor rechazó el usuario o la contraseña de la cuenta de servicio (simulado)");
-    }
-
-    private void esperar() {
-        long retardo = propiedades.simulacion().retardoMs();
-        if (retardo <= 0) {
-            return;
-        }
-        try {
-            Thread.sleep(retardo);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

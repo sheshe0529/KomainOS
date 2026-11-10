@@ -1,6 +1,5 @@
 package com.komainos.mantenimiento.service;
 
-import com.komainos.ejecucion.config.PropiedadesAutomatizacion;
 import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.service.PuertoCuentasServicio;
 import com.komainos.inventario.service.ServicioParametrosSistema;
@@ -87,7 +86,6 @@ public class ServicioConsultaAutomatizacion {
     private final IncidenciaRepositorio incidencias;
     private final PuertoCuentasServicio cuentas;
     private final ServicioParametrosSistema parametros;
-    private final PropiedadesAutomatizacion propiedades;
     private final Clock reloj;
 
     @Transactional(readOnly = true)
@@ -131,7 +129,7 @@ public class ServicioConsultaAutomatizacion {
         var parametrosSistema = parametros.obtener();
         boolean paralelo = orden.esGrupal() && orden.getModoEjecucionAplicado() == ModoEjecucion.PARALELO;
         return new FichaAutomatizacion(orden, planes, analisis, rondas, validacion, validacionesTecnicas, problemas,
-                nombresCuenta, responsables(orden), propiedades.simulada(), parametrosSistema.getMaxDuracionMopMinutos(),
+                nombresCuenta, responsables(orden), parametrosSistema.getMaxDuracionMopMinutos(),
                 visibles.size(), DuracionPlan.estimar(planes, paralelo, parametrosSistema.getMaxEjecucionesConcurrentes()),
                 acciones(orden, vigente, validacion, alcance), siguientePaso(orden, planes, vigente, validacion));
     }
@@ -354,7 +352,7 @@ public class ServicioConsultaAutomatizacion {
                                       List<SolicitudAutorizacion> autorizaciones, Optional<ValidacionFuncional> validacion,
                                       List<ValidacionTecnica> validacionesTecnicas, List<Incidencia> incidencias,
                                       Map<Integer, String> cuentas, Map<String, String> responsables,
-                                      boolean simulado, int maxDuracionMop, int servidores, int duracionPlan,
+                                      int maxDuracionMop, int servidores, int duracionPlan,
                                       Acciones acciones, String siguientePaso) {
     }
 }

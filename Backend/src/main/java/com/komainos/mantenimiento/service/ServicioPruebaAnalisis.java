@@ -82,7 +82,8 @@ public class ServicioPruebaAnalisis {
             SolicitudEjecucion solicitud = new SolicitudEjecucion(servidor.getId(), servidor.getHostname(),
                     servidor.getDireccionIp(), servidor.familia(), cuenta, PropositoEjecucion.PRUEBA_ANALISIS,
                     version.getContenido(), ServicioCatalogoAutomatizacion.valoresDeEjecucion(version),
-                    evaluaciones.maxMinutos(), evaluaciones.referencia(contexto), version.usaListasImplicitas() ? evaluaciones.listas(contexto) : java.util.List.of());
+                    evaluaciones.maxMinutos(), null,
+                    version.usaListasImplicitas() ? evaluaciones.listas(contexto) : java.util.List.of());
             return new Preparada(solicitud, advertencia, "%s v%d".formatted(implementacion.getScript().getNombre(),
                     version.getNumeroVersion()));
         });
@@ -94,7 +95,7 @@ public class ServicioPruebaAnalisis {
                 Operacion.de("PROBAR_SCRIPT_ANALISIS", "script_version", idVersion).sobreServidor(idServidor)
                         .motivo("%s en %s: %s".formatted(preparada.descripcion(), preparada.solicitud().hostname(),
                                 resultado.correcto() ? "correcto" : resultado.fallo()))));
-        return new Prueba(resultado.simulado(), resultado.correcto(), resultado.fallo(), resultado.error(),
+        return new Prueba(resultado.correcto(), resultado.fallo(), resultado.error(),
                 resultado.salida(), revision, preparada.advertencia());
     }
 
@@ -104,7 +105,7 @@ public class ServicioPruebaAnalisis {
     /**
      * @param revision métricas reconocidas y problemas de la salida; nula si el script no llegó a ejecutarse
      */
-    public record Prueba(boolean simulado, boolean correcto, TipoFallo fallo, String error, String salida,
+    public record Prueba(boolean correcto, TipoFallo fallo, String error, String salida,
                          RevisionSalida revision, String advertencia) {
     }
 }

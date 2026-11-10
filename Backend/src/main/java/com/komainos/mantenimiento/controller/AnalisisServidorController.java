@@ -130,7 +130,7 @@ public class AnalisisServidorController {
             @Valid @RequestBody CicloPeticiones.ProbarAnalisisPeticion p,
             @AuthenticationPrincipal UsuarioAutenticado u) {
         ServicioPruebaAnalisis.Prueba r = pruebas.probar(id, p.idServidor(), AlcanceUsuario.de(u).actor());
-        return new OperacionRespuestas.PruebaAnalisisRespuesta(r.simulado(), r.correcto(), r.fallo(), r.error(), r.salida(),
+        return new OperacionRespuestas.PruebaAnalisisRespuesta(r.correcto(), r.fallo(), r.error(), r.salida(),
                 r.revision() == null ? null : CatalogoMapeador.revision(r.revision()), r.advertencia());
     }
 
@@ -149,7 +149,7 @@ public class AnalisisServidorController {
     }
 
     private static OperacionRespuestas.ConexionRespuesta conexion(ResultadoConexion r) {
-        return new OperacionRespuestas.ConexionRespuesta(r.idServidor(), r.servidor(), r.idCuenta(), r.cuenta(), r.simulado(),
+        return new OperacionRespuestas.ConexionRespuesta(r.idServidor(), r.servidor(), r.idCuenta(), r.cuenta(),
                 r.correcto(), r.fallo(), r.mensaje());
     }
 }

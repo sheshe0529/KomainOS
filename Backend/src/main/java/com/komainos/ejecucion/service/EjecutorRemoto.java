@@ -20,12 +20,10 @@ import java.util.function.Supplier;
 public class EjecutorRemoto {
 
     private final PuertoAnsible transporte;
-    private final PropiedadesAutomatizacion propiedades;
     private final Semaphore conexiones;
 
     public EjecutorRemoto(PuertoAnsible transporte, PropiedadesAutomatizacion propiedades) {
         this.transporte = transporte;
-        this.propiedades = propiedades;
         this.conexiones = new Semaphore(Math.max(1, propiedades.maxConexionesSimultaneas()), true);
     }
 
@@ -37,22 +35,18 @@ public class EjecutorRemoto {
         return conPermiso(solicitud, () -> transporte.probarConexion(solicitud));
     }
 
-    public boolean simulado() {
-        return propiedades.simulada();
-    }
-
     private ResultadoEjecucion conPermiso(SolicitudEjecucion solicitud, Supplier<ResultadoEjecucion> operacion) {
         try {
             conexiones.acquire();
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            return ResultadoEjecucion.fallo(simulado(), TipoFallo.EJECUCION, "la operación se interrumpió antes de iniciar");
+            return ResultadoEjecucion.fallo(TipoFallo.EJECUCION, "la operación se interrumpió antes de iniciar");
         }
         try {
             return operacion.get();
         } catch (RuntimeException ex) {
             log.error("Error inesperado del adaptador ({}) en {}", solicitud.proposito(), solicitud.hostname(), ex);
-            return ResultadoEjecucion.fallo(simulado(), TipoFallo.CONFIGURACION,
+            return ResultadoEjecucion.fallo(TipoFallo.CONFIGURACION,
                     "el adaptador no pudo completar la operación; revise el registro del backend");
         } finally {
             conexiones.release();

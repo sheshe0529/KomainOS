@@ -121,11 +121,11 @@ public class ServicioConectividad {
 
     private ResultadoConexion ejecutar(Prueba p) {
         if (p.problema() != null) {
-            return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), remoto.simulado(), false,
+            return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), false,
                     TipoFallo.CONFIGURACION, p.problema());
         }
         ResultadoEjecucion r = remoto.probarConexion(p.solicitud());
-        return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), r.simulado(), r.correcto(),
+        return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), r.correcto(),
                 r.fallo(), r.correcto() ? r.salida().strip() : r.error());
     }
 
@@ -144,6 +144,6 @@ public class ServicioConectividad {
 
     /** @param fallo nulo si el acceso se verificó; si no, comunicación, autenticación, permisos o configuración */
     public record ResultadoConexion(Integer idServidor, String servidor, Integer idCuenta, String cuenta,
-                                    boolean simulado, boolean correcto, TipoFallo fallo, String mensaje) {
+                                    boolean correcto, TipoFallo fallo, String mensaje) {
     }
 }

@@ -1,7 +1,8 @@
-package com.komainos.ejecucion.config;
+package com.komainos.ejecucion.simulacion;
 
 /**
- * Comportamiento que el modo SIMULADO reproduce para un servidor, para probar cada rama del ciclo sin conectarse a él.
+ * Comportamiento que el doble de pruebas {@link AnsibleSimulado} reproduce para un servidor, para probar cada rama del
+ * ciclo sin conectarse a él.
  * Los valores de las métricas salen de los umbrales vigentes, así funcionan con cualquier catálogo de métricas.
  */
 public enum EscenarioSimulado {

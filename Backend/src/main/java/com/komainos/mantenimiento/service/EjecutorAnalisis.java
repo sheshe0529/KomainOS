@@ -32,7 +32,7 @@ public class EjecutorAnalisis {
             resultado = remoto.ejecutar(solicitud);
         } catch (ReglaNegocioException ex) {
             // Por ejemplo, un parámetro obligatorio sin valor en la versión fijada
-            resultado = ResultadoEjecucion.fallo(remoto.simulado(), TipoFallo.CONFIGURACION, ex.getMessage());
+            resultado = ResultadoEjecucion.fallo(TipoFallo.CONFIGURACION, ex.getMessage());
         }
         return evaluaciones.registrar(idEvaluacion, resultado);
     }

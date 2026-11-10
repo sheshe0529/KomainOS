@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -62,6 +63,9 @@ public class ConfiguracionSeguridad {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // El permiso fino se declara con @PreAuthorize en cada controlador
+                        .requestMatchers("/api/**", "/actuator/**").authenticated()
+                        // El panel compilado (ConfiguracionPanelWeb) es público: sin token solo se obtiene su código, nunca datos
+                        .requestMatchers(HttpMethod.GET, "/**").permitAll()
                         .anyRequest().authenticated())
                 // Sin token o con token vencido responde 401 para que el panel vuelva al inicio de sesión (RF02)
                 .exceptionHandling(ex -> ex

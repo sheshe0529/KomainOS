@@ -53,10 +53,9 @@ public final class ContratoAnalisis {
         }
         try {
             List<MedicionInformada> metricas = leer(resultado.salida(), json);
-            return new ResultadoEjecucion(resultado.simulado(), resultado.codigoRetorno(), resultado.salida(), null,
-                    null, metricas);
+            return new ResultadoEjecucion(resultado.codigoRetorno(), resultado.salida(), null, null, metricas);
         } catch (ReglaNegocioException ex) {
-            return new ResultadoEjecucion(resultado.simulado(), resultado.codigoRetorno(), resultado.salida(),
+            return new ResultadoEjecucion(resultado.codigoRetorno(), resultado.salida(),
                     TipoFallo.CONTRATO.describir(ex.getMessage()), TipoFallo.CONTRATO, List.of());
         }
     }

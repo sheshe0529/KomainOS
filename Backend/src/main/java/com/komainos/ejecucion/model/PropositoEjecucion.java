@@ -1,6 +1,6 @@
 package com.komainos.ejecucion.model;
 
-/** Para qué se abre la conexión: decide cómo se interpreta la salida y qué responde el modo simulado */
+/** Para qué se abre la conexión: decide qué script de comprobación se usa y cómo se interpreta la salida */
 public enum PropositoEjecucion {
 
     /** Conectividad, autenticación y permisos de la cuenta de servicio (RF71) y condición de inicio (RF52) */

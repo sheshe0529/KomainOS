@@ -15,6 +15,7 @@ import { useConsulta } from '@/hooks/useConsulta'
 import { claveDia, formatearMesAnio } from '@/utils/formato'
 
 const DIAS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
+const MAXIMO_PUNTOS_POR_DIA = 6
 
 function mesDesdeParametro(valor: string | null): Date {
   const hoy = new Date()
@@ -116,7 +117,8 @@ export function CronogramaPage() {
               <div className="grid grid-cols-7">
                 {celdas.map((d, i) => {
                   const clave = claveDia(d)
-                  const delDia = porDia.get(clave) ?? []
+                  const cantidad = porDia.get(clave)?.length ?? 0
+                  const etiquetaOrdenes = `${cantidad} ${cantidad === 1 ? 'orden' : 'órdenes'}`
                   const fueraDeMes = d.getMonth() !== mes.getMonth()
                   const esHoy = clave === hoy
                   return (
@@ -124,7 +126,7 @@ export function CronogramaPage() {
                       key={clave}
                       type="button"
                       onClick={() => navigate(`/cronograma/dia/${clave}`)}
-                      aria-label={`${d.getDate()}: ${delDia.length} órdenes`}
+                      aria-label={`${d.getDate()}: ${etiquetaOrdenes}`}
                       className={`flex h-24 flex-col items-start gap-1.5 border-line p-2 text-left transition-colors hover:bg-panel-muted ${
                         i % 7 !== 6 ? 'border-r' : ''
                       } ${i < 35 ? 'border-b' : ''} ${fueraDeMes ? 'bg-panel-muted/40' : ''}`}
@@ -136,10 +138,17 @@ export function CronogramaPage() {
                       >
                         {d.getDate()}
                       </span>
-                      {delDia.length > 0 && (
-                        <span className="rounded-md bg-accent-soft px-1.5 py-0.5 font-mono text-[11px] font-medium text-accent">
-                          {delDia.length} {delDia.length === 1 ? 'orden' : 'órdenes'}
-                        </span>
+                      {cantidad > 0 && (
+                        <>
+                          <span className="rounded-md bg-accent-soft px-1.5 py-0.5 font-mono text-[11px] font-medium text-accent">
+                            {etiquetaOrdenes}
+                          </span>
+                          <span className="flex gap-1" aria-hidden="true">
+                            {Array.from({ length: Math.min(cantidad, MAXIMO_PUNTOS_POR_DIA) }, (_, indice) => (
+                              <span key={indice} className="h-2 w-2 rounded-full bg-accent" />
+                            ))}
+                          </span>
+                        </>
                       )}
                     </button>
                   )

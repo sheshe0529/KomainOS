@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, FlaskConical, Server, TriangleAlert } from 'lucide-react'
+import { ChevronDown, Server, TriangleAlert } from 'lucide-react'
 import type { Diagnostico } from '@/api/types'
 import { Dato } from '@/components/common/Tarjeta'
 import { formatearFechaHora } from '@/utils/formato'
@@ -11,19 +11,18 @@ interface DiagnosticoAutomatizacionProps {
 const si = (valor?: boolean) => (valor ? 'Sí' : 'No')
 
 /**
- * Estado del motor de ejecución: si las ejecuciones son simuladas o van a los servidores con Ansible, si el proceso
- * automático corre y qué le falta al controlador para operar en modo real
+ * Estado del motor de ejecución: si el controlador puede ejecutar los scripts en los servidores con Ansible, si el
+ * proceso automático corre y qué le falta al controlador para operar
  */
 export function DiagnosticoAutomatizacion({ diagnostico: d }: DiagnosticoAutomatizacionProps) {
   const [abierto, setAbierto] = useState(false)
   const avisos = d.avisos ?? []
   const t = d.transporte
+  const listo = !!d.ansibleDisponible && !!d.controladorCompatible
 
   return (
     <section
-      className={`mb-6 rounded-xl border ${
-        d.simulado ? 'border-warning/40 bg-warning-soft/60' : avisos.length ? 'border-danger/40 bg-danger-soft/60' : 'border-line bg-panel'
-      }`}
+      className={`mb-6 rounded-xl border ${avisos.length ? 'border-danger/40 bg-danger-soft/60' : 'border-line bg-panel'}`}
     >
       <button
         type="button"
@@ -32,12 +31,8 @@ export function DiagnosticoAutomatizacion({ diagnostico: d }: DiagnosticoAutomat
         className="flex w-full flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3 text-left text-sm"
       >
         <span className="flex items-center gap-2 font-medium text-ink">
-          {d.simulado ? (
-            <FlaskConical className="h-4 w-4 text-warning" aria-hidden="true" />
-          ) : (
-            <Server className="h-4 w-4 text-success" aria-hidden="true" />
-          )}
-          {d.simulado ? 'Modo simulado: los scripts no llegan a los servidores' : 'Modo real: ejecución con Ansible'}
+          <Server className={`h-4 w-4 ${listo ? 'text-success' : 'text-danger'}`} aria-hidden="true" />
+          {listo ? 'Ejecución con Ansible' : 'Controlador sin Ansible: las operaciones remotas fallarán'}
         </span>
         <span className="text-ink-soft">
           Proceso automático:{' '}
@@ -66,14 +61,6 @@ export function DiagnosticoAutomatizacion({ diagnostico: d }: DiagnosticoAutomat
                 <li key={a}>{a}</li>
               ))}
             </ul>
-          )}
-          {d.simulado && (
-            <p className="text-sm text-ink-soft">
-              Las respuestas se calculan con los umbrales vigentes de cada servidor, para probar el ciclo completo sin
-              conectarse. Para ejecutar en servidores reales configure{' '}
-              <code className="font-mono text-ink">KOMAINOS_AUTOMATIZACION_MODO=REAL</code> en un controlador Linux con
-              Ansible.
-            </p>
           )}
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Dato etiqueta="Controlador" valor={`${d.controlador ?? '—'}${d.controladorCompatible ? '' : ' (no compatible)'}`} />

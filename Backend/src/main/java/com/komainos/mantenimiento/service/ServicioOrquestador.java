@@ -2,7 +2,6 @@ package com.komainos.mantenimiento.service;
 
 import com.komainos.catalogo.model.VersionScript;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
-import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.ejecucion.model.ResultadoEjecucion;
 import com.komainos.ejecucion.model.SolicitudEjecucion;
 import com.komainos.ejecucion.service.EjecutorRemoto;
@@ -368,10 +367,9 @@ public class ServicioOrquestador {
             throw new ReglaNegocioException("La tarea «%s» no tiene una versión fijada".formatted(tarea.getTarea().getNombre()));
         }
         Servidor s = detalle.getServidor();
-        SolicitudEjecucion solicitud = new SolicitudEjecucion(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(),
-                tarea.getIdCuentaServicio(), PropositoEjecucion.TAREA, version.getContenido(),
-                ServicioCatalogoAutomatizacion.valoresDeEjecucion(version), parametros.obtener().getMaxDuracionTareaMinutos(),
-                List.of());
+        SolicitudEjecucion solicitud = SolicitudEjecucion.tarea(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(),
+                tarea.getIdCuentaServicio(), version.getContenido(),
+                ServicioCatalogoAutomatizacion.valoresDeEjecucion(version), parametros.obtener().getMaxDuracionTareaMinutos());
         return new Trabajo(tarea.getId(), solicitud);
     }
 

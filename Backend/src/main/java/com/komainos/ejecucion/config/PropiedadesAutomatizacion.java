@@ -3,40 +3,18 @@ package com.komainos.ejecucion.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
-import java.util.Locale;
-import java.util.Map;
-
 /**
  * Configuración del componente de automatización (komainos.automatizacion). Ningún valor es secreto: las credenciales
- * de los servidores salen siempre de las cuentas de servicio cifradas (RNF02, RNF03).
+ * de los servidores salen siempre de las cuentas de servicio cifradas (RNF02, RNF03). Las operaciones remotas se
+ * ejecutan siempre con Ansible: no hay un modo que responda sin conectarse a los servidores.
  *
  * @param maxConexionesSimultaneas conexiones remotas abiertas a la vez entre análisis y tareas (RNF08)
- * @param escenarios               solo en SIMULADO: hostname y comportamiento que se reproduce para ese servidor
  */
 @ConfigurationProperties("komainos.automatizacion")
-public record PropiedadesAutomatizacion(@DefaultValue("SIMULADO") ModoAutomatizacion modo,
-                                        @DefaultValue("false") boolean procesoHabilitado,
+public record PropiedadesAutomatizacion(@DefaultValue("false") boolean procesoHabilitado,
                                         @DefaultValue("30000") long intervaloMs,
                                         @DefaultValue("10") int maxConexionesSimultaneas,
-                                        @DefaultValue Ansible ansible,
-                                        @DefaultValue Simulacion simulacion,
-                                        Map<String, String> escenarios) {
-
-    public boolean simulada() {
-        return modo == ModoAutomatizacion.SIMULADO;
-    }
-
-    /** El hostname se compara sin distinguir mayúsculas: el inventario los guarda en mayúsculas y YAML los escribe como se quiera */
-    public EscenarioSimulado escenario(String hostname) {
-        if (escenarios == null || hostname == null) {
-            return EscenarioSimulado.ESTANDAR;
-        }
-        return escenarios.entrySet().stream()
-                .filter(e -> e.getKey().equalsIgnoreCase(hostname))
-                .map(e -> EscenarioSimulado.valueOf(e.getValue().trim().toUpperCase(Locale.ROOT)))
-                .findFirst()
-                .orElse(EscenarioSimulado.ESTANDAR);
-    }
+                                        @DefaultValue Ansible ansible) {
 
     /**
      * @param ejecutable              ruta o nombre de ansible-playbook en el controlador
@@ -65,9 +43,5 @@ public record PropiedadesAutomatizacion(@DefaultValue("SIMULADO") ModoAutomatiza
                         @DefaultValue("https") String esquema,
                         @DefaultValue("ntlm") String transporte,
                         @DefaultValue("true") boolean validarCertificado) {
-    }
-
-    /** @param retardoMs pausa por operación simulada, para observar los estados intermedios en el panel */
-    public record Simulacion(@DefaultValue("0") long retardoMs) {
     }
 }

@@ -15,3 +15,6 @@ target/
 .project
 
 *.log
+
+# Panel compilado que la imagen Docker copia dentro del JAR (Dockerfile)
+src/main/resources/static/

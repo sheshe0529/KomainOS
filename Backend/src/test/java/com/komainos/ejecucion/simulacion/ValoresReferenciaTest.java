@@ -1,7 +1,6 @@
-package com.komainos.mantenimiento;
+package com.komainos.ejecucion.simulacion;
 
 import com.komainos.DatosPrueba;
-import com.komainos.ejecucion.model.MetricaReferencia;
 import com.komainos.inventario.model.ContextoEvaluacion;
 import com.komainos.inventario.model.ListaReferencia;
 import com.komainos.inventario.model.Metrica;
@@ -10,7 +9,6 @@ import com.komainos.inventario.model.OperadorComparacion;
 import com.komainos.inventario.model.TipoDato;
 import com.komainos.inventario.model.Umbral;
 import com.komainos.inventario.model.UmbralAplicado;
-import com.komainos.mantenimiento.service.ValoresReferencia;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -21,8 +19,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Cada valor de referencia se comprueba con la misma evaluación del ciclo: así el modo simulado produce exactamente el
- * nivel que se le pide con cualquier catálogo de métricas.
+ * Cada valor de referencia se comprueba con la misma evaluación del ciclo: así el doble de pruebas produce exactamente
+ * el nivel que se le pide con cualquier catálogo de métricas.
  */
 @DisplayName("Valores de referencia para la simulación genérica (DEC-41, DEC-44)")
 class ValoresReferenciaTest {

@@ -101,7 +101,6 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
           correcto={!!resultados[0].correcto}
           fallo={resultados[0].fallo}
           mensaje={resultados[0].mensaje}
-          simulado={resultados[0].simulado}
           textoCorrecto={`Acceso correcto con ${resultados[0].cuenta ?? 'la cuenta de servicio'}`}
         />
       )}
@@ -111,7 +110,7 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
           <p className="text-sm text-ink-soft">
             {resultados.length === 0
               ? 'El grupo no tiene integrantes activos.'
-              : `${correctos} de ${resultados.length} servidores con acceso correcto${resultados[0]?.simulado ? ' (simulado)' : ''}.`}
+              : `${correctos} de ${resultados.length} servidores con acceso correcto.`}
           </p>
           {resultados.length > 0 && (
             <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line">

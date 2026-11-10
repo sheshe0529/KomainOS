@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Download, FlaskConical, Play, ScanSearch, X } from 'lucide-react'
+import { Check, Download, Play, ScanSearch, X } from 'lucide-react'
 import { bitacoraApi, cicloApi, operacionApi } from '@/api/automatizacion'
 import type { EstadoOrden, EtapaOrden } from '@/api/dominio'
 import type { FichaAutomatizacionRespuesta, IncidenciaRespuesta } from '@/api/types'
@@ -393,12 +393,6 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1 basis-60">
           <h3 className="text-base font-semibold text-ink">Ciclo de mantenimiento</h3>
-          {f.simulado && (
-            <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-warning">
-              <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-              Modo simulado: los resultados no provienen de los servidores
-            </p>
-          )}
         </div>
         <div className="ml-auto flex flex-wrap justify-end gap-2">
           <Boton icono={Download} onClick={() => setExportando(true)}>

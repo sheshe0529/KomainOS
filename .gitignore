@@ -1,0 +1,2 @@
+# Secretos del despliegue: .env se crea en el servidor a partir de .env.produccion.example (RNF03)
+.env

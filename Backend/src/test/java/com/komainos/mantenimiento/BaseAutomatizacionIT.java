@@ -34,7 +34,6 @@ import com.komainos.mantenimiento.model.ReglaPoliticaCambio;
 import com.komainos.mantenimiento.service.PuertoProgramacionCambio;
 import com.komainos.mantenimiento.service.ServicioAutorizaciones;
 import com.komainos.mantenimiento.service.ServicioConsultaOrdenes;
-import com.komainos.mantenimiento.service.ServicioDemostracionAutomatizacion;
 import com.komainos.mantenimiento.service.ServicioEvaluacionPrevia;
 import com.komainos.mantenimiento.service.ServicioOrquestador;
 import com.komainos.mantenimiento.service.ServicioPoliticasCambio;
@@ -58,7 +57,7 @@ import java.util.Set;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 /**
- * Escenario común del componente de automatización en modo simulado: un entorno con criticidad «Alta», Ubuntu 24.04,
+ * Escenario común del componente de automatización con el doble del adaptador Ansible: un entorno con criticidad «Alta», Ubuntu 24.04,
  * una cuenta de servicio de prueba, el servidor srv-prueba con ventana toda la semana, los datos de demostración
  * (métricas, umbrales y política) y un catálogo de prueba. El comportamiento de cada servidor lo decide su hostname
  * (application-test.yml, EscenarioSimulado).
@@ -89,7 +88,7 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
     @Autowired
     protected ServicioCredenciales credenciales;
     @Autowired
-    protected ServicioDemostracionAutomatizacion demostracion;
+    protected DatosDemostracionAutomatizacion demostracion;
     @Autowired
     protected ServicioCatalogoAutomatizacion catalogo;
     @Autowired
@@ -140,7 +139,7 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
     }
 
     /**
-     * Los scripts y las tareas de prueba (DEC-52: la demostración ya no trae scripts). En modo simulado el código no se
+     * Los scripts y las tareas de prueba (DEC-52: la demostración ya no trae scripts). Con el doble del adaptador el código no se
      * ejecuta: importan el tipo de script, sus parámetros y los umbrales que activan cada tarea
      */
     private void registrarCatalogo() {

@@ -11,6 +11,6 @@ logging:
 
 komainos:
   automatizacion:
-    simulacion:
-      # En desarrollo cada operación simulada tarda un poco, así se ven las etapas en el panel
-      retardo-ms: ${KOMAINOS_SIMULACION_RETARDO_MS:800}
+    # En una máquina sin Ansible (Windows) cada operación remota fallaría: el proceso automático no las intenta salvo
+    # que se active explícitamente. Los botones del panel siguen disponibles
+    proceso-habilitado: ${KOMAINOS_AUTOMATIZACION_PROCESO_HABILITADO:false}

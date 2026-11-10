@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Descifra la cuenta de servicio justo antes de conectarse (RNF02-RNF04). Solo lo usa el adaptador Ansible real; el
- * modo simulado nunca descifra secretos. Comprueba primero que la cuenta siga vigente y sirva para la familia.
+ * Descifra la cuenta de servicio justo antes de conectarse (RNF02-RNF04). Solo lo usa el adaptador Ansible, y solo
+ * cuando el controlador puede ejecutar la operación. Comprueba primero que la cuenta siga vigente y sirva para la familia.
  */
 @Component
 @RequiredArgsConstructor

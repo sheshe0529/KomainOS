@@ -3,12 +3,13 @@
 API REST del sistema de gestión automatizada del mantenimiento de servidores
 virtuales. Java 21, Spring Boot 3.5, PostgreSQL 18.
 
-El componente de automatización funciona en modo **SIMULADO** por defecto, con
-respuestas genéricas calculadas desde los umbrales de cada servidor. La [guía de
+El componente de automatización ejecuta los scripts en los servidores con Ansible
+desde un controlador Linux; ya no tiene un modo simulado (DEC-56). La [guía de
 automatización](AUTOMATIZACION.md) explica el ciclo completo, cómo escribir
-scripts, las variables de entorno y los pasos para habilitar Ansible real en un
-controlador Linux. Se ejecuta directamente en Windows con PostgreSQL local, sin
-Docker.
+scripts y las variables de entorno. En desarrollo se ejecuta directamente en
+Windows con PostgreSQL local, sin Docker: todo funciona salvo las operaciones
+remotas, que fallan como «Configuración del controlador». El despliegue en EC2
+con Amazon RDS, con la imagen Docker, está en [DESPLIEGUE.md](../DESPLIEGUE.md).
 
 ## Puesta en marcha
 
@@ -53,7 +54,8 @@ se cambia con `KOMAINOS_PUERTO`.
 
 | Script | Uso |
 |---|---|
-| `01_esquema.sql` | Crea el esquema `KomainOS` completo: 52 tablas, 94 claves foráneas y 32 enumerados, igual a `Documentos/Docs/01_esquema_vfinal.sql` y al R2.4 final (DEC-40). Requiere PostgreSQL 15 o superior. `Documentos/Docs/DDL_KOMAINOS.sql` está desactualizado respecto de él (DEC-02). |
+| `01_esquema.sql` | DDL de creación: el esquema `KomainOS` completo, con 53 tablas, 96 claves foráneas y 32 enumerados. Consolida el R2.4 final (DEC-40), el R3.1 y todos los scripts de `cambios/`; verificado contra `DBKomainOS` el 2026-11-10 (DEC-56). Requiere PostgreSQL 15 o superior y funciona en Amazon RDS. `Documentos/Docs/DDL_KOMAINOS.sql` y `01_esquema_vfinal.sql` están desactualizados respecto de él. |
+| `instalar_base.sql` | Instalación completa sobre una base vacía (por ejemplo, en RDS) con `psql`: `01` y `02` en una sola transacción y después `04`. Se niega a ejecutarse si el esquema ya existe. |
 | `02_datos_sistema.sql` | Datos sin los cuales el sistema no opera: factores de ciclo, parámetros globales y las 21 variables de salud del R3.1 (catálogo de métricas). Idempotente. |
 | `03_datos_prueba.sql` | Datos de demostración: un usuario por rol (contraseña `Cambiar.2026`), catálogos, 8 servidores con ventanas y configuración, un grupo, órdenes en distintos estados y una baja. Las fechas de las órdenes se calculan al ejecutarlo. Solo sobre una base sin datos de negocio. |
 | `04_umbrales_variables.sql` | Umbrales iniciales de las variables del R3.1 para cualquier base (DEC-48): listas de referencia de base, un umbral global por cada variable que no tenga ninguno y excepciones por sistema operativo para Windows Server y la familia de RHEL. Idempotente y no modifica lo existente; se vuelve a ejecutar después de registrar un sistema operativo. Límites genéricos, ajustables en Umbrales. |

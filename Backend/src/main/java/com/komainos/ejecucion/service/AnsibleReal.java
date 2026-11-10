@@ -2,18 +2,19 @@ package com.komainos.ejecucion.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.komainos.ejecucion.config.PropiedadesAutomatizacion;
+import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.ejecucion.model.ResultadoEjecucion;
 import com.komainos.ejecucion.model.SolicitudEjecucion;
 import com.komainos.ejecucion.model.TipoFallo;
 import com.komainos.ejecucion.service.PuertoConexionAutomatizacion.Conexion;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
@@ -23,7 +24,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
@@ -32,11 +32,11 @@ import java.util.stream.Stream;
  * Adaptador Ansible real (RF52, RF71, RNF09): Linux por SSH y Windows por WinRM, sin agentes. Cada operación usa un
  * directorio temporal privado con el inventario, el playbook, el script preparado y el callback, que se borra al
  * terminar. Los secretos solo se escriben en el inventario y en el archivo de la llave, ambos con permisos 0600.
- * Solo se instancia con komainos.automatizacion.modo=REAL y en un controlador Linux.
+ * Requiere un controlador Linux con Ansible (la imagen Docker del despliegue lo trae). En otro sistema operativo el
+ * backend arranca igual, pero cada operación remota falla como error de configuración del controlador.
  */
 @Service
 @Slf4j
-@ConditionalOnProperty(prefix = "komainos.automatizacion", name = "modo", havingValue = "REAL")
 public class AnsibleReal implements PuertoAnsible {
 
     private static final FileAttribute<Set<PosixFilePermission>> DIRECTORIO_PRIVADO =
@@ -51,13 +51,18 @@ public class AnsibleReal implements PuertoAnsible {
 
     public AnsibleReal(PuertoConexionAutomatizacion conexiones, ObjectMapper json,
                        PropiedadesAutomatizacion propiedades) {
-        if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
-            throw new IllegalStateException("El modo REAL requiere un controlador Linux con Ansible instalado. "
-                    + "En Windows use KOMAINOS_AUTOMATIZACION_MODO=SIMULADO");
-        }
         this.conexiones = conexiones;
         this.json = json;
         this.propiedades = propiedades;
+        if (!controladorCompatible()) {
+            log.warn("El controlador es {}: las operaciones remotas fallarán hasta ejecutar el backend en Linux con "
+                    + "Ansible", System.getProperty("os.name", "desconocido"));
+        }
+    }
+
+    /** Ansible solo corre en sistemas POSIX y el directorio privado de cada ejecución exige permisos POSIX */
+    static boolean controladorCompatible() {
+        return FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
     }
 
     @Override
@@ -71,24 +76,37 @@ public class AnsibleReal implements PuertoAnsible {
 
     @Override
     public ResultadoEjecucion probarConexion(SolicitudEjecucion solicitud) {
-        boolean evaluacion = solicitud.proposito() == com.komainos.ejecucion.model.PropositoEjecucion.CONECTIVIDAD_EVALUACION;
-        String base = evaluacion ? "acceso_evaluacion_" : "acceso_";
-        String recurso = "/ansible/comprobaciones/" + base
-                + (solicitud.familia() == FamiliaSistemaOperativo.WINDOWS ? "windows.ps1" : "linux.sh");
         try {
-            return invocar(solicitud, recurso(recurso));
+            return invocar(solicitud, comprobacion(solicitud.proposito(), solicitud.familia()));
         } catch (IOException ex) {
-            return ResultadoEjecucion.fallo(false, TipoFallo.CONFIGURACION, "falta el script de comprobación de acceso");
+            return ResultadoEjecucion.fallo(TipoFallo.CONFIGURACION, "falta el script de comprobación de acceso");
         }
     }
 
+    /**
+     * Script de la prueba de acceso según la finalidad de la cuenta. Sin retornos de carro: una copia del repositorio
+     * en Windows los agrega al empaquetar y bash no ejecuta un script con CRLF.
+     */
+    static String comprobacion(PropositoEjecucion proposito, FamiliaSistemaOperativo familia) throws IOException {
+        String base = proposito == PropositoEjecucion.CONECTIVIDAD_EVALUACION ? "acceso_evaluacion_" : "acceso_";
+        String ruta = "/ansible/comprobaciones/" + base
+                + (familia == FamiliaSistemaOperativo.WINDOWS ? "windows.ps1" : "linux.sh");
+        return recurso(ruta).replace("\r\n", "\n");
+    }
+
     private ResultadoEjecucion invocar(SolicitudEjecucion s, String codigo) {
+        // Antes de resolver la cuenta: en un controlador incompatible no tiene sentido descifrar el secreto
+        if (!controladorCompatible()) {
+            return ResultadoEjecucion.fallo(TipoFallo.CONFIGURACION, ("el controlador es %s; ejecute el backend en "
+                    + "Linux con Ansible, por ejemplo con la imagen Docker del despliegue")
+                    .formatted(System.getProperty("os.name", "desconocido")));
+        }
         Instant inicio = Instant.now();
         Conexion conexion;
         try {
             conexion = conexiones.resolver(s.idCuentaServicio(), s.familia(), s.proposito());
         } catch (RuntimeException ex) {
-            return ResultadoEjecucion.fallo(false, TipoFallo.CONFIGURACION,
+            return ResultadoEjecucion.fallo(TipoFallo.CONFIGURACION,
                     "la cuenta de servicio no está disponible: " + ex.getMessage());
         }
         Path directorio = null;
@@ -96,17 +114,18 @@ public class AnsibleReal implements PuertoAnsible {
             directorio = Files.createTempDirectory("komainos-ansible-", DIRECTORIO_PRIVADO);
             Files.createDirectory(directorio.resolve("tmp"), DIRECTORIO_PRIVADO);
             ResultadoEjecucion resultado = ejecutarEn(directorio, s, codigo, conexion);
-            log.info("Ansible {} en {}: {} ({} s)", s.proposito(), s.hostname(),
+            log.info("Ansible {} en {}{}: {} ({} s)", s.proposito(), s.hostname(),
+                    s.idEvaluacion() == null ? "" : " (evaluación " + s.idEvaluacion() + ")",
                     resultado.correcto() ? "correcto" : resultado.fallo(),
                     Duration.between(inicio, Instant.now()).toSeconds());
             return resultado;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            return ResultadoEjecucion.fallo(false, TipoFallo.EJECUCION, "la operación se interrumpió");
+            return ResultadoEjecucion.fallo(TipoFallo.EJECUCION, "la operación se interrumpió");
         } catch (IOException ex) {
             // Sin el mensaje de la excepción: podría incluir rutas con material sensible
             log.warn("No se pudo preparar la ejecución de Ansible en {}: {}", s.hostname(), ex.getClass().getSimpleName());
-            return ResultadoEjecucion.fallo(false, TipoFallo.CONFIGURACION,
+            return ResultadoEjecucion.fallo(TipoFallo.CONFIGURACION,
                     "no se pudieron preparar los archivos temporales de la ejecución en el controlador");
         } finally {
             borrar(directorio);
@@ -136,7 +155,7 @@ public class AnsibleReal implements PuertoAnsible {
         try {
             proceso = constructor.start();
         } catch (IOException ex) {
-            return ResultadoEjecucion.fallo(false, TipoFallo.CONFIGURACION,
+            return ResultadoEjecucion.fallo(TipoFallo.CONFIGURACION,
                     "no se encontró «%s» en el controlador; instale Ansible o ajuste KOMAINOS_ANSIBLE_EJECUTABLE"
                             .formatted(config.ejecutable()));
         }
@@ -145,10 +164,10 @@ public class AnsibleReal implements PuertoAnsible {
             // Margen sobre el timeout de la tarea, que Ansible aplica primero
             salida = ProcesoAnsible.esperar(proceso, Duration.ofMinutes(Math.max(1, s.maxMinutos()) + 1L), REGISTRO_MAXIMO);
         } catch (TimeoutException ex) {
-            return ResultadoEjecucion.fallo(false, TipoFallo.TIEMPO_EXCEDIDO,
+            return ResultadoEjecucion.fallo(TipoFallo.TIEMPO_EXCEDIDO,
                     "la operación superó %d minutos y se canceló".formatted(s.maxMinutos()));
         } catch (ProcesoAnsible.SalidaExcedida ex) {
-            return ResultadoEjecucion.fallo(false, TipoFallo.EJECUCION,
+            return ResultadoEjecucion.fallo(TipoFallo.EJECUCION,
                     "la salida supera el tamaño permitido de 8 MB");
         }
         return InterpreteAnsible.interpretar(salida.texto(), salida.codigo(),
@@ -166,8 +185,8 @@ public class AnsibleReal implements PuertoAnsible {
         return Files.writeString(archivo, texto, StandardCharsets.UTF_8);
     }
 
-    private String recurso(String ruta) throws IOException {
-        try (InputStream entrada = getClass().getResourceAsStream(ruta)) {
+    private static String recurso(String ruta) throws IOException {
+        try (InputStream entrada = AnsibleReal.class.getResourceAsStream(ruta)) {
             if (entrada == null) {
                 throw new IOException("Recurso inexistente: " + ruta);
             }

@@ -21,9 +21,11 @@ komainos:
       habilitado: false
 
   automatizacion:
-    modo: SIMULADO
     proceso-habilitado: false
-    # Comportamiento simulado por hostname para recorrer cada rama del ciclo (EscenarioSimulado)
+
+  pruebas:
+    # Las pruebas reemplazan el adaptador Ansible por AnsibleSimulado (PruebaIntegracion): comportamiento por hostname
+    # para recorrer cada rama del ciclo (EscenarioSimulado)
     escenarios:
       srv-fallo: FALLO_TAREA
       srv-no-conforme: NO_CONFORME

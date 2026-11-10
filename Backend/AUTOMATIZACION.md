@@ -5,15 +5,13 @@ previa, MOP, autorización, cola, ejecución, validaciones, incidencias y cierre
 Reutiliza las tablas del esquema relacional. Las bases anteriores se actualizan con los scripts fechados de
 `scripts/bd/cambios`; una base nueva usa `01_esquema.sql` (DEC-34).
 
-Hay dos modos, con el mismo motor y las mismas reglas de negocio:
+Cada script se ejecuta con `ansible-playbook` desde un controlador Linux: SSH para Linux y WinRM para Windows, sin
+agentes. No hay un modo simulado (DEC-56): la imagen Docker del despliegue ([DESPLIEGUE.md](../DESPLIEGUE.md)) trae
+Java 21, `ansible-core`, `pywinrm` y `sshpass`. En Windows el backend arranca igual, para trabajar en el panel, pero
+cada operación remota falla como «Configuración del controlador» sin descifrar ninguna cuenta.
 
-| Modo | Qué hace | Dónde |
-|---|---|---|
-| `SIMULADO` (predeterminado) | No abre conexiones ni descifra secretos. Responde con valores genéricos calculados desde los umbrales vigentes de cada servidor. | Windows local, pruebas, demostraciones |
-| `REAL` | Ejecuta cada script con `ansible-playbook`: SSH para Linux y WinRM para Windows, sin agentes. | Un controlador Linux con Ansible |
-
-El modo y el estado del controlador se ven en **Automatización → Sala de
-operaciones** (barra superior desplegable) y en `GET /api/automatizacion/modo`.
+El estado del controlador se ve en **Automatización → Sala de operaciones** (barra superior desplegable) y en
+`GET /api/automatizacion/modo`.
 
 ## Cuentas por finalidad
 
@@ -35,8 +33,7 @@ los permisos que requieren sus métricas. La prueba de mantenimiento conserva la
 
 | Variable | Predeterminado | Uso |
 |---|---|---|
-| `KOMAINOS_AUTOMATIZACION_MODO` | `SIMULADO` | `REAL` activa el adaptador Ansible |
-| `KOMAINOS_AUTOMATIZACION_PROCESO_HABILITADO` | `true` | `false` deja solo los botones del panel |
+| `KOMAINOS_AUTOMATIZACION_PROCESO_HABILITADO` | `true` (`false` en el perfil `dev`) | `false` deja solo los botones del panel |
 | `KOMAINOS_AUTOMATIZACION_INTERVALO_MS` | `30000` | Cada cuánto corre el proceso automático |
 | `KOMAINOS_AUTOMATIZACION_MAX_CONEXIONES` | `10` | Ejecuciones remotas simultáneas del controlador |
 | `KOMAINOS_ANSIBLE_EJECUTABLE` | `ansible-playbook` | Ruta del ejecutable si no está en el `PATH` |
@@ -48,17 +45,16 @@ los permisos que requieren sus métricas. La prueba de mantenimiento conserva la
 | `KOMAINOS_ANSIBLE_WINRM_ESQUEMA` | `https` | `https` o `http` |
 | `KOMAINOS_ANSIBLE_WINRM_TRANSPORTE` | `ntlm` | `ntlm`, `kerberos`, `credssp` o `basic` |
 | `KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO` | `true` | Valida el certificado HTTPS de WinRM |
-| `KOMAINOS_SIMULACION_RETARDO_MS` | `0` (`800` en el perfil `dev`) | Demora de cada operación simulada, para ver las etapas |
 
-El perfil `test` usa siempre el simulador y desactiva el proceso automático.
+El perfil `dev` deja el proceso automático desactivado porque en Windows cada operación remota fallaría.
 
-## Simulación genérica
+## Doble del adaptador en las pruebas
 
-Como los límites definitivos (R3.2–R3.3) aún no están cerrados, el simulador no
-tiene valores fijos: para cada métrica que exige un umbral activo del servidor y
-que se mide en su sistema operativo calcula un valor normal, de advertencia o
-crítico según los límites que rigen a ese servidor (con sus excepciones). Así
-cualquier catálogo de métricas y umbrales funciona sin tocar código.
+Las pruebas de integración no se conectan a servidores: `PruebaIntegracion` reemplaza el adaptador por
+`AnsibleSimulado`, que solo existe en `src/test` y nunca llega al JAR desplegado. Para cada métrica que exige un umbral
+activo del servidor y que se mide en su sistema operativo calcula un valor normal, de advertencia o crítico según los
+límites que rigen a ese servidor en el contexto de su evaluación (con sus excepciones, incluida la del grupo de la
+orden). Así las pruebas funcionan con cualquier catálogo de métricas y umbrales.
 
 | Escenario | Revisión periódica | Evaluación previa | Tareas | Validación técnica |
 |---|---|---|---|---|
@@ -70,17 +66,15 @@ cualquier catálogo de métricas y umbrales funciona sin tocar código.
 | `FALLO_TAREA` | normal | advertencia | la tarea falla → incidencia | — |
 | `SIN_CONEXION` / `SIN_AUTENTICACION` / `SIN_PERMISOS` | falla con ese tipo de error (RF71) | | | |
 
-Se asignan por hostname, sin distinguir mayúsculas:
+Se asignan por hostname, sin distinguir mayúsculas, en `src/test/resources/application-test.yml`:
 
 ```yaml
 komainos:
-  automatizacion:
+  pruebas:
     escenarios:
-      SERVPRODBDDV02: FALLO_TAREA
-      SERVPRODCACV01: SIN_AUTENTICACION
+      srv-fallo: FALLO_TAREA
+      srv-sin-autenticacion: SIN_AUTENTICACION
 ```
-
-o al arrancar: `--komainos.automatizacion.escenarios.SERVPRODBDDV02=FALLO_TAREA`.
 
 ## Variables de salud (R3.1)
 
@@ -132,7 +126,7 @@ operativos se mide: en los demás no se exige, no se evalúa ni admite excepcion
   excepciones por sistema operativo de Windows Server y la familia de RHEL; no
   modifica lo existente y se vuelve a ejecutar al registrar un sistema operativo.
   `05_datos_prueba_umbrales.sql` agrega ejemplos sobre los servidores de prueba.
-- **Límites.** Los del `04` y los que crea la demostración son genéricos (por ejemplo, CPU ≥ 80/90 %, carga > 1/2 tareas por
+- **Límites.** Los del `04` son genéricos (por ejemplo, CPU ≥ 80/90 %, carga > 1/2 tareas por
   CPU, uptime ≥ 90/180 días) y se ajustan en **Umbrales**.
 
 Cómo las obtienen los scripts de referencia del R3.2, en `Documentos/Scripts/` (carpeta de documentos del proyecto, fuera del repositorio):
@@ -183,18 +177,17 @@ Una base creada antes de este cambio se actualiza con
 métrica anterior equivalente (`cpu_uso_pct` → `cpu_uso`, `puertos_escucha` →
 `red_puerto_no_aut`…) pasan a la variable con sus excepciones y tareas; las
 mediciones anteriores y las métricas sin equivalente se eliminan. Después hay que
-reiniciar el backend y, para el modo real, publicar una versión del análisis que
+reiniciar el backend y publicar una versión del análisis que
 informe los códigos nuevos (el de `Documentos/Scripts/` ya lo hace).
 
 ## Recorrido de prueba desde el panel
 
-1. **Datos de demostración** (`POST /api/automatizacion/demostracion`, administrador; el panel ya no
-   ofrece el botón): agrega
-   las variables del R3.1 que falten, umbrales genéricos de CPU, memoria y disco
-   si esas métricas no tienen uno activo y las reglas de política que falten. Es
-   idempotente y no modifica lo existente. No trae scripts ni tareas: se
-   registran en **Scripts** y **Tareas** (los de referencia están en
-   `Documentos/Scripts/`).
+1. **Datos iniciales**: `scripts/bd/instalar_base.sql` (o `02_datos_sistema.sql` y
+   `04_umbrales_variables.sql`) registra las 21 variables del R3.1 y un umbral
+   genérico por variable. Las reglas de aprobación se definen en **Configuración →
+   Políticas de cambio** y los scripts y tareas en **Scripts** y **Tareas** (los de
+   referencia están en `Documentos/Scripts/`). El backend desplegado ya no tiene la
+   carga de datos de demostración (`POST /api/automatizacion/demostracion`, DEC-56).
 2. En la ficha del servidor, **Preparación para el ciclo automático** dice qué le
    falta: estado, cuenta de servicio, análisis compatible, política, ventana,
    umbrales, tareas y transporte. **Probar acceso** comprueba conexión,
@@ -212,7 +205,7 @@ informe los códigos nuevos (el de `Documentos/Scripts/` ya lo hace).
    vencidos, las evaluaciones previas que llegaron a su fecha, las revisiones
    periódicas pendientes y la cola; `POST /api/automatizacion/procesar` lo adelanta
    sin esperar (útil en pruebas o con el proceso desactivado). La sala ya no ofrece
-   ese botón ni los de despachar la cola y cargar la demostración.
+   ese botón ni el de despachar la cola.
 7. La orden muestra el **ciclo de mantenimiento**: etapas, el siguiente paso en una
    frase y los botones que el usuario puede usar ahora (evaluar, aprobar, rechazar,
    proponer fecha, aceptar la propuesta, validar, cerrar sin intervenir, despachar
@@ -302,14 +295,14 @@ son de diagnóstico y no destructivos, y el análisis informa las variables del
 R3.1 (21 en Linux, 17 en Windows). El editor ofrece plantillas cortas que
 muestran el contrato y permite partir de otra versión del catálogo.
 
-## Habilitar Ansible real
+## Puesta en marcha con servidores reales
 
-El adaptador está completo pero no se ha probado contra servidores: este entorno
-de desarrollo es Windows y no tiene Ansible. `AnsibleReal` se niega a arrancar en
-Windows. Pasos para habilitarlo:
+El adaptador no se ha probado todavía contra servidores reales (el entorno de
+desarrollo es Windows, sin Ansible): la primera vez conviene seguir estos pasos en
+orden.
 
-1. **Controlador Linux** (servidor o contenedor del despliegue) con Java 21,
-   Python 3 y `ansible-core` 2.15 o superior. Para cuentas con contraseña en
+1. **Controlador Linux.** La imagen Docker del despliegue ya lo trae. Fuera de
+   Docker: Java 21, Python 3 y `ansible-core` 2.15 o superior. Para cuentas con contraseña en
    Linux, `sshpass`. Para Windows, `pywinrm` (`pip install pywinrm`; con
    `kerberos`, `pywinrm[kerberos]`; con `credssp`, `pywinrm[credssp]`). No se usan
    colecciones adicionales: el playbook usa `ansible.builtin.script`, que no
@@ -325,8 +318,7 @@ Windows. Pasos para habilitarlo:
    cada servidor o grupo. Linux: contraseña o llave SSH y, si corresponde, la
    clave de `su` como credencial documental. Windows: usuario del grupo
    Administradores.
-5. **Arrancar** con `KOMAINOS_AUTOMATIZACION_MODO=REAL` y, mientras se valida,
-   `KOMAINOS_AUTOMATIZACION_PROCESO_HABILITADO=false`.
+5. **Arrancar** con `KOMAINOS_AUTOMATIZACION_PROCESO_HABILITADO=false` mientras se valida.
 6. **Verificar** en este orden: el diagnóstico de la sala (controlador compatible,
    versión de Ansible, sin avisos); **Probar acceso** en un servidor de cada
    sistema operativo; **Probar en un servidor** con la versión de análisis y
@@ -364,7 +356,7 @@ mvn verify -Pintegracion
 ```
 
 Las integraciones usan solo `dbkomainos_test`, cuyo esquema se recrea; nunca
-`DBKomainOS`. Recorren el ciclo completo con el simulador y sus escenarios:
+`DBKomainOS`. Recorren el ciclo completo con el doble del adaptador y sus escenarios:
 versiones fijadas, autorización secuencial y propuesta de fecha, exclusión
 concurrente, piloto fallido, límites de ventana, vencimientos, incidencias,
 alertas por usuario, revisión periódica crítica, preparación del servidor,

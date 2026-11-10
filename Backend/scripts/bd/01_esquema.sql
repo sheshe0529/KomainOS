@@ -1,7 +1,22 @@
--- 01 - Esquema de KomainOS (DEC-34): se ejecuta sobre una base vacía, antes de 02_datos_sistema.sql (ver README)
--- Versión alineada con el R2.4 final y los cambios del R3.1 (cambios/2026-11-02_*): 52 tablas, 90 claves
--- foráneas y 31 tipos enumerados.
--- Requiere PostgreSQL 15 o superior (UNIQUE NULLS NOT DISTINCT en umbral_excepcion).
+-- =====================================================================================================================
+-- 01 - DDL de creación de la base de datos de KomainOS (DEC-34)
+-- =====================================================================================================================
+-- Esquema "KomainOS" completo, tal como lo valida el backend al arrancar (Hibernate en modo validate): 53 tablas,
+-- 96 claves foráneas, 41 restricciones CHECK y 32 tipos enumerados. Consolida el modelo final del R2.4, las variables
+-- de salud del R3.1 y todos los scripts de cambios/ hasta el 2026-11-07 (cuentas por finalidad, parámetros de lista,
+-- indicadores de auditoría y revisiones periódicas por grupo): una base nueva no necesita ninguno de ellos.
+-- Verificado el 2026-11-10 contra la base en uso (DBKomainOS): igual columna por columna, salvo dos columnas sin uso
+-- en esa base (evaluacion.usuario_acceso y mop_tarea.usuario_acceso) y la tabla heredada flyway_schema_history, que
+-- este script no crea a propósito.
+--
+-- Requiere PostgreSQL 15 o superior (UNIQUE NULLS NOT DISTINCT en umbral_excepcion). No usa extensiones, roles,
+-- propietarios ni tablespaces: funciona en Amazon RDS con el usuario maestro o con cualquier rol que pueda crear
+-- esquemas en la base. Se ejecuta sobre una base vacía, en una sola transacción, y después 02_datos_sistema.sql:
+--
+--   psql "host=<endpoint> dbname=komainos user=<usuario> sslmode=require" -v ON_ERROR_STOP=1 -1 -f 01_esquema.sql
+--
+-- instalar_base.sql ejecuta en orden este script, 02_datos_sistema.sql y 04_umbrales_variables.sql.
+-- =====================================================================================================================
 
 CREATE SCHEMA IF NOT EXISTS "KomainOS";
 

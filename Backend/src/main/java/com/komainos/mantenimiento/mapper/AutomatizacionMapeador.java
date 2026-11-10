@@ -52,7 +52,6 @@ public final class AutomatizacionMapeador {
         List<AnalisisRespuesta> analisis = f.evaluaciones().stream().map(e -> analisis(e, f.cuentas())).toList();
         return new FichaAutomatizacionRespuesta(
                 f.orden().getId(),
-                f.simulado(),
                 OrdenMapeador.resumen(f.orden()),
                 f.siguientePaso(),
                 new FichaAutomatizacionRespuesta.AccionesOrden(a.evaluar(), a.decidir(), a.proponerFecha(),

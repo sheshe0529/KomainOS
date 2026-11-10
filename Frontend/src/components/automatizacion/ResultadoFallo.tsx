@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, FlaskConical } from 'lucide-react'
+import { CircleCheck, CircleX } from 'lucide-react'
 import type { TipoFallo } from '@/api/dominio'
 import { detalleFallo, FALLO } from '@/utils/automatizacion'
 
@@ -6,12 +6,11 @@ interface ResultadoFalloProps {
   correcto: boolean
   fallo?: TipoFallo
   mensaje?: string
-  simulado?: boolean
   textoCorrecto: string
 }
 
 /** RF71: el resultado distingue comunicación, autenticación y permisos, y sugiere qué revisar */
-export function ResultadoFallo({ correcto, fallo, mensaje, simulado, textoCorrecto }: ResultadoFalloProps) {
+export function ResultadoFallo({ correcto, fallo, mensaje, textoCorrecto }: ResultadoFalloProps) {
   return (
     <div
       role="status"
@@ -28,12 +27,6 @@ export function ResultadoFallo({ correcto, fallo, mensaje, simulado, textoCorrec
         <p className="font-medium">{correcto ? textoCorrecto : fallo ? FALLO[fallo].etiqueta : 'No se completó'}</p>
         {mensaje && <p className="break-words text-ink">{detalleFallo(fallo, mensaje)}</p>}
         {!correcto && fallo && <p className="text-ink-soft">{FALLO[fallo].sugerencia}</p>}
-        {simulado && (
-          <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-ink-soft">
-            <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-            Resultado simulado: Ansible no está habilitado en este entorno.
-          </p>
-        )}
       </div>
     </div>
   )

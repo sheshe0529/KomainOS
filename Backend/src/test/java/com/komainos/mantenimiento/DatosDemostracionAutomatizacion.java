@@ -1,4 +1,4 @@
-package com.komainos.mantenimiento.service;
+package com.komainos.mantenimiento;
 
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
@@ -14,10 +14,10 @@ import com.komainos.inventario.repository.UmbralRepositorio;
 import com.komainos.inventario.service.ServicioCatalogos;
 import com.komainos.mantenimiento.model.TipoDestinatario;
 import com.komainos.mantenimiento.repository.ReglaPoliticaCambioRepositorio;
+import com.komainos.mantenimiento.service.ServicioPoliticasCambio;
 import com.komainos.shared.model.Actor;
 import com.komainos.shared.util.Tiempo;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -29,14 +29,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Datos opcionales de demostración (DEC-44, DEC-52), idempotentes: agregan lo que falta y nunca reemplazan una
- * configuración existente. Registran las variables de salud del R3.1 como métricas, umbrales genéricos de CPU, memoria
- * y disco, que se ajustan en Umbrales, y las reglas de la política de cambio. No traen scripts: los scripts viven en el
- * catálogo y se registran desde el panel (los de referencia están en Documentos/Scripts).
+ * Datos de partida de las pruebas de automatización (antes, la carga de demostración de DEC-44 y DEC-52, que ya no
+ * forma parte del backend desplegado). Idempotentes: agregan lo que falta y nunca reemplazan una configuración
+ * existente. Registran las variables de salud del R3.1 como métricas, umbrales genéricos de CPU, memoria y disco y las
+ * reglas de la política de cambio. No traen scripts: cada prueba registra los que usa. PruebaIntegracion lo importa.
  */
-@Service
 @RequiredArgsConstructor
-public class ServicioDemostracionAutomatizacion {
+public class DatosDemostracionAutomatizacion {
 
     private final ScriptRepositorio scripts;
     private final MetricaRepositorio metricas;

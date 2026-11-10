@@ -166,10 +166,9 @@ public class ServicioPreparacionAutomatizacion {
 
     private Comprobacion transporte() {
         DiagnosticoAutomatizacion.Diagnostico d = diagnostico.consultar();
-        if (d.simulado()) {
-            return Comprobacion.info("TRANSPORTE", "Modo simulado",
-                    "No se conecta a los servidores. Para probar en servidores reales active el modo REAL en un "
-                            + "controlador Linux con Ansible");
+        if (!d.controladorCompatible()) {
+            return Comprobacion.error("TRANSPORTE", "Controlador no compatible",
+                    "El backend corre en %s: la ejecución con Ansible requiere Linux".formatted(d.controlador()));
         }
         return d.ansibleDisponible()
                 ? Comprobacion.ok("TRANSPORTE", "Ansible disponible", d.versionAnsible())

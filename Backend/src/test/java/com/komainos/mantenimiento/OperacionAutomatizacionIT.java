@@ -3,6 +3,8 @@ package com.komainos.mantenimiento;
 import com.komainos.alerta.model.TipoAlerta;
 import com.komainos.alerta.service.ServicioAlertas;
 import com.komainos.alerta.service.ServicioAlertas.DatosAlerta;
+import com.komainos.ejecucion.service.DiagnosticoAutomatizacion.Diagnostico;
+import com.komainos.ejecucion.service.DiagnosticoAutomatizacion.Transporte;
 import com.komainos.catalogo.model.NivelAfectacion;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.GrupoMantenimiento;
@@ -24,9 +26,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -135,7 +140,6 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
         void categorias() throws Exception {
             mvc.perform(post("/api/servidores/{id}/conectividad", servidor.getId()).with(como(admin)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.simulado").value(true))
                     .andExpect(jsonPath("$.correcto").value(true))
                     .andExpect(jsonPath("$.cuenta").value("Cuenta de pruebas"));
             mvc.perform(post("/api/servidores/{id}/conectividad", crear("srv-sin-autenticacion", "10.90.0.2").getId())
@@ -161,14 +165,20 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
                     .andExpect(jsonPath("$[?(@.servidor == 'srv-prueba')].correcto").value(true));
         }
 
+        private Diagnostico controlador(String sistema, boolean compatible, boolean ansible) {
+            return new Diagnostico(false, 30, 10, sistema, compatible, ansible, ansible ? "ansible-playbook [core 2.18.0]" : null,
+                    "ansible-playbook", new Transporte(22, true, 5986, "https", "ntlm", true, 30), List.of(), Instant.now());
+        }
+
         @Test
         @DisplayName("La preparación indica lo que falta para que el ciclo funcione en el servidor")
         void preparacion() throws Exception {
+            doReturn(controlador("Linux", true, true)).when(diagnostico).consultar();
             mvc.perform(get("/api/servidores/{id}/preparacion-automatizacion", servidor.getId()).with(como(operador)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.listo").value(true))
                     .andExpect(jsonPath("$.comprobaciones[?(@.codigo == 'ANALISIS')].estado").value("OK"))
-                    .andExpect(jsonPath("$.comprobaciones[?(@.codigo == 'TRANSPORTE')].estado").value("INFO"));
+                    .andExpect(jsonPath("$.comprobaciones[?(@.codigo == 'TRANSPORTE')].estado").value("OK"));
 
             jdbc.update("update regla_politica_cambio set activo = false where nivel_afectacion = 'TOTAL'");
             mvc.perform(get("/api/servidores/{id}/preparacion-automatizacion", servidor.getId()).with(como(admin)))
@@ -177,14 +187,30 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
         }
 
         @Test
-        @DisplayName("El diagnóstico del transporte informa el modo y no expone secretos")
+        @DisplayName("Sin un controlador Linux con Ansible el servidor no está listo para el ciclo automático")
+        void preparacionSinControlador() throws Exception {
+            doReturn(controlador("Windows 11", false, false)).when(diagnostico).consultar();
+            mvc.perform(get("/api/servidores/{id}/preparacion-automatizacion", servidor.getId()).with(como(operador)))
+                    .andExpect(jsonPath("$.listo").value(false))
+                    .andExpect(jsonPath("$.comprobaciones[?(@.codigo == 'TRANSPORTE')].estado").value("ERROR"))
+                    .andExpect(jsonPath("$.comprobaciones[?(@.codigo == 'TRANSPORTE')].titulo").value("Controlador no compatible"));
+
+            doReturn(controlador("Linux", true, false)).when(diagnostico).consultar();
+            mvc.perform(get("/api/servidores/{id}/preparacion-automatizacion", servidor.getId()).with(como(operador)))
+                    .andExpect(jsonPath("$.comprobaciones[?(@.codigo == 'TRANSPORTE')].titulo").value("Ansible no disponible"));
+        }
+
+        @Test
+        @DisplayName("El diagnóstico del transporte informa el controlador y Ansible, sin un modo simulado")
         void diagnostico() throws Exception {
             mvc.perform(get("/api/automatizacion/modo").with(como(responsable)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.modo").value("SIMULADO"))
-                    .andExpect(jsonPath("$.simulado").value(true))
+                    .andExpect(jsonPath("$.modo").doesNotExist())
+                    .andExpect(jsonPath("$.simulado").doesNotExist())
+                    .andExpect(jsonPath("$.controlador").isNotEmpty())
+                    .andExpect(jsonPath("$.ejecutable").value("ansible-playbook"))
                     .andExpect(jsonPath("$.transporte.puertoWinrm").value(5986))
-                    .andExpect(jsonPath("$.avisos[0]").value(Matchers.startsWith("Modo simulado")));
+                    .andExpect(jsonPath("$.avisos[*]").value(Matchers.hasItem(Matchers.startsWith("El proceso automático está desactivado"))));
         }
     }
 
@@ -467,13 +493,10 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
         }
 
         @Test
-        @DisplayName("La demostración es idempotente: una segunda carga no agrega nada")
-        void demostracionIdempotente() throws Exception {
+        @DisplayName("El backend desplegado no expone la carga de datos de demostración")
+        void sinDemostracion() throws Exception {
             mvc.perform(post("/api/automatizacion/demostracion").with(como(admin)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$").isEmpty());
-            assertThat(contar("select count(*) from script")).isEqualTo(3);
-            assertThat(contar("select count(*) from tarea")).isEqualTo(2);
+                    .andExpect(status().is4xxClientError());
         }
 
         @Test

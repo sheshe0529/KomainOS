@@ -19,6 +19,7 @@ spring:
     hikari:
       # El esquema tiene mayúsculas: sin comillas PostgreSQL lo buscaría como "komainos"
       connection-init-sql: SET search_path TO "KomainOS"
+      maximum-pool-size: ${KOMAINOS_DB_POOL_MAXIMO:10}
 
   jpa:
     # validate: Hibernate comprueba las entidades contra las tablas y nunca modifica la base (DEC-34)
@@ -41,7 +42,11 @@ server:
   port: ${KOMAINOS_PUERTO:8081}
 
 springdoc:
+  # El perfil prod los desactiva salvo que KOMAINOS_API_DOCS=true
+  api-docs:
+    enabled: ${KOMAINOS_API_DOCS:true}
   swagger-ui:
+    enabled: ${KOMAINOS_API_DOCS:true}
     path: /swagger-ui.html
 
 management:
@@ -80,8 +85,7 @@ komainos:
       intervalo: PT15M
 
   automatizacion:
-    # SIMULADO responde sin conectarse a los servidores; REAL invoca ansible-playbook (solo en un controlador Linux)
-    modo: ${KOMAINOS_AUTOMATIZACION_MODO:SIMULADO}
+    # Las operaciones remotas se ejecutan con ansible-playbook: SSH para Linux y WinRM para Windows (controlador Linux)
     # Revisiones periódicas, evaluaciones previas, vencimientos y cola de ejecución (EA02-EA06)
     proceso-habilitado: ${KOMAINOS_AUTOMATIZACION_PROCESO_HABILITADO:true}
     intervalo-ms: ${KOMAINOS_AUTOMATIZACION_INTERVALO_MS:30000}
@@ -102,6 +106,3 @@ komainos:
         transporte: ${KOMAINOS_ANSIBLE_WINRM_TRANSPORTE:ntlm}
         # Desactivar solo en laboratorio con certificados autofirmados
         validar-certificado: ${KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO:true}
-    simulacion:
-      # Pausa por operación simulada para observar los estados intermedios en el panel
-      retardo-ms: ${KOMAINOS_SIMULACION_RETARDO_MS:0}

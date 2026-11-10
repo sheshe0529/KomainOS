@@ -1,0 +1,46 @@
+# Perfil de despliegue: contenedor en EC2 y PostgreSQL en Amazon RDS (ver DESPLIEGUE.md en la raíz del repositorio).
+# La imagen Docker lo activa con SPRING_PROFILES_ACTIVE=prod. Toda la configuración sensible llega por variables de
+# entorno: ningún secreto tiene valor por defecto (RNF03).
+
+spring:
+  datasource:
+    # jdbc:postgresql://<endpoint-rds>:5432/DBKomainOS?sslmode=verify-full&sslrootcert=/opt/komainos/rds-ca/global-bundle.pem
+    url: ${KOMAINOS_DB_URL}
+    username: ${KOMAINOS_DB_USUARIO}
+    hikari:
+      minimum-idle: ${KOMAINOS_DB_POOL_MINIMO:2}
+      connection-timeout: 30000
+      # Una conmutación por error de RDS cambia la IP del endpoint: las conexiones se renuevan antes de que el
+      # balanceador o RDS las corte, y las inactivas se comprueban cada 5 minutos
+      max-lifetime: 1500000
+      keepalive-time: 300000
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  port: ${KOMAINOS_PUERTO:8080}
+  # Termina las peticiones en curso antes de detenerse (docker stop envía SIGTERM)
+  shutdown: graceful
+  # Detrás de un balanceador (ALB) o de un proxy inverso en la misma VPC: Tomcat toma la IP del cliente y el esquema
+  # de X-Forwarded-For y X-Forwarded-Proto solo si la petición viene de una dirección privada. El limitador de inicios
+  # de sesión necesita la IP real; sin esto todos los usuarios compartirían la del balanceador
+  forward-headers-strategy: native
+  compression:
+    enabled: true
+    mime-types: text/html,text/css,application/javascript,application/json,image/svg+xml
+
+springdoc:
+  api-docs:
+    enabled: ${KOMAINOS_API_DOCS:false}
+  swagger-ui:
+    enabled: ${KOMAINOS_API_DOCS:false}
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.komainos: INFO

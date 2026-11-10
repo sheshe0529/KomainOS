@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * El orquestador con el adaptador simulado. El espía del transporte permite detener una tarea en curso o cambiar la
+ * El orquestador con el doble del adaptador Ansible. El espía del transporte permite detener una tarea en curso o cambiar la
  * base mientras se ejecuta, para observar exclusión, secuencia y detenciones sin conexiones reales.
  */
 @DisplayName("Orquestación de la ejecución (RF51, RF52, RF58-RF60, RF68)")
@@ -231,7 +231,7 @@ class EjecucionIT extends BaseAutomatizacionIT {
         @DisplayName("CP132: sin acceso al servidor no se inicia ninguna tarea y la prueba fallida es una incidencia")
         void sinAccesoAlIniciar() {
             Integer id = lanzarAutorizada(servidor);
-            doReturn(ResultadoEjecucion.fallo(true, TipoFallo.COMUNICACION, "srv-prueba no respondió por SSH (simulado)"))
+            doReturn(ResultadoEjecucion.fallo(TipoFallo.COMUNICACION, "srv-prueba no respondió por SSH (simulado)"))
                     .when(transporte).probarConexion(any());
 
             orquestador.drenar();

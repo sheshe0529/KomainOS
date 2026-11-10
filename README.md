@@ -6,9 +6,10 @@ Sistema de información para la gestión automatizada del mantenimiento de servi
 
 **Inventario, planificación, automatización y ejecución.** El objetivo 3 incorpora
 scripts versionados, tareas, políticas de cambio, MOP, cola, validaciones,
-incidencias, alertas y KPI. En Windows funciona en modo simulado por defecto,
-sin Docker ni conexiones remotas. El recorrido de prueba y la configuración
-están en [Automatización y ejecución](Backend/AUTOMATIZACION.md).
+incidencias, alertas y KPI. Los scripts se ejecutan en los servidores con Ansible
+(SSH y WinRM); el modo simulado se retiró del código desplegado (DEC-56). El
+recorrido y la configuración están en [Automatización y ejecución](Backend/AUTOMATIZACION.md),
+y el despliegue en EC2 con Amazon RDS y Docker, en [DESPLIEGUE.md](DESPLIEGUE.md).
 
 El alcance inicial de inventario y planificación está en
 [`Documentos/Decisiones/00_Analisis_inicial_y_plan_Iteracion_1.md`](Documentos/Decisiones/00_Analisis_inicial_y_plan_Iteracion_1.md);
@@ -18,7 +19,7 @@ cada decisión tomada ante un vacío o una contradicción de la documentación, 
 ## Estructura
 
 ```
-Backend/      API REST — Java 21, Spring Boot 3, PostgreSQL (scripts de base de datos en Backend/scripts/bd)
+Backend/      API REST — Java 21, Spring Boot 3, PostgreSQL (DDL y scripts de base de datos en Backend/scripts/bd)
 Frontend/     Panel web — React 19, Vite, TypeScript, Tailwind CSS 4
 Documentos/
 ├── Docs/         especificación (fuente de verdad): requisitos, arquitectura, diseño, modelo relacional
@@ -49,4 +50,13 @@ Requisitos: Java 21, Maven 3.9, Node.js 20 o superior y PostgreSQL 18.
    ```
    Vite reenvía `/api` al backend, así que no hace falta configurar CORS en desarrollo.
 
+En Windows no hay Ansible: todo funciona salvo las operaciones remotas (análisis, pruebas de acceso y tareas), que
+fallan como «Configuración del controlador». Por eso el perfil `dev` deja desactivado el proceso automático.
+
 El detalle de cada parte está en [`Backend/README.md`](Backend/README.md) y [`Frontend/README.md`](Frontend/README.md).
+
+## Despliegue
+
+Una sola imagen Docker (`Dockerfile` en la raíz) con el panel compilado, la API y Ansible, en una instancia EC2, y la
+base en Amazon RDS for PostgreSQL. La base se crea con `Backend/scripts/bd/instalar_base.sql` (DDL `01_esquema.sql`
+más los datos del sistema). Pasos, variables y verificación en [DESPLIEGUE.md](DESPLIEGUE.md).

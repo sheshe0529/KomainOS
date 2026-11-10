@@ -56,7 +56,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@DisplayName("Ciclo de mantenimiento en modo simulado (RF37-RF65)")
+@DisplayName("Ciclo de mantenimiento con el doble del adaptador Ansible (RF37-RF65)")
 class CicloMantenimientoIT extends BaseAutomatizacionIT {
 
     @Autowired
@@ -95,7 +95,6 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
 
         mvc.perform(get("/api/ordenes/{id}/automatizacion", id).with(como(responsable)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.simulado").value(true))
                 .andExpect(jsonPath("$.acciones.validar").value(true))
                 .andExpect(jsonPath("$.siguientePaso").value(org.hamcrest.Matchers.startsWith("Esperando la conformidad")))
                 .andExpect(jsonPath("$.mops[0].afectacion").value("PARCIAL"))

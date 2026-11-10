@@ -15,7 +15,6 @@ import com.komainos.mantenimiento.service.ProcesoAutomatizacion;
 import com.komainos.mantenimiento.service.PuertoProgramacionCambio;
 import com.komainos.mantenimiento.service.ServicioConsultaAutomatizacion;
 import com.komainos.mantenimiento.service.ServicioConsultaAutomatizacion.FiltroEjecuciones;
-import com.komainos.mantenimiento.service.ServicioDemostracionAutomatizacion;
 import com.komainos.mantenimiento.service.ServicioEvaluacionPrevia;
 import com.komainos.mantenimiento.service.ServicioGraficosAutomatizacion;
 import com.komainos.mantenimiento.service.ServicioIndicadoresMantenimiento;
@@ -62,11 +61,10 @@ public class SalaOperacionesController {
     private final ServicioOrquestador orquestador;
     private final ServicioEvaluacionPrevia evaluacion;
     private final PuertoProgramacionCambio programacion;
-    private final ServicioDemostracionAutomatizacion demostracion;
     private final DiagnosticoAutomatizacion diagnostico;
 
     @GetMapping("/modo")
-    @Operation(summary = "Modo de ejecución, estado de Ansible en el controlador y configuración del transporte")
+    @Operation(summary = "Estado de Ansible en el controlador y configuración del transporte")
     public DiagnosticoAutomatizacion.Diagnostico modo() {
         return diagnostico.consultar();
     }
@@ -170,13 +168,6 @@ public class SalaOperacionesController {
         return new OperacionRespuestas.DespachoRespuesta(despachados, despachados == 0
                 ? orquestador.motivoSinDespacho()
                 : "%d servidor(es) iniciado(s)".formatted(despachados));
-    }
-
-    @PostMapping("/demostracion")
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
-    @Operation(summary = "Agrega ejemplos de métricas, scripts, tareas y política sin reemplazar lo existente")
-    public Map<String, Integer> demostracion(@AuthenticationPrincipal UsuarioAutenticado u) {
-        return demostracion.cargar(AlcanceUsuario.de(u).actor());
     }
 
     private String cuenta(Integer idCuenta) {

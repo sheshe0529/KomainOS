@@ -43,11 +43,11 @@ public final class OperacionRespuestas {
 
     /** RF71: el error distingue comunicación, autenticación y permisos */
     public record ConexionRespuesta(Integer idServidor, String servidor, Integer idCuenta, String cuenta,
-                                    boolean simulado, boolean correcto, TipoFallo fallo, String mensaje) {
+                                    boolean correcto, TipoFallo fallo, String mensaje) {
     }
 
     /** Prueba de una versión de análisis sobre un servidor, con la revisión de su salida */
-    public record PruebaAnalisisRespuesta(boolean simulado, boolean correcto, TipoFallo fallo, String error,
+    public record PruebaAnalisisRespuesta(boolean correcto, TipoFallo fallo, String error,
                                           String salida, RevisionSalidaRespuesta revision, String advertencia) {
     }
 

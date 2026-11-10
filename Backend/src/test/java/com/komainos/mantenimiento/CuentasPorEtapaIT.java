@@ -32,7 +32,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-@DisplayName("Cuentas independientes por etapa del mantenimiento, con transporte simulado (RF05, RF06, RF38, RF52, RF55)")
+@DisplayName("Cuentas independientes por etapa del mantenimiento, con el doble del adaptador Ansible (RF05, RF06, RF38, RF52, RF55)")
 class CuentasPorEtapaIT extends BaseAutomatizacionIT {
 
     @Autowired
@@ -102,13 +102,11 @@ class CuentasPorEtapaIT extends BaseAutomatizacionIT {
         configurar(sinPermisos.getId(), cuentaEvaluacion, cuentaMantenimiento);
 
         var accesoEvaluacion = conectividad.probarServidor(sinPermisos.getId(), null, FinalidadCuenta.EVALUACION, actor);
-        assertThat(accesoEvaluacion.simulado()).isTrue();
         assertThat(accesoEvaluacion.idCuenta()).isEqualTo(cuentaEvaluacion);
         assertThat(accesoEvaluacion.correcto()).isTrue();
         assertThat(accesoEvaluacion.fallo()).isNull();
 
         var accesoMantenimiento = conectividad.probarServidor(sinPermisos.getId(), null, FinalidadCuenta.MANTENIMIENTO, actor);
-        assertThat(accesoMantenimiento.simulado()).isTrue();
         assertThat(accesoMantenimiento.idCuenta()).isEqualTo(cuentaMantenimiento);
         assertThat(accesoMantenimiento.correcto()).isFalse();
         assertThat(accesoMantenimiento.fallo()).isEqualTo(TipoFallo.PERMISOS);

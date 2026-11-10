@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,6 +40,14 @@ public class ManejadorGlobalErrores {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorRespuesta> rutaInexistente(NoResourceFoundException ex, HttpServletRequest req) {
         return construir(HttpStatus.NOT_FOUND, "NO_ENCONTRADO", "El recurso solicitado no existe", req);
+    }
+
+    /** Un método que la ruta no admite (por ejemplo, POST sobre una ruta inexistente) no es un error del servidor */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorRespuesta> metodoNoAdmitido(HttpRequestMethodNotSupportedException ex,
+                                                           HttpServletRequest req) {
+        return construir(HttpStatus.METHOD_NOT_ALLOWED, "METODO_NO_ADMITIDO",
+                "La operación solicitada no existe para este recurso", req);
     }
 
     @ExceptionHandler(ConflictoException.class)

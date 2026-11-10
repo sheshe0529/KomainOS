@@ -1,7 +1,6 @@
-package com.komainos.mantenimiento.service;
+package com.komainos.ejecucion.simulacion;
 
-import com.komainos.ejecucion.model.MetricaReferencia;
-import com.komainos.ejecucion.model.MetricaReferencia.Valor;
+import com.komainos.ejecucion.simulacion.MetricaReferencia.Valor;
 import com.komainos.inventario.model.ContextoEvaluacion;
 import com.komainos.inventario.model.Metrica;
 import com.komainos.inventario.model.NivelAlerta;
@@ -21,8 +20,9 @@ import java.util.Set;
 
 /**
  * Valores de cada métrica activa que producen los niveles normal, advertencia y crítico con los umbrales que rigen para
- * un servidor (DEC-41). Los usa el modo simulado para responder con cualquier catálogo de métricas: cada candidato se
- * comprueba con la misma evaluación del ciclo, así el nivel simulado es exactamente el que se pide.
+ * un servidor (DEC-41). Los usa el doble de pruebas {@link AnsibleSimulado} para responder con cualquier catálogo de
+ * métricas: cada candidato se comprueba con la misma evaluación del ciclo, así el nivel simulado es exactamente el que
+ * se pide.
  */
 public final class ValoresReferencia {
 

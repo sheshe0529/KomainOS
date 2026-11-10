@@ -1,0 +1,21 @@
+# Contexto de la imagen: solo el código del panel y del backend. Nunca secretos ni artefactos locales
+.git
+.github
+.claude
+.idea
+.vscode
+**/*.log
+**/.env
+**/.env.*
+
+Documentos
+UI
+UI_preliminar
+
+Frontend/node_modules
+Frontend/dist
+Frontend/*.tsbuildinfo
+Backend/target
+Backend/.idea
+Backend/src/main/resources/static
+Backend/scripts

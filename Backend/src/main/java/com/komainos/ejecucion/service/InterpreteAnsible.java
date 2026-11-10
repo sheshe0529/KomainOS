@@ -50,7 +50,7 @@ public final class InterpreteAnsible {
             String mensaje = detalle.isBlank()
                     ? "ansible-playbook terminó con el código %d sin informar un resultado".formatted(codigoProceso)
                     : detalle;
-            return ResultadoEjecucion.fallo(false, tipo, limpiar(conIndicacion(tipo, mensaje), secretos));
+            return ResultadoEjecucion.fallo(tipo, limpiar(conIndicacion(tipo, mensaje), secretos));
         }
         JsonNode r = estado.get();
         String resultado = r.path("estado").asText("failed");
@@ -61,25 +61,25 @@ public final class InterpreteAnsible {
 
         if ("unreachable".equals(resultado)) {
             TipoFallo tipo = clasificar(detalle).orElse(TipoFallo.COMUNICACION);
-            return ResultadoEjecucion.fallo(false, tipo, limpiar(conIndicacion(tipo, detalle), secretos));
+            return ResultadoEjecucion.fallo(tipo, limpiar(conIndicacion(tipo, detalle), secretos));
         }
         if ("ok".equals(resultado)) {
-            return ResultadoEjecucion.exito(false, stdout, List.of());
+            return ResultadoEjecucion.exito(stdout, List.of());
         }
         if (r.path("rc").isInt()) {
             int codigo = r.path("rc").asInt();
             if (proposito == PropositoEjecucion.CONECTIVIDAD && codigo == CODIGO_SIN_PERMISOS) {
-                return ResultadoEjecucion.fallo(false, TipoFallo.PERMISOS, limpiar(detalle, secretos));
+                return ResultadoEjecucion.fallo(TipoFallo.PERMISOS, limpiar(detalle, secretos));
             }
             Optional<TipoFallo> escalamiento = clasificar(detalle).filter(t -> t == TipoFallo.PERMISOS);
             if (escalamiento.isPresent()) {
-                return ResultadoEjecucion.fallo(false, TipoFallo.PERMISOS,
+                return ResultadoEjecucion.fallo(TipoFallo.PERMISOS,
                         limpiar(conIndicacion(TipoFallo.PERMISOS, detalle), secretos));
             }
-            return ResultadoEjecucion.codigoError(false, codigo, stdout, limpiar(detalle, secretos));
+            return ResultadoEjecucion.codigoError(codigo, stdout, limpiar(detalle, secretos));
         }
         TipoFallo tipo = clasificar(detalle).orElse(TipoFallo.EJECUCION);
-        return ResultadoEjecucion.fallo(false, tipo, limpiar(conIndicacion(tipo, detalle), secretos));
+        return ResultadoEjecucion.fallo(tipo, limpiar(conIndicacion(tipo, detalle), secretos));
     }
 
     /** Categoría de un mensaje de Ansible o del sistema remoto, si se reconoce */
