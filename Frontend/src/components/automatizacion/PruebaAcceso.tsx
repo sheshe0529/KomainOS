@@ -21,7 +21,19 @@ interface PruebaAccesoProps {
 }
 
 /**
- * Prueba la cuenta asignada o una candidata con los permisos de su finalidad (RF71, CP021).
+ * Sin privilegios de administrador la prueba es correcta: KomainOS ejecuta lo que la cuenta tiene configurado (DEC-57).
+ * Para el mantenimiento conviene revisarlo; para la evaluación es el mínimo privilegio esperado (DEC-53)
+ */
+function advertenciaPermisos(r: ConexionRespuesta, finalidad: FinalidadCuentaServicio): string | undefined {
+  if (!r.correcto || r.administrador !== false) return undefined
+  return finalidad === 'MANTENIMIENTO'
+    ? 'Las tareas de mantenimiento se ejecutarán sin privilegios de administrador y pueden fallar si los necesitan. Si la cuenta puede elevarse, configure sudo, su o runas en la cuenta.'
+    : 'El análisis se ejecutará sin privilegios de administrador: las métricas que los requieren pueden quedar incompletas.'
+}
+
+/**
+ * Prueba la cuenta asignada o una candidata: conexión, inicio de sesión, elevación configurada y permisos efectivos
+ * (RF71, CP021, DEC-57).
  */
 export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoProps) {
   const cuentas = useConsulta(() => cuentasServicioApi.listar(), [])
@@ -89,9 +101,8 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
         </Boton>
       </div>
       <p className="text-xs text-ink-faint">
-        {finalidad === 'EVALUACION'
-          ? 'Comprueba la conexión para evaluar sin exigir privilegios de administrador.'
-          : 'Comprueba la conexión y los privilegios necesarios para ejecutar el mantenimiento.'}
+        Llega al servidor, inicia sesión, aplica la elevación configurada en la cuenta e informa con qué permisos se
+        ejecutarán los scripts{finalidad === 'EVALUACION' ? ' de análisis' : ' de mantenimiento'}.
       </p>
 
       <MensajeError error={error} />
@@ -102,6 +113,7 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
           fallo={resultados[0].fallo}
           mensaje={resultados[0].mensaje}
           textoCorrecto={`Acceso correcto con ${resultados[0].cuenta ?? 'la cuenta de servicio'}`}
+          advertencia={advertenciaPermisos(resultados[0], finalidad)}
         />
       )}
 
@@ -118,10 +130,19 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
                 <li key={r.idServidor} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2 text-sm">
                   <span className="font-mono text-ink">{r.servidor}</span>
                   <StatusPill
-                    tone={r.correcto ? 'success' : 'danger'}
-                    label={r.correcto ? 'Correcto' : r.fallo ? FALLO[r.fallo].etiqueta : 'Falló'}
+                    tone={!r.correcto ? 'danger' : r.administrador === false ? 'warning' : 'success'}
+                    label={
+                      !r.correcto
+                        ? r.fallo
+                          ? FALLO[r.fallo].etiqueta
+                          : 'Falló'
+                        : r.administrador === false
+                          ? 'Correcto, sin privilegios'
+                          : 'Correcto'
+                    }
                   />
                   <span className="text-xs text-ink-faint">{r.cuenta}</span>
+                  {r.correcto && r.mensaje && <span className="w-full text-xs text-ink-soft">{r.mensaje}</span>}
                   {!r.correcto && (
                     <span className="w-full text-xs text-ink-soft">
                       {detalleFallo(r.fallo, r.mensaje)}

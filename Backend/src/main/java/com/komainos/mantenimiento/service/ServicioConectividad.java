@@ -32,9 +32,10 @@ import java.util.List;
 
 /**
  * Verificación de conectividad, autenticación y permisos de una cuenta de servicio (RF71, HU03 CA3, HU04 CA4). Sin
- * cuenta indicada se prueba la que usaría el mantenimiento: la del servidor o grupo, o la predeterminada. Con una cuenta
+ * cuenta indicada se prueba la que usaría la finalidad: la del servidor o grupo, o la predeterminada. Con una cuenta
  * indicada se prueba antes de asignarla; en un grupo se comprueba cada integrante (CP021). Los errores distinguen
- * comunicación, autenticación y permisos (CP022, CP023).
+ * comunicación, autenticación y permisos, que desde el DEC-57 significa que la elevación configurada falló (CP022,
+ * CP023). Con acceso correcto informa si los scripts se ejecutarán con privilegios de administrador, sin exigirlo.
  */
 @Service
 @Slf4j
@@ -122,11 +123,39 @@ public class ServicioConectividad {
     private ResultadoConexion ejecutar(Prueba p) {
         if (p.problema() != null) {
             return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), false,
-                    TipoFallo.CONFIGURACION, p.problema());
+                    TipoFallo.CONFIGURACION, p.problema(), null);
         }
         ResultadoEjecucion r = remoto.probarConexion(p.solicitud());
-        return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), r.correcto(),
-                r.fallo(), r.correcto() ? r.salida().strip() : r.error());
+        if (!r.correcto()) {
+            return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), false, r.fallo(),
+                    r.error(), null);
+        }
+        Permisos permisos = permisos(r.salida());
+        return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), true, null,
+                permisos.mensaje(), permisos.administrador());
+    }
+
+    /**
+     * El script de la prueba termina con KOMAINOS_ADMINISTRADOR=si|no (DEC-57): los permisos efectivos se informan, no se
+     * exigen. Sin la marca, el resultado no dice nada sobre ellos
+     */
+    static Permisos permisos(String salida) {
+        Boolean administrador = null;
+        List<String> lineas = new ArrayList<>();
+        for (String linea : salida.strip().lines().toList()) {
+            String l = linea.strip();
+            if (l.startsWith(MARCA_ADMINISTRADOR)) {
+                administrador = l.substring(MARCA_ADMINISTRADOR.length()).trim().equalsIgnoreCase("si");
+            } else if (!l.isEmpty()) {
+                lineas.add(l);
+            }
+        }
+        return new Permisos(String.join("\n", lineas), administrador);
+    }
+
+    private static final String MARCA_ADMINISTRADOR = "KOMAINOS_ADMINISTRADOR=";
+
+    record Permisos(String mensaje, Boolean administrador) {
     }
 
     private void auditar(Actor actor, String objetivo, List<ResultadoConexion> resultados, Integer idServidor) {
@@ -142,8 +171,12 @@ public class ServicioConectividad {
                           SolicitudEjecucion solicitud) {
     }
 
-    /** @param fallo nulo si el acceso se verificó; si no, comunicación, autenticación, permisos o configuración */
+    /**
+     * @param fallo         nulo si el acceso se verificó; si no, comunicación, autenticación, permisos (la elevación
+     *                      falló) o configuración
+     * @param administrador si los scripts se ejecutarán con privilegios de administrador; nulo si no se llegó a saber
+     */
     public record ResultadoConexion(Integer idServidor, String servidor, Integer idCuenta, String cuenta,
-                                    boolean correcto, TipoFallo fallo, String mensaje) {
+                                    boolean correcto, TipoFallo fallo, String mensaje, Boolean administrador) {
     }
 }

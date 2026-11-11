@@ -10,6 +10,8 @@ import type {
   SecretoPeticion,
   SecretoReveladoRespuesta,
   ServidorAsignableRespuesta,
+  VistaAnsiblePeticion,
+  VistaAnsibleRespuesta,
 } from './types'
 
 export type FinalidadCuentaServicio = AsignacionServidoresPeticion['finalidad']
@@ -41,4 +43,6 @@ export const cuentasServicioApi = {
     http.put<ResultadoAsignacionRespuesta>(`/cuentas-servicio/${id}/servidores`, { idsServidores, finalidad }),
   definirPredeterminada: (idCuentaServicio: number | null, finalidad: FinalidadCuentaServicio) =>
     http.put<CuentaServicioRespuesta[]>('/cuentas-servicio/predeterminada', { idCuentaServicio, finalidad }),
+  /** Configuración de Ansible que resulta de la cuenta, con los secretos enmascarados (DEC-57) */
+  vistaAnsible: (datos: VistaAnsiblePeticion) => http.post<VistaAnsibleRespuesta[]>('/cuentas-servicio/vista-ansible', datos),
 }

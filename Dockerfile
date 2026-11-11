@@ -41,9 +41,11 @@ RUN mvn -B -q package -DskipTests \
 # ---------------------------------------------------------------------------------------------------------------------
 FROM ${JRE_IMAGE}
 
-# ansible-core 2.18 admite Python 3.11-3.13 en el controlador (Ubuntu 24.04 trae 3.12). El playbook solo usa
-# ansible.builtin.script, que no necesita Python en el servidor gestionado ni colecciones adicionales
-ARG ANSIBLE_CORE_VERSION=2.18.*
+# ansible-core 2.21 (controlador con Python 3.12, el de Ubuntu 24.04) reconoce la solicitud de contraseña de sudo-rs,
+# el sudo de Ubuntu 25.10 en adelante: con 2.18, sudo con contraseña se quedaba esperándola (DEC-57). El playbook solo
+# usa ansible.builtin.script y las elevaciones sudo, su y runas, que no necesitan Python en el servidor gestionado ni
+# colecciones adicionales
+ARG ANSIBLE_CORE_VERSION=2.21.*
 ARG PYWINRM_VERSION=0.5.*
 
 # python3-venv: Ansible en un entorno aislado (Ubuntu 24.04 no admite pip sobre el Python del sistema)

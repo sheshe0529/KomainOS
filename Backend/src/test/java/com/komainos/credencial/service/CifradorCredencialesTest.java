@@ -51,11 +51,11 @@ class CifradorCredencialesTest {
     }
 
     @Test
-    @DisplayName("DEC-39: la contraseña su no se puede intercambiar con el secreto principal")
+    @DisplayName("DEC-39, DEC-57: la contraseña de elevación no se puede intercambiar con el secreto principal")
     void suLigadaASuParte() {
-        SecretoCifrado su = cifrador.cifrarSu("root-pass", 1);
+        SecretoCifrado su = cifrador.cifrarElevacion("root-pass", 1);
 
-        assertThat(cifrador.descifrarSu(su, 1)).isEqualTo("root-pass");
+        assertThat(cifrador.descifrarElevacion(su, 1)).isEqualTo("root-pass");
         assertThatThrownBy(() -> cifrador.descifrar(su, 1)).isInstanceOf(ReglaNegocioException.class);
     }
 

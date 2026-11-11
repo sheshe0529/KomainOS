@@ -133,7 +133,8 @@ export const FALLO: Record<TipoFallo, { etiqueta: string; sugerencia: string }> 
   },
   PERMISOS: {
     etiqueta: 'Permisos insuficientes',
-    sugerencia: 'La cuenta entra pero no tiene privilegios de administrador (sudo o grupo Administradores).',
+    sugerencia:
+      'La cuenta entra, pero no obtuvo los privilegios: revise la elevación configurada en la cuenta (sudo, su o runas) y su contraseña.',
   },
   TIEMPO_EXCEDIDO: {
     etiqueta: 'Tiempo excedido',

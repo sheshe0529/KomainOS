@@ -9,7 +9,7 @@ import com.komainos.credencial.model.CuentaServicio;
 import com.komainos.credencial.model.EstadoCredencial;
 import com.komainos.credencial.model.SecretoCifrado;
 import com.komainos.credencial.model.TipoAutenticacion;
-import com.komainos.credencial.model.TipoUsuario;
+import com.komainos.ejecucion.model.MetodoElevacion;
 import com.komainos.credencial.repository.CredencialDocumentalRepositorio;
 import com.komainos.credencial.repository.CredencialRepositorio;
 import com.komainos.credencial.repository.CredencialSecretoRepositorio;
@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Gestión de credenciales documentales y cuentas de servicio (RF04-RF08), el secreto solo sale en el revelado y la exportación autorizada */
@@ -50,6 +51,10 @@ public class ServicioCredenciales {
 
     private static final Pattern LLAVE_PRIVADA =
             Pattern.compile("-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.+-----END [A-Z0-9 ]*PRIVATE KEY-----", Pattern.DOTALL);
+    private static final Pattern CUERPO_OPENSSH =
+            Pattern.compile("-----BEGIN OPENSSH PRIVATE KEY-----\\s*([A-Za-z0-9+/=\\s]+?)-----END", Pattern.DOTALL);
+    /** «openssh-key-v1» seguido del cifrado «none»: una llave OpenSSH sin frase empieza siempre así en Base64 */
+    private static final String OPENSSH_SIN_FRASE = "b3BlbnNzaC1rZXktdjEAAAAABG5vbmU";
 
     private final CredencialRepositorio credenciales;
     private final CredencialDocumentalRepositorio documentales;
@@ -188,8 +193,8 @@ public class ServicioCredenciales {
         AccesoClaro acceso = descifrar(credencial, secreto);
         auditoria.registrar(alcance.actor(), operacion("REVELAR_CREDENCIAL", credencial)
                 .valores(null, Map.of("fechaSecreto", secreto.getFechaActualizacion().toString(),
-                        "incluyeSu", acceso.su() != null)));
-        return new Revelado(credencial, secreto, acceso.secreto(), acceso.su());
+                        "incluyeContrasenaElevacion", acceso.elevacion() != null)));
+        return new Revelado(credencial, secreto, acceso.secreto(), acceso.elevacion());
     }
 
     /** Con los secretos en claro: quien llama ya verificó la reautenticación del administrador */
@@ -306,75 +311,114 @@ public class ServicioCredenciales {
     /** El id ya existe porque la credencial se insertó antes: el cifrado lo usa como dato asociado, con un IV nuevo cada vez */
     private CredencialSecreto establecerSecreto(Credencial credencial, Secreto acceso) {
         Integer id = credencial.getId();
-        SecretoCifrado su = acceso.su() == null ? null : cifrador.cifrarSu(acceso.su(), id);
-        return credencial.establecerSecreto(acceso.tipo(), acceso.tipoUsuario(), cifrador.cifrar(acceso.valor(), id), su,
-                ahora());
+        SecretoCifrado elevacion = acceso.elevacion() == null ? null : cifrador.cifrarElevacion(acceso.elevacion(), id);
+        return credencial.establecerSecreto(acceso.tipo(), acceso.metodo(), cifrador.cifrar(acceso.valor(), id),
+                elevacion, ahora());
     }
 
     private AccesoClaro descifrar(Credencial credencial, CredencialSecreto secreto) {
         Integer id = credencial.getId();
         return new AccesoClaro(cifrador.descifrar(secreto.secreto(), id),
-                secreto.secretoSu().map(su -> cifrador.descifrarSu(su, id)).orElse(null));
+                secreto.secretoElevacion().map(e -> cifrador.descifrarElevacion(e, id)).orElse(null));
     }
 
     private boolean mismoAcceso(Credencial credencial, CredencialSecreto secreto, Secreto acceso) {
-        if (secreto.getTipoAutenticacion() != acceso.tipo() || secreto.getTipoUsuario() != acceso.tipoUsuario()) {
+        if (secreto.getTipoAutenticacion() != acceso.tipo() || secreto.getMetodoElevacion() != acceso.metodo()) {
             return false;
         }
         AccesoClaro actual = descifrar(credencial, secreto);
-        return actual.secreto().equals(acceso.valor()) && Objects.equals(actual.su(), acceso.su());
+        return actual.secreto().equals(acceso.valor()) && Objects.equals(actual.elevacion(), acceso.elevacion());
     }
 
     private AccesoExportado exportado(CredencialDocumental c, CredencialSecreto s) {
         AccesoClaro acceso = descifrar(c, s);
-        return new AccesoExportado(s.getTipoAutenticacion(), s.getTipoUsuario(), c.getUsuarioAcceso(),
-                acceso.secreto(), acceso.su());
+        return new AccesoExportado(s.getTipoAutenticacion(), s.getMetodoElevacion(), c.getUsuarioAcceso(),
+                acceso.secreto(), acceso.elevacion());
     }
 
     private Secreto formaDocumental(Secreto secreto, Servidor servidor) {
         return formaDocumental(secreto, servidor.familia(), "El servidor " + servidor.getHostname());
     }
 
-    /** Linux: contraseña o llave con usuario Administrador o Genérico (este con su), Windows: solo contraseña (DEC-39) */
+    /**
+     * Linux: contraseña o llave, con elevación ninguna, sudo o su; Windows: solo contraseña, con elevación ninguna o
+     * runas (DEC-39, DEC-57)
+     */
     private static Secreto formaDocumental(Secreto s, FamiliaSistemaOperativo familia, String sujeto) {
         if (s.tipo() == null) {
             throw new ReglaNegocioException("Indique el mecanismo de acceso: contraseña o llave SSH");
         }
-        if (familia == FamiliaSistemaOperativo.WINDOWS) {
-            if (s.tipo() != TipoAutenticacion.PASSWORD) {
-                throw new ReglaNegocioException("%s es Windows: WinRM solo admite usuario y contraseña".formatted(sujeto));
-            }
-            if (s.tipoUsuario() == TipoUsuario.GENERICO || tieneTexto(s.su())) {
-                throw new ReglaNegocioException(
-                        "%s es Windows: no lleva usuario Genérico ni contraseña su".formatted(sujeto));
-            }
-            return new Secreto(TipoAutenticacion.PASSWORD, null, s.valor(), null);
+        if (!s.tipo().admitidoEn(familia)) {
+            throw new ReglaNegocioException("%s es Windows: WinRM solo admite usuario y contraseña".formatted(sujeto));
         }
-        if (s.tipoUsuario() == null) {
-            throw new ReglaNegocioException("Indique si el usuario es Administrador o Genérico");
-        }
-        if (s.tipoUsuario() == TipoUsuario.ADMINISTRADOR && tieneTexto(s.su())) {
-            throw new ReglaNegocioException("Un usuario Administrador no lleva contraseña su");
-        }
-        return s.tipoUsuario() == TipoUsuario.ADMINISTRADOR ? new Secreto(s.tipo(), s.tipoUsuario(), s.valor(), null) : s;
+        MetodoElevacion metodo = s.metodo() == null ? MetodoElevacion.NINGUNO : s.metodo();
+        exigirMetodoEn(metodo, familia, sujeto + " es " + nombreFamilia(familia));
+        return elevacion(s, metodo);
     }
 
-    /** Las familias que ya usan la cuenta limitan su mecanismo: WinRM solo admite contraseña */
+    /**
+     * Las familias que ya usan la cuenta limitan su mecanismo y su elevación: WinRM solo admite contraseña, sudo y su
+     * son de Linux y runas de Windows. Omitir el método al rotar el secreto conserva la elevación vigente
+     */
     private Secreto formaCuenta(Secreto s, Integer idCuenta, CredencialSecreto actual) {
         if (s.tipo() == null) {
             throw new ReglaNegocioException("Indique el mecanismo de acceso: contraseña o llave SSH");
         }
-        // Omitir el tipo al rotar la contraseña SSH conserva la elevación vigente.
-        boolean conSu = s.tipoUsuario() == TipoUsuario.GENERICO
-                || (s.tipoUsuario() == null && actual != null && actual.tieneSu());
-        if (!conSu && tieneTexto(s.su())) {
-            throw new ReglaNegocioException("Para guardar una contraseña su, habilite la elevación con su");
+        MetodoElevacion metodo = s.metodo() != null ? s.metodo()
+                : actual != null ? actual.getMetodoElevacion() : MetodoElevacion.NINGUNO;
+        if (metodo == MetodoElevacion.RUNAS && s.tipo() != TipoAutenticacion.PASSWORD) {
+            throw new ReglaNegocioException("runas es para servidores Windows, que se conectan por WinRM con contraseña");
         }
-        if (idCuenta != null && !s.tipo().admitidoEn(FamiliaSistemaOperativo.WINDOWS)
-                && asignaciones.familiasQueUsan(idCuenta).contains(FamiliaSistemaOperativo.WINDOWS)) {
-            throw new ReglaNegocioException("La cuenta la usan servidores Windows: WinRM solo admite usuario y contraseña");
+        if (idCuenta != null) {
+            Collection<FamiliaSistemaOperativo> familias = asignaciones.familiasQueUsan(idCuenta);
+            if (!s.tipo().admitidoEn(FamiliaSistemaOperativo.WINDOWS) && familias.contains(FamiliaSistemaOperativo.WINDOWS)) {
+                throw new ReglaNegocioException("La cuenta la usan servidores Windows: WinRM solo admite usuario y contraseña");
+            }
+            for (FamiliaSistemaOperativo familia : familias) {
+                exigirMetodoEn(metodo, familia, "La cuenta la usan servidores " + nombreFamilia(familia));
+            }
         }
-        return new Secreto(s.tipo(), conSu ? TipoUsuario.GENERICO : null, s.valor(), s.su());
+        // Sin indicar el método, una contraseña vacía conserva la vigente: es la misma elevación
+        // Boolean.valueOf: sin él, el ternario convierte a boolean y un null de la petición lanzaría NullPointerException
+        Boolean conContrasena = s.metodo() == null && actual != null
+                ? Boolean.valueOf(actual.tieneContrasenaElevacion()) : s.elevacionConContrasena();
+        return elevacion(new Secreto(s.tipo(), metodo, s.valor(), s.elevacion(), conContrasena), metodo);
+    }
+
+    /** Fija si la elevación lleva contraseña: su siempre, sudo si se indica, ninguno y runas nunca */
+    private static Secreto elevacion(Secreto s, MetodoElevacion metodo) {
+        boolean conContrasena = metodo.exigeContrasena() || (metodo.admiteContrasena()
+                && (Boolean.TRUE.equals(s.elevacionConContrasena())
+                || (s.elevacionConContrasena() == null && tieneTexto(s.elevacion()))));
+        if (!conContrasena && tieneTexto(s.elevacion())) {
+            throw new ReglaNegocioException(metodo == MetodoElevacion.SUDO
+                    ? "Indicó sudo sin contraseña: no ingrese una contraseña de elevación"
+                    : "La elevación %s no lleva contraseña de elevación".formatted(metodo.etiqueta()));
+        }
+        return new Secreto(s.tipo(), metodo, s.valor(), conContrasena ? s.elevacion() : null, conContrasena);
+    }
+
+    private static void exigirMetodoEn(MetodoElevacion metodo, FamiliaSistemaOperativo familia, String contexto) {
+        if (!metodo.admitidoEn(familia)) {
+            throw new ReglaNegocioException("%s: la elevación %s es solo para servidores %s".formatted(contexto,
+                    metodo.etiqueta(), nombreFamilia(metodo.familia())));
+        }
+    }
+
+    /**
+     * Una llave con frase de contraseña: PEM tradicional (Proc-Type ENCRYPTED), PKCS#8 cifrado o formato OpenSSH con un
+     * cifrado distinto de «none». Ansible no tiene cómo entregar la frase a ssh sin un agente
+     */
+    static boolean llaveProtegida(String llave) {
+        if (llave.contains("ENCRYPTED")) {
+            return true;
+        }
+        Matcher cuerpo = CUERPO_OPENSSH.matcher(llave);
+        return cuerpo.find() && !cuerpo.group(1).replaceAll("\\s", "").startsWith(OPENSSH_SIN_FRASE);
+    }
+
+    private static String nombreFamilia(FamiliaSistemaOperativo familia) {
+        return familia == FamiliaSistemaOperativo.WINDOWS ? "Windows" : "Linux";
     }
 
     /** Completa con el secreto vigente lo que llega vacío y exige lo que falte */
@@ -383,9 +427,12 @@ public class ServicioCredenciales {
         if (!tieneTexto(valor) && actual != null && actual.getTipoAutenticacion() == forma.tipo()) {
             valor = cifrador.descifrar(actual.secreto(), idCredencial);
         }
-        String su = forma.su();
-        if (forma.tipoUsuario() == TipoUsuario.GENERICO && !tieneTexto(su) && actual != null && actual.tieneSu()) {
-            su = cifrador.descifrarSu(actual.secretoSu().orElseThrow(), idCredencial);
+        boolean conContrasena = Boolean.TRUE.equals(forma.elevacionConContrasena());
+        String elevacion = forma.elevacion();
+        // Solo con el mismo método: una contraseña de sudo no se reutiliza como la de root
+        if (conContrasena && !tieneTexto(elevacion) && actual != null
+                && actual.getMetodoElevacion() == forma.metodo() && actual.tieneContrasenaElevacion()) {
+            elevacion = cifrador.descifrarElevacion(actual.secretoElevacion().orElseThrow(), idCredencial);
         }
         if (!tieneTexto(valor)) {
             throw new ReglaNegocioException(forma.tipo() == TipoAutenticacion.LLAVE_SSH
@@ -395,11 +442,15 @@ public class ServicioCredenciales {
             throw new ReglaNegocioException(
                     "La llave privada debe estar en formato PEM u OpenSSH (-----BEGIN ... PRIVATE KEY-----)");
         }
-        if (forma.tipoUsuario() == TipoUsuario.GENERICO && !tieneTexto(su)) {
-            throw new ReglaNegocioException("Un usuario Genérico requiere la contraseña su (root)");
+        if (forma.tipo() == TipoAutenticacion.LLAVE_SSH && llaveProtegida(valor)) {
+            throw new ReglaNegocioException("La llave privada está protegida con una frase de contraseña: Ansible no "
+                    + "puede usarla sin intervención. Registre la llave sin frase; KomainOS la guarda cifrada");
         }
-        return new Secreto(forma.tipo(), forma.tipoUsuario(), valor,
-                forma.tipoUsuario() == TipoUsuario.GENERICO ? su : null);
+        if (conContrasena && !tieneTexto(elevacion)) {
+            throw new ReglaNegocioException(forma.metodo() == MetodoElevacion.SU
+                    ? "Ingrese la contraseña de root que pide su" : "Ingrese la contraseña que pide sudo");
+        }
+        return new Secreto(forma.tipo(), forma.metodo(), valor, conContrasena ? elevacion : null, conContrasena);
     }
 
     private void exigirSinUso(CuentaServicio cuenta) {
@@ -449,8 +500,8 @@ public class ServicioCredenciales {
         if (secreto != null) {
             v.put("fechaSecreto", secreto.getFechaActualizacion().toString());
             v.put("tipoAutenticacion", secreto.getTipoAutenticacion().name());
-            v.put("tipoUsuario", secreto.getTipoUsuario() == null ? null : secreto.getTipoUsuario().name());
-            v.put("conSu", secreto.tieneSu());
+            v.put("metodoElevacion", secreto.getMetodoElevacion().name());
+            v.put("conContrasenaElevacion", secreto.tieneContrasenaElevacion());
         }
         return v;
     }
@@ -467,16 +518,22 @@ public class ServicioCredenciales {
         return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
-    /** valor y su nulos al actualizar: se conservan los vigentes si siguen aplicando */
-    public record Secreto(TipoAutenticacion tipo, TipoUsuario tipoUsuario, String valor, String su) {
+    /**
+     * Acceso y elevación (DEC-57). valor y elevacion nulos al actualizar: se conservan los vigentes si siguen aplicando.
+     *
+     * @param metodo                 nulo al registrar equivale a NINGUNO y al rotar conserva el vigente
+     * @param elevacionConContrasena solo decide en sudo; nulo lo deduce de si llega la contraseña de elevación
+     */
+    public record Secreto(TipoAutenticacion tipo, MetodoElevacion metodo, String valor, String elevacion,
+                          Boolean elevacionConContrasena) {
 
         public Secreto(TipoAutenticacion tipo, String valor) {
-            this(tipo, null, valor, null);
+            this(tipo, null, valor, null, null);
         }
 
         @Override
         public String toString() {
-            return "Secreto[tipo=%s, tipoUsuario=%s]".formatted(tipo, tipoUsuario);
+            return "Secreto[tipo=%s, metodo=%s]".formatted(tipo, metodo);
         }
     }
 
@@ -486,7 +543,7 @@ public class ServicioCredenciales {
     public record CuentaConUso(CuentaServicio cuenta, long servidores, long grupos, boolean predeterminadaEvaluacion, boolean predeterminadaMantenimiento) {
     }
 
-    public record Revelado(Credencial credencial, CredencialSecreto vigente, String secreto, String su) {
+    public record Revelado(Credencial credencial, CredencialSecreto vigente, String secreto, String elevacion) {
 
         @Override
         public String toString() {
@@ -494,12 +551,12 @@ public class ServicioCredenciales {
         }
     }
 
-    public record AccesoExportado(TipoAutenticacion tipo, TipoUsuario tipoUsuario, String usuario, String secreto,
-                                  String su) {
+    public record AccesoExportado(TipoAutenticacion tipo, MetodoElevacion metodo, String usuario, String secreto,
+                                  String elevacion) {
 
         @Override
         public String toString() {
-            return "AccesoExportado[tipo=%s, tipoUsuario=%s]".formatted(tipo, tipoUsuario);
+            return "AccesoExportado[tipo=%s, metodo=%s]".formatted(tipo, metodo);
         }
     }
 
@@ -507,7 +564,7 @@ public class ServicioCredenciales {
                                       AccesoExportado acceso) {
     }
 
-    private record AccesoClaro(String secreto, String su) {
+    private record AccesoClaro(String secreto, String elevacion) {
 
         @Override
         public String toString() {

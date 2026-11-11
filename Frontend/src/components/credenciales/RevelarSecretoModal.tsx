@@ -5,7 +5,7 @@ import type { SecretoReveladoRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
-import { ETIQUETA_AUTENTICACION, ETIQUETA_TIPO_USUARIO } from '@/utils/etiquetas'
+import { ETIQUETA_AUTENTICACION, ETIQUETA_METODO_ELEVACION } from '@/utils/etiquetas'
 import { errorDeCampo, textoDeError } from '@/utils/errores'
 import { CampoReautenticacion } from './CampoReautenticacion'
 
@@ -16,7 +16,7 @@ interface RevelarSecretoModalProps {
   onRevelar: (contrasena: string) => Promise<SecretoReveladoRespuesta>
 }
 
-type Parte = 'secreto' | 'su'
+type Parte = 'secreto' | 'elevacion'
 
 /** RF08: reautenticación, visualización temporal y copia al portapapeles, los secretos solo viven en el estado del modal */
 export function RevelarSecretoModal({ abierto, credencial, onCerrar, onRevelar }: RevelarSecretoModalProps) {
@@ -103,7 +103,7 @@ export function RevelarSecretoModal({ abierto, credencial, onCerrar, onRevelar }
           <p className="text-sm text-ink-soft">
             <span className="font-mono text-ink">{revelado.usuarioAcceso}</span>
             {revelado.tipoAutenticacion && ` · ${ETIQUETA_AUTENTICACION[revelado.tipoAutenticacion]}`}
-            {revelado.tipoUsuario && ` · ${ETIQUETA_TIPO_USUARIO[revelado.tipoUsuario]}`}
+            {revelado.metodoElevacion && ` · Elevación: ${ETIQUETA_METODO_ELEVACION[revelado.metodoElevacion]}`}
           </p>
           <BloqueSecreto
             titulo={revelado.tipoAutenticacion === 'LLAVE_SSH' ? 'Llave privada' : 'Contraseña'}
@@ -111,12 +111,12 @@ export function RevelarSecretoModal({ abierto, credencial, onCerrar, onRevelar }
             copiado={copiado === 'secreto'}
             onCopiar={() => copiar('secreto', revelado.secreto)}
           />
-          {revelado.secretoSu && (
+          {revelado.secretoElevacion && (
             <BloqueSecreto
-              titulo="Contraseña su (root)"
-              texto={revelado.secretoSu}
-              copiado={copiado === 'su'}
-              onCopiar={() => copiar('su', revelado.secretoSu)}
+              titulo={revelado.metodoElevacion === 'SU' ? 'Contraseña de root (su)' : 'Contraseña de sudo'}
+              texto={revelado.secretoElevacion}
+              copiado={copiado === 'elevacion'}
+              onCopiar={() => copiar('elevacion', revelado.secretoElevacion)}
             />
           )}
           <div className="flex items-center gap-3 text-xs text-ink-soft">

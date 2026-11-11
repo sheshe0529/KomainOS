@@ -12,7 +12,7 @@ import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
-import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION, ETIQUETA_TIPO_USUARIO } from '@/utils/etiquetas'
+import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION, ETIQUETA_METODO_ELEVACION } from '@/utils/etiquetas'
 import { textoDeError } from '@/utils/errores'
 import { formatearFecha, formatearFechaHora } from '@/utils/formato'
 import { CredencialFormulario } from './CredencialFormulario'
@@ -114,10 +114,12 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
                       <td className="py-3 pr-4 font-mono">{c.usuarioAcceso}</td>
                       <td className="py-3 pr-4">
                         <p>{c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}</p>
-                        {c.tipoUsuario && (
+                        {c.metodoElevacion && (
                           <p className="flex items-center gap-1.5 text-xs text-ink-soft">
-                            {ETIQUETA_TIPO_USUARIO[c.tipoUsuario]}
-                            {c.conSu && <span className="rounded bg-panel-muted px-1 font-mono text-[10px] text-ink">su</span>}
+                            Elevación: {ETIQUETA_METODO_ELEVACION[c.metodoElevacion]}
+                            {c.conContrasenaElevacion && (
+                              <span className="rounded bg-panel-muted px-1 text-[10px] text-ink">con contraseña</span>
+                            )}
                           </p>
                         )}
                       </td>
@@ -176,7 +178,7 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
         <CredencialFormulario
           abierto
           titulo={`Editar ${dialogo.credencial.nombre}`}
-          descripcion="Para cambiar la contraseña, la llave, el tipo de usuario o la contraseña su use «Nuevo secreto»."
+          descripcion="Para cambiar la contraseña, la llave o la elevación de privilegios use «Nuevo secreto»."
           clase="documental"
           credencial={dialogo.credencial}
           onCerrar={() => setDialogo(null)}

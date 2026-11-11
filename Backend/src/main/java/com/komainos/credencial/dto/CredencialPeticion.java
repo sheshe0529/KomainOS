@@ -1,9 +1,9 @@
 package com.komainos.credencial.dto;
 
 import com.komainos.credencial.model.TipoAutenticacion;
-import com.komainos.credencial.model.TipoUsuario;
 import com.komainos.credencial.service.ServicioCredenciales.DatosCredencial;
 import com.komainos.credencial.service.ServicioCredenciales.Secreto;
+import com.komainos.ejecucion.model.MetodoElevacion;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -24,24 +24,27 @@ public record CredencialPeticion(
         @NotNull(message = "El mecanismo de autenticación es obligatorio")
         TipoAutenticacion tipoAutenticacion,
 
-        /** En cuentas de servicio, GENERICO habilita su para mantenimiento Linux. */
-        TipoUsuario tipoUsuario,
+        /** Cómo obtiene privilegios Ansible: NINGUNO si se omite (DEC-57) */
+        MetodoElevacion metodoElevacion,
 
         @NotBlank(message = "El secreto es obligatorio")
         @Size(max = SecretoPeticion.MAXIMO, message = "El secreto admite hasta 16384 caracteres")
         String secreto,
 
-        /** Contraseña de root para su, obligatoria con un usuario Genérico */
-        @Size(max = 1024, message = "La contraseña su admite hasta 1024 caracteres")
-        String secretoSu) {
+        /** Con sudo: si pide contraseña. Con su siempre la pide; ninguno y runas no la llevan */
+        Boolean elevacionConContrasena,
+
+        /** La contraseña que pide sudo (la del propio usuario) o la de root para su */
+        @Size(max = 1024, message = "La contraseña de elevación admite hasta 1024 caracteres")
+        String secretoElevacion) {
 
     public DatosCredencial aDatos() {
         return new DatosCredencial(nombre, usuarioAcceso, descripcion,
-                new Secreto(tipoAutenticacion, tipoUsuario, secreto, secretoSu));
+                new Secreto(tipoAutenticacion, metodoElevacion, secreto, secretoElevacion, elevacionConContrasena));
     }
 
     @Override
     public String toString() {
-        return "CredencialPeticion[tipoAutenticacion=%s, tipoUsuario=%s]".formatted(tipoAutenticacion, tipoUsuario);
+        return "CredencialPeticion[tipoAutenticacion=%s, metodoElevacion=%s]".formatted(tipoAutenticacion, metodoElevacion);
     }
 }

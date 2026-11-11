@@ -34,10 +34,10 @@ public class AdaptadorConexionAutomatizacion implements PuertoConexionAutomatiza
         CredencialSecreto secreto = cuenta.secretoVigente()
                 .orElseThrow(() -> new ReglaNegocioException("La cuenta de servicio %s no tiene un secreto vigente"
                         .formatted(cuenta.getNombre())));
-        boolean elevar = familia == FamiliaSistemaOperativo.LINUX
-                && (proposito == PropositoEjecucion.TAREA || proposito == PropositoEjecucion.CONECTIVIDAD);
-        String claveSu = elevar ? secreto.secretoSu().map(su -> cifrador.descifrarSu(su, idCuenta)).orElse(null) : null;
-        return new Conexion(cuenta.getUsuarioAcceso(), cifrador.descifrar(secreto.secreto(), idCuenta), claveSu,
-                secreto.getTipoAutenticacion() == TipoAutenticacion.LLAVE_SSH);
+        // DEC-57: la elevación de la cuenta se aplica tal cual en toda ejecución, análisis incluido; el propósito ya no
+        // decide si se eleva (la cuenta de evaluación sin elevación conserva el mínimo privilegio del DEC-53)
+        String elevacion = secreto.secretoElevacion().map(e -> cifrador.descifrarElevacion(e, idCuenta)).orElse(null);
+        return new Conexion(cuenta.getUsuarioAcceso(), cifrador.descifrar(secreto.secreto(), idCuenta),
+                secreto.getTipoAutenticacion() == TipoAutenticacion.LLAVE_SSH, secreto.getMetodoElevacion(), elevacion);
     }
 }

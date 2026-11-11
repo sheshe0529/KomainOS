@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aNumero, normalizarElemento, operadoresPara, problemaDeValores } from './umbrales'
+import { aNumero, filtrarMetricas, normalizarElemento, operadoresPara, problemaDeValores } from './umbrales'
 
 describe('problemaDeValores: las mismas reglas que el backend (HU12 CA2)', () => {
   it('acepta valores coherentes con el operador, o uno solo de los dos niveles', () => {
@@ -68,5 +68,30 @@ describe('normalizarElemento: misma forma canónica que TipoDato del backend', (
     expect(normalizarElemento('http', 'INTEGER', false)).toBeNull()
     expect(normalizarElemento('', 'STRING', false)).toBeNull()
     expect(normalizarElemento('x'.repeat(256), 'STRING', false)).toBeNull()
+  })
+})
+
+describe('filtrarMetricas: buscador de la pestaña Métricas', () => {
+  const metricas = [
+    { id: 1, codigo: 'mem_uso', nombre: 'Uso de memoria', descripcion: 'Porcentaje de memoria utilizada', unidad: '%', tipoDato: 'DECIMAL' as const, esLista: false, activo: true },
+    { id: 2, codigo: 'cpu_load', nombre: 'Carga de CPU (load)', unidad: 'tareas por CPU lógica', tipoDato: 'DECIMAL' as const, esLista: false, soAplica: 'LINUX' as const, activo: true },
+    { id: 3, codigo: 'red_puerto_no_aut', nombre: 'Puertos TCP no autorizados', tipoDato: 'INTEGER' as const, esLista: true, activo: false },
+  ]
+
+  it('sin texto devuelve todas', () => {
+    expect(filtrarMetricas(metricas, '  ')).toHaveLength(3)
+  })
+
+  it('busca en nombre, código, descripción y unidad sin distinguir mayúsculas ni tildes', () => {
+    expect(filtrarMetricas(metricas, 'MEMÓRIA').map((m) => m.id)).toEqual([1])
+    expect(filtrarMetricas(metricas, 'cpu_load').map((m) => m.id)).toEqual([2])
+    expect(filtrarMetricas(metricas, 'logica').map((m) => m.id)).toEqual([2])
+  })
+
+  it('todas las palabras deben aparecer, en cualquier orden, también el sistema y el estado', () => {
+    expect(filtrarMetricas(metricas, 'linux carga').map((m) => m.id)).toEqual([2])
+    expect(filtrarMetricas(metricas, 'lista inactiva').map((m) => m.id)).toEqual([3])
+    expect(filtrarMetricas(metricas, 'memoria linux').map((m) => m.id)).toEqual([1])
+    expect(filtrarMetricas(metricas, 'memoria solo')).toEqual([])
   })
 })

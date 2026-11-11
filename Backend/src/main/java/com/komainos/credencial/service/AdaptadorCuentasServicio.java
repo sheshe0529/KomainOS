@@ -5,6 +5,7 @@ import com.komainos.credencial.model.CredencialSecreto;
 import com.komainos.credencial.model.CuentaServicio;
 import com.komainos.credencial.model.TipoAutenticacion;
 import com.komainos.credencial.repository.CuentaServicioRepositorio;
+import com.komainos.ejecucion.model.MetodoElevacion;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.service.PuertoCuentasServicio;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
@@ -39,6 +40,13 @@ public class AdaptadorCuentasServicio implements PuertoCuentasServicio {
         if (!tipo.admitidoEn(familia)) {
             throw new ReglaNegocioException(("La cuenta de servicio %s usa llave privada SSH: los servidores Windows "
                     + "se conectan por WinRM con usuario y contraseña").formatted(cuenta.getNombre()));
+        }
+        MetodoElevacion metodo = cuenta.secretoVigente().map(CredencialSecreto::getMetodoElevacion)
+                .orElse(MetodoElevacion.NINGUNO);
+        if (!metodo.admitidoEn(familia)) {
+            throw new ReglaNegocioException("La cuenta de servicio %s eleva con %s, que es solo para servidores %s"
+                    .formatted(cuenta.getNombre(), metodo.etiqueta(),
+                            metodo.familia() == FamiliaSistemaOperativo.WINDOWS ? "Windows" : "Linux"));
         }
     }
 

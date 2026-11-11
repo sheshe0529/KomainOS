@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.komainos.PruebaIntegracion;
 import com.komainos.credencial.model.TipoAutenticacion;
-import com.komainos.credencial.model.TipoUsuario;
+import com.komainos.ejecucion.model.MetodoElevacion;
 import com.komainos.credencial.service.ServicioCredenciales;
 import com.komainos.credencial.service.ServicioCredenciales.DatosCredencial;
 import com.komainos.credencial.service.ServicioCredenciales.Secreto;
@@ -82,7 +82,7 @@ class ImportacionCredencialesIT extends PruebaIntegracion {
                 version, null, entorno, criticidad, responsable.getId(), null, List.of(), null, null, null),
                 alcanceAdmin.actor()).getId();
         credenciales.registrarDocumental(idExistente, new DatosCredencial("Acceso root", "root", null,
-                new Secreto(TipoAutenticacion.PASSWORD, TipoUsuario.ADMINISTRADOR, "clave-vieja", null)), alcanceAdmin);
+                new Secreto(TipoAutenticacion.PASSWORD, MetodoElevacion.NINGUNO, "clave-vieja", null, null)), alcanceAdmin);
     }
 
     @AfterEach
@@ -100,7 +100,7 @@ class ImportacionCredencialesIT extends PruebaIntegracion {
         JsonNode analisis = json.readTree(cuerpo);
 
         assertThat(cuerpo).doesNotContain("clave-nueva").doesNotContain("root-1").doesNotContain("clave con espacios");
-        assertThat(textos(analisis.get("columnasReconocidas"))).contains("Contraseña o llave", "Contraseña su (root)");
+        assertThat(textos(analisis.get("columnasReconocidas"))).contains("Contraseña o llave", "Método de elevación", "Contraseña de elevación");
         assertThat(textos(analisis.get("columnasIgnoradas"))).isEmpty();
         assertThat(fila(analisis, 2).get("estado").asText()).isEqualTo("NUEVA");
         JsonNode duplicado = fila(analisis, 3);
@@ -121,8 +121,9 @@ class ImportacionCredencialesIT extends PruebaIntegracion {
         assertThat(nueva.isPrincipal()).isTrue();
         var revelada = credenciales.revelar(nueva.getId(), CLAVE_ADMIN, alcanceAdmin);
         assertThat(revelada.secreto()).isEqualTo(" clave con espacios ");
-        assertThat(revelada.su()).isEqualTo("root-1");
-        assertThat(revelada.vigente().getTipoUsuario()).isEqualTo(TipoUsuario.GENERICO);
+        assertThat(revelada.elevacion()).isEqualTo("root-1");
+        // Archivo anterior al DEC-57: «Genérico» con «Contraseña su (root)» se importa como su
+        assertThat(revelada.vigente().getMetodoElevacion()).isEqualTo(MetodoElevacion.SU);
 
         var existente = credenciales.documentalesDe(idExistente, alcanceAdmin);
         assertThat(existente).hasSize(1);
@@ -149,11 +150,11 @@ class ImportacionCredencialesIT extends PruebaIntegracion {
                 jdbc.queryForObject("select id_usuario from usuario where codigo = 'resp.cred'", Integer.class),
                 null, List.of(), null, null, null), alcanceAdmin.actor()).getId();
         credenciales.registrarDocumental(idLlave, new DatosCredencial("Despliegue", "deploy", null,
-                new Secreto(TipoAutenticacion.LLAVE_SSH, TipoUsuario.GENERICO, """
+                new Secreto(TipoAutenticacion.LLAVE_SSH, MetodoElevacion.SU, """
                         -----BEGIN OPENSSH PRIVATE KEY-----
                         b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
                         -----END OPENSSH PRIVATE KEY-----
-                        """, "=empieza-como-formula")), alcanceAdmin);
+                        """, "=empieza-como-formula", null)), alcanceAdmin);
 
         byte[] exportado = mockMvc.perform(post("/api/servidores/exportacion/con-credencial").param("formato", "XLSX")
                         .with(user(comoAdmin)).contentType(MediaType.APPLICATION_JSON)

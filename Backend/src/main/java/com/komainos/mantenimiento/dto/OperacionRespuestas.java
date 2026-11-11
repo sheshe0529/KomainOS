@@ -41,9 +41,12 @@ public final class OperacionRespuestas {
                                             int duracionEstimadaMinutos) {
     }
 
-    /** RF71: el error distingue comunicación, autenticación y permisos */
+    /**
+     * RF71: el error distingue comunicación, autenticación y permisos (la elevación configurada falló). Con acceso
+     * correcto, administrador dice si los scripts se ejecutarán con privilegios de administrador (DEC-57)
+     */
     public record ConexionRespuesta(Integer idServidor, String servidor, Integer idCuenta, String cuenta,
-                                    boolean correcto, TipoFallo fallo, String mensaje) {
+                                    boolean correcto, TipoFallo fallo, String mensaje, Boolean administrador) {
     }
 
     /** Prueba de una versión de análisis sobre un servidor, con la revisión de su salida */

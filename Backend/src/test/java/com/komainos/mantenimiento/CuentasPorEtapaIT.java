@@ -94,8 +94,8 @@ class CuentasPorEtapaIT extends BaseAutomatizacionIT {
     }
 
     @Test
-    @DisplayName("RF71: la evaluación admite acceso sin administrador y el mantenimiento informa la falta de permisos")
-    void accesoExigePermisosSegunFinalidad() {
+    @DisplayName("RF71, DEC-57: cada finalidad prueba su propia cuenta e informa sus privilegios sin exigirlos")
+    void accesoInformaPermisosSegunFinalidad() {
         var sinPermisos = crear("srv-sin-permisos", "10.90.0.2");
         Integer cuentaEvaluacion = nuevaCuenta("Evaluación sin privilegios", "svc_lectura");
         Integer cuentaMantenimiento = nuevaCuenta("Mantenimiento sin privilegios", "svc_mantenimiento");
@@ -105,11 +105,21 @@ class CuentasPorEtapaIT extends BaseAutomatizacionIT {
         assertThat(accesoEvaluacion.idCuenta()).isEqualTo(cuentaEvaluacion);
         assertThat(accesoEvaluacion.correcto()).isTrue();
         assertThat(accesoEvaluacion.fallo()).isNull();
+        assertThat(accesoEvaluacion.administrador()).isFalse();
 
         var accesoMantenimiento = conectividad.probarServidor(sinPermisos.getId(), null, FinalidadCuenta.MANTENIMIENTO, actor);
         assertThat(accesoMantenimiento.idCuenta()).isEqualTo(cuentaMantenimiento);
-        assertThat(accesoMantenimiento.correcto()).isFalse();
-        assertThat(accesoMantenimiento.fallo()).isEqualTo(TipoFallo.PERMISOS);
+        assertThat(accesoMantenimiento.correcto()).isTrue();
+        assertThat(accesoMantenimiento.administrador()).isFalse();
+        assertThat(accesoMantenimiento.mensaje()).contains("sin privilegios de administrador")
+                .doesNotContain("KOMAINOS_ADMINISTRADOR");
+
+        var elevacionFallida = crear("srv-elevacion-fallida", "10.90.0.4");
+        configurar(elevacionFallida.getId(), cuentaEvaluacion, cuentaMantenimiento);
+        var acceso = conectividad.probarServidor(elevacionFallida.getId(), null, FinalidadCuenta.MANTENIMIENTO, actor);
+        assertThat(acceso.correcto()).isFalse();
+        assertThat(acceso.fallo()).isEqualTo(TipoFallo.PERMISOS);
+        assertThat(acceso.administrador()).isNull();
     }
 
     @Test
@@ -163,7 +173,7 @@ class CuentasPorEtapaIT extends BaseAutomatizacionIT {
 
     private Integer nuevaCuenta(String nombre, String usuario) {
         return credenciales.registrarCuenta(new ServicioCredenciales.DatosCredencial(nombre, usuario, null,
-                new ServicioCredenciales.Secreto(TipoAutenticacion.PASSWORD, null, "secreto-solo-para-pruebas", null)), actor).getId();
+                new ServicioCredenciales.Secreto(TipoAutenticacion.PASSWORD, "secreto-solo-para-pruebas")), actor).getId();
     }
 
     private void configurar(Integer idServidor, Integer idEvaluacion, Integer idMantenimiento) {

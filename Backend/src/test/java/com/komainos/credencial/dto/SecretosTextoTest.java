@@ -2,9 +2,10 @@ package com.komainos.credencial.dto;
 
 import com.komainos.credencial.config.PropiedadesCredenciales;
 import com.komainos.credencial.model.TipoAutenticacion;
-import com.komainos.credencial.model.TipoUsuario;
 import com.komainos.credencial.service.ServicioCredenciales.AccesoExportado;
 import com.komainos.credencial.service.ServicioCredenciales.Revelado;
+import com.komainos.ejecucion.model.MetodoElevacion;
+import com.komainos.ejecucion.service.PuertoConexionAutomatizacion.Conexion;
 import com.komainos.inventario.service.CredencialArchivo;
 import com.komainos.seguridad.dto.ReautenticacionPeticion;
 import org.junit.jupiter.api.Test;
@@ -19,19 +20,20 @@ class SecretosTextoTest {
     @Test
     void laRepresentacionDeLasCredencialesOcultaLosSecretos() {
         String llave = "llave-privada-de-prueba";
-        String su = "contrasena-su-de-prueba";
+        String elevacion = "contrasena-de-elevacion-de-prueba";
         TipoAutenticacion tipo = TipoAutenticacion.LLAVE_SSH;
-        TipoUsuario usuario = TipoUsuario.GENERICO;
-        CredencialPeticion alta = new CredencialPeticion("Prueba", "svc", null, tipo, usuario, llave, su);
-        SecretoPeticion rotacion = new SecretoPeticion(tipo, usuario, llave, su);
+        MetodoElevacion metodo = MetodoElevacion.SU;
+        CredencialPeticion alta = new CredencialPeticion("Prueba", "svc", null, tipo, metodo, llave, true, elevacion);
+        SecretoPeticion rotacion = new SecretoPeticion(tipo, metodo, llave, true, elevacion);
 
         assertThat(List.of(alta, alta.aDatos(), rotacion, rotacion.aSecreto(),
-                new Revelado(null, null, llave, su),
-                new SecretoReveladoRespuesta(1, "Prueba", "svc", tipo, usuario, Instant.EPOCH, llave, su, 30),
-                new AccesoExportado(tipo, usuario, "svc", llave, su),
-                new CredencialArchivo(tipo.name(), usuario.name(), "svc", llave, su),
-                new PropiedadesCredenciales(llave, 30), new ReautenticacionPeticion(su)))
+                new Revelado(null, null, llave, elevacion),
+                new SecretoReveladoRespuesta(1, "Prueba", "svc", tipo, metodo, Instant.EPOCH, llave, elevacion, 30),
+                new AccesoExportado(tipo, metodo, "svc", llave, elevacion),
+                new CredencialArchivo(tipo.name(), metodo.name(), "svc", llave, elevacion),
+                new Conexion("svc", llave, true, metodo, elevacion),
+                new PropiedadesCredenciales(llave, 30), new ReautenticacionPeticion(elevacion)))
                 .extracting(Object::toString)
-                .allSatisfy(texto -> assertThat(texto).doesNotContain(llave, su));
+                .allSatisfy(texto -> assertThat(texto).doesNotContain(llave, elevacion));
     }
 }

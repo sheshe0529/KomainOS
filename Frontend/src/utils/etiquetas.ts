@@ -13,7 +13,7 @@ import type {
   MotivoCierre,
   Rol,
   TipoAutenticacion,
-  TipoUsuario,
+  MetodoElevacion,
 } from '@/api/dominio'
 import type { StatusTone } from '@/components/ui/StatusPill'
 
@@ -55,9 +55,11 @@ export const ETIQUETA_AUTENTICACION: Record<TipoAutenticacion, string> = {
   LLAVE_SSH: 'Llave privada SSH',
 }
 
-export const ETIQUETA_TIPO_USUARIO: Record<TipoUsuario, string> = {
-  ADMINISTRADOR: 'Administrador',
-  GENERICO: 'Genérico',
+export const ETIQUETA_METODO_ELEVACION: Record<MetodoElevacion, string> = {
+  NINGUNO: 'Sin elevación',
+  SUDO: 'sudo',
+  SU: 'su (root)',
+  RUNAS: 'runas',
 }
 
 export const ESTADO_CREDENCIAL: Record<EstadoCredencial, { etiqueta: string; tono: StatusTone }> = {

@@ -80,5 +80,8 @@ class EjecutorRemotoTest {
 
         assertThat(linux).startsWith("#!/usr/bin/env bash").doesNotContain("\r");
         assertThat(windows).isNotBlank().doesNotContain("\r");
+        // DEC-57: la misma comprobación para ambas finalidades, que informa los privilegios en lugar de exigirlos
+        assertThat(linux).contains("KOMAINOS_ADMINISTRADOR=si", "KOMAINOS_ADMINISTRADOR=no").doesNotContain("exit 3");
+        assertThat(windows).contains("KOMAINOS_ADMINISTRADOR=si", "KOMAINOS_ADMINISTRADOR=no").doesNotContain("exit 3");
     }
 }

@@ -23,6 +23,11 @@ public enum EscenarioSimulado {
     SIN_CONEXION,
     /** El servidor rechaza la cuenta de servicio: error de autenticación (RF71) */
     SIN_AUTENTICACION,
-    /** La cuenta entra pero no es administradora: permisos insuficientes (RF71) */
-    SIN_PERMISOS
+    /**
+     * La cuenta entra pero no es administradora: la prueba de acceso lo informa sin fallar y las tareas que exigen
+     * privilegios fallan (RF71, DEC-57)
+     */
+    SIN_PERMISOS,
+    /** La elevación configurada en la cuenta falla (por ejemplo, sudo rechaza la contraseña): permisos (RF71, DEC-57) */
+    ELEVACION_FALLIDA
 }

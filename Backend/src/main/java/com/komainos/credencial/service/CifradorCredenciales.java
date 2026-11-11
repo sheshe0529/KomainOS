@@ -52,18 +52,23 @@ public class CifradorCredenciales {
         return cifrar(secreto, contexto(idCredencial));
     }
 
-    /** Otro dato asociado que el secreto principal: la contraseña su no se puede intercambiar con él */
-    public SecretoCifrado cifrarSu(String secreto, Integer idCredencial) {
-        return cifrar(secreto, contexto(idCredencial) + ":su");
+    /**
+     * Otro dato asociado que el secreto principal: la contraseña de elevación no se puede intercambiar con él. Conserva
+     * el sufijo «:su» de cuando solo existía la contraseña su (DEC-39): las ya guardadas se siguen descifrando (DEC-57)
+     */
+    public SecretoCifrado cifrarElevacion(String secreto, Integer idCredencial) {
+        return cifrar(secreto, contexto(idCredencial) + SUFIJO_ELEVACION);
     }
 
     public String descifrar(SecretoCifrado secreto, Integer idCredencial) {
         return descifrar(secreto, contexto(idCredencial));
     }
 
-    public String descifrarSu(SecretoCifrado secreto, Integer idCredencial) {
-        return descifrar(secreto, contexto(idCredencial) + ":su");
+    public String descifrarElevacion(SecretoCifrado secreto, Integer idCredencial) {
+        return descifrar(secreto, contexto(idCredencial) + SUFIJO_ELEVACION);
     }
+
+    private static final String SUFIJO_ELEVACION = ":su";
 
     private SecretoCifrado cifrar(String secreto, String contexto) {
         byte[] iv = new byte[BYTES_IV];

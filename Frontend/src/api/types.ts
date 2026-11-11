@@ -199,6 +199,7 @@ export interface ConexionRespuesta {
   correcto?: boolean
   fallo?: 'COMUNICACION' | 'AUTENTICACION' | 'PERMISOS' | 'TIEMPO_EXCEDIDO' | 'EJECUCION' | 'CONTRATO' | 'CONFIGURACION'
   mensaje?: string
+  administrador?: boolean
 }
 
 export interface ConfiguracionGrupoPeticion {
@@ -255,9 +256,10 @@ export interface CredencialPeticion {
   usuarioAcceso: string
   descripcion?: string
   tipoAutenticacion: 'PASSWORD' | 'LLAVE_SSH'
-  tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
+  metodoElevacion?: 'NINGUNO' | 'SUDO' | 'SU' | 'RUNAS'
   secreto: string
-  secretoSu?: string
+  elevacionConContrasena?: boolean
+  secretoElevacion?: string
 }
 
 export interface CredencialRespuesta {
@@ -267,8 +269,8 @@ export interface CredencialRespuesta {
   descripcion?: string
   estado?: 'VIGENTE' | 'REVOCADA'
   tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
-  tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
-  conSu?: boolean
+  metodoElevacion?: 'NINGUNO' | 'SUDO' | 'SU' | 'RUNAS'
+  conContrasenaElevacion?: boolean
   principal?: boolean
   fechaRegistro?: string
   fechaSecreto?: string
@@ -293,7 +295,8 @@ export interface CuentaServicioRespuesta {
   descripcion?: string
   estado?: 'VIGENTE' | 'REVOCADA'
   tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
-  conSu?: boolean
+  metodoElevacion?: 'NINGUNO' | 'SUDO' | 'SU' | 'RUNAS'
+  conContrasenaElevacion?: boolean
   fechaRegistro?: string
   fechaSecreto?: string
   fechaRevocacion?: string
@@ -1273,9 +1276,10 @@ export interface ScriptResumenRespuesta {
 
 export interface SecretoPeticion {
   tipoAutenticacion: 'PASSWORD' | 'LLAVE_SSH'
-  tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
+  metodoElevacion?: 'NINGUNO' | 'SUDO' | 'SU' | 'RUNAS'
   secreto?: string
-  secretoSu?: string
+  elevacionConContrasena?: boolean
+  secretoElevacion?: string
 }
 
 export interface SecretoReveladoRespuesta {
@@ -1283,10 +1287,10 @@ export interface SecretoReveladoRespuesta {
   nombre?: string
   usuarioAcceso?: string
   tipoAutenticacion?: 'PASSWORD' | 'LLAVE_SSH'
-  tipoUsuario?: 'ADMINISTRADOR' | 'GENERICO'
+  metodoElevacion?: 'NINGUNO' | 'SUDO' | 'SU' | 'RUNAS'
   fechaSecreto?: string
   secreto?: string
-  secretoSu?: string
+  secretoElevacion?: string
   segundosVisible?: number
 }
 
@@ -1573,6 +1577,11 @@ export interface ValoresUmbralRespuesta {
   nivelSobrante?: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO'
 }
 
+export interface VariableAnsibleRespuesta {
+  nombre?: string
+  valor?: string
+}
+
 export interface VentanaPeticion {
   diaInicio: 'LUNES' | 'MARTES' | 'MIERCOLES' | 'JUEVES' | 'VIERNES' | 'SABADO' | 'DOMINGO'
   horaInicio: string
@@ -1618,6 +1627,21 @@ export interface VersionScriptPeticion {
 export interface VersionSistemaOperativoPeticion {
   version: string
   activo?: boolean
+}
+
+export interface VistaAnsiblePeticion {
+  usuarioAcceso?: string
+  tipoAutenticacion: 'PASSWORD' | 'LLAVE_SSH'
+  metodoElevacion?: 'NINGUNO' | 'SUDO' | 'SU' | 'RUNAS'
+  elevacionConContrasena?: boolean
+  familia?: 'LINUX' | 'WINDOWS'
+}
+
+export interface VistaAnsibleRespuesta {
+  familia?: 'LINUX' | 'WINDOWS'
+  cuenta?: VariableAnsibleRespuesta[]
+  controlador?: VariableAnsibleRespuesta[]
+  servidor?: VariableAnsibleRespuesta[]
 }
 
 export interface VistaPreviaPeticion {

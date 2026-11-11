@@ -3,6 +3,7 @@ package com.komainos.credencial;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import com.komainos.PruebaIntegracion;
+import com.komainos.ejecucion.model.MetodoElevacion;
 import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.ejecucion.service.PuertoConexionAutomatizacion;
 import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
@@ -41,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -51,13 +53,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Transactional
-@DisplayName("Credenciales documentales y cuentas de servicio contra PostgreSQL (RF04-RF08, RF13, DEC-38, DEC-39)")
+@DisplayName("Credenciales documentales y cuentas de servicio contra PostgreSQL (RF04-RF08, RF13, DEC-38, DEC-39, DEC-57)")
 class CredencialesIT extends PruebaIntegracion {
 
     private static final String CLAVE_ADMIN = "clave-segura-1";
     private static final String LLAVE_SSH = """
             -----BEGIN OPENSSH PRIVATE KEY-----
             b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+            -----END OPENSSH PRIVATE KEY-----
+            """;
+    /** Cifrada con aes256-ctr: Ansible no puede entregarle la frase a ssh */
+    private static final String LLAVE_CON_FRASE = """
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAzc2gtZW
             -----END OPENSSH PRIVATE KEY-----
             """;
 
@@ -93,12 +101,12 @@ class CredencialesIT extends PruebaIntegracion {
     @Test
     @DisplayName("RF04/RNF11: la credencial documental se guarda cifrada y ninguna respuesta ni auditoría lleva el secreto")
     void documentalSinSecretos() throws Exception {
-        crearDocumental(idLinux, "Acceso root", "root", "PASSWORD", "ADMINISTRADOR", "S3creto-root", null)
+        crearDocumental(idLinux, "Acceso root", "root", "PASSWORD", "NINGUNO", "S3creto-root", null)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.fechaSecreto").value("2026-09-28T14:00:00Z"))
                 .andExpect(jsonPath("$.tipoAutenticacion").value("PASSWORD"))
-                .andExpect(jsonPath("$.tipoUsuario").value("ADMINISTRADOR"))
-                .andExpect(jsonPath("$.conSu").value(false))
+                .andExpect(jsonPath("$.metodoElevacion").value("NINGUNO"))
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(false))
                 .andExpect(jsonPath("$.principal").value(true));
 
         mockMvc.perform(comoAdmin(get("/api/servidores/{id}/credenciales", idLinux)))
@@ -109,30 +117,30 @@ class CredencialesIT extends PruebaIntegracion {
                 .andExpect(jsonPath("$..secretoCifrado").isEmpty());
 
         Map<String, Object> fila = jdbc.queryForMap(
-                "select secreto_cifrado, iv_nonce, tag_autenticacion, algoritmo, su_secreto_cifrado from credencial_secreto");
+                "select secreto_cifrado, iv_nonce, tag_autenticacion, algoritmo, elevacion_secreto_cifrado from credencial_secreto");
         assertThat(new String((byte[]) fila.get("secreto_cifrado"), StandardCharsets.UTF_8)).doesNotContain("S3creto");
         assertThat((byte[]) fila.get("iv_nonce")).hasSize(12);
         assertThat((byte[]) fila.get("tag_autenticacion")).hasSize(16);
         assertThat(fila.get("algoritmo")).isEqualTo("AES-256-GCM");
-        assertThat(fila.get("su_secreto_cifrado")).isNull();
+        assertThat(fila.get("elevacion_secreto_cifrado")).isNull();
         assertThat(auditorias()).isNotEmpty().noneMatch(v -> v.contains("S3creto"));
     }
 
     @Test
     @DisplayName("RF08/DEC-39: usuario Genérico con contraseña su, rotación que conserva la contraseña y revelado de ambas")
     void genericoConSu() throws Exception {
-        Integer id = idDe(crearDocumental(idLinux, "Usuario de aplicación", "appuser", "PASSWORD", "GENERICO",
+        Integer id = idDe(crearDocumental(idLinux, "Usuario de aplicación", "appuser", "PASSWORD", "SU",
                 "clave-app", "root-1"));
         em.flush();
-        assertThat(jdbc.queryForObject("select tipo_usuario::text from credencial_secreto", String.class))
-                .isEqualTo("GENERICO");
+        assertThat(jdbc.queryForObject("select metodo_elevacion::text from credencial_secreto", String.class))
+                .isEqualTo("SU");
         byte[] ivAnterior = jdbc.queryForObject("select iv_nonce from credencial_secreto", byte[].class);
 
         // Solo cambia la contraseña su: la del usuario se conserva y el secreto se sobrescribe con un IV nuevo (RNF04)
         mockMvc.perform(comoAdmin(put("/api/credenciales/{id}/secreto", id))
-                        .content(cuerpo("tipoAutenticacion", "PASSWORD", "tipoUsuario", "GENERICO", "secretoSu", "root-2")))
+                        .content(cuerpo("tipoAutenticacion", "PASSWORD", "metodoElevacion", "SU", "secretoElevacion", "root-2")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.conSu").value(true));
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(true));
         em.flush();
         assertThat(jdbc.queryForObject("select count(*) from credencial_secreto where id_credencial = ?", Integer.class, id))
                 .isOne();
@@ -147,8 +155,8 @@ class CredencialesIT extends PruebaIntegracion {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", containsString("no-store")))
                 .andExpect(jsonPath("$.secreto").value("clave-app"))
-                .andExpect(jsonPath("$.secretoSu").value("root-2"))
-                .andExpect(jsonPath("$.tipoUsuario").value("GENERICO"))
+                .andExpect(jsonPath("$.secretoElevacion").value("root-2"))
+                .andExpect(jsonPath("$.metodoElevacion").value("SU"))
                 .andExpect(jsonPath("$.fechaSecreto").exists())
                 .andExpect(jsonPath("$.segundosVisible").value(30));
         assertThat(revelados()).isOne();
@@ -156,46 +164,64 @@ class CredencialesIT extends PruebaIntegracion {
 
         // Pasar a Administrador quita la contraseña su
         mockMvc.perform(comoAdmin(put("/api/credenciales/{id}/secreto", id))
-                        .content(cuerpo("tipoAutenticacion", "PASSWORD", "tipoUsuario", "ADMINISTRADOR")))
+                        .content(cuerpo("tipoAutenticacion", "PASSWORD", "metodoElevacion", "NINGUNO")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.conSu").value(false));
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(false));
     }
 
     @Test
-    @DisplayName("DEC-39: Linux exige tipo de usuario y su para Genérico, Windows solo usuario y contraseña")
+    @DisplayName("DEC-57: Linux eleva con ninguno, sudo o su; Windows solo con contraseña, sin elevar o con runas")
     void reglasPorFamilia() throws Exception {
         crearDocumental(idWindows, "Administrador local", "Administrator", "LLAVE_SSH", null, LLAVE_SSH, null)
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.mensaje").value(containsString("WinRM")));
-        crearDocumental(idWindows, "Usuario", "user", "PASSWORD", "GENERICO", "Clave-Win-1", "root")
-                .andExpect(status().isUnprocessableEntity());
+        crearDocumental(idWindows, "Usuario", "user", "PASSWORD", "SU", "Clave-Win-1", "root")
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.mensaje").value(containsString("solo para servidores Linux")));
         crearDocumental(idWindows, "Administrador local", "Administrator", "PASSWORD", null, "Clave-Win-1", null)
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.tipoUsuario").doesNotExist());
+                .andExpect(jsonPath("$.metodoElevacion").value("NINGUNO"));
+        crearDocumental(idWindows, "Administrador con runas", "admin2", "PASSWORD", "RUNAS", "Clave-Win-2", null)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.metodoElevacion").value("RUNAS"))
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(false));
 
-        crearDocumental(idLinux, "Sin tipo", "deploy", "PASSWORD", null, "clave", null)
+        crearDocumental(idLinux, "Sin método", "deploy", "PASSWORD", null, "clave", null)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.metodoElevacion").value("NINGUNO"));
+        crearDocumental(idLinux, "runas en Linux", "deploy", "PASSWORD", "RUNAS", "clave", null)
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.mensaje").value(containsString("Administrador o Genérico")));
-        crearDocumental(idLinux, "Genérico sin su", "deploy", "PASSWORD", "GENERICO", "clave", null)
+                .andExpect(jsonPath("$.mensaje").value(containsString("solo para servidores Windows")));
+        crearDocumental(idLinux, "su sin contraseña", "deploy", "PASSWORD", "SU", "clave", null)
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.mensaje").value(containsString("contraseña su")));
-        crearDocumental(idLinux, "Admin con su", "deploy", "PASSWORD", "ADMINISTRADOR", "clave", "root")
+                .andExpect(jsonPath("$.mensaje").value(containsString("contraseña de root")));
+        crearDocumental(idLinux, "Ninguno con contraseña", "deploy", "PASSWORD", "NINGUNO", "clave", "root")
                 .andExpect(status().isUnprocessableEntity());
-        crearDocumental(idLinux, "Llave inválida", "deploy", "LLAVE_SSH", "ADMINISTRADOR", "no es una llave", null)
+        crearDocumental(idLinux, "sudo sin contraseña", "ops", "PASSWORD", "SUDO", "clave", null)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.metodoElevacion").value("SUDO"))
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(false));
+        crearDocumental(idLinux, "sudo con contraseña", "ops2", "PASSWORD", "SUDO", "clave", "clave-sudo")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(true));
+        crearDocumental(idLinux, "Llave inválida", "deploy", "LLAVE_SSH", "NINGUNO", "no es una llave", null)
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.mensaje").value(containsString("PRIVATE KEY")));
-        crearDocumental(idLinux, "Despliegue", "deploy", "LLAVE_SSH", "GENERICO", LLAVE_SSH, "root-pass")
+        crearDocumental(idLinux, "Llave con frase", "deploy", "LLAVE_SSH", "NINGUNO", LLAVE_CON_FRASE, null)
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.mensaje").value(containsString("frase de contraseña")));
+        crearDocumental(idLinux, "Despliegue", "deploy", "LLAVE_SSH", "SU", LLAVE_SSH, "root-pass")
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.tipoAutenticacion").value("LLAVE_SSH"))
-                .andExpect(jsonPath("$.conSu").value(true));
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(true));
     }
 
     @Test
     @DisplayName("DEC-39: la primera es la principal, se puede cambiar y al revocarla pasa a la vigente más antigua")
     void credencialPrincipal() throws Exception {
-        Integer primera = idDe(crearDocumental(idLinux, "Primera", "root", "PASSWORD", "ADMINISTRADOR", "a", null));
-        Integer segunda = idDe(crearDocumental(idLinux, "Segunda", "appuser", "PASSWORD", "ADMINISTRADOR", "b", null));
-        Integer tercera = idDe(crearDocumental(idLinux, "Tercera", "deploy", "PASSWORD", "ADMINISTRADOR", "c", null));
+        Integer primera = idDe(crearDocumental(idLinux, "Primera", "root", "PASSWORD", "NINGUNO", "a", null));
+        Integer segunda = idDe(crearDocumental(idLinux, "Segunda", "appuser", "PASSWORD", "NINGUNO", "b", null));
+        Integer tercera = idDe(crearDocumental(idLinux, "Tercera", "deploy", "PASSWORD", "NINGUNO", "c", null));
         assertThat(principal()).isEqualTo(primera);
 
         mockMvc.perform(comoAdmin(post("/api/credenciales/{id}/principal", tercera)))
@@ -217,8 +243,8 @@ class CredencialesIT extends PruebaIntegracion {
     @Test
     @DisplayName("RF13/HU05 CA3: la exportación con credencial principal y la de todas las credenciales exigen reautenticación")
     void exportaciones() throws Exception {
-        crearDocumental(idLinux, "Usuario de aplicación", "appuser", "PASSWORD", "GENERICO", "clave-app", "root-1");
-        crearDocumental(idLinux, "Despliegue", "deploy", "LLAVE_SSH", "ADMINISTRADOR", LLAVE_SSH, null);
+        crearDocumental(idLinux, "Usuario de aplicación", "appuser", "PASSWORD", "SU", "clave-app", "root-1");
+        crearDocumental(idLinux, "Despliegue", "deploy", "LLAVE_SSH", "NINGUNO", LLAVE_SSH, null);
         crearDocumental(idWindows, "Administrador local", "Administrator", "PASSWORD", null, "Clave-Win-1", null);
 
         String normal = mockMvc.perform(comoAdmin(get("/api/servidores/exportacion").param("formato", "CSV")))
@@ -240,9 +266,9 @@ class CredencialesIT extends PruebaIntegracion {
                 .andExpect(header().string("Cache-Control", containsString("no-store")))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         assertThat(conCredencial)
-                .contains("\"Mecanismo de acceso\",\"Tipo de usuario\",\"Usuario de acceso\",\"Contraseña o llave\",\"Contraseña su (root)\"")
-                .contains("Contraseña,Genérico,appuser,clave-app,root-1")
-                .contains("Contraseña,,Administrator,Clave-Win-1,")
+                .contains("\"Mecanismo de acceso\",\"Método de elevación\",\"Usuario de acceso\",\"Contraseña o llave\",\"Contraseña de elevación\"")
+                .contains("Contraseña,su,appuser,clave-app,root-1")
+                .contains("Contraseña,Ninguno,Administrator,Clave-Win-1,")
                 .doesNotContain("deploy");
 
         String todas = mockMvc.perform(comoAdmin(post("/api/credenciales/exportacion").param("formato", "CSV"))
@@ -259,7 +285,7 @@ class CredencialesIT extends PruebaIntegracion {
     @Test
     @DisplayName("RF04/RF08: operador y responsable no consultan ni revelan credenciales")
     void soloAdministrador() throws Exception {
-        Integer id = idDe(crearDocumental(idLinux, "Acceso root", "root", "PASSWORD", "ADMINISTRADOR", "clave", null));
+        Integer id = idDe(crearDocumental(idLinux, "Acceso root", "root", "PASSWORD", "NINGUNO", "clave", null));
 
         mockMvc.perform(get("/api/servidores/{id}/credenciales", idLinux).with(user(new UsuarioAutenticado(responsable))))
                 .andExpect(status().isForbidden());
@@ -277,9 +303,9 @@ class CredencialesIT extends PruebaIntegracion {
         Integer llave = idDe(crearCuenta("svc-llave", "ansible", "LLAVE_SSH", LLAVE_SSH));
         crearCuenta("SVC-ANSIBLE", "otro", "PASSWORD", "x").andExpect(status().isConflict());
         mockMvc.perform(comoAdmin(post("/api/cuentas-servicio")).content(cuerpo("nombre", "svc-su", "usuarioAcceso", "a",
-                        "tipoAutenticacion", "PASSWORD", "secreto", "x", "secretoSu", "root")))
+                        "tipoAutenticacion", "PASSWORD", "secreto", "x", "secretoElevacion", "root")))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.mensaje").value(containsString("habilite la elevación")));
+                .andExpect(jsonPath("$.mensaje").value(containsString("no lleva contraseña de elevación")));
 
         configurar(idLinux, null, llave)
                 .andExpect(status().isOk())
@@ -335,49 +361,50 @@ class CredencialesIT extends PruebaIntegracion {
     }
 
     @Test
-    @DisplayName("La cuenta guarda su cifrado y solo eleva para mantenimiento Linux")
+    @DisplayName("DEC-57: la cuenta guarda cifrada la contraseña de su y la elevación se aplica en toda ejecución Linux")
     void cuentaConSu() throws Exception {
         mockMvc.perform(comoAdmin(post("/api/cuentas-servicio"))
                         .content(cuerpo("nombre", "svc-sin-clave-su", "usuarioAcceso", "deploy",
-                                "tipoAutenticacion", "PASSWORD", "tipoUsuario", "GENERICO", "secreto", "clave-ssh")))
+                                "tipoAutenticacion", "PASSWORD", "metodoElevacion", "SU", "secreto", "clave-ssh")))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.mensaje").value(containsString("contraseña su")));
+                .andExpect(jsonPath("$.mensaje").value(containsString("contraseña de root")));
 
         Integer id = idDe(mockMvc.perform(comoAdmin(post("/api/cuentas-servicio"))
                         .content(cuerpo("nombre", "svc-su", "usuarioAcceso", "deploy", "tipoAutenticacion", "PASSWORD",
-                                "tipoUsuario", "GENERICO", "secreto", "clave-ssh", "secretoSu", "clave-root")))
-                .andExpect(jsonPath("$.conSu").value(true))
-                .andExpect(jsonPath("$.secretoSu").doesNotExist()));
+                                "metodoElevacion", "SU", "secreto", "clave-ssh", "secretoElevacion", "clave-root")))
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(true))
+                .andExpect(jsonPath("$.secretoElevacion").doesNotExist()));
         em.flush();
         em.clear();
         assertThat(jdbc.queryForObject("""
-                select su_secreto_cifrado <> convert_to(?, 'UTF8') from credencial_secreto where id_credencial = ?
+                select elevacion_secreto_cifrado <> convert_to(?, 'UTF8') from credencial_secreto where id_credencial = ?
                 """, Boolean.class, "clave-root", id)).isTrue();
 
+        // DEC-57: el propósito ya no decide; la cuenta de evaluación sin elevación conserva el mínimo privilegio
         for (PropositoEjecucion proposito : PropositoEjecucion.values()) {
             var acceso = conexiones.resolver(id, FamiliaSistemaOperativo.LINUX, proposito);
             assertThat(acceso.usuario()).isEqualTo("deploy");
-            assertThat(acceso.secretoSu()).as("elevación para %s", proposito)
-                    .isEqualTo(proposito == PropositoEjecucion.TAREA || proposito == PropositoEjecucion.CONECTIVIDAD
-                            ? "clave-root" : null);
+            assertThat(acceso.metodoElevacion()).as("método para %s", proposito).isEqualTo(MetodoElevacion.SU);
+            assertThat(acceso.secretoElevacion()).as("elevación para %s", proposito).isEqualTo("clave-root");
         }
-        assertThat(conexiones.resolver(id, FamiliaSistemaOperativo.WINDOWS, PropositoEjecucion.TAREA).secretoSu()).isNull();
+        assertThatThrownBy(() -> conexiones.resolver(id, FamiliaSistemaOperativo.WINDOWS, PropositoEjecucion.TAREA))
+                .hasMessageContaining("solo para servidores Linux");
 
         // Rotar el acceso SSH sin indicar el tipo mantiene la elevación ya configurada.
         mockMvc.perform(comoAdmin(put("/api/credenciales/{id}/secreto", id))
                         .content(cuerpo("tipoAutenticacion", "LLAVE_SSH", "secreto", LLAVE_SSH)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.conSu").value(true));
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(true));
         var conLlave = conexiones.resolver(id, FamiliaSistemaOperativo.LINUX, PropositoEjecucion.TAREA);
         assertThat(conLlave.llave()).isTrue();
-        assertThat(conLlave.secretoSu()).isEqualTo("clave-root");
+        assertThat(conLlave.secretoElevacion()).isEqualTo("clave-root");
 
         mockMvc.perform(comoAdmin(put("/api/credenciales/{id}/secreto", id))
-                        .content(cuerpo("tipoAutenticacion", "LLAVE_SSH", "tipoUsuario", "ADMINISTRADOR")))
+                        .content(cuerpo("tipoAutenticacion", "LLAVE_SSH", "metodoElevacion", "NINGUNO")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.conSu").value(false));
+                .andExpect(jsonPath("$.conContrasenaElevacion").value(false));
         em.flush();
-        assertThat(jdbc.queryForObject("select su_secreto_cifrado from credencial_secreto where id_credencial = ?",
+        assertThat(jdbc.queryForObject("select elevacion_secreto_cifrado from credencial_secreto where id_credencial = ?",
                 byte[].class, id)).isNull();
         assertThat(auditorias()).noneMatch(v -> v.contains("clave-root") || v.contains("clave-ssh"));
     }
@@ -457,6 +484,45 @@ class CredencialesIT extends PruebaIntegracion {
     }
 
     @Test
+    @DisplayName("DEC-57: la vista de Ansible muestra lo que resulta de la cuenta, sin secretos y solo donde sirve")
+    void vistaAnsible() throws Exception {
+        mockMvc.perform(comoAdmin(post("/api/cuentas-servicio/vista-ansible"))
+                        .content(cuerpo("usuarioAcceso", "deploy", "tipoAutenticacion", "LLAVE_SSH",
+                                "metodoElevacion", "SUDO", "elevacionConContrasena", "true")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].familia").value("LINUX"))
+                .andExpect(jsonPath("$[0].cuenta[?(@.nombre == 'ansible_user')].valor").value("deploy"))
+                .andExpect(jsonPath("$[0].cuenta[?(@.nombre == 'ansible_ssh_private_key_file')].valor")
+                        .value("[llave privada protegida]"))
+                .andExpect(jsonPath("$[0].cuenta[?(@.nombre == 'ansible_become')].valor").value("true"))
+                .andExpect(jsonPath("$[0].cuenta[?(@.nombre == 'ansible_become_method')].valor").value("sudo"))
+                .andExpect(jsonPath("$[0].cuenta[?(@.nombre == 'ansible_become_user')].valor").value("root"))
+                .andExpect(jsonPath("$[0].cuenta[?(@.nombre == 'ansible_become_password')].valor").value("[protegida]"))
+                .andExpect(jsonPath("$[0].servidor[0].nombre").value("ansible_host"))
+                .andExpect(jsonPath("$[0].controlador[?(@.nombre == 'ansible_connection')].valor").value("ssh"));
+
+        mockMvc.perform(comoAdmin(post("/api/cuentas-servicio/vista-ansible"))
+                        .content(cuerpo("usuarioAcceso", "deploy", "tipoAutenticacion", "LLAVE_SSH",
+                                "metodoElevacion", "SUDO", "elevacionConContrasena", "false")))
+                .andExpect(jsonPath("$[0].cuenta[?(@.nombre == 'ansible_become_password')]").isEmpty());
+
+        mockMvc.perform(comoAdmin(post("/api/cuentas-servicio/vista-ansible"))
+                        .content(cuerpo("usuarioAcceso", "svc", "tipoAutenticacion", "PASSWORD", "metodoElevacion", "NINGUNO")))
+                .andExpect(jsonPath("$[*].familia", org.hamcrest.Matchers.contains("LINUX", "WINDOWS")))
+                .andExpect(jsonPath("$[1].cuenta[?(@.nombre == 'ansible_become')].valor").value("false"))
+                .andExpect(jsonPath("$[1].controlador[?(@.nombre == 'ansible_connection')].valor").value("winrm"));
+
+        mockMvc.perform(comoAdmin(post("/api/cuentas-servicio/vista-ansible"))
+                        .content(cuerpo("usuarioAcceso", "Administrador", "tipoAutenticacion", "PASSWORD",
+                                "metodoElevacion", "RUNAS")))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].familia").value("WINDOWS"))
+                .andExpect(jsonPath("$[0].cuenta[?(@.nombre == 'ansible_become_method')].valor").value("runas"))
+                .andExpect(jsonPath("$[0].cuenta[?(@.nombre == 'ansible_become_user')].valor").value("Administrador"));
+    }
+
+    @Test
     @DisplayName("RF07: la asignación masiva exige que cada servidor tenga configuración de mantenimiento")
     void asignacionMasivaSinConfiguracion() throws Exception {
         Integer svc = idDe(crearCuenta("svc-ansible", "ansible", "PASSWORD", "Clave-Svc-1"));
@@ -487,9 +553,9 @@ class CredencialesIT extends PruebaIntegracion {
         cuerpo.put("nombre", nombre);
         cuerpo.put("usuarioAcceso", usuario);
         cuerpo.put("tipoAutenticacion", tipo);
-        cuerpo.put("tipoUsuario", tipoUsuario);
+        cuerpo.put("metodoElevacion", tipoUsuario);
         cuerpo.put("secreto", secreto);
-        cuerpo.put("secretoSu", su);
+        cuerpo.put("secretoElevacion", su);
         return mockMvc.perform(comoAdmin(post("/api/servidores/{id}/credenciales", idServidor))
                 .content(json.writeValueAsString(cuerpo)));
     }

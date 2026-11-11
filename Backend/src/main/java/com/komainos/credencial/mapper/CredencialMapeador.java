@@ -54,11 +54,10 @@ public final class CredencialMapeador {
         fila.put(NOMBRE.clave(), c.getNombre());
         fila.put(PRINCIPAL.clave(), c.isPrincipal() ? "Sí" : "No");
         fila.put(ColumnaCredencial.MECANISMO.clave(), e.acceso().tipo().etiqueta());
-        fila.put(ColumnaCredencial.TIPO_USUARIO.clave(),
-                e.acceso().tipoUsuario() == null ? null : e.acceso().tipoUsuario().etiqueta());
+        fila.put(ColumnaCredencial.METODO_ELEVACION.clave(), e.acceso().metodo().etiqueta());
         fila.put(ColumnaCredencial.USUARIO.clave(), e.acceso().usuario());
         fila.put(ColumnaCredencial.SECRETO.clave(), e.acceso().secreto());
-        fila.put(ColumnaCredencial.SECRETO_SU.clave(), e.acceso().su());
+        fila.put(ColumnaCredencial.SECRETO_ELEVACION.clave(), e.acceso().elevacion());
         fila.put(FECHA.clave(), e.secreto().getFechaActualizacion());
         fila.put(DESCRIPCION.clave(), c.getDescripcion());
         return fila;
@@ -69,8 +68,8 @@ public final class CredencialMapeador {
         return new CredencialRespuesta(c.getId(), c.getNombre(), c.getUsuarioAcceso(), c.getDescripcion(),
                 c.getEstado(),
                 vigente.map(CredencialSecreto::getTipoAutenticacion).orElse(null),
-                vigente.map(CredencialSecreto::getTipoUsuario).orElse(null),
-                vigente.map(CredencialSecreto::tieneSu).orElse(false),
+                vigente.map(CredencialSecreto::getMetodoElevacion).orElse(null),
+                vigente.map(CredencialSecreto::tieneContrasenaElevacion).orElse(false),
                 c instanceof CredencialDocumental d ? d.isPrincipal() : null,
                 c.getFechaRegistro(),
                 vigente.map(CredencialSecreto::getFechaActualizacion).orElse(null),
@@ -80,14 +79,15 @@ public final class CredencialMapeador {
     public static CuentaServicioRespuesta cuenta(CuentaConUso uso) {
         CredencialRespuesta c = credencial(uso.cuenta());
         return new CuentaServicioRespuesta(c.id(), c.nombre(), c.usuarioAcceso(), c.descripcion(), c.estado(),
-                c.tipoAutenticacion(), c.conSu(), c.fechaRegistro(), c.fechaSecreto(), c.fechaRevocacion(),
+                c.tipoAutenticacion(), c.metodoElevacion(), c.conContrasenaElevacion(), c.fechaRegistro(),
+                c.fechaSecreto(), c.fechaRevocacion(),
                 uso.servidores(), uso.grupos(), uso.predeterminadaEvaluacion(), uso.predeterminadaMantenimiento());
     }
 
     public static SecretoReveladoRespuesta revelado(Revelado r, int segundosVisible) {
         return new SecretoReveladoRespuesta(r.credencial().getId(), r.credencial().getNombre(),
-                r.credencial().getUsuarioAcceso(), r.vigente().getTipoAutenticacion(), r.vigente().getTipoUsuario(),
-                r.vigente().getFechaActualizacion(), r.secreto(), r.su(), segundosVisible);
+                r.credencial().getUsuarioAcceso(), r.vigente().getTipoAutenticacion(), r.vigente().getMetodoElevacion(),
+                r.vigente().getFechaActualizacion(), r.secreto(), r.elevacion(), segundosVisible);
     }
 
     public static ServidorAsignableRespuesta asignable(ConfiguracionServidor c) {

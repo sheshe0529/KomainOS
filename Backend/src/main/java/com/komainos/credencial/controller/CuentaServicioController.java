@@ -6,8 +6,12 @@ import com.komainos.credencial.dto.CuentaPredeterminadaPeticion;
 import com.komainos.credencial.dto.CuentaServicioRespuesta;
 import com.komainos.credencial.dto.ResultadoAsignacionRespuesta;
 import com.komainos.credencial.dto.ServidorAsignableRespuesta;
+import com.komainos.credencial.dto.VistaAnsiblePeticion;
+import com.komainos.credencial.dto.VistaAnsibleRespuesta;
 import com.komainos.credencial.mapper.CredencialMapeador;
+import com.komainos.credencial.model.TipoAutenticacion;
 import com.komainos.credencial.service.ServicioCredenciales;
+import com.komainos.ejecucion.service.ServicioVistaAnsible;
 import com.komainos.inventario.service.ServicioAsignacionCuentas;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.UsuarioAutenticado;
@@ -39,6 +43,16 @@ public class CuentaServicioController {
 
     private final ServicioCredenciales servicio;
     private final ServicioAsignacionCuentas asignaciones;
+    private final ServicioVistaAnsible vistaAnsible;
+
+    @PostMapping("/vista-ansible")
+    @Operation(summary = "Configuración de Ansible que resulta de la cuenta, con los secretos enmascarados (DEC-57)")
+    public List<VistaAnsibleRespuesta> vistaAnsible(@Valid @RequestBody VistaAnsiblePeticion peticion) {
+        return vistaAnsible.vistas(peticion.usuarioAcceso(), peticion.tipoAutenticacion() == TipoAutenticacion.LLAVE_SSH,
+                        peticion.metodoElevacion(), Boolean.TRUE.equals(peticion.elevacionConContrasena()),
+                        peticion.familia())
+                .stream().map(VistaAnsibleRespuesta::de).toList();
+    }
 
     @GetMapping
     @Operation(summary = "Lista las cuentas de servicio con su uso, sin sus secretos (RF05, RF06)")

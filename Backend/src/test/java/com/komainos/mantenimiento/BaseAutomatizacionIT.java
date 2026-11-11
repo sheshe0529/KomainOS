@@ -131,7 +131,7 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
         var ubuntu = catalogos.crearSistemaOperativo("Ubuntu", FamiliaSistemaOperativo.LINUX, actor);
         versionUbuntu = catalogos.agregarVersion(ubuntu.getId(), "24.04", actor).getVersiones().getFirst().getId();
         cuenta = credenciales.registrarCuenta(new ServicioCredenciales.DatosCredencial("Cuenta de pruebas", "svc_komainos",
-                null, new ServicioCredenciales.Secreto(TipoAutenticacion.PASSWORD, null, "secreto-solo-para-pruebas", null)),
+                null, new ServicioCredenciales.Secreto(TipoAutenticacion.PASSWORD, "secreto-solo-para-pruebas")),
                 actor).getId();
         servidor = crear("srv-prueba", "10.90.0.1");
         demostracion.cargar(actor);
