@@ -84,6 +84,13 @@ ENV PATH="/opt/ansible/bin:${PATH}" \
     KOMAINOS_ANSIBLE_SSH_KNOWN_HOSTS=/home/komainos/.ssh/known_hosts \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=50.0 -XX:+ExitOnOutOfMemoryError -Duser.timezone=UTC"
 
+# Versión que publica /actuator/info. El despliegue automático (despliegue/desplegar.sh) las pasa al construir; se
+# declaran al final para que cambiar de commit no invalide las capas anteriores (DEC-58)
+ARG KOMAINOS_COMMIT=desconocido
+ARG KOMAINOS_CONSTRUCCION=desconocida
+ENV KOMAINOS_COMMIT=${KOMAINOS_COMMIT} \
+    KOMAINOS_CONSTRUCCION=${KOMAINOS_CONSTRUCCION}
+
 USER komainos
 VOLUME ["/home/komainos/.ssh"]
 EXPOSE 8080

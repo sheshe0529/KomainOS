@@ -337,6 +337,9 @@ Si responde dentro del servidor pero desde su PC se agota el tiempo, falta la re
 
 ## 14. Actualizar a una versión nueva
 
+Con el despliegue automático instalado (sección 20) basta con hacer *merge* del *pull request* a `main`. A mano, el
+procedimiento es el siguiente.
+
 Hágalo cuando la **Sala de operaciones** no tenga mantenimientos en ejecución: al arrancar, lo que el reinicio dejó en
 curso se registra como fallido (las tareas, con su incidencia) y nunca se reintenta.
 
@@ -533,3 +536,81 @@ grep '^KOMAINOS_CORS_ORIGENES=' ~/komainos/.env
 ```
 
 Y desde su PC: `curl.exe -m 10 http://<IP>/actuator/health`.
+
+## 20. Despliegue automático desde GitHub (DEC-58)
+
+Cada *merge* de un *pull request* a `main` despliega la versión nueva en el EC2 sin repetir los pasos 9 a 14:
+
+```
+pull request a main ──▶ GitHub Actions: Pruebas (backend con PostgreSQL 18, panel y scripts del despliegue)
+        │ merge
+        ▼
+push a main ──▶ GitHub Actions: Despliegue en EC2 ──▶ pruebas ──▶ espera a ver el commit en /actuator/info
+                                                          ▲
+EC2: despliegue/vigilar.py (cada minuto) ── ve el commit nuevo de main con sus pruebas aprobadas ──▶ desplegar.sh:
+  construir imagen ─▶ respaldar la base ─▶ migraciones pendientes ─▶ cambiar de versión ─▶ comprobar ─▶ (o volver atrás)
+```
+
+El EC2 **consulta** a GitHub; GitHub no se conecta al EC2. No hace falta abrir el puerto 22 a Internet ni guardar
+llaves o contraseñas en GitHub: el repositorio es público y el EC2 lo lee con `git` y con la API pública. Un commit
+cuyas pruebas fallan nunca se despliega.
+
+| Archivo | Qué hace |
+|---|---|
+| `.github/workflows/pruebas.yml` | Pruebas en cada *pull request* a `main` y antes de cada despliegue |
+| `.github/workflows/despliegue.yml` | En cada push a `main`: pruebas y espera hasta que el EC2 publica el commit (máximo 26 min) |
+| `despliegue/vigilar.py` | En el EC2, cada minuto: ¿hay un commit nuevo en `main` con las pruebas aprobadas? Entonces lo despliega |
+| `despliegue/desplegar.sh` | Construye `komainos:<commit>`, respalda RDS, aplica las migraciones pendientes, cambia de versión y comprueba que la nueva responda con su commit; si no, vuelve a la anterior |
+| `despliegue/instalar.sh` | Instala el temporizador de systemd (una sola vez) |
+
+**20.1. Instalación en el EC2** (una sola vez, con el repositorio en un `main` que ya tenga `despliegue/`):
+
+```bash
+cd ~/komainos
+git fetch origin && git checkout --force origin/main
+bash despliegue/instalar.sh --marcar-desplegado "$(git rev-parse HEAD)"
+```
+
+- `--marcar-desplegado` indica que ese commit ya está en servicio. Sin él, el EC2 lo despliega en el próximo minuto si
+  sus pruebas pasaron (un commit anterior a esta sección no tiene pruebas registradas y se omite pasada una hora).
+- Registra como aplicadas todas las migraciones de `Backend/scripts/bd/cambios/`: la base debe estar al día con ellas.
+  Desde entonces, cada script nuevo en esa carpeta se aplica automáticamente al desplegar, después del respaldo.
+
+En GitHub, la variable del repositorio `URL_PRODUCCION` (**Settings → Secrets and variables → Actions → Variables**)
+debe tener la URL del panel, por ejemplo `http://<IP-ELASTICA>`.
+
+**20.2. Flujo de trabajo**
+
+1. Trabaje en una rama (por ejemplo, `DES`) y abra un *pull request* a `main`: GitHub muestra el resultado de
+   **Pruebas** en el *pull request*.
+2. Con las pruebas en verde, haga *merge*. En **Actions → Despliegue en EC2** aparece la corrida: primero las pruebas
+   del commit de `main` y luego **Despliegue en el EC2**, que queda en verde cuando el panel ya publica ese commit.
+3. El despliegue tarda unos 3 minutos después de que terminan las pruebas: hasta 1 minuto para detectarlo, 1 a 2 minutos
+   de construcción y unos 30 segundos sin servicio mientras arranca la versión nueva. Hágalo sin mantenimientos en
+   ejecución (sección 14).
+
+**20.3. Consultar y resolver**
+
+| Para | Comando en el EC2 |
+|---|---|
+| Ver qué está desplegado | `python3 ~/komainos/despliegue/vigilar.py --estado` y `curl -s localhost/actuator/info` |
+| Seguir el despliegue en vivo | `journalctl -u komainos-despliegue -f` |
+| Registro de cada despliegue | `ls -t ~/komainos-estado/registros/` (los 50 últimos) |
+| Respaldos previos a cada despliegue | `ls -t ~/komainos-estado/respaldos/` (los 15 últimos, permisos 600) |
+| Reintentar un despliegue fallido | `python3 ~/komainos/despliegue/vigilar.py --reintentar` |
+| Desplegar un commit a mano | `cd ~/komainos && git fetch origin && git checkout --force <sha> && bash despliegue/desplegar.sh <sha>` |
+| Pausar los despliegues | `sudo systemctl stop komainos-despliegue.timer` (reanudar: `start`) |
+
+Si la versión nueva no queda en servicio en 5 minutos, `desplegar.sh` vuelve a `komainos:anterior`, marca el commit como
+fallido y la corrida de GitHub termina en rojo. Si ese despliegue ya había aplicado migraciones y la versión anterior no
+funciona con ellas, restaure el respaldo que indica el registro:
+
+```bash
+PGPASSWORD="$(grep '^KOMAINOS_DB_CLAVE=' ~/komainos/.env | cut -d= -f2-)" docker run --rm -e PGPASSWORD \
+  -v ~/komainos-estado/respaldos:/r postgres:18-alpine \
+  pg_restore --clean --if-exists -d "host=$RDS_HOST dbname=komainos user=$RDS_USER sslmode=require" /r/<respaldo>.dump
+```
+
+Con la instancia detenida (por ejemplo, al terminar una sesión de laboratorio) no hay despliegue: al volver a encenderla,
+el temporizador despliega lo que haya en `main` si sus pruebas pasaron y el commit tiene menos de 24 horas; uno más
+antiguo se despliega a mano.

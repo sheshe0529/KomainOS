@@ -54,6 +54,15 @@ management:
     web:
       exposure:
         include: health,info
+  # /actuator/info publica solo la versión desplegada: el despliegue automático espera ver su commit (DEC-58)
+  info:
+    env:
+      enabled: true
+
+info:
+  komainos:
+    commit: ${KOMAINOS_COMMIT:desconocido}
+    construccion: ${KOMAINOS_CONSTRUCCION:desconocida}
 
 komainos:
   seguridad:
