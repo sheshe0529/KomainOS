@@ -47,7 +47,7 @@ export function deRespuesta(e: EventoActividadRespuesta, indice = 0): EventoActi
 }
 
 export function deRespuestas(eventos?: EventoActividadRespuesta[]): EventoActividad[] {
-  return (eventos ?? []).map(deRespuesta)
+  return (eventos ?? []).map((evento, indice) => deRespuesta(evento, indice))
 }
 
 export function nombreDeTarea(tarea: TareaMopRespuesta): string {

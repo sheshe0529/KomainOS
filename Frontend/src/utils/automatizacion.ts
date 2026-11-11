@@ -208,6 +208,44 @@ const CAUSAS: Record<TipoFallo, string[]> = {
 const SINTAXIS = /syntax error|unexpected eof|unexpected end of file|unterminated quoted string|error de sintaxis|parsererror/i
 const COMANDO_INEXISTENTE = /command not found|orden no encontrada|: not found\b|is not recognized as|commandnotfoundexception/i
 
+/**
+ * Un error de ejecución que se explica por el propio script: de sintaxis (en el mensaje o en la salida), un comando que
+ * el servidor no tiene, o solo el aviso de cierre de SSH sin la causa
+ */
+function diagnosticoDelScript(base: Omit<DiagnosticoFallo, 'titulo'>, salida?: string | null): DiagnosticoFallo | undefined {
+  const detalle = base.detalle ?? ''
+  const enSalida = salida?.split(/\r?\n/).find((linea) => SINTAXIS.test(linea))?.trim()
+  const sintaxis = SINTAXIS.test(detalle) ? detalle : enSalida
+  if (sintaxis) {
+    return {
+      ...base,
+      tipo: 'EJECUCION',
+      titulo: 'Error de sintaxis del script',
+      detalle: sintaxis,
+      sugerencia: 'Corrija la línea indicada en la versión del script que se ejecutó (por ejemplo, una comilla o una llave sin cerrar) y publique una versión nueva.',
+    }
+  }
+  if (COMANDO_INEXISTENTE.test(detalle)) {
+    return {
+      ...base,
+      tipo: 'EJECUCION',
+      titulo: 'Comando no disponible en el servidor',
+      sugerencia: 'Instale el comando en el servidor o use uno disponible en esa versión del sistema operativo.',
+    }
+  }
+  if (/^(?:shared )?connection to \S+ closed\.?$/i.test(detalle)) {
+    return {
+      ...base,
+      tipo: 'EJECUCION',
+      titulo: 'Fallo de ejecución sin causa detallada',
+      detalle: 'El mensaje de error solo contiene el aviso de cierre de la sesión SSH.',
+      causas: CAUSAS.EJECUCION,
+      sugerencia: 'Revise la salida del script y su código de retorno. Si la salida no está disponible, pruebe la misma versión con la cuenta de servicio.',
+    }
+  }
+  return undefined
+}
+
 /** Los resultados históricos conservan el mensaje, con la categoría al principio o dentro de una incidencia. */
 export function diagnosticarFallo(error?: string | null, salida?: string | null): DiagnosticoFallo {
   const mensajeOriginal = error?.trim() || undefined
@@ -230,40 +268,8 @@ export function diagnosticarFallo(error?: string | null, salida?: string | null)
     }
   }
 
-  if (!tipo || tipo === 'EJECUCION') {
-    const lineasSalida = salida?.split(/\r?\n/) ?? []
-    const soloCierre = /^(?:shared )?connection to \S+ closed\.?$/i.test(detalle ?? '')
-    const sintaxis = SINTAXIS.test(detalle ?? '') ? detalle : lineasSalida.find((linea) => SINTAXIS.test(linea))?.trim()
-    if (sintaxis) {
-      return {
-        ...base,
-        tipo: 'EJECUCION',
-        titulo: 'Error de sintaxis del script',
-        detalle: sintaxis,
-        sugerencia: 'Corrija la línea indicada en la versión del script que se ejecutó (por ejemplo, una comilla o una llave sin cerrar) y publique una versión nueva.',
-      }
-    }
-    const comando = COMANDO_INEXISTENTE.test(detalle ?? '') ? detalle : undefined
-    if (comando) {
-      return {
-        ...base,
-        tipo: 'EJECUCION',
-        titulo: 'Comando no disponible en el servidor',
-        detalle: comando,
-        sugerencia: 'Instale el comando en el servidor o use uno disponible en esa versión del sistema operativo.',
-      }
-    }
-    if (soloCierre) {
-      return {
-        ...base,
-        tipo: 'EJECUCION',
-        titulo: 'Fallo de ejecución sin causa detallada',
-        detalle: 'El mensaje de error solo contiene el aviso de cierre de la sesión SSH.',
-        causas: CAUSAS.EJECUCION,
-        sugerencia: 'Revise la salida del script y su código de retorno. Si la salida no está disponible, pruebe la misma versión con la cuenta de servicio.',
-      }
-    }
-  }
+  const delScript = !tipo || tipo === 'EJECUCION' ? diagnosticoDelScript(base, salida) : undefined
+  if (delScript) return delScript
 
   if (!tipo) return { ...base, titulo: 'No se completó', detalle: detalle ?? 'El sistema no registró el motivo.' }
   return {

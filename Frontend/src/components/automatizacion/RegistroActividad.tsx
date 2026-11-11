@@ -59,7 +59,7 @@ function RegistroActividad({ eventos }: { eventos: EventoActividad[] }) {
         const advertencia = !estado && e.nivel === 'WARNING'
         const Icono = estado ? estado.icono : advertencia ? TriangleAlert : Dot
         const tono = e.nivel === 'WARNING' ? 'bg-warning-soft text-warning' : estado ? estado.tono : 'bg-panel-muted text-ink-faint'
-        const fecha = e.fecha ? Date.parse(e.fecha) : NaN
+        const fecha = e.fecha ? Date.parse(e.fecha) : Number.NaN
         return (
           <li key={e.clave} className="relative flex items-start gap-3 py-2.5 before:absolute before:top-6 before:-bottom-4 before:left-3 before:w-px before:bg-line last:before:hidden">
             <span className={`relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${tono}`}>

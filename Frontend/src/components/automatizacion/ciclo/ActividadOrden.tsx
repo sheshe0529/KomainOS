@@ -214,7 +214,7 @@ export function ActividadOrden({ idOrden, ficha, refrescoMs, onCerrar }: Activid
   useRefrescoConsulta(actividad, refrescoMs != null, refrescoMs)
   const eventos = deRespuestas(actividad.datos)
   const mops = ficha.mops ?? []
-  const servidores = [...new Set([...eventos, ...mops].flatMap((e) => e.servidor ? [e.servidor] : []))].sort()
+  const servidores = [...new Set([...eventos, ...mops].flatMap((e) => e.servidor ? [e.servidor] : []))].sort((a, b) => a.localeCompare(b))
   const filtrados = eventos.filter((e) =>
     (!servidor || !e.servidor || e.servidor === servidor)
     && (!fase || e.fase === fase)
@@ -292,7 +292,7 @@ export function ActividadOrden({ idOrden, ficha, refrescoMs, onCerrar }: Activid
                       onChange={(e) => setSoloErrores(e.target.checked)}
                       className="h-4 w-4 accent-ink"
                     />
-                    Solo errores
+                    <span>Solo errores</span>
                   </label>
                 </>
               )}
