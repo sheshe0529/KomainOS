@@ -153,7 +153,11 @@ main() {
     fi
 
     paso "4/6 Cambiar de versión"
-    if docker image inspect komainos:latest >/dev/null 2>&1; then
+    # Al volver a desplegar el commit en servicio, komainos:anterior se conserva: si no, quedaría igual a la nueva y no
+    # habría a qué volver
+    local en_servicio
+    en_servicio=$(docker image inspect -f '{{.Id}}' komainos:latest 2>/dev/null || true)
+    if [[ -n $en_servicio && $en_servicio != "$(docker image inspect -f '{{.Id}}' "komainos:$CORTO")" ]]; then
         docker tag komainos:latest komainos:anterior
     fi
     docker tag "komainos:$CORTO" komainos:latest

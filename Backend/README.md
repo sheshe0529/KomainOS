@@ -54,7 +54,7 @@ se cambia con `KOMAINOS_PUERTO`.
 
 | Script | Uso |
 |---|---|
-| `01_esquema.sql` | DDL de creación: el esquema `KomainOS` completo, con 53 tablas, 96 claves foráneas y 32 enumerados. Consolida el R2.4 final (DEC-40), el R3.1 y todos los scripts de `cambios/` (el último, el método de elevación del DEC-57); verificado contra `DBKomainOS` el 2026-11-10 antes del DEC-57 (DEC-56). Requiere PostgreSQL 15 o superior y funciona en Amazon RDS. `Documentos/Docs/DDL_KOMAINOS.sql` y `01_esquema_vfinal.sql` están desactualizados respecto de él. |
+| `01_esquema.sql` | DDL de creación: el esquema `KomainOS` completo, con 54 tablas, 100 claves foráneas y 35 enumerados. Consolida el R2.4 final (DEC-40), el R3.1 y todos los scripts de `cambios/` (el último, el registro de actividad del DEC-59); verificado contra `DBKomainOS` el 2026-11-10 antes del DEC-57 (DEC-56). Requiere PostgreSQL 15 o superior y funciona en Amazon RDS. `Documentos/Docs/DDL_KOMAINOS.sql` y `01_esquema_vfinal.sql` están desactualizados respecto de él. |
 | `instalar_base.sql` | Instalación sobre una base vacía (por ejemplo, en RDS) con `psql`: `01` y `02` en una sola transacción, sin umbrales ni datos de demostración (`04` es opcional). Se niega a ejecutarse si el esquema ya existe. |
 | `02_datos_sistema.sql` | Datos sin los cuales el sistema no opera: factores de ciclo, parámetros globales y las 21 variables de salud del R3.1 (catálogo de métricas). Idempotente. |
 | `03_datos_prueba.sql` | Datos de demostración: un usuario por rol (contraseña `Cambiar.2026`), catálogos, 8 servidores con ventanas y configuración, un grupo, órdenes en distintos estados y una baja. Las fechas de las órdenes se calculan al ejecutarlo. Solo sobre una base sin datos de negocio. |

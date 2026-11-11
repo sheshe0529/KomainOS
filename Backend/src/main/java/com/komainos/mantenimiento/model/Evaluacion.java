@@ -80,6 +80,10 @@ public class Evaluacion {
     @Column(name = "error")
     private String error;
 
+    /** La salida del script cuando el análisis falla, ya saneada: explica un error de sintaxis o un código distinto */
+    @Column(name = "salida")
+    private String salida;
+
     @Column(name = "fecha_inicio", nullable = false)
     private Instant fechaInicio;
 
@@ -127,10 +131,15 @@ public class Evaluacion {
 
     /** CP103: un análisis sin todas las métricas requeridas no es concluyente y no conserva mediciones parciales */
     public void fallar(String motivo, Instant ahora) {
+        fallar(motivo, null, ahora);
+    }
+
+    public void fallar(String motivo, String salidaDelScript, Instant ahora) {
         exigirEnCurso();
         mediciones.clear();
         estado = EstadoEvaluacion.FALLIDA;
         error = motivo;
+        salida = salidaDelScript == null || salidaDelScript.isBlank() ? null : salidaDelScript;
         fechaFin = ahora;
     }
 

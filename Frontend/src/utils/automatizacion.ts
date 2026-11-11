@@ -154,6 +154,125 @@ export const FALLO: Record<TipoFallo, { etiqueta: string; sugerencia: string }> 
   },
 }
 
+export interface DiagnosticoFallo {
+  tipo?: TipoFallo
+  /** Qué falló, en una frase: lo que se muestra como resumen */
+  titulo: string
+  detalle?: string
+  sugerencia?: string
+  /** Dónde buscar la causa, de la más probable a la menos */
+  causas?: string[]
+  mensajeOriginal?: string
+}
+
+/** Posibles fuentes de cada tipo de fallo, para el detalle del error */
+const CAUSAS: Record<TipoFallo, string[]> = {
+  COMUNICACION: [
+    'La dirección IP del servidor o el puerto (SSH 22, WinRM 5986) no son los correctos.',
+    'Un firewall o grupo de seguridad impide la conexión desde el controlador.',
+    'El servidor está apagado o el servicio SSH/WinRM no está en ejecución.',
+    'La clave del servidor no está registrada en el known_hosts del controlador.',
+  ],
+  AUTENTICACION: [
+    'El usuario de la cuenta de servicio no existe en el servidor o está bloqueado.',
+    'La contraseña o la llave registradas no son las vigentes.',
+    'El servidor no admite ese método de autenticación (por ejemplo, contraseñas deshabilitadas en SSH).',
+  ],
+  PERMISOS: [
+    'El método de elevación de la cuenta (sudo, su o runas) no es el que admite el servidor.',
+    'La contraseña de elevación no es la que pide sudo (la del usuario) o su (la de root).',
+    'El usuario no tiene permitido elevar privilegios en sudoers.',
+  ],
+  TIEMPO_EXCEDIDO: [
+    'El script quedó esperando una entrada (por ejemplo, una confirmación interactiva).',
+    'Un comando del script tarda más que la duración máxima configurada.',
+  ],
+  EJECUCION: [
+    'Un error de sintaxis en la versión del script (comillas, llaves o paréntesis sin cerrar).',
+    'Un comando o archivo que el script usa no existe en el servidor.',
+    'El script terminó a propósito con un código distinto de cero.',
+  ],
+  CONTRATO: [
+    'Los códigos del JSON no coinciden exactamente con los del catálogo de métricas.',
+    'El JSON no está en la última línea de la salida o tiene un formato inválido.',
+    'Una métrica de lista se informó como valor único, o al revés.',
+  ],
+  CONFIGURACION: [
+    'Falta Ansible o una colección en el controlador.',
+    'La cuenta de servicio no sirve para la familia del sistema operativo (una llave SSH no sirve en WinRM).',
+    'Un parámetro obligatorio de la versión del script no tiene valor.',
+  ],
+}
+
+/** Errores del intérprete del script que el backend ya extrajo de la salida («Script, línea 4: unexpected EOF…») */
+const SINTAXIS = /syntax error|unexpected eof|unexpected end of file|unterminated quoted string|error de sintaxis|parsererror/i
+const COMANDO_INEXISTENTE = /command not found|orden no encontrada|: not found\b|is not recognized as|commandnotfoundexception/i
+
+/** Los resultados históricos conservan el mensaje, con la categoría al principio o dentro de una incidencia. */
+export function diagnosticarFallo(error?: string | null, salida?: string | null): DiagnosticoFallo {
+  const mensajeOriginal = error?.trim() || undefined
+  const mensaje = mensajeOriginal ?? ''
+  const categorias = Object.keys(ETIQUETA_BACKEND) as TipoFallo[]
+  const prefijo = (categoria: TipoFallo) => `${ETIQUETA_BACKEND[categoria]}: `
+  const tipo = categorias.find((categoria) => mensaje.startsWith(prefijo(categoria)))
+    ?? categorias.find((categoria) => mensaje.includes(`. ${prefijo(categoria)}`))
+  const detalle = tipo ? detalleFallo(tipo, mensaje.slice(mensaje.indexOf(ETIQUETA_BACKEND[tipo]))) : mensajeOriginal
+  const base = { tipo, detalle, mensajeOriginal, causas: tipo ? CAUSAS[tipo] : undefined }
+
+  if (tipo === 'CONTRATO') {
+    const faltantes = /^(?:el análisis no informó|falta la métrica) .+, que exigen? un umbral activo/i.test(detalle ?? '')
+    return {
+      ...base,
+      titulo: faltantes ? 'Faltan métricas requeridas' : 'Salida del análisis no válida',
+      sugerencia: faltantes
+        ? 'Use en el JSON los códigos exactos del catálogo que exigen los umbrales activos: KomainOS los compara letra por letra.'
+        : 'Revise el JSON de métricas, sus códigos y los tipos de los valores que devuelve el script.',
+    }
+  }
+
+  if (!tipo || tipo === 'EJECUCION') {
+    const lineasSalida = salida?.split(/\r?\n/) ?? []
+    const soloCierre = /^(?:shared )?connection to \S+ closed\.?$/i.test(detalle ?? '')
+    const sintaxis = SINTAXIS.test(detalle ?? '') ? detalle : lineasSalida.find((linea) => SINTAXIS.test(linea))?.trim()
+    if (sintaxis) {
+      return {
+        ...base,
+        tipo: 'EJECUCION',
+        titulo: 'Error de sintaxis del script',
+        detalle: sintaxis,
+        sugerencia: 'Corrija la línea indicada en la versión del script que se ejecutó (por ejemplo, una comilla o una llave sin cerrar) y publique una versión nueva.',
+      }
+    }
+    const comando = COMANDO_INEXISTENTE.test(detalle ?? '') ? detalle : undefined
+    if (comando) {
+      return {
+        ...base,
+        tipo: 'EJECUCION',
+        titulo: 'Comando no disponible en el servidor',
+        detalle: comando,
+        sugerencia: 'Instale el comando en el servidor o use uno disponible en esa versión del sistema operativo.',
+      }
+    }
+    if (soloCierre) {
+      return {
+        ...base,
+        tipo: 'EJECUCION',
+        titulo: 'Fallo de ejecución sin causa detallada',
+        detalle: 'El mensaje de error solo contiene el aviso de cierre de la sesión SSH.',
+        causas: CAUSAS.EJECUCION,
+        sugerencia: 'Revise la salida del script y su código de retorno. Si la salida no está disponible, pruebe la misma versión con la cuenta de servicio.',
+      }
+    }
+  }
+
+  if (!tipo) return { ...base, titulo: 'No se completó', detalle: detalle ?? 'El sistema no registró el motivo.' }
+  return {
+    ...base,
+    titulo: FALLO[tipo].etiqueta,
+    sugerencia: tipo === 'EJECUCION' ? 'Revise la salida y el código de retorno de esta versión del script.' : FALLO[tipo].sugerencia,
+  }
+}
+
 export const ESTADO_AUTORIZACION: Record<EstadoAutorizacion, Presentacion> = {
   PENDIENTE: { etiqueta: 'Pendiente', tono: 'warning' },
   APROBADA: { etiqueta: 'Aprobada', tono: 'success' },

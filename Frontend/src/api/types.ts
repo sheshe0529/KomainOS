@@ -96,6 +96,7 @@ export interface AnalisisRespuesta {
   fechaInicio?: string
   fechaFin?: string
   error?: string
+  salida?: string
   mediciones?: MedicionRespuesta[]
 }
 
@@ -200,6 +201,7 @@ export interface ConexionRespuesta {
   fallo?: 'COMUNICACION' | 'AUTENTICACION' | 'PERMISOS' | 'TIEMPO_EXCEDIDO' | 'EJECUCION' | 'CONTRATO' | 'CONFIGURACION'
   mensaje?: string
   administrador?: boolean
+  finalidades?: ('EVALUACION' | 'MANTENIMIENTO')[]
 }
 
 export interface ConfiguracionGrupoPeticion {
@@ -439,6 +441,21 @@ export interface EstadoInventario {
 
 export interface EstadoVersionPeticion {
   habilitada?: boolean
+}
+
+export interface EventoActividadRespuesta {
+  clave?: string
+  fecha?: string
+  fase?: 'ORDEN' | 'EVALUACION' | 'EJECUCION' | 'VALIDACION'
+  nivel?: 'INFO' | 'WARNING' | 'ERROR'
+  estado?: 'EN_CURSO' | 'COMPLETADO' | 'FALLIDO'
+  accion?: string
+  detalle?: string
+  error?: string
+  servidor?: string
+  script?: string
+  idTarea?: number
+  idEvaluacion?: number
 }
 
 export interface ExcepcionAplicadaRespuesta {

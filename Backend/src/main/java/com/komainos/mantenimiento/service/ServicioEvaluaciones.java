@@ -1,6 +1,7 @@
 package com.komainos.mantenimiento.service;
 
 import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.service.CodigosMetrica;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.ejecucion.model.ListaEjecucion;
 import com.komainos.ejecucion.model.MedicionInformada;
@@ -137,14 +138,14 @@ public class ServicioEvaluaciones {
             return e;
         }
         if (!resultado.correcto()) {
-            e.fallar(resultado.error(), ahora);
+            e.fallar(resultado.error(), resultado.salida(), ahora);
             return e;
         }
         try {
             registrarMediciones(e, resultado.metricas(), ahora);
             e.finalizar(ahora);
         } catch (ReglaNegocioException ex) {
-            e.fallar(TipoFallo.CONTRATO.describir(ex.getMessage()), ahora);
+            e.fallar(TipoFallo.CONTRATO.describir(ex.getMessage()), resultado.salida(), ahora);
         }
         return e;
     }
@@ -218,11 +219,13 @@ public class ServicioEvaluaciones {
         // R3.1: una métrica que no se mide en este sistema operativo ni se exige ni se evalúa
         List<Umbral> vigentes = umbrales.findAplicables().stream().filter(u -> contexto.mide(u.getMetrica())).toList();
         Set<String> recibidas = new LinkedHashSet<>();
+        Set<String> desconocidas = new LinkedHashSet<>();
 
         for (MedicionInformada dato : informadas) {
             Metrica metrica = catalogoMetricas.get(dato.codigo());
             if (metrica == null) {
                 // Una métrica que el catálogo no conoce no se evalúa: el script puede informar más de lo necesario
+                desconocidas.add(dato.codigo());
                 continue;
             }
             recibidas.add(dato.codigo());
@@ -246,11 +249,14 @@ public class ServicioEvaluaciones {
                 .distinct()
                 .toList();
         if (!faltantes.isEmpty()) {
-            throw new ReglaNegocioException("el análisis no informó %s, que exige%s un umbral activo"
-                    .formatted(String.join(", ", faltantes), faltantes.size() == 1 ? "" : "n"));
+            // «uptime» en lugar de «uptime_dias»: la pista dice qué código corregir en el script
+            throw new ReglaNegocioException("el análisis no informó %s, que exige%s un umbral activo%s"
+                    .formatted(String.join(", ", faltantes), faltantes.size() == 1 ? "" : "n",
+                            CodigosMetrica.pista(faltantes, desconocidas)));
         }
         if (e.getMediciones().isEmpty()) {
-            throw new ReglaNegocioException("el análisis no informó ninguna métrica activa del catálogo");
+            throw new ReglaNegocioException("el análisis no informó ninguna métrica activa del catálogo"
+                    + CodigosMetrica.pista(List.of(), desconocidas));
         }
     }
 

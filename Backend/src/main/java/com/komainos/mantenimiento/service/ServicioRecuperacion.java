@@ -49,6 +49,7 @@ public class ServicioRecuperacion {
     private final ServicioEvaluacionPrevia evaluacionPrevia;
     private final ServicioValidaciones validaciones;
     private final BloqueoAutomatizacion bloqueo;
+    private final ServicioActividad actividad;
     private final Clock reloj;
     private final TransactionTemplate transaccion;
 
@@ -56,7 +57,8 @@ public class ServicioRecuperacion {
                                 OrdenDetalleRepositorio detalles, OrdenRepositorio ordenes,
                                 ServicioEvaluaciones evaluaciones, ServicioIncidencias incidencias,
                                 ServicioEvaluacionPrevia evaluacionPrevia, ServicioValidaciones validaciones,
-                                BloqueoAutomatizacion bloqueo, Clock reloj, PlatformTransactionManager transacciones) {
+                                BloqueoAutomatizacion bloqueo, ServicioActividad actividad, Clock reloj,
+                                PlatformTransactionManager transacciones) {
         this.evaluacionesRepositorio = evaluacionesRepositorio;
         this.tareas = tareas;
         this.detalles = detalles;
@@ -66,6 +68,7 @@ public class ServicioRecuperacion {
         this.evaluacionPrevia = evaluacionPrevia;
         this.validaciones = validaciones;
         this.bloqueo = bloqueo;
+        this.actividad = actividad;
         this.reloj = reloj;
         this.transaccion = new TransactionTemplate(transacciones);
     }
@@ -83,7 +86,10 @@ public class ServicioRecuperacion {
         int analisis = transaccion.execute(estado -> {
             bloqueo.tomar();
             List<Evaluacion> enCurso = evaluacionesRepositorio.findByEstado(EstadoEvaluacion.EN_CURSO);
-            enCurso.forEach(e -> evaluaciones.interrumpir(e.getId(), "El análisis " + MOTIVO));
+            enCurso.forEach(e -> {
+                evaluaciones.interrumpir(e.getId(), "El análisis " + MOTIVO);
+                actividad.analisisInterrumpido(e, "El análisis " + MOTIVO);
+            });
             return enCurso.size();
         });
         int servidores = transaccion.execute(estado -> {
@@ -91,6 +97,9 @@ public class ServicioRecuperacion {
             Instant ahora = Tiempo.ahora(reloj);
             for (MopTarea tarea : tareas.findByEstado(EstadoTareaMop.EN_EJECUCION)) {
                 tarea.interrumpir("La tarea " + MOTIVO + "; su resultado es desconocido", ahora);
+                OrdenDetalle detalleTarea = tarea.getMop().getDetalle();
+                actividad.ejecucionInterrumpida(detalleTarea.getServidor().getId(), detalleTarea.getId(), tarea.getId(),
+                        "La tarea " + MOTIVO + "; su resultado es desconocido");
             }
             List<OrdenDetalle> enEjecucion = detalles.findByEstado(EstadoDetalleOrden.EN_EJECUCION);
             for (OrdenDetalle detalle : enEjecucion) {
@@ -98,6 +107,8 @@ public class ServicioRecuperacion {
                 incidencias.registrar(detalle, OrigenIncidencia.FALLO_EJECUCION,
                         "La ejecución en %s %s; revise el servidor antes de cerrar la incidencia"
                                 .formatted(detalle.getServidor().getHostname(), MOTIVO));
+                actividad.ejecucionInterrumpida(detalle.getServidor().getId(), detalle.getId(), null,
+                        "La ejecución " + MOTIVO + "; revise el servidor antes de cerrar la incidencia");
             }
             return enEjecucion.size();
         });

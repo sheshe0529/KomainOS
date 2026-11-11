@@ -79,6 +79,7 @@ export function Selector({
   const [activa, setActiva] = useState(-1)
   const abierta = usePopoverAnclado(disparador, lista, {
     altoMaximo: ALTO_MAXIMO,
+    anchoContenido: true,
     alAbrir: () => {
       setActiva(Math.max(0, indiceSeleccionado))
       lista.current?.focus()
@@ -191,11 +192,11 @@ export function Selector({
               data-activa={i === activa}
               onMouseEnter={() => !o.deshabilitada && setActiva(i)}
               onClick={() => elegir(i)}
-              className={`flex cursor-pointer items-center justify-between gap-3 whitespace-nowrap rounded-md px-2.5 py-1.5 ${
+              className={`flex cursor-pointer items-center justify-between gap-3 rounded-md px-2.5 py-1.5 ${
                 i === activa ? 'bg-panel-muted' : ''
               } ${elegida ? 'font-medium text-accent' : ''} ${o.deshabilitada ? 'cursor-not-allowed opacity-50' : ''}`}
             >
-              <span>{o.etiqueta}</span>
+              <span className="min-w-0 [overflow-wrap:anywhere]">{o.etiqueta}</span>
               {elegida && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
             </li>
           )

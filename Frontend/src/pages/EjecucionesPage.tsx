@@ -7,12 +7,13 @@ import type { EstadoTareaMop } from '@/api/dominio'
 import type { EjecucionRespuesta } from '@/api/types'
 import { PageHeader } from '@/components/common/PageHeader'
 import { Dato } from '@/components/common/Tarjeta'
-import { SalidaTerminal } from '@/components/automatizacion/SalidaTerminal'
+import { ActividadTarea } from '@/components/automatizacion/RegistroActividad'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
 import { Campo, Selector } from '@/components/ui/Campo'
 import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
 import { Cargando } from '@/components/ui/Cargando'
+import { BotonDetalle, FilaDetalle } from '@/components/ui/FilaDetalle'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { Paginacion } from '@/components/ui/Paginacion'
@@ -20,8 +21,9 @@ import { SelectorFecha } from '@/components/ui/SelectorFecha'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacion } from '@/hooks/usePaginacion'
+import { useRefrescoConsulta } from '@/hooks/useRefrescoConsulta'
 import { useTextoDiferido } from '@/hooks/useTextoDiferido'
-import { descargarTexto, ESTADO_TAREA_MOP, filaCsv, formatearSegundos } from '@/utils/automatizacion'
+import { descargarTexto, diagnosticarFallo, ESTADO_TAREA_MOP, filaCsv, formatearSegundos } from '@/utils/automatizacion'
 import { formatearDuracion, formatearFechaHora } from '@/utils/formato'
 
 /** Tope de la exportación: 20 páginas de 100 filas, las más recientes */
@@ -30,6 +32,7 @@ const MAX_PAGINAS_EXPORTACION = 20
 function DetalleEjecucion({ id, onCerrar }: { id: number; onCerrar: () => void }) {
   const detalle = useConsulta(() => operacionApi.ejecucion(id), [id])
   const e = detalle.datos?.ejecucion
+  useRefrescoConsulta(detalle, e?.estado === 'EN_EJECUCION', 1000)
 
   return (
     <Modal abierto ancho="xl" titulo={e ? `${e.tarea} en ${e.servidor}` : 'Ejecución'} onCerrar={onCerrar}>
@@ -37,13 +40,27 @@ function DetalleEjecucion({ id, onCerrar }: { id: number; onCerrar: () => void }
       {detalle.cargando && !detalle.datos && <Cargando />}
       {e && detalle.datos && (
         <div className="flex flex-col gap-5">
-          <div className="flex flex-wrap items-center gap-3">
+          <div role="status">
             {e.estado && <StatusPill tone={ESTADO_TAREA_MOP[e.estado].tono} label={ESTADO_TAREA_MOP[e.estado].etiqueta} />}
-            {e.codigoRetorno !== undefined && e.codigoRetorno !== null && (
-              <span className="font-mono text-sm text-ink-soft">código de salida {e.codigoRetorno}</span>
-            )}
           </div>
-          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ActividadTarea
+            idEjecucion={id}
+            refrescoMs={e.estado === 'EN_EJECUCION' ? 1000 : undefined}
+            tarea={{
+              id: e.id,
+              tarea: e.tarea,
+              cuenta: e.cuenta,
+              estado: e.estado,
+              fechaInicio: e.inicio,
+              fechaFin: e.fin,
+              codigoRetorno: e.codigoRetorno,
+              duracionSegundos: e.duracionSegundos,
+              error: e.error,
+              salida: detalle.datos.salida,
+            }}
+            nombreSalida={`ejecucion_${e.id}_${e.servidor}`}
+          />
+          <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Dato
               etiqueta="Orden"
               valor={
@@ -70,15 +87,6 @@ function DetalleEjecucion({ id, onCerrar }: { id: number; onCerrar: () => void }
             />
             <Dato etiqueta="Prioridad" valor={detalle.datos.prioridad} />
           </dl>
-          <div>
-            <h4 className="mb-2 text-sm font-medium text-ink">Salida</h4>
-            <SalidaTerminal
-              salida={detalle.datos.salida}
-              error={e.error}
-              nombre={`ejecucion_${e.id}_${e.servidor}`}
-              altoMaximo="24rem"
-            />
-          </div>
         </div>
       )}
     </Modal>
@@ -112,6 +120,7 @@ export function EjecucionesPage() {
   const clave = JSON.stringify(filtro)
   const ejecuciones = useConsulta(() => operacionApi.ejecuciones(filtro, pagina, tamano), [clave, pagina, tamano])
   const filas = ejecuciones.datos?.contenido ?? []
+  useRefrescoConsulta(ejecuciones, abierta == null && filas.some((e) => e.estado === 'EN_EJECUCION'))
 
   const cambiar = <T,>(fijar: (v: T) => void) => (v: T) => {
     fijar(v)
@@ -219,15 +228,19 @@ export function EjecucionesPage() {
               </thead>
               <tbody className="divide-y divide-line">
                 {filas.map((e) => (
-                  <tr key={e.id} onClick={() => setAbierta(e.id)} className="cursor-pointer align-top transition-colors hover:bg-panel-muted">
+                  <FilaDetalle key={e.id} onAbrir={() => setAbierta(e.id)} className="align-top">
                     <td className="px-5 py-3 whitespace-nowrap text-ink-soft">{formatearFechaHora(e.inicio)}</td>
                     <td className="px-3 py-3 font-mono">{e.servidor}</td>
                     <td className="max-w-xs px-3 py-3">
-                      <span className="text-ink">{e.tarea}</span>
+                      <BotonDetalle onAbrir={() => setAbierta(e.id)} etiqueta={`Ver actividad de ${e.tarea} en ${e.servidor}`}>
+                        {e.tarea}
+                      </BotonDetalle>
                       <span className="block text-xs text-ink-faint">
                         {e.script} v{e.numeroVersion} · {e.sistemaOperativo}
                       </span>
-                      {e.error && <span className="mt-1 line-clamp-1 block text-xs text-danger">{e.error}</span>}
+                      {e.estado === 'FALLIDA' && (
+                        <span className="mt-1 block text-xs text-danger">{diagnosticarFallo(e.error).titulo}</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-ink-soft">{e.cuenta ?? '—'}</td>
                     <td className="px-3 py-3">
@@ -238,13 +251,12 @@ export function EjecucionesPage() {
                     <td className="px-3 py-3">
                       <Link
                         to={`/ordenes/${e.idOrden}`}
-                        onClick={(ev) => ev.stopPropagation()}
                         className="font-mono text-accent hover:underline"
                       >
                         {e.orden}
                       </Link>
                     </td>
-                  </tr>
+                  </FilaDetalle>
                 ))}
               </tbody>
             </table>
@@ -260,7 +272,7 @@ export function EjecucionesPage() {
         </div>
       )}
 
-      {abierta && <DetalleEjecucion id={abierta} onCerrar={() => setAbierta(undefined)} />}
+      {abierta != null && <DetalleEjecucion id={abierta} onCerrar={() => setAbierta(undefined)} />}
     </>
   )
 }

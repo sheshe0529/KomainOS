@@ -11,4 +11,15 @@ public interface PuertoCuentasServicio {
     void exigirAsignable(Integer idCuenta, FamiliaSistemaOperativo familia);
 
     Optional<String> nombre(Integer idCuenta);
+
+    /** Nombre, usuario y elevación, sin secretos: para el registro de actividad de las ejecuciones (DEC-59) */
+    Optional<ResumenCuenta> resumen(Integer idCuenta);
+
+    /**
+     * @param elevacion etiqueta del método de elevación («Ninguno», «sudo», «su», «runas»)
+     * @param conContrasenaElevacion si la elevación usa una contraseña registrada
+     */
+    record ResumenCuenta(String nombre, String usuario, String autenticacion, String elevacion,
+                         boolean conContrasenaElevacion) {
+    }
 }

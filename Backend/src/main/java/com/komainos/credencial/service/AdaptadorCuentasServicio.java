@@ -55,4 +55,16 @@ public class AdaptadorCuentasServicio implements PuertoCuentasServicio {
     public Optional<String> nombre(Integer idCuenta) {
         return cuentas.findById(idCuenta).map(Credencial::getNombre);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ResumenCuenta> resumen(Integer idCuenta) {
+        return cuentas.findConSecretoById(idCuenta).map(c -> {
+            Optional<CredencialSecreto> secreto = c.secretoVigente();
+            return new ResumenCuenta(c.getNombre(), c.getUsuarioAcceso(),
+                    secreto.map(s -> s.getTipoAutenticacion().etiqueta()).orElse(null),
+                    secreto.map(s -> s.getMetodoElevacion().etiqueta()).orElse(MetodoElevacion.NINGUNO.etiqueta()),
+                    secreto.map(CredencialSecreto::tieneContrasenaElevacion).orElse(false));
+        });
+    }
 }

@@ -190,8 +190,9 @@ informe los códigos nuevos (el de `Documentos/Scripts/` ya lo hace).
    carga de datos de demostración (`POST /api/automatizacion/demostracion`, DEC-56).
 2. En la ficha del servidor, **Preparación para el ciclo automático** dice qué le
    falta: estado, cuenta de servicio, análisis compatible, política, ventana,
-   umbrales, tareas y transporte. **Probar acceso** comprueba conexión,
-   autenticación y permisos con la cuenta asignada o con una candidata.
+   umbrales, tareas y transporte. **Probar acceso** comprueba en un solo paso conexión,
+   autenticación, elevación y permisos con las cuentas de evaluación y de mantenimiento
+   (una vez si son la misma) o con una candidata (DEC-59).
 3. **Scripts**: cada script tiene una implementación por versión de sistema
    operativo y versiones inmutables. La ficha muestra la línea de versiones, el
    código, el archivo exacto que se ejecuta, los parámetros, los cambios respecto
@@ -351,9 +352,15 @@ ejecuciones (`ControlMaster=no`).
 | Error de autenticación | Usuario, contraseña o llave inválidos o vencidos |
 | Permisos insuficientes | La cuenta entra, pero la elevación configurada falla: contraseña de sudo o de root incorrecta o faltante, usuario fuera de sudoers o sin permiso para una shell, runas sin sesión completa |
 | Tiempo excedido | El script superó la duración estimada de la tarea |
-| Error de ejecución | El script terminó con código distinto de cero |
-| Salida no válida | El análisis no imprimió el JSON de métricas en su última línea |
+| Error de ejecución | El script terminó con código distinto de cero. Con elevación, Ansible ejecuta en una terminal y el error de Bash llega por la salida: KomainOS lo toma de ahí («Script, línea 4: unexpected EOF…») en lugar del aviso «Connection to … closed.» de SSH (DEC-59) |
+| Salida no válida | El análisis no imprimió el JSON de métricas en su última línea, o falta una métrica que exige un umbral activo: el mensaje dice qué código informó el script si se parece al exigido («uptime» en lugar de «uptime_dias»); los códigos se comparan de forma exacta |
 | Configuración del controlador | Ansible ausente, versión incompatible o dependencias faltantes |
+
+Un análisis fallido guarda la salida de su script (DEC-59). En la orden, la etapa **Qué se encontró en el
+servidor** resume cada fallo en una línea y **Ver detalle** muestra el diagnóstico, las posibles causas y esa salida; el
+**Siguiente paso** solo dice dónde revisarlo. **Ver actividad** lista, con la hora exacta, cada conexión (servidor,
+transporte, cuenta, usuario, autenticación y elevación), la comprobación de acceso, el inicio y el fin de cada análisis
+y tarea y las incidencias; el detalle de cada ejecución del historial muestra lo mismo para su servidor.
 
 Referencias: [módulo script](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/script_module.html),
 [WinRM](https://docs.ansible.com/ansible/latest/os_guide/windows_winrm.html).
@@ -380,7 +387,8 @@ En el frontend: `npm run build`, `npm run lint` y `npm test`.
 
 Cada servidor y grupo configura por separado **Cuenta para evaluaciones** y **Cuenta para
 mantenimiento**. Cada asignación puede heredar su predeterminada del sistema, y ambas pueden
-seleccionar la misma cuenta. La asignación masiva y la prueba de acceso indican la finalidad.
+seleccionar la misma cuenta. La asignación masiva indica la finalidad; la prueba de acceso prueba
+las dos cuentas en un solo paso y dice para qué se usa cada una (DEC-59).
 
 En **Nueva cuenta de servicio** o **Nuevo secreto**, la sección **Elevación de privilegios** define
 cómo obtiene privilegios Ansible (ninguna, sudo con o sin contraseña, su con la contraseña de root o

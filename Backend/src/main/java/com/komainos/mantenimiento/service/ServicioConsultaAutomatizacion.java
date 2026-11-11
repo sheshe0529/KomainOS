@@ -6,6 +6,7 @@ import com.komainos.inventario.service.ServicioParametrosSistema;
 import com.komainos.mantenimiento.model.AutorizacionDetalle;
 import com.komainos.mantenimiento.model.DuracionPlan;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
+import com.komainos.mantenimiento.model.EstadoEvaluacion;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.EstadoTareaMop;
 import com.komainos.mantenimiento.model.EtapaOrden;
@@ -19,6 +20,7 @@ import com.komainos.mantenimiento.model.OrdenDetalle;
 import com.komainos.mantenimiento.model.OrigenOrden;
 import com.komainos.mantenimiento.model.SolicitudAutorizacion;
 import com.komainos.mantenimiento.model.TipoAprobador;
+import com.komainos.mantenimiento.model.TipoEvaluacion;
 import com.komainos.mantenimiento.model.ValidacionFuncional;
 import com.komainos.mantenimiento.model.ValidacionTecnica;
 import com.komainos.mantenimiento.repository.EvaluacionRepositorio;
@@ -131,7 +133,7 @@ public class ServicioConsultaAutomatizacion {
         return new FichaAutomatizacion(orden, planes, analisis, rondas, validacion, validacionesTecnicas, problemas,
                 nombresCuenta, responsables(orden), parametrosSistema.getMaxDuracionMopMinutos(),
                 visibles.size(), DuracionPlan.estimar(planes, paralelo, parametrosSistema.getMaxEjecucionesConcurrentes()),
-                acciones(orden, vigente, validacion, alcance), siguientePaso(orden, planes, vigente, validacion));
+                acciones(orden, vigente, validacion, alcance), siguientePaso(orden, planes, analisis, vigente, validacion));
     }
 
     @Transactional(readOnly = true)
@@ -273,15 +275,19 @@ public class ServicioConsultaAutomatizacion {
     }
 
     /** Qué espera la orden para avanzar, en una frase para el panel */
-    private String siguientePaso(Orden orden, List<Mop> planes, SolicitudAutorizacion ronda,
+    private String siguientePaso(Orden orden, List<Mop> planes, List<Evaluacion> analisis, SolicitudAutorizacion ronda,
                                  Optional<ValidacionFuncional> validacion) {
         return switch (orden.getEstado()) {
             case PROGRAMADA, REPROGRAMADA -> "La evaluación previa inicia el %s y la ejecución el %s."
                     .formatted(FECHA.format(orden.getFechaEvaluacionProgramada()), FECHA.format(orden.getFechaInicioProgramada()));
             case EN_EVALUACION -> "Analizando el estado de los servidores con el script de análisis…";
-            // El motivo registrado ya empieza con «Ejecución bloqueada»
-            case SIN_IMPLEMENTACION -> "Ejecución bloqueada: "
-                    + ultimoMotivo(orden).replaceFirst("^Ejecución bloqueada: ", "")
+            // Un análisis fallido se explica en su etapa, con su diagnóstico y la salida del script: aquí no se repite
+            case SIN_IMPLEMENTACION -> analisis.stream().anyMatch(e -> e.getTipo() == TipoEvaluacion.PREVIA
+                    && e.getEstado() == EstadoEvaluacion.FALLIDA)
+                    ? "La evaluación previa no se completó: revise el error en «Qué se encontró en el servidor», "
+                    + "corrija la causa y cierre la orden sin intervención."
+                    // El motivo registrado ya empieza con «Ejecución bloqueada»
+                    : "Ejecución bloqueada: " + ultimoMotivo(orden).replaceFirst("^Ejecución bloqueada: ", "")
                     + ". Corrija el catálogo o la configuración y cierre la orden sin intervención.";
             case PENDIENTE_AUTORIZACION -> {
                 if (ronda == null) {

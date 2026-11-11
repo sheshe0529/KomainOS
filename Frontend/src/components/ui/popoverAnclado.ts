@@ -6,6 +6,8 @@ interface OpcionesPopover {
   altoMaximo?: number
   /** Al abrir, por ejemplo para enfocar la opción elegida */
   alAbrir?: () => void
+  /** A lo ancho de su contenido (una lista de opciones); si no, el ancho lo fija su clase */
+  anchoContenido?: boolean
 }
 
 /**
@@ -15,7 +17,7 @@ interface OpcionesPopover {
 export function usePopoverAnclado(
   disparador: RefObject<HTMLElement | null>,
   panel: RefObject<HTMLElement | null>,
-  { altoMaximo = 288, alAbrir }: OpcionesPopover = {},
+  { altoMaximo = 288, alAbrir, anchoContenido = false }: OpcionesPopover = {},
 ) {
   const [abierto, setAbierto] = useState(false)
   // El manejador del evento toggle se registra una sola vez y llama a la versión vigente
@@ -24,24 +26,36 @@ export function usePopoverAnclado(
     alAbrirRef.current = alAbrir
   })
 
-  /** Se posiciona de forma imperativa antes de mostrarse, para que no parpadee */
+  /**
+   * Se posiciona de forma imperativa antes de mostrarse, para que no parpadee, y otra vez ya abierto: cerrado no tiene
+   * tamaño, así que antes de abrir se estima. Siempre queda dentro de la ventana: si no cabe debajo se abre encima, y
+   * si es más ancho que el disparador se corre hacia la izquierda
+   */
   const ubicar = useCallback(() => {
     const el = panel.current
     const r = disparador.current?.getBoundingClientRect()
     if (!el || !r) return
-    const espacioAbajo = window.innerHeight - r.bottom - 8
-    const espacioArriba = r.top - 8
-    const haciaArriba = espacioAbajo < Math.min(el.scrollHeight, 180) && espacioArriba > espacioAbajo
-    const alto = Math.max(120, Math.min(altoMaximo, haciaArriba ? espacioArriba : espacioAbajo))
+    const medido = el.offsetWidth > 0
+    // Cerrado se estima por sus elementos (las opciones de un selector miden unos 32 px)
+    const altoNecesario = medido ? el.scrollHeight : Math.max(120, el.childElementCount * 32 + 8)
+    const espacioAbajo = window.innerHeight - r.bottom - 12
+    const espacioArriba = r.top - 12
+    const haciaArriba = espacioAbajo < Math.min(altoNecesario, altoMaximo) && espacioArriba > espacioAbajo
+    const alto = Math.max(0, Math.min(altoMaximo, haciaArriba ? espacioArriba : espacioAbajo))
+    const anchoMaximo = window.innerWidth - 16
+    const ancho = Math.min(anchoMaximo, Math.max(r.width, medido ? el.offsetWidth : r.width))
     Object.assign(el.style, {
-      left: `${Math.max(8, Math.min(r.left, window.innerWidth - Math.max(r.width, el.offsetWidth) - 8))}px`,
-      minWidth: `${r.width}px`,
+      left: `${Math.max(8, Math.min(r.left, window.innerWidth - ancho - 8))}px`,
+      // A lo ancho de su contenido, sin pasar de la ventana: antes de partir una opción en dos líneas se corre a la izquierda
+      width: anchoContenido ? 'max-content' : '',
+      minWidth: `${Math.min(r.width, anchoMaximo)}px`,
+      maxWidth: `${anchoMaximo}px`,
       maxHeight: `${alto}px`,
       top: haciaArriba ? 'auto' : `${r.bottom + 4}px`,
       bottom: haciaArriba ? `${window.innerHeight - r.top + 4}px` : 'auto',
       right: 'auto',
     })
-  }, [disparador, panel, altoMaximo])
+  }, [disparador, panel, altoMaximo, anchoContenido])
 
   useEffect(() => {
     const el = panel.current
@@ -66,6 +80,8 @@ export function usePopoverAnclado(
       const abiertoAhora = (e as Event & { newState?: string }).newState === 'open'
       setAbierto(abiertoAhora)
       if (abiertoAhora) {
+        // Ya abierto tiene su tamaño real: se corrige la estimación
+        ubicar()
         alAbrirRef.current?.()
         return
       }

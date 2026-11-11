@@ -13,6 +13,7 @@ import type {
   Diagnostico,
   EjecucionDetalleRespuesta,
   EjecucionRespuesta,
+  EventoActividadRespuesta,
   FichaAutomatizacionRespuesta,
   ImplementacionPeticion,
   IncidenciaRespuesta,
@@ -86,6 +87,8 @@ export const tareasApi = {
 /** Ciclo de una orden: evaluación previa, autorización, validación y bitácora (RF38-RF57) */
 export const cicloApi = {
   ficha: (idOrden: number) => http.get<FichaAutomatizacionRespuesta>(`/ordenes/${idOrden}/automatizacion`),
+  /** De la más reciente a la más antigua (DEC-59) */
+  actividad: (idOrden: number) => http.get<EventoActividadRespuesta[]>(`/ordenes/${idOrden}/actividad`),
   evaluar: (idOrden: number) => http.post<{ mensaje: string }>(`/ordenes/${idOrden}/evaluacion`),
   decidir: (idOrden: number, datos: DecidirAutorizacionPeticion) =>
     http.post<void>(`/ordenes/${idOrden}/autorizacion`, datos),
@@ -128,6 +131,9 @@ export const operacionApi = {
       `/automatizacion/ejecuciones${consulta({ ...filtro, page: pagina, size: tamano })}`,
     ),
   ejecucion: (id: number) => http.get<EjecucionDetalleRespuesta>(`/automatizacion/ejecuciones/${id}`),
+  /** En orden cronológico: el inicio y el acceso en el servidor y los pasos de la tarea (DEC-59) */
+  actividadEjecucion: (id: number) =>
+    http.get<EventoActividadRespuesta[]>(`/automatizacion/ejecuciones/${id}/actividad`),
   inmediata: (datos: LanzamientoInmediatoPeticion) => http.post<ReferenciaSimple>('/automatizacion/inmediata', datos),
   ejecutarCola: () => http.post<DespachoRespuesta>('/automatizacion/ejecutar-cola'),
 }
@@ -138,6 +144,11 @@ export const analisisApi = {
     http.post<ConexionRespuesta>(`/servidores/${idServidor}/conectividad${consulta({ idCuenta, finalidad })}`),
   probarGrupo: (idGrupo: number, idCuenta?: number, finalidad: FinalidadCuentaServicio = 'MANTENIMIENTO') =>
     http.post<ConexionRespuesta[]>(`/grupos/${idGrupo}/conectividad${consulta({ idCuenta, finalidad })}`),
+  /** Un solo paso: las cuentas de evaluación y de mantenimiento (una vez si son la misma) o la candidata (DEC-59) */
+  probarAccesoServidor: (idServidor: number, idCuenta?: number) =>
+    http.post<ConexionRespuesta[]>(`/servidores/${idServidor}/acceso${consulta({ idCuenta })}`),
+  probarAccesoGrupo: (idGrupo: number, idCuenta?: number) =>
+    http.post<ConexionRespuesta[]>(`/grupos/${idGrupo}/acceso${consulta({ idCuenta })}`),
   revisar: (idServidor: number) => http.post<AnalisisRespuesta>(`/servidores/${idServidor}/revision`),
   historial: (idServidor: number, pagina = 0, tamano = 25) =>
     http.get<Pagina<AnalisisRespuesta>>(`/servidores/${idServidor}/evaluaciones${consulta({ page: pagina, size: tamano })}`),

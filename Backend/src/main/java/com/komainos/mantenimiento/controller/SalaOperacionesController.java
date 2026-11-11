@@ -13,6 +13,7 @@ import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrdenDetalle;
 import com.komainos.mantenimiento.service.ProcesoAutomatizacion;
 import com.komainos.mantenimiento.service.PuertoProgramacionCambio;
+import com.komainos.mantenimiento.service.ServicioConsultaActividad;
 import com.komainos.mantenimiento.service.ServicioConsultaAutomatizacion;
 import com.komainos.mantenimiento.service.ServicioConsultaAutomatizacion.FiltroEjecuciones;
 import com.komainos.mantenimiento.service.ServicioEvaluacionPrevia;
@@ -45,6 +46,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 /** Sala de operaciones (RF34, RF35, RF66, RF67), lanzamiento inmediato (RF31) e historial de ejecución (R3.4) */
@@ -62,6 +64,7 @@ public class SalaOperacionesController {
     private final ServicioEvaluacionPrevia evaluacion;
     private final PuertoProgramacionCambio programacion;
     private final DiagnosticoAutomatizacion diagnostico;
+    private final ServicioConsultaActividad actividad;
 
     @GetMapping("/modo")
     @Operation(summary = "Estado de Ansible en el controlador y configuración del transporte")
@@ -127,6 +130,14 @@ public class SalaOperacionesController {
             @PageableDefault(size = 20) Pageable pagina) {
         return PaginaRespuesta.de(consulta.ejecuciones(new FiltroEjecuciones(idServidor, idScript, estado, desde, hasta,
                 texto), pagina), t -> AutomatizacionMapeador.ejecucion(t, this::cuenta));
+    }
+
+    @GetMapping("/ejecuciones/{id}/actividad")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'OPERADOR')")
+    @Operation(summary = "Actividad de una ejecución: inicio y comprobación de acceso en el servidor y los pasos de la "
+            + "tarea, en orden cronológico (DEC-59)")
+    public List<OperacionRespuestas.EventoActividadRespuesta> actividadEjecucion(@PathVariable Integer id) {
+        return actividad.deEjecucion(id).stream().map(OperacionRespuestas.EventoActividadRespuesta::de).toList();
     }
 
     @GetMapping("/ejecuciones/{id}")

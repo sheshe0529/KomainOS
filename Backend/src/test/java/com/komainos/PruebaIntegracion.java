@@ -71,7 +71,7 @@ public abstract class PruebaIntegracion {
      */
     protected void limpiarDatos() {
         jdbc.execute("""
-                TRUNCATE TABLE alerta_destinatario, alerta, auditoria, incidencia, validacion_funcional,
+                TRUNCATE TABLE actividad_ejecucion, alerta_destinatario, alerta, auditoria, incidencia, validacion_funcional,
                     validacion_tecnica, autorizacion_detalle, solicitud_autorizacion, notificacion_regla,
                     regla_politica_cambio, mop_tarea, mop, evaluacion_umbral, medicion_lista_item, medicion_metrica,
                     evaluacion, revision_periodica_grupo, cierre_orden, confirmacion_fuera_ventana, orden_detalle, historial_estado_orden,
