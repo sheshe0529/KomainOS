@@ -65,7 +65,7 @@ public record FichaAutomatizacionRespuesta(Integer idOrden, OrdenResumenRespuest
     public record AnalisisRespuesta(Integer id, Integer idDetalle, Integer idServidor, String servidor,
                                     TipoEvaluacion tipo, EstadoEvaluacion estado, NivelAlerta nivel, String script,
                                     Integer idVersion, Integer numeroVersion, Integer idCuentaServicio, String cuenta,
-                                    Instant fechaInicio, Instant fechaFin, String error,
+                                    Instant fechaInicio, Instant fechaFin, String error, String salida,
                                     List<MedicionRespuesta> mediciones) {
     }
 

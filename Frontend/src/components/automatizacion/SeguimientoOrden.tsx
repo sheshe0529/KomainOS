@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Download, Play, ScanSearch, X } from 'lucide-react'
+import { Check, Download, ListOrdered, Play, ScanSearch, X } from 'lucide-react'
 import { bitacoraApi, cicloApi, operacionApi } from '@/api/automatizacion'
 import type { EstadoOrden, EtapaOrden } from '@/api/dominio'
 import type { FichaAutomatizacionRespuesta, IncidenciaRespuesta } from '@/api/types'
@@ -13,12 +13,14 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { Info, TituloConInfo } from '@/components/ui/Info'
 import { useConsulta } from '@/hooks/useConsulta'
-import { AFECTACION, ESTADO_INCIDENCIA, ORIGEN_INCIDENCIA } from '@/utils/automatizacion'
+import { useRefrescoConsulta } from '@/hooks/useRefrescoConsulta'
+import { AFECTACION, diagnosticarFallo, ESTADO_INCIDENCIA, ORIGEN_INCIDENCIA } from '@/utils/automatizacion'
 import { etapasAlcanzadas, pasoDe } from '@/utils/etapasOrden'
 import { ETIQUETA_ESTADO_ORDEN } from '@/utils/etiquetas'
 import { formatearFechaHora, formatearHora } from '@/utils/formato'
 import { AccionOrdenModal } from './ciclo/AccionOrdenModal'
 import type { AccionOrden } from './ciclo/AccionOrdenModal'
+import { ActividadOrden } from './ciclo/ActividadOrden'
 import { Autorizaciones } from './ciclo/Autorizaciones'
 import { CELDA, ENCABEZADO } from './ciclo/estilosTabla'
 import { EtapasOrden } from './ciclo/EtapasOrden'
@@ -33,9 +35,8 @@ interface SeguimientoOrdenProps {
   onCambioEstado: () => void
 }
 
-/** Mientras la orden avanza sola, la ficha se consulta seguido; en los demás estados espera una acción */
-const EN_CURSO: EstadoOrden[] = ['EN_EVALUACION', 'AUTORIZADA', 'EN_COLA', 'EN_EJECUCION']
-const REFRESCO_MS = 4000
+/** Etapas que pueden avanzar sin una acción del usuario en la ficha. */
+const CON_REFRESCO: EstadoOrden[] = ['PROGRAMADA', 'REPROGRAMADA', 'EN_EVALUACION', 'AUTORIZADA', 'EN_COLA', 'EN_EJECUCION']
 
 /** Cada etapa responde una pregunta, en lenguaje del usuario y no del modelo */
 const ETAPA: Record<Exclude<EtapaOrden, 'INCIDENCIA'>, { titulo: string; explicacion: string }> = {
@@ -102,11 +103,22 @@ const RESULTADO_CIERRE: Partial<Record<EstadoOrden, string>> = {
   PENDIENTE_VALIDACION: 'Mantenimiento completado y validado',
   EN_EVALUACION: 'Cerrado sin intervenir: ninguna métrica activó tareas',
   INCIDENCIA: 'Cerrado tras atender la incidencia',
-  SIN_IMPLEMENTACION: 'Cerrado sin intervenir: faltaba una implementación compatible',
+  SIN_IMPLEMENTACION: 'Cerrado sin intervenir porque la ejecución quedó bloqueada',
   RECHAZADA: 'Rechazado en la autorización',
   AUTORIZACION_VENCIDA: 'No se ejecutó: venció el plazo de autorización',
   VALIDACION_VENCIDA: 'Cerrado: venció el plazo de la validación funcional',
   CANCELADA: 'Cancelado antes de ejecutarse',
+}
+
+/** Qué falló, en una frase; el mensaje completo queda en la incidencia */
+function ResumenIncidencia({ error }: { error: string }) {
+  const d = diagnosticarFallo(error)
+  return (
+    <p className="mt-1 line-clamp-2 break-words text-ink-soft">
+      <span className="font-medium text-danger">{d.titulo}</span>
+      {d.detalle && d.detalle !== d.titulo && <>: {d.detalle}</>}
+    </p>
+  )
 }
 
 function Incidencias({ incidencias, gestiona, esAdmin }: { incidencias: IncidenciaRespuesta[]; gestiona: boolean; esAdmin: boolean }) {
@@ -120,7 +132,7 @@ function Incidencias({ incidencias, gestiona, esAdmin }: { incidencias: Incidenc
               <span className="font-mono text-ink-soft">{i.servidor}</span>
               {i.estado && <StatusPill tone={ESTADO_INCIDENCIA[i.estado].tono} label={ESTADO_INCIDENCIA[i.estado].etiqueta} />}
             </div>
-            {i.error && <p className="mt-1 line-clamp-2 text-ink-soft">{i.error}</p>}
+            {i.error && <ResumenIncidencia error={i.error} />}
             <p className="mt-1 text-xs text-ink-faint">Abierta {formatearFechaHora(i.fechaApertura)}</p>
           </div>
           {/* El responsable ve sus incidencias aquí; la gestión de incidencias es del administrador y el operador */}
@@ -170,7 +182,7 @@ function DetalleEtapa({
       return previos.length === 0 ? (
         <p className="text-sm text-ink-soft">El análisis previo todavía no se ejecuta.</p>
       ) : (
-        <TablaAnalisis analisis={previos} />
+        <TablaAnalisis analisis={previos} resumirFallos />
       )
     }
     case 'AUTORIZACION': {
@@ -319,6 +331,7 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
   const ficha = useConsulta(() => cicloApi.ficha(idOrden), [idOrden])
   const [elegida, setElegida] = useState<EtapaOrden>()
   const [accion, setAccion] = useState<AccionOrden>()
+  const [ordenActividad, setOrdenActividad] = useState<number>()
   const [exportando, setExportando] = useState(false)
   const [trabajando, setTrabajando] = useState(false)
   const [error, setError] = useState<unknown>()
@@ -326,22 +339,15 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
   const f = ficha.datos
   const estado = f?.orden?.estado
   const { recargar } = ficha
+  const ejecutando = estado === 'EN_EVALUACION' || estado === 'EN_EJECUCION'
 
-  useEffect(() => {
-    if (!estado || !EN_CURSO.includes(estado)) return
-    const t = window.setInterval(() => {
-      if (document.visibilityState === 'visible') recargar()
-    }, REFRESCO_MS)
-    return () => window.clearInterval(t)
-  }, [estado, recargar])
+  useRefrescoConsulta(ficha, estado != null && CON_REFRESCO.includes(estado), ejecutando ? 1000 : 4000)
 
   // La página de la orden muestra datos de planificación que también cambian con el estado
   const estadoAnterior = useRef(estado)
   useEffect(() => {
     if (estadoAnterior.current && estado && estadoAnterior.current !== estado) {
       onCambioEstado()
-      // Al avanzar, se muestra la etapa nueva
-      setElegida(undefined)
     }
     estadoAnterior.current = estado
   }, [estado, onCambioEstado])
@@ -358,6 +364,8 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
   const propuesta = f.autorizaciones
     ?.at(-1)
     ?.decisiones?.find((d) => d.estado === 'FECHA_PROPUESTA')?.fechaPropuesta
+  // El backend no repite el error: lo explica la etapa en la que ocurrió, con su diagnóstico y la salida del script
+  const siguientePaso = f.siguientePaso
 
   async function ejecutar(fn: () => Promise<string>) {
     setTrabajando(true)
@@ -395,6 +403,9 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
           <h3 className="text-base font-semibold text-ink">Ciclo de mantenimiento</h3>
         </div>
         <div className="ml-auto flex flex-wrap justify-end gap-2">
+          <Boton icono={ListOrdered} aria-haspopup="dialog" onClick={() => setOrdenActividad(idOrden)}>
+            Ver actividad
+          </Boton>
           <Boton icono={Download} onClick={() => setExportando(true)}>
             Exportar bitácora
           </Boton>
@@ -406,7 +417,7 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
       <div className="flex flex-col gap-3 rounded-lg bg-accent-soft px-4 py-3 sm:flex-row sm:items-center">
         <p className="flex-1 text-sm text-ink">
           <span className="font-medium">Siguiente paso: </span>
-          {f.siguientePaso}
+          {siguientePaso}
         </p>
         {hayAcciones && (
           <div className="flex flex-wrap gap-2">
@@ -458,7 +469,7 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
         )}
       </div>
 
-      <MensajeError error={error} />
+      <MensajeError error={error ?? ficha.error} onReintentar={error ? undefined : recargar} />
 
       <div className="flex flex-col gap-4 border-t border-line pt-4">
         <div className="flex items-center gap-1.5">
@@ -468,6 +479,15 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
         <DetalleEtapa etapa={actual} f={f} gestiona={gestionaIncidencias} esAdmin={esAdmin} />
       </div>
 
+      {ordenActividad === idOrden && (
+        <ActividadOrden
+          key={idOrden}
+          idOrden={idOrden}
+          ficha={f}
+          refrescoMs={estado != null && CON_REFRESCO.includes(estado) ? (ejecutando ? 1000 : 4000) : undefined}
+          onCerrar={() => setOrdenActividad(undefined)}
+        />
+      )}
       {accion && (
         <AccionOrdenModal
           idOrden={idOrden}

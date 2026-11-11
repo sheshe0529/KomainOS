@@ -11,6 +11,7 @@ import com.komainos.shared.exception.ReglaNegocioException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Traduce lo que escribió ansible-playbook a un {@link ResultadoEjecucion}. El callback komainos_json emite una línea
@@ -24,6 +25,21 @@ public final class InterpreteAnsible {
     /** El script de comprobación de acceso termina con este código si la cuenta no es administradora */
     public static final int CODIGO_SIN_PERMISOS = 3;
     private static final int LARGO_DETALLE = 1500;
+    /** Lo escribe ssh -tt al cerrar la sesión: no es la causa de ningún fallo */
+    private static final Pattern CIERRE_SSH = Pattern.compile("(?im)^\\s*(?:shared )?connection to \\S+ closed\\.?\\s*$");
+    /** El mensaje genérico del módulo script cuando el código de retorno no es cero */
+    private static final String CODIGO_DISTINTO_DE_CERO = "non-zero return code";
+    /**
+     * Errores del intérprete del script (bash o PowerShell). Con elevación, Ansible ejecuta en una terminal y el error
+     * del script llega por la salida estándar, no por la de errores
+     */
+    private static final Pattern ERROR_DEL_SCRIPT = Pattern.compile("(?i)(?:\\bline \\d+:|\\blínea \\d+:|syntax error|"
+            + "unexpected eof|unexpected end of file|command not found|orden no encontrada|no such file or directory|"
+            + "bad interpreter|unbound variable|cannot execute|: not found\\s*$|parsererror|commandnotfoundexception|"
+            + "is not recognized as)");
+    /** La ruta temporal en la que Ansible copió el script: no le dice nada al usuario */
+    private static final Pattern RUTA_DEL_SCRIPT = Pattern.compile("^\\S*?tarea\\.(?:sh|ps1):\\s*(?:line (\\d+):)?");
+    private static final int LINEAS_ERROR_DEL_SCRIPT = 3;
 
     private static final List<String> SENALES_AUTENTICACION = List.of(
             "permission denied (publickey", "permission denied, please try again", "authentication failed",
@@ -64,7 +80,7 @@ public final class InterpreteAnsible {
         JsonNode r = estado.get();
         String resultado = r.path("estado").asText("failed");
         String stdout = SanitizadorSalida.limpiar(r.path("stdout").asText(""), secretos);
-        String stderr = r.path("stderr").asText("");
+        String stderr = sinAvisoDeCierre(SanitizadorSalida.terminal(r.path("stderr").asText("")));
         String msg = r.path("msg").isTextual() ? r.path("msg").asText() : r.path("msg").toString();
         String detalle = primeroNoVacio(stderr, msg);
 
@@ -90,7 +106,10 @@ public final class InterpreteAnsible {
                 return ResultadoEjecucion.fallo(TipoFallo.PERMISOS,
                         limpiar(conIndicacion(TipoFallo.PERMISOS, elevacion), secretos));
             }
-            return ResultadoEjecucion.codigoError(codigo, stdout, limpiar(detalle, secretos));
+            // El error del script antes que el mensaje genérico del módulo; sin ninguno, «terminó con el código N»
+            String causa = primeroNoVacio(stderr, errorDelScript(stdout),
+                    CODIGO_DISTINTO_DE_CERO.equalsIgnoreCase(msg.strip()) ? "" : msg);
+            return ResultadoEjecucion.codigoError(codigo, stdout, limpiar(causa, secretos));
         }
         TipoFallo tipo = clasificar(detalle).orElse(TipoFallo.EJECUCION);
         return ResultadoEjecucion.fallo(tipo, limpiar(conIndicacion(tipo, detalle), secretos));
@@ -134,6 +153,38 @@ public final class InterpreteAnsible {
                 .filter(l -> contiene(l.toLowerCase(Locale.ROOT), SENALES_ELEVACION_EN_SALIDA))
                 .map(String::strip)
                 .findFirst().orElse(null);
+    }
+
+    /** Quita el aviso de cierre de la sesión SSH; si no queda nada más, el texto queda vacío */
+    static String sinAvisoDeCierre(String texto) {
+        return texto == null ? "" : CIERRE_SSH.matcher(texto).replaceAll("").strip();
+    }
+
+    /**
+     * Las líneas de la salida con el error del intérprete del script («línea 4: unexpected EOF…»), sin la ruta temporal
+     * en la que Ansible copió el script. Nulo si no hay ninguna
+     */
+    static String errorDelScript(String salida) {
+        if (salida == null || salida.isBlank()) {
+            return null;
+        }
+        List<String> lineas = salida.lines()
+                .map(String::strip)
+                .filter(l -> !l.isEmpty() && ERROR_DEL_SCRIPT.matcher(l).find())
+                .limit(LINEAS_ERROR_DEL_SCRIPT)
+                .map(InterpreteAnsible::sinRutaDelScript)
+                .toList();
+        return lineas.isEmpty() ? null : String.join("\n", lineas);
+    }
+
+    /** «/home/u/.ansible/tmp/ansible-tmp-1/tarea.sh: line 4: unexpected EOF…» → «Script, línea 4: unexpected EOF…» */
+    private static String sinRutaDelScript(String linea) {
+        var m = RUTA_DEL_SCRIPT.matcher(linea);
+        if (!m.find()) {
+            return linea;
+        }
+        String resto = linea.substring(m.end()).strip();
+        return (m.group(1) == null ? "Script: " : "Script, línea " + m.group(1) + ": ") + resto;
     }
 
     /** Agrega cómo resolver los casos de laboratorio más frecuentes */

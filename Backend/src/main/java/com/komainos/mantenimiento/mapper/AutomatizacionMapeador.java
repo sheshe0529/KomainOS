@@ -84,7 +84,7 @@ public final class AutomatizacionMapeador {
                 e.getServidor().getHostname(), e.getTipo(), e.getEstado(), e.estaFinalizada() ? e.nivel() : null,
                 e.getVersion().getImplementacion().getScript().getNombre(), e.getVersion().getId(),
                 e.getVersion().getNumeroVersion(), e.getIdCuentaServicio(), cuentas.get(e.getIdCuentaServicio()),
-                e.getFechaInicio(), e.getFechaFin(), e.getError(),
+                e.getFechaInicio(), e.getFechaFin(), e.getError(), e.getSalida(),
                 e.getMediciones().stream().map(AutomatizacionMapeador::medicion).toList());
     }
 

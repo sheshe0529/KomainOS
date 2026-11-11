@@ -335,8 +335,11 @@ public class ServicioCatalogoAutomatizacion {
                 .filter(codigo -> !recibidas.contains(codigo))
                 .distinct()
                 .toList();
-        faltantes.forEach(codigo -> errores.add(
-                "falta la métrica «%s», que exige un umbral activo".formatted(codigo)));
+        List<String> desconocidas = recibidas.stream().filter(c -> !catalogo.containsKey(c)).sorted().toList();
+        faltantes.forEach(codigo -> errores.add("falta la métrica «%s», que exige un umbral activo%s".formatted(codigo,
+                CodigosMetrica.parecido(codigo, desconocidas)
+                        .map(d -> " (el script informó «%s»: los códigos se comparan de forma exacta)".formatted(d))
+                        .orElse(""))));
         return new RevisionSalida(errores.isEmpty(), errores, revisadas, faltantes);
     }
 

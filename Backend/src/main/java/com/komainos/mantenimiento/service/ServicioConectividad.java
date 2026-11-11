@@ -28,7 +28,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Verificación de conectividad, autenticación y permisos de una cuenta de servicio (RF71, HU03 CA3, HU04 CA4). Sin
@@ -70,10 +73,8 @@ public class ServicioConectividad {
     public ResultadoConexion probarServidor(Integer idServidor, Integer idCuentaCandidata, FinalidadCuenta finalidad, Actor actor) {
         Prueba prueba = transaccion.execute(estado -> {
             Servidor s = servidores.obtenerSinAlcance(idServidor);
-            Integer cuenta = idCuentaCandidata != null ? idCuentaCandidata : configuracionesServidor.findByServidorId(idServidor)
-                    .map(c -> ServicioAsignacionCuentas.propia(c, finalidad))
-                    .orElse(ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad));
-            return preparar(s, cuenta, finalidad);
+            Integer cuenta = idCuentaCandidata != null ? idCuentaCandidata : cuentaDelServidor(idServidor, finalidad);
+            return preparar(s, cuenta, List.of(finalidad));
         });
         ResultadoConexion resultado = ejecutar(prueba);
         auditar(actor, "servidor " + prueba.hostname() + " · " + finalidad, List.of(resultado), idServidor);
@@ -82,28 +83,104 @@ public class ServicioConectividad {
 
     public List<ResultadoConexion> probarGrupo(Integer idGrupo, Integer idCuentaCandidata, FinalidadCuenta finalidad, Actor actor) {
         List<Prueba> pruebas = transaccion.execute(estado -> {
-            GrupoMantenimiento grupo = grupos.findConIntegrantesById(idGrupo)
-                    .orElseThrow(() -> RecursoNoEncontradoException.de("el grupo", idGrupo));
-            if (grupo.servidores().isEmpty()) {
-                throw new ReglaNegocioException("El grupo %s no tiene integrantes".formatted(grupo.getNombre()));
-            }
-            Integer cuenta = idCuentaCandidata != null ? idCuentaCandidata : configuracionesGrupo.findByGrupoId(idGrupo)
-                    .map(c -> ServicioAsignacionCuentas.propia(c, finalidad))
-                    .orElse(ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad));
-            return grupo.servidores().stream().map(s -> preparar(s, cuenta, finalidad)).toList();
+            List<Servidor> integrantes = integrantes(idGrupo);
+            Integer cuenta = idCuentaCandidata != null ? idCuentaCandidata : cuentaDelGrupo(idGrupo, finalidad);
+            return integrantes.stream().map(s -> preparar(s, cuenta, List.of(finalidad))).toList();
         });
+        List<ResultadoConexion> resultados = ejecutarTodas(pruebas, "grupo " + idGrupo);
+        auditar(actor, "grupo " + idGrupo + " · " + finalidad, resultados, null);
+        return resultados;
+    }
+
+    /**
+     * Un solo paso para el acceso y los permisos (DEC-59): prueba la cuenta de la evaluación y la del mantenimiento del
+     * servidor, una sola vez si son la misma. Con una cuenta candidata, solo esa. Cada resultado dice para qué se usa
+     * la cuenta probada
+     */
+    public List<ResultadoConexion> probarAccesoServidor(Integer idServidor, Integer idCuentaCandidata, Actor actor) {
+        List<Prueba> pruebas = transaccion.execute(estado -> {
+            Servidor s = servidores.obtenerSinAlcance(idServidor);
+            return porCuenta(idCuentaCandidata, f -> cuentaDelServidor(idServidor, f)).entrySet().stream()
+                    .map(c -> preparar(s, c.getKey(), c.getValue()))
+                    .toList();
+        });
+        List<ResultadoConexion> resultados = ejecutarTodas(pruebas, "servidor " + idServidor);
+        auditar(actor, "servidor " + pruebas.getFirst().hostname() + " · acceso", resultados, idServidor);
+        return resultados;
+    }
+
+    /** Lo mismo en cada integrante del grupo (CP021) */
+    public List<ResultadoConexion> probarAccesoGrupo(Integer idGrupo, Integer idCuentaCandidata, Actor actor) {
+        List<Prueba> pruebas = transaccion.execute(estado -> {
+            List<Servidor> integrantes = integrantes(idGrupo);
+            Map<Integer, List<FinalidadCuenta>> cuentasAProbar = porCuenta(idCuentaCandidata,
+                    f -> cuentaDelGrupo(idGrupo, f));
+            return integrantes.stream()
+                    .flatMap(s -> cuentasAProbar.entrySet().stream().map(c -> preparar(s, c.getKey(), c.getValue())))
+                    .toList();
+        });
+        List<ResultadoConexion> resultados = ejecutarTodas(pruebas, "grupo " + idGrupo);
+        auditar(actor, "grupo " + idGrupo + " · acceso", resultados, null);
+        return resultados;
+    }
+
+    /** Sin cuenta candidata: la de cada finalidad, agrupadas para no probar dos veces la misma */
+    private static Map<Integer, List<FinalidadCuenta>> porCuenta(Integer candidata,
+                                                                 Function<FinalidadCuenta, Integer> cuentaDe) {
+        Map<Integer, List<FinalidadCuenta>> cuentasAProbar = new LinkedHashMap<>();
+        if (candidata != null) {
+            cuentasAProbar.put(candidata, List.of());
+            return cuentasAProbar;
+        }
+        for (FinalidadCuenta finalidad : FinalidadCuenta.values()) {
+            Integer cuenta = cuentaDe.apply(finalidad);
+            if (cuenta == null) {
+                throw new ReglaNegocioException("Asigne una cuenta de servicio de %s o defina la predeterminada para "
+                        .formatted(finalidad == FinalidadCuenta.EVALUACION ? "evaluación" : "mantenimiento")
+                        + "probar el acceso");
+            }
+            cuentasAProbar.computeIfAbsent(cuenta, c -> new ArrayList<>()).add(finalidad);
+        }
+        return cuentasAProbar;
+    }
+
+    private Integer cuentaDelServidor(Integer idServidor, FinalidadCuenta finalidad) {
+        return configuracionesServidor.findByServidorId(idServidor)
+                .map(c -> ServicioAsignacionCuentas.propia(c, finalidad))
+                .orElse(ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad));
+    }
+
+    private Integer cuentaDelGrupo(Integer idGrupo, FinalidadCuenta finalidad) {
+        return configuracionesGrupo.findByGrupoId(idGrupo)
+                .map(c -> ServicioAsignacionCuentas.propia(c, finalidad))
+                .orElse(ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad));
+    }
+
+    private List<Servidor> integrantes(Integer idGrupo) {
+        GrupoMantenimiento grupo = grupos.findConIntegrantesById(idGrupo)
+                .orElseThrow(() -> RecursoNoEncontradoException.de("el grupo", idGrupo));
+        if (grupo.servidores().isEmpty()) {
+            throw new ReglaNegocioException("El grupo %s no tiene integrantes".formatted(grupo.getNombre()));
+        }
+        return grupo.servidores();
+    }
+
+    /** En paralelo, dentro del límite de conexiones; ordenadas por servidor y, en cada uno, evaluación primero */
+    private List<ResultadoConexion> ejecutarTodas(List<Prueba> pruebas, String objetivo) {
+        if (pruebas.size() == 1) {
+            return List.of(ejecutar(pruebas.getFirst()));
+        }
         List<ResultadoConexion> resultados = Collections.synchronizedList(new ArrayList<>());
         Paralelo.paraCada(pruebas, p -> resultados.add(ejecutar(p)))
-                .forEach(ex -> log.error("Error inesperado al probar la conectividad del grupo {}", idGrupo, ex));
-        List<ResultadoConexion> ordenados = resultados.stream()
-                .sorted(Comparator.comparing(ResultadoConexion::servidor))
+                .forEach(ex -> log.error("Error inesperado al probar la conectividad del {}", objetivo, ex));
+        return resultados.stream()
+                .sorted(Comparator.comparing(ResultadoConexion::servidor)
+                        .thenComparing(r -> r.finalidades().isEmpty() ? 0 : r.finalidades().getFirst().ordinal()))
                 .toList();
-        auditar(actor, "grupo " + idGrupo + " · " + finalidad, ordenados, null);
-        return ordenados;
     }
 
     /** La cuenta debe existir, estar vigente y servir para la familia del servidor (una llave SSH no sirve en WinRM) */
-    private Prueba preparar(Servidor s, Integer cuenta, FinalidadCuenta finalidad) {
+    private Prueba preparar(Servidor s, Integer cuenta, List<FinalidadCuenta> finalidades) {
         if (cuenta == null) {
             throw new ReglaNegocioException("Asigne una cuenta de servicio o defina la predeterminada para probar el acceso");
         }
@@ -114,25 +191,26 @@ public class ServicioConectividad {
         } catch (ReglaNegocioException ex) {
             problema = ex.getMessage();
         }
-        SolicitudEjecucion solicitud = finalidad == FinalidadCuenta.EVALUACION
+        // El mismo script en las dos finalidades (DEC-57): el propósito solo distingue la evaluación en el registro
+        SolicitudEjecucion solicitud = finalidades.equals(List.of(FinalidadCuenta.EVALUACION))
                 ? SolicitudEjecucion.conectividadEvaluacion(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(), cuenta, 2)
                 : SolicitudEjecucion.conectividad(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(), cuenta, 2);
-        return new Prueba(s.getId(), s.getHostname(), cuenta, nombre, problema, solicitud);
+        return new Prueba(s.getId(), s.getHostname(), cuenta, nombre, problema, solicitud, List.copyOf(finalidades));
     }
 
     private ResultadoConexion ejecutar(Prueba p) {
         if (p.problema() != null) {
             return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), false,
-                    TipoFallo.CONFIGURACION, p.problema(), null);
+                    TipoFallo.CONFIGURACION, p.problema(), null, p.finalidades());
         }
         ResultadoEjecucion r = remoto.probarConexion(p.solicitud());
         if (!r.correcto()) {
             return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), false, r.fallo(),
-                    r.error(), null);
+                    r.error(), null, p.finalidades());
         }
         Permisos permisos = permisos(r.salida());
         return new ResultadoConexion(p.idServidor(), p.hostname(), p.idCuenta(), p.cuenta(), true, null,
-                permisos.mensaje(), permisos.administrador());
+                permisos.mensaje(), permisos.administrador(), p.finalidades());
     }
 
     /**
@@ -168,15 +246,17 @@ public class ServicioConectividad {
     }
 
     private record Prueba(Integer idServidor, String hostname, Integer idCuenta, String cuenta, String problema,
-                          SolicitudEjecucion solicitud) {
+                          SolicitudEjecucion solicitud, List<FinalidadCuenta> finalidades) {
     }
 
     /**
      * @param fallo         nulo si el acceso se verificó; si no, comunicación, autenticación, permisos (la elevación
      *                      falló) o configuración
      * @param administrador si los scripts se ejecutarán con privilegios de administrador; nulo si no se llegó a saber
+     * @param finalidades   para qué usa el servidor la cuenta probada; vacía si es una candidata
      */
     public record ResultadoConexion(Integer idServidor, String servidor, Integer idCuenta, String cuenta,
-                                    boolean correcto, TipoFallo fallo, String mensaje, Boolean administrador) {
+                                    boolean correcto, TipoFallo fallo, String mensaje, Boolean administrador,
+                                    List<FinalidadCuenta> finalidades) {
     }
 }

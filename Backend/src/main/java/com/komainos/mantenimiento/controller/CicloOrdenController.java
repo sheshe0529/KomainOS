@@ -2,8 +2,10 @@ package com.komainos.mantenimiento.controller;
 
 import com.komainos.mantenimiento.dto.CicloPeticiones;
 import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta;
+import com.komainos.mantenimiento.dto.OperacionRespuestas.EventoActividadRespuesta;
 import com.komainos.mantenimiento.mapper.AutomatizacionMapeador;
 import com.komainos.mantenimiento.service.ServicioAutorizaciones;
+import com.komainos.mantenimiento.service.ServicioConsultaActividad;
 import com.komainos.mantenimiento.service.ServicioConsultaAutomatizacion;
 import com.komainos.mantenimiento.service.ServicioEvaluacionPrevia;
 import com.komainos.mantenimiento.service.ServicioValidaciones;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 /** El ciclo de una orden: evaluación, autorización, validación y bitácora (RF38-RF57, HU25-HU27) */
@@ -37,11 +40,19 @@ public class CicloOrdenController {
     private final ServicioEvaluacionPrevia evaluacion;
     private final ServicioAutorizaciones autorizaciones;
     private final ServicioValidaciones validaciones;
+    private final ServicioConsultaActividad actividad;
 
     @GetMapping("/automatizacion")
     @Operation(summary = "Bitácora de la orden: MOP, análisis, autorizaciones, validaciones, incidencias y reporte comparativo")
     public FichaAutomatizacionRespuesta ficha(@PathVariable Integer id, @AuthenticationPrincipal UsuarioAutenticado u) {
         return AutomatizacionMapeador.ficha(consulta.ficha(id, AlcanceUsuario.de(u)));
+    }
+
+    @GetMapping("/actividad")
+    @Operation(summary = "Actividad de la orden, de la más reciente a la más antigua: cambios de estado, conexiones, "
+            + "comprobación de acceso, análisis, tareas e incidencias con su hora exacta (DEC-59)")
+    public List<EventoActividadRespuesta> actividad(@PathVariable Integer id, @AuthenticationPrincipal UsuarioAutenticado u) {
+        return actividad.deOrden(id, AlcanceUsuario.de(u)).stream().map(EventoActividadRespuesta::de).toList();
     }
 
     /** Los errores de configuración responden al instante; los análisis continúan en segundo plano */

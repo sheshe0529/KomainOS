@@ -6,6 +6,8 @@ import com.komainos.alerta.service.ServicioAlertas.DatosAlerta;
 import com.komainos.ejecucion.service.DiagnosticoAutomatizacion.Diagnostico;
 import com.komainos.ejecucion.service.DiagnosticoAutomatizacion.Transporte;
 import com.komainos.catalogo.model.NivelAfectacion;
+import com.komainos.credencial.model.TipoAutenticacion;
+import com.komainos.credencial.service.ServicioCredenciales;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.GrupoMantenimiento;
 import com.komainos.inventario.model.ModoEjecucion;
@@ -160,6 +162,38 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
                     .andExpect(jsonPath("$.correcto").value(false))
                     .andExpect(jsonPath("$.fallo").value("PERMISOS"));
             assertThat(contar("select count(*) from auditoria where operacion = 'PROBAR_CONECTIVIDAD'")).isEqualTo(4);
+        }
+
+        @Test
+        @DisplayName("DEC-59: un solo paso prueba las cuentas de evaluación y de mantenimiento, una vez si son la misma")
+        void accesoEnUnPaso() throws Exception {
+            mvc.perform(post("/api/servidores/{id}/acceso", servidor.getId()).with(como(admin)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].correcto").value(true))
+                    .andExpect(jsonPath("$[0].administrador").value(true))
+                    .andExpect(jsonPath("$[0].finalidades[0]").value("EVALUACION"))
+                    .andExpect(jsonPath("$[0].finalidades[1]").value("MANTENIMIENTO"));
+
+            Integer evaluadora = credenciales.registrarCuenta(new ServicioCredenciales.DatosCredencial("Cuenta evaluadora",
+                    "svc_lectura", null, new ServicioCredenciales.Secreto(TipoAutenticacion.PASSWORD,
+                    "otro-secreto-de-pruebas")), actor).getId();
+            jdbc.update("update configuracion_mantenimiento m set id_cuenta_servicio_evaluacion = ? from configuracion_servidor s "
+                    + "where s.id_configuracion_mantenimiento = m.id_configuracion_mantenimiento and s.id_servidor = ?",
+                    evaluadora, servidor.getId());
+            mvc.perform(post("/api/servidores/{id}/acceso", servidor.getId()).with(como(admin)))
+                    .andExpect(jsonPath("$.length()").value(2))
+                    .andExpect(jsonPath("$[0].cuenta").value("Cuenta evaluadora"))
+                    .andExpect(jsonPath("$[0].finalidades[0]").value("EVALUACION"))
+                    .andExpect(jsonPath("$[1].cuenta").value("Cuenta de pruebas"))
+                    .andExpect(jsonPath("$[1].finalidades[0]").value("MANTENIMIENTO"));
+            // Con una candidata se prueba solo esa, sin finalidad
+            mvc.perform(post("/api/servidores/{id}/acceso", servidor.getId()).param("idCuenta", evaluadora.toString())
+                            .with(como(admin)))
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].finalidades.length()").value(0));
+            mvc.perform(post("/api/servidores/{id}/acceso", servidor.getId()).with(como(operador)))
+                    .andExpect(status().isForbidden());
         }
 
         @Test

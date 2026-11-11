@@ -80,6 +80,27 @@ public class AnalisisServidorController {
                 .map(AnalisisServidorController::conexion).toList();
     }
 
+    @PostMapping("/servidores/{id}/acceso")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Prueba en un paso el acceso y los permisos de las cuentas de evaluación y de mantenimiento "
+            + "del servidor (una vez si son la misma), o de una candidata (DEC-59)")
+    public List<OperacionRespuestas.ConexionRespuesta> probarAccesoServidor(@PathVariable Integer id,
+                                                                            @RequestParam(required = false) Integer idCuenta,
+                                                                            @AuthenticationPrincipal UsuarioAutenticado u) {
+        return conectividad.probarAccesoServidor(id, idCuenta, AlcanceUsuario.de(u).actor()).stream()
+                .map(AnalisisServidorController::conexion).toList();
+    }
+
+    @PostMapping("/grupos/{id}/acceso")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Lo mismo en cada integrante del grupo (CP021, DEC-59)")
+    public List<OperacionRespuestas.ConexionRespuesta> probarAccesoGrupo(@PathVariable Integer id,
+                                                                         @RequestParam(required = false) Integer idCuenta,
+                                                                         @AuthenticationPrincipal UsuarioAutenticado u) {
+        return conectividad.probarAccesoGrupo(id, idCuenta, AlcanceUsuario.de(u).actor()).stream()
+                .map(AnalisisServidorController::conexion).toList();
+    }
+
     @PostMapping("/servidores/{id}/revision")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(summary = "Ejecuta ahora la revisión periódica del servidor (RF37)")
@@ -150,6 +171,6 @@ public class AnalisisServidorController {
 
     private static OperacionRespuestas.ConexionRespuesta conexion(ResultadoConexion r) {
         return new OperacionRespuestas.ConexionRespuesta(r.idServidor(), r.servidor(), r.idCuenta(), r.cuenta(),
-                r.correcto(), r.fallo(), r.mensaje(), r.administrador());
+                r.correcto(), r.fallo(), r.mensaje(), r.administrador(), r.finalidades());
     }
 }

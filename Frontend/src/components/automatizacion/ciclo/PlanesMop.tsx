@@ -182,9 +182,9 @@ function TareaEjecutada({ t }: { t: TareaMopRespuesta }) {
 
   return (
     <li className="flex flex-col gap-2 py-2.5">
-      <div className="flex items-start gap-3">
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
         <span className="w-5 shrink-0 pt-0.5 text-right font-mono text-xs tabular-nums text-ink-faint">{t.orden}</span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-28 flex-1">
           <p className="text-sm font-medium text-ink">{t.tarea}</p>
           <p className="mt-0.5 text-xs text-ink-soft">
             <Script t={t} />
@@ -204,7 +204,7 @@ function TareaEjecutada({ t }: { t: TareaMopRespuesta }) {
         {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
       </div>
       {conSalida && (
-        <div className="pl-8">
+        <div className="sm:pl-8">
           <button
             type="button"
             aria-expanded={abierta}
@@ -218,7 +218,7 @@ function TareaEjecutada({ t }: { t: TareaMopRespuesta }) {
             <div className="mt-2">
               <p className="mb-2 text-xs text-ink-soft">
                 {formatearFechaHora(t.fechaInicio)} – {formatearHora(t.fechaFin)}
-                {t.codigoRetorno !== undefined && t.codigoRetorno !== null && <> · código de salida {t.codigoRetorno}</>}
+                {t.codigoRetorno != null && <> · código de salida {t.codigoRetorno}</>}
               </p>
               <SalidaTerminal salida={t.salida} error={t.error} nombre={`tarea_${t.id}_${t.tarea}`} />
             </div>
@@ -236,7 +236,7 @@ function TareaEjecutada({ t }: { t: TareaMopRespuesta }) {
 export function EjecucionMop({ mops }: { mops: PlanMop[] }) {
   // Se guarda el servidor y no la fila: mientras la orden avanza, la ficha se refresca y el detalle abierto también
   const [idAbierto, setIdAbierto] = useState<number>()
-  const abierto = mops.find((m) => m.id === idAbierto)
+  const abierto = idAbierto == null ? undefined : mops.find((m) => m.id === idAbierto)
   if (mops.length === 0) return <p className="text-sm text-ink-soft">{SIN_PLAN}</p>
 
   return (
@@ -289,9 +289,9 @@ export function EjecucionMop({ mops }: { mops: PlanMop[] }) {
           abierto
           titulo={`Tareas en ${abierto.servidor}`}
           descripcion={
-            abierto.inicioReal
-              ? `Ejecutadas ${formatearFechaHora(abierto.inicioReal)} – ${formatearHora(abierto.finReal)}`
-              : 'Aún no se inicia la ejecución en este servidor.'
+            !abierto.inicioReal ? 'Aún no se inicia la ejecución en este servidor.'
+              : abierto.finReal ? `${formatearFechaHora(abierto.inicioReal)} – ${formatearHora(abierto.finReal)}`
+                : `Inicio registrado el ${formatearFechaHora(abierto.inicioReal)}`
           }
           onCerrar={() => setIdAbierto(undefined)}
           ancho="lg"

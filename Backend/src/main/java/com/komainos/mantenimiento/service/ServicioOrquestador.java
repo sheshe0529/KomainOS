@@ -72,6 +72,7 @@ public class ServicioOrquestador {
     private final ServicioValidaciones validaciones;
     private final EjecutorRemoto remoto;
     private final BloqueoAutomatizacion bloqueo;
+    private final ServicioActividad actividad;
     private final Clock reloj;
     private final TransactionTemplate transaccion;
     private final ExecutorService trabajadores = Executors.newVirtualThreadPerTaskExecutor();
@@ -80,7 +81,7 @@ public class ServicioOrquestador {
                                MopTareaRepositorio tareas, ConfirmacionFueraVentanaRepositorio excepciones,
                                ServicioParametrosSistema parametros, ServicioIncidencias incidencias,
                                ServicioValidaciones validaciones, EjecutorRemoto remoto, BloqueoAutomatizacion bloqueo,
-                               Clock reloj, PlatformTransactionManager transacciones) {
+                               ServicioActividad actividad, Clock reloj, PlatformTransactionManager transacciones) {
         this.ordenes = ordenes;
         this.detalles = detalles;
         this.mops = mops;
@@ -91,6 +92,7 @@ public class ServicioOrquestador {
         this.validaciones = validaciones;
         this.remoto = remoto;
         this.bloqueo = bloqueo;
+        this.actividad = actividad;
         this.reloj = reloj;
         this.transaccion = new TransactionTemplate(transacciones);
     }
@@ -270,19 +272,27 @@ public class ServicioOrquestador {
         }
     }
 
+    /** Cada paso queda en la actividad de la orden con su hora exacta (DEC-59) */
     private void ejecutarDetalle(Integer idDetalle) {
         Integer idOrden = null;
+        Inicio inicio = null;
         try {
-            Inicio inicio = transaccion.execute(estado -> prepararInicio(idDetalle));
+            inicio = transaccion.execute(estado -> prepararInicio(idDetalle));
             idOrden = inicio.idOrden();
+            actividad.inicioEjecucion(idDetalle, inicio.conectividad(), inicio.tareas());
             ResultadoEjecucion acceso = remoto.probarConexion(inicio.conectividad());
+            actividad.finComprobacion(idDetalle, inicio.conectividad(), acceso);
             if (!acceso.correcto()) {
                 transaccion.executeWithoutResult(estado -> fallarInicio(idDetalle, acceso));
             } else {
                 Trabajo trabajo;
                 while ((trabajo = transaccion.execute(estado -> siguiente(idDetalle))) != null) {
                     Trabajo actual = trabajo;
+                    actividad.inicioTarea(idDetalle, actual.actividad());
+                    Instant comienzo = reloj.instant();
                     ResultadoEjecucion resultado = remoto.ejecutar(actual.solicitud());
+                    actividad.finTarea(idDetalle, actual.actividad(), resultado,
+                            Duration.between(comienzo, reloj.instant()));
                     transaccion.executeWithoutResult(estado -> registrar(actual, resultado));
                     if (!resultado.correcto()) {
                         break;
@@ -292,7 +302,13 @@ public class ServicioOrquestador {
         } catch (RuntimeException ex) {
             log.error("No se pudo completar la ejecución del detalle {}", idDetalle, ex);
             transaccion.executeWithoutResult(estado -> fallarPorError(idDetalle, ex));
+            if (inicio != null) {
+                actividad.ejecucionInterrumpida(inicio.conectividad().idServidor(), idDetalle, null,
+                        "Error del sistema: " + (ex instanceof ReglaNegocioException ? ex.getMessage()
+                                : "error interno; revise el registro del backend"));
+            }
         } finally {
+            actividad.finEjecucion(idDetalle);
             Integer orden = idOrden != null ? idOrden
                     : transaccion.execute(estado -> detalles.findById(idDetalle).map(d -> d.getOrden().getId()).orElse(null));
             if (orden != null) {
@@ -309,7 +325,7 @@ public class ServicioOrquestador {
         Integer cuenta = mop.getTareas().stream().map(MopTarea::getIdCuentaServicio).filter(id -> id != null)
                 .findFirst().orElse(detalle.getOrden().getIdCuentaServicioMantenimiento());
         return new Inicio(detalle.getOrden().getId(), SolicitudEjecucion.conectividad(s.getId(), s.getHostname(),
-                s.getDireccionIp(), s.familia(), cuenta, 2));
+                s.getDireccionIp(), s.familia(), cuenta, 2), mop.getTareas().size());
     }
 
     /** CP132: sin acceso no se inicia ninguna tarea y la prueba fallida queda como incidencia */
@@ -370,7 +386,9 @@ public class ServicioOrquestador {
         SolicitudEjecucion solicitud = SolicitudEjecucion.tarea(s.getId(), s.getHostname(), s.getDireccionIp(), s.familia(),
                 tarea.getIdCuentaServicio(), version.getContenido(),
                 ServicioCatalogoAutomatizacion.valoresDeEjecucion(version), parametros.obtener().getMaxDuracionTareaMinutos());
-        return new Trabajo(tarea.getId(), solicitud);
+        String script = "%s v%d".formatted(version.getImplementacion().getScript().getNombre(), version.getNumeroVersion());
+        return new Trabajo(tarea.getId(), solicitud, new ServicioActividad.Tarea(tarea.getId(), tarea.getTarea().getNombre(),
+                script, tarea.getOrdenEjecucion(), mop.getTareas().size(), solicitud));
     }
 
     private void registrar(Trabajo trabajo, ResultadoEjecucion resultado) {
@@ -411,9 +429,9 @@ public class ServicioOrquestador {
         trabajadores.shutdown();
     }
 
-    private record Inicio(Integer idOrden, SolicitudEjecucion conectividad) {
+    private record Inicio(Integer idOrden, SolicitudEjecucion conectividad, int tareas) {
     }
 
-    private record Trabajo(Integer idTarea, SolicitudEjecucion solicitud) {
+    private record Trabajo(Integer idTarea, SolicitudEjecucion solicitud, ServicioActividad.Tarea actividad) {
     }
 }

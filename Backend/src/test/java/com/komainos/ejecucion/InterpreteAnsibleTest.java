@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -170,5 +172,42 @@ class InterpreteAnsibleTest {
                 clave: valor-secreto""", "valor-secreto");
 
         assertThat(limpio).doesNotContain("abc", "def", "privada", "valor-secreto");
+    }
+
+    private ResultadoEjecucion fallido(int codigo, String stdout, String stderr) throws Exception {
+        return interpretar(json.writeValueAsString(Map.of("estado", "failed", "rc", codigo, "stdout", stdout,
+                "stderr", stderr, "msg", "non-zero return code")), PropositoEjecucion.ANALISIS_PREVIO);
+    }
+
+    @Test
+    @DisplayName("Con elevación en una terminal, el error de Bash de la salida explica el fallo y no el cierre de la sesión SSH")
+    void errorDeSintaxisEnTerminal() throws Exception {
+        ResultadoEjecucion r = fallido(2,
+                "/home/komainos-gen/.ansible/tmp/ansible-tmp-1731-99-1/tarea.sh: line 4: unexpected EOF while looking "
+                        + "for matching `''\r\n",
+                "Connection to 172.31.37.104 closed.\r\n");
+
+        assertThat(r.fallo()).isEqualTo(TipoFallo.EJECUCION);
+        assertThat(r.error()).isEqualTo(
+                "Error de ejecución: Script, línea 4: unexpected EOF while looking for matching `''");
+        assertThat(r.salida()).contains("unexpected EOF");
+    }
+
+    @Test
+    @DisplayName("Sin un error reconocible del script, se informa el código de salida y no el aviso de cierre ni el genérico")
+    void sinCausaReconocible() throws Exception {
+        ResultadoEjecucion r = fallido(1, "procesando...\n", "Shared connection to 10.0.0.5 closed.\r\n");
+
+        assertThat(r.error()).isEqualTo("Error de ejecución: el script terminó con el código 1");
+        assertThat(r.codigoRetorno()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Lo que el script escribe por la salida de errores tiene prioridad sobre lo que encuentre en la salida")
+    void prioridadDeLaSalidaDeErrores() throws Exception {
+        ResultadoEjecucion r = fallido(3, "/tmp/x/tarea.sh: line 9: foo: command not found\n",
+                "No existe /var/log/app\nConnection to 10.0.0.5 closed.\n");
+
+        assertThat(r.error()).isEqualTo("Error de ejecución: No existe /var/log/app");
     }
 }

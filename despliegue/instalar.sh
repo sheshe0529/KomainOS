@@ -64,6 +64,7 @@ Description=KomainOS: busca cada minuto un commit nuevo de main para desplegar (
 [Timer]
 OnBootSec=3min
 OnUnitInactiveSec=1min
+AccuracySec=5s
 Unit=komainos-despliegue.service
 
 [Install]

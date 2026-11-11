@@ -27,7 +27,7 @@ en el servidor es `.env`.
 | `.dockerignore` | Deja fuera de la imagen `node_modules`, `target`, documentos y cualquier `.env` | Nada |
 | `.env.produccion.example` | Plantilla de las variables de entorno | Copiarlo a **`.env`** y completarlo (paso 8) |
 | `Backend/scripts/bd/instalar_base.sql` | Crea la base: ejecuta `01_esquema.sql` (DDL) y `02_datos_sistema.sql` (solo lo que el backend necesita para operar) | Ejecutarlo **una sola vez** contra RDS (paso 7) |
-| `Backend/scripts/bd/01_esquema.sql` | DDL del esquema `"KomainOS"`: 53 tablas, 96 claves foráneas, 32 enumerados | Lo ejecuta `instalar_base.sql` |
+| `Backend/scripts/bd/01_esquema.sql` | DDL del esquema `"KomainOS"`: 54 tablas, 100 claves foráneas, 35 enumerados | Lo ejecuta `instalar_base.sql` |
 | `Backend/src/main/resources/application-prod.yml` | Perfil `prod` que la imagen activa: conexión a RDS, apagado ordenado, IP real detrás de un balanceador, Swagger desactivado | Nada |
 | `iniciar.sh` | Arranca o reinicia el contenedor con las opciones correctas | Se crea en el paso 10 |
 | `docker-compose.yml` | Alternativa a `iniciar.sh` | Opcional: Amazon Linux 2023 no trae el complemento `compose` |
@@ -170,7 +170,7 @@ psql "host=$RDS_HOST port=5432 dbname=komainos user=$RDS_USER sslmode=require" -
 cd ~/komainos
 ```
 
-Debe terminar mostrando **53** tablas y `Base de KomainOS instalada`. Si el esquema ya existe, el script no hace
+Debe terminar mostrando **54** tablas y `Base de KomainOS instalada`. Si el esquema ya existe, el script no hace
 nada. Solo deja los datos sin los que el backend no funciona: los parámetros del sistema (1 fila), los factores de
 ciclo (4) y las 21 variables de salud que informan los scripts de análisis. No carga umbrales, listas de referencia
 ni datos de demostración: se registran en el panel (paso 12). El administrador tampoco se crea aquí: lo crea el
@@ -476,7 +476,7 @@ Verifique como en el paso 11. Mientras use la base temporal, aplique cualquier c
 
 **18.4. Pasar a RDS** cuando esté creada (paso 3):
 
-1. Paso 7 completo: comprobar la conexión e instalar `instalar_base.sql` en RDS (53 tablas).
+1. Paso 7 completo: comprobar la conexión e instalar `instalar_base.sql` en RDS (54 tablas).
 2. Paso 8, solo el bloque de los datos de RDS (endpoint, usuario y contraseña en `.env`).
 3. Arrancar contra RDS y eliminar la base temporal:
 
@@ -599,10 +599,12 @@ debe tener la URL del panel, por ejemplo `http://<IP-ELASTICA>`.
 | Respaldos previos a cada despliegue | `ls -t ~/komainos-estado/respaldos/` (los 15 últimos, permisos 600) |
 | Reintentar un despliegue fallido | `python3 ~/komainos/despliegue/vigilar.py --reintentar` |
 | Desplegar un commit a mano | `cd ~/komainos && git fetch origin && git checkout --force <sha> && bash despliegue/desplegar.sh <sha>` |
+| Probar la vuelta atrás | `bash despliegue/desplegar.sh <sha> --probar-reversion` con el repositorio en `<sha>`: despliega, vuelve a `komainos:anterior` a propósito y termina con error; después, despliegue de nuevo `<sha>` a mano |
 | Pausar los despliegues | `sudo systemctl stop komainos-despliegue.timer` (reanudar: `start`) |
 
 Si la versión nueva no queda en servicio en 5 minutos, `desplegar.sh` vuelve a `komainos:anterior`, marca el commit como
-fallido y la corrida de GitHub termina en rojo. Si ese despliegue ya había aplicado migraciones y la versión anterior no
+fallido y la corrida de GitHub termina en rojo. Volver a desplegar el commit que ya está en servicio no reemplaza
+`komainos:anterior`, así que siempre queda la versión previa real a la que volver. Si ese despliegue ya había aplicado migraciones y la versión anterior no
 funciona con ellas, restaure el respaldo que indica el registro:
 
 ```bash

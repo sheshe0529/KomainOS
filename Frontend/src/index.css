@@ -3,6 +3,11 @@
 /* Variantes dark: controladas por la clase .dark en <html> y no por prefers-color-scheme */
 @custom-variant dark (&:is(.dark *));
 
+@keyframes entrada-lateral {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
