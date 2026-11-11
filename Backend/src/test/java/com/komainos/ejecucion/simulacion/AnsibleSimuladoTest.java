@@ -83,14 +83,20 @@ class AnsibleSimuladoTest {
     @DisplayName("Los escenarios de fallo reproducen cada categoría de RF71 y el fallo de una tarea (RF59)")
     void escenariosDeFallo() {
         AnsibleSimulado a = simulador(Map.of("srv-conexion", "SIN_CONEXION",
-                "srv-auth", "SIN_AUTENTICACION", "srv-permisos", "SIN_PERMISOS", "srv-fallo", "FALLO_TAREA"));
+                "srv-auth", "SIN_AUTENTICACION", "srv-permisos", "SIN_PERMISOS", "srv-elevacion", "ELEVACION_FALLIDA",
+                "srv-fallo", "FALLO_TAREA"));
 
         assertThat(a.probarConexion(solicitud("srv-conexion", PropositoEjecucion.CONECTIVIDAD)).fallo())
                 .isEqualTo(TipoFallo.COMUNICACION);
         assertThat(a.probarConexion(solicitud("srv-auth", PropositoEjecucion.CONECTIVIDAD)).fallo())
                 .isEqualTo(TipoFallo.AUTENTICACION);
-        assertThat(a.probarConexion(solicitud("srv-permisos", PropositoEjecucion.CONECTIVIDAD)).fallo())
+        assertThat(a.probarConexion(solicitud("srv-elevacion", PropositoEjecucion.CONECTIVIDAD)).fallo())
                 .isEqualTo(TipoFallo.PERMISOS);
+        // DEC-57: sin privilegios la prueba de acceso no falla, los informa
+        ResultadoEjecucion sinPrivilegios = a.probarConexion(solicitud("srv-permisos", PropositoEjecucion.CONECTIVIDAD));
+        assertThat(sinPrivilegios.correcto()).isTrue();
+        assertThat(sinPrivilegios.salida()).contains("KOMAINOS_ADMINISTRADOR=no");
+        assertThat(a.ejecutar(solicitud("srv-permisos", PropositoEjecucion.TAREA)).fallo()).isEqualTo(TipoFallo.PERMISOS);
         ResultadoEjecucion fallo = a.ejecutar(solicitud("srv-fallo", PropositoEjecucion.TAREA));
         assertThat(fallo.fallo()).isEqualTo(TipoFallo.EJECUCION);
         assertThat(fallo.codigoRetorno()).isEqualTo(1);

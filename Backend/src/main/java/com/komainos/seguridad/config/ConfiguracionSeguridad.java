@@ -60,7 +60,8 @@ public class ConfiguracionSeguridad {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> req
                         .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
-                        .requestMatchers("/actuator/health").permitAll()
+                        // info solo publica el commit desplegado: lo consulta el despliegue automático (DEC-58)
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // El permiso fino se declara con @PreAuthorize en cada controlador
                         .requestMatchers("/api/**", "/actuator/**").authenticated()

@@ -109,6 +109,28 @@ export function sistemasDeMetrica(m?: Sistemas): string {
   return ETIQUETA_SO_APLICA[m?.soAplica ?? '']
 }
 
+/** Minúsculas y sin tildes: «memoria», «MEMORIA» y «Memória» se encuentran igual */
+function normalizarBusqueda(texto: string): string {
+  return texto.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+}
+
+/**
+ * Métricas cuyo nombre, código, descripción, tipo, unidad o sistemas contienen todas las palabras buscadas, en
+ * cualquier orden; sin texto, todas
+ */
+export function filtrarMetricas<T extends MetricaRespuesta>(metricas: readonly T[], texto: string): T[] {
+  const palabras = normalizarBusqueda(texto).split(/\s+/).filter(Boolean)
+  if (palabras.length === 0) return [...metricas]
+  return metricas.filter((m) => {
+    const contenido = normalizarBusqueda(
+      [m.nombre, m.codigo, m.descripcion, m.unidad, describirMetrica(m), sistemasDeMetrica(m), m.activo ? 'activa' : 'inactiva']
+        .filter(Boolean)
+        .join(' '),
+    )
+    return palabras.every((p) => contenido.includes(p))
+  })
+}
+
 /** Si el análisis de esa familia informa la métrica: en las demás no se exige ni se evalúa, ni admite excepciones */
 export function seMideEn(m: Sistemas | undefined, familia?: FamiliaSistemaOperativo): boolean {
   return !familia || !m?.soAplica || m.soAplica === familia

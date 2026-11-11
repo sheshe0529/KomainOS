@@ -1,5 +1,6 @@
 package com.komainos.credencial.model;
 
+import com.komainos.ejecucion.model.MetodoElevacion;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -56,23 +57,24 @@ public class CredencialSecreto {
     @Column(name = "algoritmo", nullable = false, length = 100)
     private String algoritmo;
 
+    /** Cómo obtiene privilegios Ansible después de conectarse (DEC-57) */
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(name = "tipo_usuario", columnDefinition = "enum_tipo_usuario")
-    private TipoUsuario tipoUsuario;
+    @Column(name = "metodo_elevacion", nullable = false, columnDefinition = "enum_metodo_elevacion")
+    private MetodoElevacion metodoElevacion;
 
-    /** Contraseña de root para su, cifrada con su propio IV (DEC-39) */
+    /** Contraseña de sudo o de root para su, cifrada con su propio IV; nula con sudo sin contraseña (DEC-57) */
     @Getter(AccessLevel.NONE)
-    @Column(name = "su_secreto_cifrado")
-    private byte[] suSecretoCifrado;
-
-    @Getter(AccessLevel.NONE)
-    @Column(name = "su_iv_nonce")
-    private byte[] suIvNonce;
+    @Column(name = "elevacion_secreto_cifrado")
+    private byte[] elevacionSecretoCifrado;
 
     @Getter(AccessLevel.NONE)
-    @Column(name = "su_tag_autenticacion")
-    private byte[] suTagAutenticacion;
+    @Column(name = "elevacion_iv_nonce")
+    private byte[] elevacionIvNonce;
+
+    @Getter(AccessLevel.NONE)
+    @Column(name = "elevacion_tag_autenticacion")
+    private byte[] elevacionTagAutenticacion;
 
     /** Registro o última rotación del secreto */
     @Column(name = "fecha_actualizacion", nullable = false)
@@ -84,18 +86,18 @@ public class CredencialSecreto {
         return secreto;
     }
 
-    /** Reemplaza todo el material: un mecanismo distinto no arrastra la contraseña su del anterior */
-    void reemplazar(TipoAutenticacion tipo, TipoUsuario tipoUsuario, SecretoCifrado secreto, SecretoCifrado su,
+    /** Reemplaza todo el material: un método distinto no arrastra la contraseña de elevación del anterior */
+    void reemplazar(TipoAutenticacion tipo, MetodoElevacion metodo, SecretoCifrado secreto, SecretoCifrado elevacion,
                     Instant ahora) {
         this.tipoAutenticacion = tipo;
-        this.tipoUsuario = tipoUsuario;
+        this.metodoElevacion = metodo;
         this.secretoCifrado = secreto.cifrado();
         this.ivNonce = secreto.iv();
         this.tagAutenticacion = secreto.tag();
         this.algoritmo = secreto.algoritmo();
-        this.suSecretoCifrado = su == null ? null : su.cifrado();
-        this.suIvNonce = su == null ? null : su.iv();
-        this.suTagAutenticacion = su == null ? null : su.tag();
+        this.elevacionSecretoCifrado = elevacion == null ? null : elevacion.cifrado();
+        this.elevacionIvNonce = elevacion == null ? null : elevacion.iv();
+        this.elevacionTagAutenticacion = elevacion == null ? null : elevacion.tag();
         this.fechaActualizacion = ahora;
     }
 
@@ -103,12 +105,13 @@ public class CredencialSecreto {
         return new SecretoCifrado(secretoCifrado, ivNonce, tagAutenticacion, algoritmo);
     }
 
-    public Optional<SecretoCifrado> secretoSu() {
-        return suSecretoCifrado == null ? Optional.empty()
-                : Optional.of(new SecretoCifrado(suSecretoCifrado, suIvNonce, suTagAutenticacion, algoritmo));
+    public Optional<SecretoCifrado> secretoElevacion() {
+        return elevacionSecretoCifrado == null ? Optional.empty()
+                : Optional.of(new SecretoCifrado(elevacionSecretoCifrado, elevacionIvNonce, elevacionTagAutenticacion,
+                algoritmo));
     }
 
-    public boolean tieneSu() {
-        return suSecretoCifrado != null;
+    public boolean tieneContrasenaElevacion() {
+        return elevacionSecretoCifrado != null;
     }
 }

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.ejecucion.model.ResultadoEjecucion;
 import com.komainos.ejecucion.model.ScriptPreparado;
 import com.komainos.ejecucion.model.SolicitudEjecucion;
@@ -54,21 +53,27 @@ public class AnsibleSimulado implements PuertoAnsible {
                 : escenarios.getOrDefault(hostname.toLowerCase(Locale.ROOT), EscenarioSimulado.ESTANDAR);
     }
 
+    /**
+     * Igual que el script real de la prueba de acceso (DEC-57): informa los permisos efectivos con la marca
+     * KOMAINOS_ADMINISTRADOR, sin exigirlos, y solo falla si no conecta, no autentica o la elevación no funciona
+     */
     @Override
     public ResultadoEjecucion probarConexion(SolicitudEjecucion s) {
-        boolean evaluacion = s.proposito() == PropositoEjecucion.CONECTIVIDAD_EVALUACION;
         return switch (escenario(s.hostname())) {
             case SIN_CONEXION -> falloConexion(s);
             case SIN_AUTENTICACION -> falloAutenticacion();
-            case SIN_PERMISOS -> evaluacion
-                    ? ResultadoEjecucion.exito("Autenticación verificada sin exigir privilegios de administrador (simulado)", List.of())
-                    : ResultadoEjecucion.fallo(TipoFallo.PERMISOS,
-                    "la cuenta se autenticó, pero no tiene privilegios de administrador (simulado)");
-            default -> ResultadoEjecucion.exito((evaluacion
-                    ? "Acceso de evaluación verificado en %s (simulado): conectividad y autenticación"
-                    : "Acceso verificado en %s (simulado): conectividad, autenticación y permisos de administrador")
+            case ELEVACION_FALLIDA -> falloElevacion();
+            case SIN_PERMISOS -> ResultadoEjecucion.exito(("Acceso verificado en %s (simulado): los scripts se "
+                    + "ejecutarán como svc, sin privilegios de administrador\nKOMAINOS_ADMINISTRADOR=no")
+                    .formatted(s.hostname()), List.of());
+            default -> ResultadoEjecucion.exito(("Acceso verificado en %s (simulado): los scripts se ejecutarán "
+                    + "como root, con privilegios de administrador\nKOMAINOS_ADMINISTRADOR=si")
                     .formatted(s.hostname()), List.of());
         };
+    }
+
+    private static ResultadoEjecucion falloElevacion() {
+        return ResultadoEjecucion.fallo(TipoFallo.PERMISOS, "Incorrect sudo password (simulado)");
     }
 
     @Override
@@ -80,6 +85,9 @@ public class AnsibleSimulado implements PuertoAnsible {
         }
         if (escenario == EscenarioSimulado.SIN_AUTENTICACION) {
             return falloAutenticacion();
+        }
+        if (escenario == EscenarioSimulado.ELEVACION_FALLIDA) {
+            return falloElevacion();
         }
         if (s.esAnalisis()) {
             return ContratoAnalisis.aplicar(ResultadoEjecucion.exito(salidaAnalisis(s, escenario), List.of()), json);

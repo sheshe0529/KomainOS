@@ -14,7 +14,8 @@ import java.util.Set;
 public class ProtectorValoresAuditoria {
     private static final Set<String> SENSIBLES = Set.of("password", "passwd", "contrasena", "contraseña",
             "secreto", "secret", "token", "hashcontrasena", "llaveprivada", "privatekey", "llavemaestra",
-            "secretosu", "susecreto", "secretocifrado", "ivnonce", "tagautenticacion");
+            "secretosu", "susecreto", "secretoelevacion", "elevacionsecreto", "elevacionsecretocifrado",
+            "secretocifrado", "ivnonce", "tagautenticacion");
     private final ObjectMapper json;
 
     public ProtectorValoresAuditoria(ObjectMapper json) {

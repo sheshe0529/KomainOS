@@ -2,7 +2,7 @@ package com.komainos.credencial.dto;
 
 import com.komainos.credencial.model.EstadoCredencial;
 import com.komainos.credencial.model.TipoAutenticacion;
-import com.komainos.credencial.model.TipoUsuario;
+import com.komainos.ejecucion.model.MetodoElevacion;
 
 import java.time.Instant;
 
@@ -14,9 +14,10 @@ public record CredencialRespuesta(
         String descripcion,
         EstadoCredencial estado,
         TipoAutenticacion tipoAutenticacion,
-        TipoUsuario tipoUsuario,
-        /** Si el secreto vigente guarda contraseña su */
-        boolean conSu,
+        /** Cómo obtiene privilegios Ansible (DEC-57); nulo si la credencial está revocada */
+        MetodoElevacion metodoElevacion,
+        /** Si el secreto vigente guarda la contraseña que pide sudo o su */
+        boolean conContrasenaElevacion,
         /** Solo en credenciales documentales: la que viaja en el inventario */
         Boolean principal,
         Instant fechaRegistro,

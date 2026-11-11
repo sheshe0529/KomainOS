@@ -1,22 +1,24 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Save } from 'lucide-react'
-import type { FamiliaSistemaOperativo, TipoAutenticacion, TipoUsuario } from '@/api/dominio'
+import type { FamiliaSistemaOperativo, MetodoElevacion, TipoAutenticacion } from '@/api/dominio'
 import type { CredencialPeticion, CredencialRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
 import { AreaTexto, Campo, Entrada } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { llevaContrasenaElevacion, metodosAdmitidos } from '@/utils/elevacion'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
-import { CampoContrasena, CampoSecreto, SelectorMecanismo, SelectorTipoUsuario } from './CampoSecreto'
+import { CamposElevacion, CampoSecreto, SelectorElevacion, SelectorMecanismo } from './CampoSecreto'
+import { VistaAnsible } from './VistaAnsible'
 
 interface CredencialFormularioProps {
   abierto: boolean
   titulo: string
   descripcion?: string
-  /** documental: Linux pide tipo de usuario y, si es Genérico, la contraseña su. Windows solo usuario y contraseña (DEC-39) */
+  /** documental: los métodos de elevación de la familia del servidor. cuenta: además muestra la configuración de Ansible */
   clase?: 'documental' | 'cuenta'
-  /** Si se indica, edita sus datos identificativos: el secreto se cambia con una versión nueva */
+  /** Si se indica, edita sus datos identificativos: el secreto se cambia con «Nuevo secreto» */
   credencial?: CredencialRespuesta
   familia?: FamiliaSistemaOperativo
   ayudaNombre?: string
@@ -24,6 +26,7 @@ interface CredencialFormularioProps {
   onGuardar: (datos: CredencialPeticion) => Promise<void>
 }
 
+/** Conexión (usuario y contraseña o llave) y, por separado, cómo obtiene privilegios Ansible (DEC-57) */
 export function CredencialFormulario({
   abierto,
   titulo,
@@ -39,14 +42,22 @@ export function CredencialFormulario({
   const [usuario, setUsuario] = useState(credencial?.usuarioAcceso ?? '')
   const [detalle, setDetalle] = useState(credencial?.descripcion ?? '')
   const [tipo, setTipo] = useState<TipoAutenticacion>('PASSWORD')
-  const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>('ADMINISTRADOR')
+  const [metodo, setMetodo] = useState<MetodoElevacion>('NINGUNO')
+  const [sudoPideContrasena, setSudoPideContrasena] = useState(false)
   const [secreto, setSecreto] = useState('')
-  const [su, setSu] = useState('')
+  const [elevacion, setElevacion] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
 
-  const windows = clase === 'documental' && familia === 'WINDOWS'
-  const conSu = !windows && tipoUsuario === 'GENERICO'
+  const familiaFija = clase === 'documental' ? familia : undefined
+  const windows = familiaFija === 'WINDOWS'
+  const conContrasena = llevaContrasenaElevacion(metodo, sudoPideContrasena)
+
+  function cambiarTipo(nuevo: TipoAutenticacion) {
+    setTipo(nuevo)
+    // runas es de Windows, que solo admite contraseña
+    if (!metodosAdmitidos(familiaFija, nuevo).includes(metodo)) setMetodo('NINGUNO')
+  }
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault()
@@ -58,9 +69,10 @@ export function CredencialFormulario({
         usuarioAcceso: usuario.trim(),
         descripcion: detalle.trim() || undefined,
         tipoAutenticacion: windows ? 'PASSWORD' : tipo,
-        tipoUsuario: windows ? undefined : tipoUsuario,
+        metodoElevacion: metodo,
         secreto,
-        secretoSu: conSu ? su : undefined,
+        elevacionConContrasena: metodo === 'SUDO' ? sudoPideContrasena : undefined,
+        secretoElevacion: conContrasena ? elevacion : undefined,
       })
     } catch (e) {
       setError(e)
@@ -111,22 +123,30 @@ export function CredencialFormulario({
                 Servidor Windows: se registra solo usuario y contraseña (WinRM).
               </p>
             ) : (
-              <SelectorMecanismo valor={tipo} onCambiar={setTipo} familia={clase === 'documental' ? familia : undefined} />
-            )}
-            {!windows && (
-              <SelectorTipoUsuario valor={tipoUsuario} onCambiar={setTipoUsuario} cuentaServicio={clase === 'cuenta'} />
+              <SelectorMecanismo valor={tipo} onCambiar={cambiarTipo} familia={familiaFija} />
             )}
             <CampoSecreto tipo={windows ? 'PASSWORD' : tipo} valor={secreto} onCambiar={setSecreto} error={errorDeCampo(error, 'secreto')} />
-            {conSu && (
-              <CampoContrasena
-                etiqueta="Contraseña su (root)"
-                valor={su}
-                onCambiar={setSu}
-                error={errorDeCampo(error, 'secretoSu')}
-                ayuda="La que pide su para subir a root."
-              />
+            <SelectorElevacion valor={metodo} onCambiar={setMetodo} familia={familiaFija} tipo={windows ? 'PASSWORD' : tipo} />
+            <CamposElevacion
+              metodo={metodo}
+              conContrasena={sudoPideContrasena}
+              onConContrasena={setSudoPideContrasena}
+              valor={elevacion}
+              onCambiar={setElevacion}
+              error={errorDeCampo(error, 'secretoElevacion')}
+            />
+            {clase === 'cuenta' && (
+              <VistaAnsible usuario={usuario} tipo={tipo} metodo={metodo} conContrasena={conContrasena} />
             )}
           </>
+        )}
+        {credencial && clase === 'cuenta' && credencial.tipoAutenticacion && (
+          <VistaAnsible
+            usuario={usuario}
+            tipo={credencial.tipoAutenticacion}
+            metodo={credencial.metodoElevacion ?? 'NINGUNO'}
+            conContrasena={!!credencial.conContrasenaElevacion}
+          />
         )}
       </form>
     </Modal>

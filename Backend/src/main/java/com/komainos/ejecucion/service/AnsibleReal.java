@@ -84,12 +84,12 @@ public class AnsibleReal implements PuertoAnsible {
     }
 
     /**
-     * Script de la prueba de acceso según la finalidad de la cuenta. Sin retornos de carro: una copia del repositorio
-     * en Windows los agrega al empaquetar y bash no ejecuta un script con CRLF.
+     * Script de la prueba de acceso: el mismo para las dos finalidades, porque la elevación ya la decide la cuenta e
+     * informa los permisos efectivos sin exigirlos (DEC-57). Sin retornos de carro: una copia del repositorio en Windows
+     * los agrega al empaquetar y bash no ejecuta un script con CRLF.
      */
     static String comprobacion(PropositoEjecucion proposito, FamiliaSistemaOperativo familia) throws IOException {
-        String base = proposito == PropositoEjecucion.CONECTIVIDAD_EVALUACION ? "acceso_evaluacion_" : "acceso_";
-        String ruta = "/ansible/comprobaciones/" + base
+        String ruta = "/ansible/comprobaciones/acceso_"
                 + (familia == FamiliaSistemaOperativo.WINDOWS ? "windows.ps1" : "linux.sh");
         return recurso(ruta).replace("\r\n", "\n");
     }
@@ -140,7 +140,8 @@ public class AnsibleReal implements PuertoAnsible {
         Path script = escribir(directorio, PreparadorScript.nombreArchivo(s.familia()), windows ? "﻿" + codigo : codigo);
         Path llave = conexion.llave() ? escribir(directorio, "llave_privada", normalizarLlave(conexion.secreto())) : null;
         Path inventario = escribir(directorio, "inventario.json", json.writeValueAsString(
-                ArtefactosAnsible.inventario(s.direccionIp(), s.familia(), conexion, llave, config)));
+                ArtefactosAnsible.inventario(s.direccionIp(), s.familia(), conexion,
+                        llave == null ? null : llave.toString(), config)));
         Path playbook = escribir(directorio, "playbook.json", json.writeValueAsString(
                 ArtefactosAnsible.playbook(script, s.familia(), s.maxMinutos())));
         escribir(directorio, ArtefactosAnsible.CALLBACK + ".py", recurso("/ansible/callback_plugins/komainos_json.py"));
@@ -171,7 +172,7 @@ public class AnsibleReal implements PuertoAnsible {
                     "la salida supera el tamaño permitido de 8 MB");
         }
         return InterpreteAnsible.interpretar(salida.texto(), salida.codigo(),
-                s.proposito(), json, conexion.secreto(), conexion.secretoSu());
+                s.proposito(), json, conexion.secreto(), conexion.secretoElevacion());
     }
 
     /** ssh rechaza una llave con retornos de carro o sin salto de línea final («invalid format») */

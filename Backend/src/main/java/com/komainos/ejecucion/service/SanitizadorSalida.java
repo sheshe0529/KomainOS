@@ -13,7 +13,7 @@ public final class SanitizadorSalida {
     }
 
     public static String limpiar(String texto, String... secretos) {
-        String s = texto == null ? "" : texto;
+        String s = terminal(texto == null ? "" : texto);
         for (String secreto : secretos) {
             if (secreto != null && !secreto.isBlank()) {
                 s = s.replace(secreto, PROTEGIDO);
@@ -23,6 +23,30 @@ public final class SanitizadorSalida {
         s = s.replaceAll("(?im)(password|passwd|contrasena|contraseña|secreto|secret|token|ansible_[a-z_]*pass[a-z_]*)"
                 + "(\"?\\s*[:=]\\s*)[^\\s,}\\r\\n]+", "$1$2" + PROTEGIDO);
         return acotar(s, LARGO_MAXIMO);
+    }
+
+    /**
+     * Quita lo que deja la terminal con la que Ansible eleva privilegios (DEC-57): secuencias de control (por ejemplo,
+     * la OSC 3008 que emite su en Ubuntu 26.04), los asteriscos que sudo-rs muestra al recibir la contraseña y luego
+     * borra con retrocesos, y los retornos de carro
+     */
+    static String terminal(String texto) {
+        String s = texto.replaceAll("\u001B\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)", "")
+                .replaceAll("\u001B\\[[0-?]*[ -/]*[@-~]", "")
+                .replace("\r\n", "\n")
+                .replace("\r", "");
+        if (s.indexOf('\b') < 0) {
+            return s;
+        }
+        StringBuilder limpio = new StringBuilder(s.length());
+        for (char c : s.toCharArray()) {
+            if (c != '\b') {
+                limpio.append(c);
+            } else if (!limpio.isEmpty() && limpio.charAt(limpio.length() - 1) != '\n') {
+                limpio.setLength(limpio.length() - 1);
+            }
+        }
+        return limpio.toString();
     }
 
     public static String acotar(String texto, int largo) {

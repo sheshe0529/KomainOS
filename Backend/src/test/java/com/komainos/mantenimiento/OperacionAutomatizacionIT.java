@@ -136,20 +136,30 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
     class Conectividad {
 
         @Test
-        @DisplayName("CP020-CP023: el resultado distingue comunicación, autenticación y permisos")
+        @DisplayName("CP020-CP023: el resultado distingue comunicación, autenticación y permisos, e informa los privilegios")
         void categorias() throws Exception {
             mvc.perform(post("/api/servidores/{id}/conectividad", servidor.getId()).with(como(admin)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.correcto").value(true))
+                    .andExpect(jsonPath("$.administrador").value(true))
+                    .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("KOMAINOS_ADMINISTRADOR"))))
                     .andExpect(jsonPath("$.cuenta").value("Cuenta de pruebas"));
             mvc.perform(post("/api/servidores/{id}/conectividad", crear("srv-sin-autenticacion", "10.90.0.2").getId())
                             .with(como(admin)))
                     .andExpect(jsonPath("$.correcto").value(false))
                     .andExpect(jsonPath("$.fallo").value("AUTENTICACION"));
+            // DEC-57: sin privilegios de administrador el acceso es correcto y lo informa; PERMISOS es la elevación fallida
             mvc.perform(post("/api/servidores/{id}/conectividad", crear("srv-sin-permisos", "10.90.0.3").getId())
                             .with(como(admin)))
+                    .andExpect(jsonPath("$.correcto").value(true))
+                    .andExpect(jsonPath("$.administrador").value(false))
+                    .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("sin privilegios")));
+            mvc.perform(post("/api/servidores/{id}/conectividad", crear("srv-elevacion-fallida", "10.90.0.5").getId())
+                            .with(como(admin)))
+                    .andExpect(jsonPath("$.correcto").value(false))
                     .andExpect(jsonPath("$.fallo").value("PERMISOS"));
-            assertThat(contar("select count(*) from auditoria where operacion = 'PROBAR_CONECTIVIDAD'")).isEqualTo(3);
+            assertThat(contar("select count(*) from auditoria where operacion = 'PROBAR_CONECTIVIDAD'")).isEqualTo(4);
         }
 
         @Test

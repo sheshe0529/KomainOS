@@ -1,5 +1,6 @@
 package com.komainos.ejecucion.service;
 
+import com.komainos.ejecucion.model.MetodoElevacion;
 import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 
@@ -16,18 +17,27 @@ public interface PuertoConexionAutomatizacion {
 
         private final String usuario;
         private final String secreto;
-        private final String secretoSu;
         private final boolean llave;
+        private final MetodoElevacion metodoElevacion;
+        private final String secretoElevacion;
 
         /**
-         * @param secretoSu contraseña para elevar a root cuando la operación la requiere y la cuenta la configura
-         * @param llave     el secreto es una llave privada SSH y no una contraseña
+         * @param llave            el secreto es una llave privada SSH y no una contraseña
+         * @param metodoElevacion  cómo obtiene privilegios Ansible en esta ejecución (DEC-57)
+         * @param secretoElevacion la contraseña que pide sudo o la de root para su; nula sin contraseña de elevación
          */
-        public Conexion(String usuario, String secreto, String secretoSu, boolean llave) {
+        public Conexion(String usuario, String secreto, boolean llave, MetodoElevacion metodoElevacion,
+                        String secretoElevacion) {
             this.usuario = usuario;
             this.secreto = secreto;
-            this.secretoSu = secretoSu;
             this.llave = llave;
+            this.metodoElevacion = metodoElevacion == null ? MetodoElevacion.NINGUNO : metodoElevacion;
+            this.secretoElevacion = secretoElevacion;
+        }
+
+        /** Sin elevación */
+        public Conexion(String usuario, String secreto, boolean llave) {
+            this(usuario, secreto, llave, MetodoElevacion.NINGUNO, null);
         }
 
         public String usuario() {
@@ -38,17 +48,21 @@ public interface PuertoConexionAutomatizacion {
             return secreto;
         }
 
-        public String secretoSu() {
-            return secretoSu;
-        }
-
         public boolean llave() {
             return llave;
         }
 
+        public MetodoElevacion metodoElevacion() {
+            return metodoElevacion;
+        }
+
+        public String secretoElevacion() {
+            return secretoElevacion;
+        }
+
         @Override
         public String toString() {
-            return "Conexion[protegida]";
+            return "Conexion[protegida, elevacion=%s]".formatted(metodoElevacion);
         }
     }
 }

@@ -6,10 +6,12 @@
 --   cd Backend/scripts/bd
 --   psql "host=<endpoint> port=5432 dbname=komainos user=<usuario> sslmode=require" -f instalar_base.sql
 --
--- 1. 01_esquema.sql (DDL) y 02_datos_sistema.sql en una sola transacción: si algo falla no queda un esquema a medias.
--- 2. 04_umbrales_variables.sql, con su propia transacción: umbrales iniciales genéricos, ajustables en el panel.
--- No carga datos de demostración (03 y 05) ni crea el administrador: lo crea el backend en su primer arranque con
--- KOMAINOS_ADMIN_CLAVE_INICIAL (DEC-21).
+-- 01_esquema.sql (DDL) y 02_datos_sistema.sql en una sola transacción: si algo falla no queda un esquema a medias.
+-- 02 solo trae lo que el backend necesita para operar: los parámetros del sistema (sin ellos no se emiten tokens),
+-- los factores de ciclo (la planificación los exige) y las 21 variables de salud del R3.1 que informan los scripts de
+-- análisis. No carga umbrales ni listas de referencia (se registran en el panel; 04_umbrales_variables.sql, opcional,
+-- trae unos genéricos), ni datos de demostración (03 y 05), ni crea el administrador: lo crea el backend en su primer
+-- arranque con KOMAINOS_ADMIN_CLAVE_INICIAL (DEC-21).
 -- =====================================================================================================================
 
 \set ON_ERROR_STOP on
@@ -25,9 +27,6 @@ BEGIN;
 \ir 01_esquema.sql
 \ir 02_datos_sistema.sql
 COMMIT;
-
-\echo 'Cargando los umbrales iniciales de las variables de salud...'
-\ir 04_umbrales_variables.sql
 
 SELECT count(*) AS tablas FROM pg_tables WHERE schemaname = 'KomainOS';
 \echo 'Base de KomainOS instalada. Inicie el backend con KOMAINOS_ADMIN_CLAVE_INICIAL para crear el administrador.'

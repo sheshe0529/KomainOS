@@ -1,5 +1,6 @@
 package com.komainos.credencial.model;
 
+import com.komainos.ejecucion.model.MetodoElevacion;
 import com.komainos.shared.exception.ReglaNegocioException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -75,17 +76,26 @@ public abstract class Credencial {
         aplicarDatos(nombre, usuarioAcceso, descripcion);
     }
 
-    /** Registra o rota el secreto; la contraseña su acompaña solo al usuario Genérico, igual que exige ck_credencial_secreto_su */
-    public CredencialSecreto establecerSecreto(TipoAutenticacion tipo, TipoUsuario tipoUsuario, SecretoCifrado cifrado,
-                                               SecretoCifrado su, Instant ahora) {
+    /**
+     * Registra o rota el secreto. Igual que ck_credencial_secreto_elevacion: su exige la contraseña de root, sudo la
+     * admite y ninguno o runas no guardan contraseña de elevación (DEC-57)
+     */
+    public CredencialSecreto establecerSecreto(TipoAutenticacion tipo, MetodoElevacion metodo, SecretoCifrado cifrado,
+                                               SecretoCifrado elevacion, Instant ahora) {
         exigirVigente("actualizar su secreto");
-        if ((tipoUsuario == TipoUsuario.GENERICO) != (su != null)) {
-            throw new ReglaNegocioException("La contraseña su corresponde solo a un usuario Genérico");
+        if (metodo == null) {
+            throw new ReglaNegocioException("Indique el método de elevación de privilegios");
+        }
+        if (metodo.exigeContrasena() && elevacion == null) {
+            throw new ReglaNegocioException("La elevación con su requiere la contraseña de root");
+        }
+        if (!metodo.admiteContrasena() && elevacion != null) {
+            throw new ReglaNegocioException("La elevación %s no lleva contraseña de elevación".formatted(metodo.etiqueta()));
         }
         if (secreto == null) {
             secreto = CredencialSecreto.nuevo(this);
         }
-        secreto.reemplazar(tipo, tipoUsuario, cifrado, su, ahora);
+        secreto.reemplazar(tipo, metodo, cifrado, elevacion, ahora);
         return secreto;
     }
 

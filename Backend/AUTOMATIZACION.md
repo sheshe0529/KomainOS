@@ -182,9 +182,9 @@ informe los códigos nuevos (el de `Documentos/Scripts/` ya lo hace).
 
 ## Recorrido de prueba desde el panel
 
-1. **Datos iniciales**: `scripts/bd/instalar_base.sql` (o `02_datos_sistema.sql` y
-   `04_umbrales_variables.sql`) registra las 21 variables del R3.1 y un umbral
-   genérico por variable. Las reglas de aprobación se definen en **Configuración →
+1. **Datos iniciales**: `scripts/bd/instalar_base.sql` (o `02_datos_sistema.sql`)
+   registra las 21 variables del R3.1, sin umbrales: se registran en **Umbrales** o,
+   para partir de uno genérico por variable, con `04_umbrales_variables.sql`. Las reglas de aprobación se definen en **Configuración →
    Políticas de cambio** y los scripts y tareas en **Scripts** y **Tareas** (los de
    referencia están en `Documentos/Scripts/`). El backend desplegado ya no tiene la
    carga de datos de demostración (`POST /api/automatizacion/demostracion`, DEC-56).
@@ -263,11 +263,21 @@ reglas:
   como causa del fallo, ambas sin contraseñas ni llaves.
 - **Tiempo.** La duración estimada de la tarea es su límite: al superarlo se
   detiene y se registra como tiempo excedido.
-- **Privilegios por finalidad.** En Linux, el mantenimiento comprueba acceso como root o mediante
-  `sudo` sin contraseña. Una cuenta con elevación `su` configurada ejecuta esa prueba y las tareas
-  como root. En Windows se comprueba la pertenencia al grupo Administradores. La prueba de acceso de evaluación
-  verifica conectividad y autenticación sin exigir esos privilegios: el script de análisis
-  debe informar cualquier métrica que no pueda leer con los permisos concedidos.
+- **Privilegios (DEC-57).** Cada cuenta separa la conexión (usuario con contraseña o llave SSH) de
+  la elevación, que Ansible aplica tal cual en todas sus ejecuciones, análisis incluido:
+
+  | Elevación | Variables de Ansible | Contraseña de elevación |
+  |---|---|---|
+  | Ninguna | `ansible_become: false` | — |
+  | sudo (Linux) | `become` con `sudo`, `become_user: root` | La que pide sudo (la del propio usuario), o ninguna si es NOPASSWD |
+  | su (Linux) | `become` con `su`, `become_user: root` | La de root |
+  | runas (Windows) | `become` con `runas` y la misma cuenta | La de la cuenta (no se registra aparte) |
+
+  sudoers debe permitirle una shell como root (Ansible ejecuta `sudo /bin/sh -c '…'`), no una lista de
+  comandos. runas le da a un administrador local el token completo que WinRM le filtra. Para el mínimo
+  privilegio de la evaluación (DEC-53), configure su cuenta sin elevación: el script de análisis
+  informa lo que no pueda leer. La prueba de acceso comprueba conexión, inicio de sesión y elevación, e
+  informa si los scripts se ejecutarán con privilegios de administrador, sin exigirlo.
   El `.ps1` viaja en UTF-8 con BOM para Windows PowerShell 5.1.
 - **Análisis.** Solo lee. Su última línea es el JSON de métricas, con códigos del
   catálogo; el texto anterior se conserva como salida:
@@ -339,7 +349,7 @@ ejecuciones (`ControlMaster=no`).
 |---|---|
 | Error de comunicación | IP, puerto, firewall o servicio SSH/WinRM detenido |
 | Error de autenticación | Usuario, contraseña o llave inválidos o vencidos |
-| Permisos insuficientes | La cuenta entra pero no es root/sudo ni Administrador |
+| Permisos insuficientes | La cuenta entra, pero la elevación configurada falla: contraseña de sudo o de root incorrecta o faltante, usuario fuera de sudoers o sin permiso para una shell, runas sin sesión completa |
 | Tiempo excedido | El script superó la duración estimada de la tarea |
 | Error de ejecución | El script terminó con código distinto de cero |
 | Salida no válida | El análisis no imprimió el JSON de métricas en su última línea |
@@ -372,10 +382,11 @@ Cada servidor y grupo configura por separado **Cuenta para evaluaciones** y **Cu
 mantenimiento**. Cada asignación puede heredar su predeterminada del sistema, y ambas pueden
 seleccionar la misma cuenta. La asignación masiva y la prueba de acceso indican la finalidad.
 
-En **Nueva cuenta de servicio** o **Nuevo secreto**, seleccione **Genérico** en **Tipo de usuario**
-para registrar la contraseña de root por separado del acceso SSH. Si la cuenta se comparte entre
-finalidades, la elevación se usa únicamente en la prueba de acceso de mantenimiento y en las tareas
-de la MOP en Linux.
+En **Nueva cuenta de servicio** o **Nuevo secreto**, la sección **Elevación de privilegios** define
+cómo obtiene privilegios Ansible (ninguna, sudo con o sin contraseña, su con la contraseña de root o
+runas), y el formulario muestra al final la configuración de Ansible que resulta, con los secretos
+enmascarados. La elevación se aplica en todas las ejecuciones de la cuenta: si se comparte entre
+finalidades, el análisis también se eleva (DEC-57).
 
 | Etapa | Cuenta |
 |---|---|

@@ -3,11 +3,12 @@
 -- =====================================================================================================================
 -- Esquema "KomainOS" completo, tal como lo valida el backend al arrancar (Hibernate en modo validate): 53 tablas,
 -- 96 claves foráneas, 41 restricciones CHECK y 32 tipos enumerados. Consolida el modelo final del R2.4, las variables
--- de salud del R3.1 y todos los scripts de cambios/ hasta el 2026-11-07 (cuentas por finalidad, parámetros de lista,
--- indicadores de auditoría y revisiones periódicas por grupo): una base nueva no necesita ninguno de ellos.
--- Verificado el 2026-11-10 contra la base en uso (DBKomainOS): igual columna por columna, salvo dos columnas sin uso
+-- de salud del R3.1 y todos los scripts de cambios/ hasta el 2026-11-10 (cuentas por finalidad, parámetros de lista,
+-- indicadores de auditoría, revisiones periódicas por grupo y método de elevación de privilegios, DEC-57): una base
+-- nueva no necesita ninguno de ellos.
+-- Verificado el 2026-11-10 contra DBKomainOS antes del DEC-57: igual columna por columna, salvo dos columnas sin uso
 -- en esa base (evaluacion.usuario_acceso y mop_tarea.usuario_acceso) y la tabla heredada flyway_schema_history, que
--- este script no crea a propósito.
+-- este script no crea a propósito. DBKomainOS no tiene el cambio del DEC-57 (cambios/2026-11-10_metodo_elevacion.sql).
 --
 -- Requiere PostgreSQL 15 o superior (UNIQUE NULLS NOT DISTINCT en umbral_excepcion). No usa extensiones, roles,
 -- propietarios ni tablespaces: funciona en Amazon RDS con el usuario maestro o con cualquier rol que pueda crear
@@ -15,7 +16,7 @@
 --
 --   psql "host=<endpoint> dbname=komainos user=<usuario> sslmode=require" -v ON_ERROR_STOP=1 -1 -f 01_esquema.sql
 --
--- instalar_base.sql ejecuta en orden este script, 02_datos_sistema.sql y 04_umbrales_variables.sql.
+-- instalar_base.sql ejecuta en orden este script y 02_datos_sistema.sql (04_umbrales_variables.sql es opcional).
 -- =====================================================================================================================
 
 CREATE SCHEMA IF NOT EXISTS "KomainOS";
@@ -105,6 +106,12 @@ CREATE TYPE "KomainOS".enum_estado_validacion_funcional AS ENUM (
 CREATE TYPE "KomainOS".enum_familia_so AS ENUM (
     'LINUX',
     'WINDOWS'
+);
+CREATE TYPE "KomainOS".enum_metodo_elevacion AS ENUM (
+    'NINGUNO',
+    'SUDO',
+    'SU',
+    'RUNAS'
 );
 CREATE TYPE "KomainOS".enum_modalidad_planificacion AS ENUM (
     'AUTOMATICA',
@@ -202,10 +209,6 @@ CREATE TYPE "KomainOS".enum_tipo_rol AS ENUM (
 CREATE TYPE "KomainOS".enum_tipo_script AS ENUM (
     'ANALISIS',
     'MANTENIMIENTO'
-);
-CREATE TYPE "KomainOS".enum_tipo_usuario AS ENUM (
-    'ADMINISTRADOR',
-    'GENERICO'
 );
 CREATE TABLE "KomainOS".alerta (
     id_alerta integer NOT NULL,
@@ -394,15 +397,15 @@ CREATE TABLE "KomainOS".credencial_secreto (
     iv_nonce bytea NOT NULL,
     tag_autenticacion bytea NOT NULL,
     algoritmo character varying(100) NOT NULL,
-    tipo_usuario "KomainOS".enum_tipo_usuario,
-    su_secreto_cifrado bytea,
-    su_iv_nonce bytea,
-    su_tag_autenticacion bytea,
+    metodo_elevacion "KomainOS".enum_metodo_elevacion NOT NULL,
+    elevacion_secreto_cifrado bytea,
+    elevacion_iv_nonce bytea,
+    elevacion_tag_autenticacion bytea,
     fecha_actualizacion timestamp(0) without time zone DEFAULT (statement_timestamp() AT TIME ZONE 'UTC'::text) NOT NULL,
-    CONSTRAINT ck_credencial_secreto_su CHECK ((((su_secreto_cifrado IS NULL) = (su_iv_nonce IS NULL)) AND ((su_secreto_cifrado IS NULL) = (su_tag_autenticacion IS NULL)) AND ((tipo_usuario IS NOT DISTINCT FROM 'GENERICO'::"KomainOS".enum_tipo_usuario) = (su_secreto_cifrado IS NOT NULL)))),
+    CONSTRAINT ck_credencial_secreto_elevacion CHECK ((((elevacion_secreto_cifrado IS NULL) = (elevacion_iv_nonce IS NULL)) AND ((elevacion_secreto_cifrado IS NULL) = (elevacion_tag_autenticacion IS NULL)) AND ((metodo_elevacion <> 'SU'::"KomainOS".enum_metodo_elevacion) OR (elevacion_secreto_cifrado IS NOT NULL)) AND ((metodo_elevacion = ANY (ARRAY['SUDO'::"KomainOS".enum_metodo_elevacion, 'SU'::"KomainOS".enum_metodo_elevacion])) OR (elevacion_secreto_cifrado IS NULL)))),
+    CONSTRAINT credencial_secreto_elevacion_iv_nonce_check CHECK ((octet_length(elevacion_iv_nonce) <= 64)),
+    CONSTRAINT credencial_secreto_elevacion_tag_autenticacion_check CHECK ((octet_length(elevacion_tag_autenticacion) <= 64)),
     CONSTRAINT credencial_secreto_iv_nonce_check CHECK ((octet_length(iv_nonce) <= 64)),
-    CONSTRAINT credencial_secreto_su_iv_nonce_check CHECK ((octet_length(su_iv_nonce) <= 64)),
-    CONSTRAINT credencial_secreto_su_tag_autenticacion_check CHECK ((octet_length(su_tag_autenticacion) <= 64)),
     CONSTRAINT credencial_secreto_tag_autenticacion_check CHECK ((octet_length(tag_autenticacion) <= 64))
 );
 CREATE TABLE "KomainOS".cuenta_servicio (

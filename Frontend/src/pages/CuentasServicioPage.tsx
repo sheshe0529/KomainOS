@@ -17,7 +17,7 @@ import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
-import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION } from '@/utils/etiquetas'
+import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION, ETIQUETA_METODO_ELEVACION } from '@/utils/etiquetas'
 import { formatearFecha } from '@/utils/formato'
 import { textoDeError } from '@/utils/errores'
 import { FINALIDADES_CUENTA } from '@/utils/cuentasServicio'
@@ -120,7 +120,12 @@ export function CuentasServicioPage() {
                       <td className="px-4 py-3 font-mono">{c.usuarioAcceso}</td>
                       <td className="px-4 py-3">
                         {c.tipoAutenticacion ? ETIQUETA_AUTENTICACION[c.tipoAutenticacion] : '—'}
-                        {c.conSu && <span className="block text-xs text-ink-soft">Elevación con su en Linux</span>}
+                        {c.metodoElevacion && c.metodoElevacion !== 'NINGUNO' && (
+                          <span className="block text-xs text-ink-soft">
+                            Elevación: {ETIQUETA_METODO_ELEVACION[c.metodoElevacion]}
+                            {c.conContrasenaElevacion && ' con contraseña'}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-ink-soft">
                         {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}

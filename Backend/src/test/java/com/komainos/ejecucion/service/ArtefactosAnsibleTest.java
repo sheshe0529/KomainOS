@@ -2,6 +2,7 @@ package com.komainos.ejecucion.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.komainos.ejecucion.config.PropiedadesAutomatizacion;
+import com.komainos.ejecucion.model.MetodoElevacion;
 import com.komainos.ejecucion.service.PuertoConexionAutomatizacion.Conexion;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import org.junit.jupiter.api.DisplayName;
@@ -36,10 +37,10 @@ class ArtefactosAnsibleTest {
     }
 
     @Test
-    @DisplayName("Linux con contraseña y su: SSH con verificación de la clave del host y escalada a root")
+    @DisplayName("Linux con contraseña y su: SSH con verificación de la clave del host y elevación a root")
     void linuxConSu() {
         Map<String, Object> h = host(ArtefactosAnsible.inventario("10.20.0.5", FamiliaSistemaOperativo.LINUX,
-                new Conexion("deploy", "clave", "clave-root", false), null, SEGURO));
+                new Conexion("deploy", "clave", false, MetodoElevacion.SU, "clave-root"), null, SEGURO));
 
         assertThat(h).containsEntry("ansible_host", "10.20.0.5")
                 .containsEntry("ansible_user", "deploy")
@@ -48,32 +49,76 @@ class ArtefactosAnsibleTest {
                 .containsEntry("ansible_password", "clave")
                 .containsEntry("ansible_become", true)
                 .containsEntry("ansible_become_method", "su")
+                .containsEntry("ansible_become_user", "root")
                 .containsEntry("ansible_become_password", "clave-root")
                 .containsEntry("ansible_ssh_common_args",
                         "-o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/komainos/known_hosts");
     }
 
     @Test
-    @DisplayName("Linux con llave: la llave va como archivo y nunca como texto en el inventario")
+    @DisplayName("DEC-57: sudo sube a root, con la contraseña del usuario solo si sudo la pide")
+    void linuxConSudo() {
+        Map<String, Object> conContrasena = host(ArtefactosAnsible.inventario("10.20.0.5", FamiliaSistemaOperativo.LINUX,
+                new Conexion("ops", "clave", false, MetodoElevacion.SUDO, "clave-de-ops"), null, SEGURO));
+        Map<String, Object> sinContrasena = host(ArtefactosAnsible.inventario("10.20.0.5", FamiliaSistemaOperativo.LINUX,
+                new Conexion("ops", "clave", false, MetodoElevacion.SUDO, null), null, SEGURO));
+
+        assertThat(conContrasena).containsEntry("ansible_become", true)
+                .containsEntry("ansible_become_method", "sudo")
+                .containsEntry("ansible_become_user", "root")
+                .containsEntry("ansible_become_password", "clave-de-ops");
+        assertThat(sinContrasena).containsEntry("ansible_become", true)
+                .containsEntry("ansible_become_method", "sudo")
+                .doesNotContainKey("ansible_become_password");
+    }
+
+    @Test
+    @DisplayName("Linux con llave: la llave va como archivo y nunca como texto en el inventario; sin elevación")
     void linuxConLlave() {
         Map<String, Object> h = host(ArtefactosAnsible.inventario("10.20.0.5", FamiliaSistemaOperativo.LINUX,
-                new Conexion("deploy", "-----BEGIN KEY-----", null, true), Path.of("/tmp/k/llave_privada"), LABORATORIO));
+                new Conexion("deploy", "-----BEGIN KEY-----", true), "/tmp/k/llave_privada", LABORATORIO));
 
-        assertThat(h).containsEntry("ansible_ssh_private_key_file", Path.of("/tmp/k/llave_privada").toString())
+        assertThat(h).containsEntry("ansible_ssh_private_key_file", "/tmp/k/llave_privada")
                 .doesNotContainKey("ansible_password")
-                .doesNotContainKey("ansible_become")
+                .containsEntry("ansible_become", false)
+                .doesNotContainKey("ansible_become_method")
                 .containsEntry("ansible_port", 2222)
                 .containsEntry("ansible_ssh_common_args", "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null");
         assertThat(h.values()).noneMatch(v -> String.valueOf(v).contains("BEGIN KEY"));
     }
 
     @Test
+    @DisplayName("DEC-57: runas usa la misma cuenta y su contraseña para obtener el token completo en Windows")
+    void windowsConRunas() {
+        Map<String, Object> h = host(ArtefactosAnsible.inventario("10.20.0.9", FamiliaSistemaOperativo.WINDOWS,
+                new Conexion("admin.local", "clave-win", false, MetodoElevacion.RUNAS, null), null, SEGURO));
+
+        assertThat(h).containsEntry("ansible_connection", "winrm")
+                .containsEntry("ansible_become", true)
+                .containsEntry("ansible_become_method", "runas")
+                .containsEntry("ansible_become_user", "admin.local")
+                .containsEntry("ansible_become_password", "clave-win");
+    }
+
+    @Test
+    @DisplayName("DEC-57: un método que no corresponde a la familia no eleva")
+    void metodoDeOtraFamilia() {
+        Map<String, Object> windows = host(ArtefactosAnsible.inventario("10.20.0.9", FamiliaSistemaOperativo.WINDOWS,
+                new Conexion("svc", "clave", false, MetodoElevacion.SU, "root"), null, SEGURO));
+        Map<String, Object> linux = host(ArtefactosAnsible.inventario("10.20.0.5", FamiliaSistemaOperativo.LINUX,
+                new Conexion("svc", "clave", false, MetodoElevacion.RUNAS, null), null, SEGURO));
+
+        assertThat(windows).containsEntry("ansible_become", false).doesNotContainKey("ansible_become_password");
+        assertThat(linux).containsEntry("ansible_become", false).doesNotContainKey("ansible_become_method");
+    }
+
+    @Test
     @DisplayName("Windows: WinRM con certificado validado o, solo en laboratorio, ignorado")
     void windows() {
         Map<String, Object> seguro = host(ArtefactosAnsible.inventario("10.20.0.9", FamiliaSistemaOperativo.WINDOWS,
-                new Conexion("svc_komainos", "clave", null, false), null, SEGURO));
+                new Conexion("svc_komainos", "clave", false), null, SEGURO));
         Map<String, Object> laboratorio = host(ArtefactosAnsible.inventario("10.20.0.9",
-                FamiliaSistemaOperativo.WINDOWS, new Conexion("svc_komainos", "clave", null, false), null, LABORATORIO));
+                FamiliaSistemaOperativo.WINDOWS, new Conexion("svc_komainos", "clave", false), null, LABORATORIO));
 
         assertThat(seguro).containsEntry("ansible_connection", "winrm")
                 .containsEntry("ansible_port", 5986)

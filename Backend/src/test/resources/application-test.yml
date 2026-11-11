@@ -35,3 +35,4 @@ komainos:
       srv-sin-conexion: SIN_CONEXION
       srv-sin-autenticacion: SIN_AUTENTICACION
       srv-sin-permisos: SIN_PERMISOS
+      srv-elevacion-fallida: ELEVACION_FALLIDA

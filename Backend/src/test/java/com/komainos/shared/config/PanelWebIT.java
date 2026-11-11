@@ -11,6 +11,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -52,5 +53,16 @@ class PanelWebIT extends PruebaIntegracion {
     void apiProtegida() throws Exception {
         mvc.perform(get("/api/servidores")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/ruta-que-no-existe")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("DEC-58: /actuator/info es público y solo dice qué versión está desplegada")
+    void versionDesplegada() throws Exception {
+        mvc.perform(get("/actuator/info"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.komainos.commit").value("desconocido"))
+                .andExpect(jsonPath("$.komainos.construccion").exists())
+                .andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get("/actuator/env")).andExpect(status().isUnauthorized());
     }
 }

@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { KeyRound } from 'lucide-react'
-import type { FamiliaSistemaOperativo, TipoAutenticacion, TipoUsuario } from '@/api/dominio'
+import type { FamiliaSistemaOperativo, MetodoElevacion, TipoAutenticacion } from '@/api/dominio'
 import type { CredencialRespuesta, SecretoPeticion } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
+import { llevaContrasenaElevacion, metodosAdmitidos } from '@/utils/elevacion'
 import { errorDeCampo, tieneErroresDeCampo } from '@/utils/errores'
-import { CampoContrasena, CampoSecreto, SelectorMecanismo, SelectorTipoUsuario } from './CampoSecreto'
+import { CamposElevacion, CampoSecreto, SelectorElevacion, SelectorMecanismo } from './CampoSecreto'
+import { VistaAnsible } from './VistaAnsible'
 
 interface SecretoModalProps {
   abierto: boolean
@@ -18,21 +20,32 @@ interface SecretoModalProps {
   onGuardar: (datos: SecretoPeticion) => Promise<void>
 }
 
-/** Rota el secreto: reemplaza al vigente sin conservarlo, y un campo vacío copia el vigente si sigue aplicando (RF04, R2.4) */
+/**
+ * Rota el secreto y la elevación: reemplaza al vigente sin conservarlo, y un campo vacío copia el vigente si sigue
+ * aplicando (RF04, R2.4, DEC-57)
+ */
 export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, onCerrar, onGuardar }: SecretoModalProps) {
   const [tipo, setTipo] = useState<TipoAutenticacion>(credencial.tipoAutenticacion ?? 'PASSWORD')
-  const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>(
-    credencial.tipoUsuario ?? (credencial.conSu ? 'GENERICO' : 'ADMINISTRADOR'),
+  const [metodo, setMetodo] = useState<MetodoElevacion>(credencial.metodoElevacion ?? 'NINGUNO')
+  const [sudoPideContrasena, setSudoPideContrasena] = useState(
+    credencial.metodoElevacion === 'SUDO' && !!credencial.conContrasenaElevacion,
   )
   const [secreto, setSecreto] = useState('')
-  const [su, setSu] = useState('')
+  const [elevacion, setElevacion] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<unknown>()
 
-  const windows = clase === 'documental' && familia === 'WINDOWS'
-  const conSu = !windows && tipoUsuario === 'GENERICO'
+  const familiaFija = clase === 'documental' ? familia : undefined
+  const windows = familiaFija === 'WINDOWS'
+  const conContrasena = llevaContrasenaElevacion(metodo, sudoPideContrasena)
   const conservaSecreto = tipo === credencial.tipoAutenticacion
-  const conservaSu = conSu && !!credencial.conSu
+  // Solo con el mismo método: la contraseña de sudo no sirve como la de root
+  const conservaElevacion = conContrasena && metodo === credencial.metodoElevacion && !!credencial.conContrasenaElevacion
+
+  function cambiarTipo(nuevo: TipoAutenticacion) {
+    setTipo(nuevo)
+    if (!metodosAdmitidos(familiaFija, nuevo).includes(metodo)) setMetodo('NINGUNO')
+  }
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault()
@@ -41,9 +54,10 @@ export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, o
     try {
       await onGuardar({
         tipoAutenticacion: windows ? 'PASSWORD' : tipo,
-        tipoUsuario: windows ? undefined : tipoUsuario,
+        metodoElevacion: metodo,
         secreto: secreto || undefined,
-        secretoSu: conSu ? su || undefined : undefined,
+        elevacionConContrasena: metodo === 'SUDO' ? sudoPideContrasena : undefined,
+        secretoElevacion: conContrasena ? elevacion || undefined : undefined,
       })
     } catch (e) {
       setError(e)
@@ -72,10 +86,7 @@ export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, o
         <p className="rounded-lg bg-panel-muted px-3 py-2 text-sm text-ink-soft">
           Usuario de acceso: <span className="font-mono text-ink">{credencial.usuarioAcceso}</span>
         </p>
-        {!windows && <SelectorMecanismo valor={tipo} onCambiar={setTipo} familia={clase === 'documental' ? familia : undefined} />}
-        {!windows && (
-          <SelectorTipoUsuario valor={tipoUsuario} onCambiar={setTipoUsuario} cuentaServicio={clase === 'cuenta'} />
-        )}
+        {!windows && <SelectorMecanismo valor={tipo} onCambiar={cambiarTipo} familia={familiaFija} />}
         <CampoSecreto
           tipo={windows ? 'PASSWORD' : tipo}
           valor={secreto}
@@ -84,14 +95,22 @@ export function SecretoModal({ abierto, credencial, clase = 'cuenta', familia, o
           ayuda={conservaSecreto ? 'Déjela vacía para conservar la actual.' : undefined}
           error={errorDeCampo(error, 'secreto')}
         />
-        {conSu && (
-          <CampoContrasena
-            etiqueta="Contraseña su (root)"
-            valor={su}
-            onCambiar={setSu}
-            obligatorio={!conservaSu}
-            ayuda={conservaSu ? 'Déjela vacía para conservar la actual.' : 'La que pide su para subir a root.'}
-            error={errorDeCampo(error, 'secretoSu')}
+        <SelectorElevacion valor={metodo} onCambiar={setMetodo} familia={familiaFija} tipo={windows ? 'PASSWORD' : tipo} />
+        <CamposElevacion
+          metodo={metodo}
+          conContrasena={sudoPideContrasena}
+          onConContrasena={setSudoPideContrasena}
+          valor={elevacion}
+          onCambiar={setElevacion}
+          conserva={conservaElevacion}
+          error={errorDeCampo(error, 'secretoElevacion')}
+        />
+        {clase === 'cuenta' && (
+          <VistaAnsible
+            usuario={credencial.usuarioAcceso ?? ''}
+            tipo={tipo}
+            metodo={metodo}
+            conContrasena={conContrasena}
           />
         )}
       </form>

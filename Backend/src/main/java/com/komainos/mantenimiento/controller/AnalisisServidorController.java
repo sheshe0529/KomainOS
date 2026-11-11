@@ -150,6 +150,6 @@ public class AnalisisServidorController {
 
     private static OperacionRespuestas.ConexionRespuesta conexion(ResultadoConexion r) {
         return new OperacionRespuestas.ConexionRespuesta(r.idServidor(), r.servidor(), r.idCuenta(), r.cuenta(),
-                r.correcto(), r.fallo(), r.mensaje());
+                r.correcto(), r.fallo(), r.mensaje(), r.administrador());
     }
 }

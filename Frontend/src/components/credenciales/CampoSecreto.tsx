@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
 import { Eye, EyeOff, Upload } from 'lucide-react'
-import type { FamiliaSistemaOperativo, TipoAutenticacion, TipoUsuario } from '@/api/dominio'
+import type { FamiliaSistemaOperativo, MetodoElevacion, TipoAutenticacion } from '@/api/dominio'
 import { Boton } from '@/components/ui/Boton'
 import { AreaTexto, Campo, Entrada } from '@/components/ui/Campo'
-import { ETIQUETA_AUTENTICACION, ETIQUETA_TIPO_USUARIO } from '@/utils/etiquetas'
+import { METODOS_ELEVACION, metodosAdmitidos } from '@/utils/elevacion'
+import { ETIQUETA_AUTENTICACION, ETIQUETA_METODO_ELEVACION } from '@/utils/etiquetas'
 
 const TIPOS: TipoAutenticacion[] = ['PASSWORD', 'LLAVE_SSH']
-const TIPOS_USUARIO: TipoUsuario[] = ['ADMINISTRADOR', 'GENERICO']
 
 interface OpcionesProps<T extends string> {
   leyenda: string
@@ -77,27 +77,95 @@ export function SelectorMecanismo({ valor, onCambiar, familia }: MecanismoProps)
   )
 }
 
-interface TipoUsuarioProps {
-  valor: TipoUsuario
-  onCambiar: (tipo: TipoUsuario) => void
-  cuentaServicio?: boolean
+interface ElevacionProps {
+  valor: MetodoElevacion
+  onCambiar: (metodo: MetodoElevacion) => void
+  /** Credencial de un servidor: solo los métodos de su familia. Sin familia (cuenta de servicio), todos */
+  familia?: FamiliaSistemaOperativo
+  tipo: TipoAutenticacion
 }
 
-export function SelectorTipoUsuario({ valor, onCambiar, cuentaServicio = false }: TipoUsuarioProps) {
+/** Cómo obtiene privilegios Ansible después de conectarse: se aplica tal cual en cada ejecución (DEC-57) */
+export function SelectorElevacion({ valor, onCambiar, familia, tipo }: ElevacionProps) {
+  const admitidos = metodosAdmitidos(familia, tipo)
   return (
     <Opciones
-      leyenda="Tipo de usuario"
-      nombre="tipo-usuario"
-      opciones={TIPOS_USUARIO}
+      leyenda="Elevación de privilegios"
+      nombre="metodo-elevacion"
+      opciones={METODOS_ELEVACION.filter((m) => familia === undefined || admitidos.includes(m))}
       valor={valor}
-      etiquetas={ETIQUETA_TIPO_USUARIO}
+      etiquetas={ETIQUETA_METODO_ELEVACION}
       detalle={{
-        ADMINISTRADOR: cuentaServicio ? 'Usa los permisos del usuario de acceso.' : 'Tiene privilegios de administrador.',
-        GENERICO: cuentaServicio ? 'Usa la contraseña su para mantenimiento Linux.' : 'Para subir a root necesita la contraseña su.',
+        NINGUNO: 'Ejecuta con los permisos del usuario de acceso, sea o no administrador.',
+        SUDO: 'Linux: ejecuta como root con sudo, con o sin contraseña.',
+        SU: 'Linux: cambia a root con su y la contraseña de root.',
+        RUNAS: 'Windows: la misma cuenta, con el token completo de administrador.',
       }}
+      bloqueada={(m) => !admitidos.includes(m)}
       onCambiar={onCambiar}
+      ayuda={
+        valor === 'SUDO'
+          ? 'Ansible ejecuta «sudo /bin/sh -c …»: sudoers debe permitirle una shell como root (por ejemplo, ALL), no solo ciertos comandos.'
+          : tipo === 'LLAVE_SSH' && familia === undefined
+            ? 'runas es para Windows, que solo admite contraseña.'
+            : undefined
+      }
     />
   )
+}
+
+interface CamposElevacionProps {
+  metodo: MetodoElevacion
+  conContrasena: boolean
+  onConContrasena: (valor: boolean) => void
+  valor: string
+  onCambiar: (valor: string) => void
+  error?: string
+  /** Al rotar: vacía conserva la contraseña de elevación vigente */
+  conserva?: boolean
+}
+
+/** sudo puede pedir la contraseña del propio usuario o no pedir ninguna (NOPASSWD); su siempre pide la de root */
+export function CamposElevacion({ metodo, conContrasena, onConContrasena, valor, onCambiar, error, conserva = false }: CamposElevacionProps) {
+  if (metodo === 'SUDO') {
+    return (
+      <div className="flex flex-col gap-3">
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={conContrasena}
+            onChange={(e) => onConContrasena(e.target.checked)}
+            className="h-4 w-4 accent-[var(--color-accent)]"
+          />
+          sudo pide contraseña
+          <span className="text-xs text-ink-faint">(sin marcar: autorizado sin contraseña, NOPASSWD)</span>
+        </label>
+        {conContrasena && (
+          <CampoContrasena
+            etiqueta="Contraseña de sudo"
+            valor={valor}
+            onCambiar={onCambiar}
+            obligatorio={!conserva}
+            error={error}
+            ayuda={conserva ? 'Déjela vacía para conservar la actual.' : 'La que pide sudo: normalmente la del propio usuario de acceso.'}
+          />
+        )}
+      </div>
+    )
+  }
+  if (metodo === 'SU') {
+    return (
+      <CampoContrasena
+        etiqueta="Contraseña de root (su)"
+        valor={valor}
+        onCambiar={onCambiar}
+        obligatorio={!conserva}
+        error={error}
+        ayuda={conserva ? 'Déjela vacía para conservar la actual.' : 'La que pide su para cambiar a root.'}
+      />
+    )
+  }
+  return null
 }
 
 interface CampoContrasenaProps {
@@ -163,7 +231,7 @@ export function CampoSecreto({ tipo, valor, onCambiar, error, ayuda, obligatorio
           etiqueta="Llave privada"
           obligatorio={obligatorio}
           error={error}
-          ayuda={ayuda ?? 'Formato PEM u OpenSSH, desde -----BEGIN … PRIVATE KEY----- hasta la línea END.'}
+          ayuda={ayuda ?? 'Formato PEM u OpenSSH, sin frase de contraseña, desde -----BEGIN … PRIVATE KEY----- hasta la línea END.'}
         >
           <AreaTexto
             rows={7}

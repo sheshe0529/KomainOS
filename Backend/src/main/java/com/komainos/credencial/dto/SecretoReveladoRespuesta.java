@@ -1,7 +1,7 @@
 package com.komainos.credencial.dto;
 
 import com.komainos.credencial.model.TipoAutenticacion;
-import com.komainos.credencial.model.TipoUsuario;
+import com.komainos.ejecucion.model.MetodoElevacion;
 
 import java.time.Instant;
 
@@ -11,12 +11,12 @@ public record SecretoReveladoRespuesta(
         String nombre,
         String usuarioAcceso,
         TipoAutenticacion tipoAutenticacion,
-        TipoUsuario tipoUsuario,
+        MetodoElevacion metodoElevacion,
         /** Registro o última rotación del secreto revelado */
         Instant fechaSecreto,
         String secreto,
-        /** Contraseña su, solo con un usuario Genérico */
-        String secretoSu,
+        /** Contraseña de sudo o de root para su; nula si la elevación no la lleva */
+        String secretoElevacion,
         int segundosVisible) {
 
     @Override

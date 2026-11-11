@@ -1,0 +1,51 @@
+# Despliegue de KomainOS en el EC2 (DEC-58). Cada merge de un pull request a main (o un push a main):
+#   1. corre las pruebas (pruebas.yml);
+#   2. el EC2, que consulta main cada minuto (despliegue/vigilar.py), ve el commit con sus pruebas aprobadas y lo
+#      despliega: respaldo de la base, migraciones pendientes, imagen nueva y vuelta atrás si no queda en servicio;
+#   3. este workflow espera a que el panel publique el commit en /actuator/info y así deja constancia en GitHub.
+# El EC2 no recibe conexiones de GitHub ni hay secretos: no hace falta abrir el puerto 22.
+name: Despliegue en EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: despliegue-produccion
+  cancel-in-progress: false
+
+jobs:
+  pruebas:
+    uses: ./.github/workflows/pruebas.yml
+
+  despliegue:
+    name: Despliegue en el EC2
+    needs: pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: produccion
+      url: ${{ vars.URL_PRODUCCION }}
+    steps:
+      - name: Esperar a que el EC2 ponga en servicio este commit
+        env:
+          URL: ${{ vars.URL_PRODUCCION }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$URL" ]; then echo "::error::Defina la variable URL_PRODUCCION del repositorio"; exit 1; fi
+          echo "Esperando ${SHA:0:12} en $URL/actuator/info"
+          for intento in $(seq 1 80); do
+            actual=$(curl -s -m 10 "$URL/actuator/info" | jq -r '.komainos.commit // empty' 2>/dev/null || true)
+            if [ "$actual" = "$SHA" ]; then
+              echo "En servicio ${SHA:0:12} (intento $intento)"
+              exit 0
+            fi
+            echo "En servicio: ${actual:-sin respuesta} · intento $intento de 80"
+            sleep 20
+          done
+          echo "::error::El EC2 no puso en servicio ${SHA:0:12} en 26 minutos. En el servidor: journalctl -u komainos-despliegue y ~/komainos-estado/registros (DESPLIEGUE.md, sección 20)"
+          exit 1

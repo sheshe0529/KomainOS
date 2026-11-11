@@ -14,9 +14,11 @@ class ProtectorValoresAuditoriaTest {
     void protegeValoresAnidados() {
         var valor = protector.leer("""
                 {"nombre":"Cuenta Linux","hash_contrasena":"hash-ficticio", "datos":[
-                    {"password":"texto-ficticio", "idCuentaServicio":9, "secretoSu":"su-ficticio"}]}
+                    {"password":"texto-ficticio", "idCuentaServicio":9, "secretoSu":"su-ficticio",
+                     "secretoElevacion":"elevacion-ficticia"}]}
                 """);
-        assertThat(valor.toString()).doesNotContain("hash-ficticio", "texto-ficticio", "su-ficticio");
+        assertThat(valor.toString()).doesNotContain("hash-ficticio", "texto-ficticio", "su-ficticio",
+                "elevacion-ficticia");
         assertThat(valor.path("nombre").asText()).isEqualTo("Cuenta Linux");
         assertThat(valor.path("datos").get(0).path("idCuentaServicio").asInt()).isEqualTo(9);
     }

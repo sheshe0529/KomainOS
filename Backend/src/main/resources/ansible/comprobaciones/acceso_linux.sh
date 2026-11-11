@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
-# Comprobación de acceso de KomainOS (RF71): conectividad, autenticación y permisos de administrador.
-# Termina con 0 si la cuenta es root o puede usar sudo sin contraseña, y con 3 si no tiene privilegios.
-if [ "$(id -u)" -eq 0 ] || sudo -n true 2>/dev/null; then
-    echo "Acceso verificado como $(id -un) en $(hostname)"
+# Prueba de acceso de KomainOS (RF71, DEC-57). Si este script se ejecuta, el controlador llegó al servidor, inició
+# sesión y aplicó la elevación configurada en la cuenta (ninguna, sudo o su): falta solo informar los permisos con los
+# que se ejecutarán los scripts. No exige root; la última línea le dice a KomainOS si los tiene.
+usuario=$(id -un)
+uid=$(id -u)
+equipo=$(hostname)
+if [ "$uid" -eq 0 ]; then
+    echo "Acceso verificado en $equipo: los scripts se ejecutarán como $usuario (uid 0), con privilegios de administrador"
+    echo "KOMAINOS_ADMINISTRADOR=si"
     exit 0
 fi
-echo "La cuenta $(id -un) se autenticó, pero no es root ni puede usar sudo sin contraseña" >&2
-exit 3
+detalle="sin privilegios de administrador"
+if sudo -n true 2>/dev/null; then
+    detalle="$detalle; puede usar sudo sin contraseña: elija la elevación sudo en la cuenta para ejecutar como root"
+fi
+echo "Acceso verificado en $equipo: los scripts se ejecutarán como $usuario (uid $uid), $detalle"
+echo "KOMAINOS_ADMINISTRADOR=no"

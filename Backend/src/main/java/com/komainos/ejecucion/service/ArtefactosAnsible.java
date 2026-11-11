@@ -1,6 +1,7 @@
 package com.komainos.ejecucion.service;
 
 import com.komainos.ejecucion.config.PropiedadesAutomatizacion;
+import com.komainos.ejecucion.model.MetodoElevacion;
 import com.komainos.ejecucion.service.PuertoConexionAutomatizacion.Conexion;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
 
@@ -25,40 +26,67 @@ public final class ArtefactosAnsible {
     }
 
     /**
-     * @param llavePrivada archivo con la llave cuando la cuenta autentica con llave SSH; nulo con contraseña
+     * Variables del servidor objetivo: conexión, autenticación y elevación de la cuenta (DEC-57). La vista previa de la
+     * configuración usa este mismo método con los secretos enmascarados, para mostrar exactamente lo que se ejecuta.
+     *
+     * @param llavePrivada ruta del archivo con la llave cuando la cuenta autentica con llave SSH; nula con contraseña
      */
     public static Map<String, Object> inventario(String direccionIp, FamiliaSistemaOperativo familia, Conexion conexion,
-                                                 Path llavePrivada, PropiedadesAutomatizacion.Ansible config) {
+                                                 String llavePrivada, PropiedadesAutomatizacion.Ansible config) {
+        return Map.of("all", Map.of("hosts", Map.of(HOST, variables(direccionIp, familia, conexion, llavePrivada, config))));
+    }
+
+    static Map<String, Object> variables(String direccionIp, FamiliaSistemaOperativo familia, Conexion conexion,
+                                         String llavePrivada, PropiedadesAutomatizacion.Ansible config) {
         Map<String, Object> host = new LinkedHashMap<>();
         host.put("ansible_host", direccionIp);
         host.put("ansible_user", conexion.usuario());
         if (familia == FamiliaSistemaOperativo.WINDOWS) {
             PropiedadesAutomatizacion.Winrm winrm = config.winrm();
+            host.put("ansible_password", conexion.secreto());
             host.put("ansible_connection", "winrm");
             host.put("ansible_port", winrm.puerto());
             host.put("ansible_winrm_scheme", winrm.esquema());
             host.put("ansible_winrm_transport", winrm.transporte());
             host.put("ansible_winrm_server_cert_validation", winrm.validarCertificado() ? "validate" : "ignore");
-            host.put("ansible_password", conexion.secreto());
         } else {
             PropiedadesAutomatizacion.Ssh ssh = config.ssh();
+            if (conexion.llave()) {
+                host.put("ansible_ssh_private_key_file", llavePrivada);
+            } else {
+                host.put("ansible_password", conexion.secreto());
+            }
             host.put("ansible_connection", "ssh");
             host.put("ansible_port", ssh.puerto());
             host.put("ansible_python_interpreter", "auto_silent");
             host.put("ansible_ssh_common_args", opcionesSsh(ssh));
-            if (conexion.llave()) {
-                host.put("ansible_ssh_private_key_file", llavePrivada.toString());
-            } else {
-                host.put("ansible_password", conexion.secreto());
-            }
-            if (conexion.secretoSu() != null) {
-                host.put("ansible_become", true);
-                host.put("ansible_become_method", "su");
-                host.put("ansible_become_user", "root");
-                host.put("ansible_become_password", conexion.secretoSu());
+        }
+        elevacion(host, familia, conexion);
+        return host;
+    }
+
+    /**
+     * sudo y su suben a root, con la contraseña solo si la cuenta la guarda (sudo sin contraseña no la lleva); runas usa
+     * la misma cuenta con su contraseña para obtener el token completo de administrador. Un método que no corresponde a
+     * la familia no llega aquí: la cuenta no se puede asignar a ese servidor
+     */
+    private static void elevacion(Map<String, Object> host, FamiliaSistemaOperativo familia, Conexion conexion) {
+        MetodoElevacion metodo = conexion.metodoElevacion();
+        if (metodo == MetodoElevacion.NINGUNO || !metodo.admitidoEn(familia)) {
+            host.put("ansible_become", false);
+            return;
+        }
+        host.put("ansible_become", true);
+        host.put("ansible_become_method", metodo.metodoAnsible());
+        if (metodo == MetodoElevacion.RUNAS) {
+            host.put("ansible_become_user", conexion.usuario());
+            host.put("ansible_become_password", conexion.secreto());
+        } else {
+            host.put("ansible_become_user", "root");
+            if (conexion.secretoElevacion() != null) {
+                host.put("ansible_become_password", conexion.secretoElevacion());
             }
         }
-        return Map.of("all", Map.of("hosts", Map.of(HOST, host)));
     }
 
     /**

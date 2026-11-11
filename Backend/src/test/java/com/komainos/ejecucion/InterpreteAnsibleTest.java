@@ -87,6 +87,47 @@ class InterpreteAnsibleTest {
     }
 
     @Test
+    @DisplayName("DEC-57: sudo con contraseña incorrecta es un problema de permisos con su indicación")
+    void sudoContrasenaIncorrecta() {
+        ResultadoEjecucion r = interpretar("{\"estado\":\"failed\",\"rc\":null,\"stdout\":\"\",\"stderr\":\"\",\"msg\":"
+                + "\"Task failed: Incorrect sudo password\"}", PropositoEjecucion.CONECTIVIDAD);
+
+        assertThat(r.fallo()).isEqualTo(TipoFallo.PERMISOS);
+        assertThat(r.error()).contains("propio usuario");
+    }
+
+    @Test
+    @DisplayName("DEC-57: sudo que pide una contraseña no registrada llega por la salida estándar y es un problema de permisos")
+    void sudoPideContrasena() {
+        ResultadoEjecucion r = interpretar("{\"estado\":\"failed\",\"rc\":1,\"stdout\":\"sudo: interactive "
+                + "authentication is required\\r\\n\",\"stderr\":\"Shared connection to 10.0.0.5 closed.\",\"msg\":"
+                + "\"non-zero return code\"}", PropositoEjecucion.TAREA);
+
+        assertThat(r.fallo()).isEqualTo(TipoFallo.PERMISOS);
+        assertThat(r.error()).contains("interactive authentication is required").contains("NOPASSWD");
+    }
+
+    @Test
+    @DisplayName("DEC-57: un «access denied» que imprime el script no se toma por una elevación fallida")
+    void accesoDenegadoDelScript() {
+        ResultadoEjecucion r = interpretar("{\"estado\":\"failed\",\"rc\":2,\"stdout\":\"access denied to /data\","
+                + "\"stderr\":\"\",\"msg\":\"non-zero return code\"}", PropositoEjecucion.TAREA);
+
+        assertThat(r.fallo()).isEqualTo(TipoFallo.EJECUCION);
+        assertThat(r.codigoRetorno()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("DEC-57: la salida queda sin los restos de la terminal con la que Ansible eleva privilegios")
+    void restosDeTerminal() {
+        String salida = "***\b \b\b \b\b \b\r\nse ejecuta como root (uid 0)\r\n\u001B]3008;end=a88dda0c\u001B\\";
+        ResultadoEjecucion r = interpretar("{\"estado\":\"ok\",\"rc\":0,\"stdout\":" + json.valueToTree(salida)
+                + ",\"stderr\":\"\",\"msg\":\"\"}", PropositoEjecucion.TAREA);
+
+        assertThat(r.salida()).isEqualTo("\nse ejecuta como root (uid 0)\n");
+    }
+
+    @Test
     @DisplayName("El límite de tiempo de la tarea no se confunde con un problema de red")
     void tiempoExcedido() {
         ResultadoEjecucion r = interpretar("{\"estado\":\"failed\",\"rc\":null,\"stdout\":\"\",\"stderr\":\"\",\"msg\":"

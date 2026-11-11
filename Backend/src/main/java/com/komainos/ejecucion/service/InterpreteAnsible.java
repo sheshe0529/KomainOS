@@ -32,7 +32,16 @@ public final class InterpreteAnsible {
     private static final List<String> SENALES_PERMISOS = List.of(
             "incorrect su password", "su: authentication failure", "waiting for privilege escalation prompt",
             "missing sudo password", "a password is required", "is not in the sudoers file",
-            "authentication or permission failure", "access is denied", "access denied", "requires elevation");
+            "authentication or permission failure", "access is denied", "access denied", "requires elevation",
+            "incorrect sudo password", "interactive authentication is required", "may not run sudo",
+            "is not allowed to execute", "failed to become");
+    /**
+     * Las de sudo y su que llegan por la salida estándar: Ansible eleva en una terminal y el error de sudo se mezcla con
+     * ella. Solo estas, para no tomar por un problema de permisos el «access denied» que imprima un script (DEC-57)
+     */
+    private static final List<String> SENALES_ELEVACION_EN_SALIDA = List.of(
+            "sudo: interactive authentication is required", "sudo: a password is required",
+            "is not in the sudoers file", "may not run sudo", "su: authentication failure");
     private static final List<String> SENALES_CONFIGURACION = List.of(
             "couldn't resolve module/action", "no module named", "winrm or requests is not installed",
             "requires the pywinrm", "to use the 'ssh' connection type with passwords", "sshpass",
@@ -76,6 +85,11 @@ public final class InterpreteAnsible {
                 return ResultadoEjecucion.fallo(TipoFallo.PERMISOS,
                         limpiar(conIndicacion(TipoFallo.PERMISOS, detalle), secretos));
             }
+            String elevacion = lineaElevacion(stdout);
+            if (elevacion != null) {
+                return ResultadoEjecucion.fallo(TipoFallo.PERMISOS,
+                        limpiar(conIndicacion(TipoFallo.PERMISOS, elevacion), secretos));
+            }
             return ResultadoEjecucion.codigoError(codigo, stdout, limpiar(detalle, secretos));
         }
         TipoFallo tipo = clasificar(detalle).orElse(TipoFallo.EJECUCION);
@@ -111,11 +125,40 @@ public final class InterpreteAnsible {
         return Optional.empty();
     }
 
+    /** La línea de la salida estándar con un rechazo de sudo o su, si la hay */
+    static String lineaElevacion(String salida) {
+        if (salida == null || salida.isBlank()) {
+            return null;
+        }
+        return salida.lines()
+                .filter(l -> contiene(l.toLowerCase(Locale.ROOT), SENALES_ELEVACION_EN_SALIDA))
+                .map(String::strip)
+                .findFirst().orElse(null);
+    }
+
     /** Agrega cómo resolver los casos de laboratorio más frecuentes */
     static String conIndicacion(TipoFallo tipo, String detalle) {
         String m = detalle == null ? "" : detalle.toLowerCase(Locale.ROOT);
         String indicacion = null;
-        if (m.contains("host key verification failed")) {
+        if (m.contains("missing sudo password") || m.contains("interactive authentication is required")
+                || m.contains("a password is required")) {
+            indicacion = "sudo pide contraseña: en la cuenta marque que sudo la pide y registre la contraseña del "
+                    + "usuario, o autorice al usuario sin contraseña (NOPASSWD) en sudoers.";
+        } else if (m.contains("incorrect sudo password")) {
+            indicacion = "La contraseña de elevación no es la que pide sudo: normalmente es la del propio usuario.";
+        } else if (m.contains("incorrect su password") || m.contains("su: authentication failure")) {
+            indicacion = "La contraseña de elevación no es la de root que pide su.";
+        } else if (m.contains("is not in the sudoers file") || m.contains("may not run sudo")
+                || m.contains("is not allowed to execute")) {
+            indicacion = "El usuario no puede usar sudo para ejecutar una shell como root: Ansible necesita "
+                    + "«usuario ALL=(ALL) ...» en sudoers, no una lista de comandos.";
+        } else if (m.contains("waiting for privilege escalation prompt")) {
+            indicacion = "Ansible no reconoció la solicitud de contraseña: revise el método de elevación de la cuenta "
+                    + "(sudo o su) y que el servidor pida contraseña cuando la cuenta la tiene registrada.";
+        } else if (m.contains("failed to become")) {
+            indicacion = "runas no pudo obtener la sesión completa: la cuenta debe ser administradora y su "
+                    + "contraseña, la registrada.";
+        } else if (m.contains("host key verification failed")) {
             indicacion = "Registre la clave del servidor en el known_hosts del controlador (ssh-keyscan) o, solo en "
                     + "laboratorio, desactive la verificación con KOMAINOS_ANSIBLE_SSH_VERIFICAR_CLAVE_HOST=false.";
         } else if (m.contains("certificate verify failed")) {
