@@ -76,7 +76,8 @@ EOF
 
     sudo systemctl daemon-reload
     sudo systemctl enable --now komainos-despliegue.timer >/dev/null
-    systemctl list-timers komainos-despliegue.timer --no-pager | head -2
+    # Sin «| head»: con pipefail, cortar la salida de systemctl terminaría la instalación con el código 141
+    systemctl list-timers komainos-despliegue.timer --no-pager --no-legend
     echo "Instalado. Registro: journalctl -u komainos-despliegue -f    Estado: python3 $REPO/despliegue/vigilar.py --estado"
 }
 
