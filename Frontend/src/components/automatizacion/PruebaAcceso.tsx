@@ -8,7 +8,7 @@ import { Selector } from '@/components/ui/Campo'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
-import { detalleFallo, FALLO } from '@/utils/automatizacion'
+import { diagnosticarResultado } from '@/utils/automatizacion'
 import { rotuloCuentaServicio } from '@/utils/cuentasServicio'
 import { ResultadoFallo } from './ResultadoFallo'
 
@@ -129,34 +129,29 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
           </p>
           {resultados.length > 0 && (
             <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line">
-              {resultados.map((r) => (
-                <li key={`${r.idServidor}-${r.idCuenta}`} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2 text-sm">
-                  <span className="font-mono text-ink">{r.servidor}</span>
-                  <StatusPill
-                    tone={!r.correcto ? 'danger' : r.administrador === false ? 'warning' : 'success'}
-                    label={
-                      !r.correcto
-                        ? r.fallo
-                          ? FALLO[r.fallo].etiqueta
-                          : 'Falló'
-                        : r.administrador === false
-                          ? 'Correcto, sin privilegios'
-                          : 'Correcto'
-                    }
-                  />
-                  <span className="text-xs text-ink-faint">
-                    {r.cuenta}
-                    {uso(r) && ` · ${uso(r)}`}
-                  </span>
-                  {r.correcto && r.mensaje && <span className="w-full text-xs text-ink-soft">{r.mensaje}</span>}
-                  {!r.correcto && (
-                    <span className="w-full text-xs text-ink-soft">
-                      {detalleFallo(r.fallo, r.mensaje)}
-                      {r.fallo && <span className="block text-ink-faint">{FALLO[r.fallo].sugerencia}</span>}
+              {resultados.map((r) => {
+                const d = r.correcto ? undefined : diagnosticarResultado(r.fallo, r.mensaje)
+                return (
+                  <li key={`${r.idServidor}-${r.idCuenta}`} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2 text-sm">
+                    <span className="font-mono text-ink">{r.servidor}</span>
+                    <StatusPill
+                      tone={!r.correcto ? 'danger' : r.administrador === false ? 'warning' : 'success'}
+                      label={d ? d.titulo : r.administrador === false ? 'Correcto, sin privilegios' : 'Correcto'}
+                    />
+                    <span className="text-xs text-ink-faint">
+                      {r.cuenta}
+                      {uso(r) && ` · ${uso(r)}`}
                     </span>
-                  )}
-                </li>
-              ))}
+                    {r.correcto && r.mensaje && <span className="w-full text-xs text-ink-soft">{r.mensaje}</span>}
+                    {d && (
+                      <span className="w-full text-xs text-ink-soft">
+                        {d.detalle}
+                        {d.sugerencia && <span className="block text-ink-faint">{d.sugerencia}</span>}
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

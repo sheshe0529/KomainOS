@@ -73,8 +73,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Sintaxis de los scripts del EC2
         run: |
-          bash -n despliegue/desplegar.sh despliegue/instalar.sh
-          shellcheck -S warning despliegue/desplegar.sh despliegue/instalar.sh
+          bash -n despliegue/desplegar.sh despliegue/instalar.sh despliegue/confiar-winrm.sh
+          shellcheck -S warning despliegue/desplegar.sh despliegue/instalar.sh despliegue/confiar-winrm.sh
           python3 -m py_compile despliegue/vigilar.py
       - name: Decisión de despliegue
         working-directory: despliegue

@@ -213,8 +213,8 @@ public final class InterpreteAnsible {
             indicacion = "Registre la clave del servidor en el known_hosts del controlador (ssh-keyscan) o, solo en "
                     + "laboratorio, desactive la verificación con KOMAINOS_ANSIBLE_SSH_VERIFICAR_CLAVE_HOST=false.";
         } else if (m.contains("certificate verify failed")) {
-            indicacion = "El certificado WinRM no es de confianza para el controlador: instale su CA o, solo en "
-                    + "laboratorio, use KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO=false.";
+            indicacion = "El certificado WinRM no es de confianza para el controlador: agregue el del servidor o su CA "
+                    + "con despliegue/confiar-winrm.sh (DESPLIEGUE.md, sección 13).";
         } else if (m.contains("winrm or requests is not installed") || m.contains("requires the pywinrm")) {
             indicacion = "Instale pywinrm en el controlador: pip install pywinrm.";
         } else if (m.contains("sshpass")) {

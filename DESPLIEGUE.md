@@ -259,11 +259,13 @@ Cree el script de arranque, que también sirve para reiniciar después de cambia
 cat > ~/komainos/iniciar.sh <<'EOF'
 #!/bin/bash
 # Arranca (o vuelve a crear) el contenedor de KomainOS con las variables de ~/komainos/.env
+mkdir -p ~/komainos-certificados
 docker rm -f komainos 2>/dev/null
 docker run -d --name komainos --restart unless-stopped \
   --env-file ~/komainos/.env \
   -p 80:8080 \
   -v komainos-ssh:/home/komainos/.ssh \
+  -v ~/komainos-certificados:/opt/komainos/winrm-ca:ro \
   --log-opt max-size=20m --log-opt max-file=5 \
   komainos:latest
 EOF
@@ -272,7 +274,8 @@ chmod +x ~/komainos/iniciar.sh
 ```
 
 `--restart unless-stopped` hace que el contenedor vuelva a arrancar solo si se reinicia la instancia. El volumen
-`komainos-ssh` guarda las claves de host de los servidores gestionados entre versiones.
+`komainos-ssh` guarda las claves de host de los servidores gestionados entre versiones, y `~/komainos-certificados`,
+los certificados WinRM de confianza (sección 13).
 
 ## 11. Verificar
 
@@ -326,8 +329,19 @@ Si responde dentro del servidor pero desde su PC se agota el tiempo, falta la re
   docker exec komainos sh -c 'ssh-keygen -lf ~/.ssh/known_hosts'
   ```
 
-- **Windows (WinRM):** escucha HTTPS en 5986, transporte NTLM. Si el certificado lo emite una CA interna, agregue esa
-  CA a la imagen; `KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO=false` es solo para laboratorio.
+- **Windows (WinRM):** escucha HTTPS en 5986, transporte NTLM, y el controlador valida su certificado. Si es
+  autofirmado (el que crea Windows) o lo emite una CA interna, agréguelo a los de confianza del controlador con su
+  huella, que en el servidor es `CertificateThumbprint` en `winrm enumerate winrm/config/listener`:
+
+  ```bash
+  bash ~/komainos/despliegue/confiar-winrm.sh <IP-del-servidor> <huella-SHA-1>
+  ```
+
+  El script descarga el certificado y lo agrega a `~/komainos-certificados/winrm-confianza.pem` solo si la huella
+  coincide; la primera vez, además, define `REQUESTS_CA_BUNDLE` en `.env` (pywinrm confía solo en ese archivo), agrega el
+  montaje a `iniciar.sh` y reinicia. Comprueba que el TLS se valida sin enviar credenciales. El certificado debe incluir
+  la IP con la que se registra el servidor. `KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO=false` es solo para
+  laboratorio.
 - **Cuentas de servicio:** usuario con contraseña o llave SSH (sin frase de contraseña) y, aparte, la elevación que
   aplicará Ansible: ninguna, `sudo` (con la contraseña del usuario o NOPASSWD), `su` con la contraseña de root, o
   `runas` en Windows. El formulario muestra al final la configuración de Ansible que resulta. Con `sudo`, sudoers debe
@@ -565,6 +579,7 @@ cuyas pruebas fallan nunca se despliega.
 | `despliegue/vigilar.py` | En el EC2, cada minuto: ¿hay un commit nuevo en `main` con las pruebas aprobadas? Entonces lo despliega |
 | `despliegue/desplegar.sh` | Construye `komainos:<commit>`, respalda RDS, aplica las migraciones pendientes, cambia de versión y comprueba que la nueva responda con su commit; si no, vuelve a la anterior |
 | `despliegue/instalar.sh` | Instala el temporizador de systemd (una sola vez) |
+| `despliegue/confiar-winrm.sh` | Agrega el certificado WinRM de un servidor Windows a los de confianza del controlador (sección 13) |
 
 **20.1. Instalación en el EC2** (una sola vez, con el repositorio en un `main` que ya tenga `despliegue/`):
 

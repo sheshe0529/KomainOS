@@ -308,8 +308,10 @@ orden.
    backend o en el archivo de `KOMAINOS_ANSIBLE_SSH_KNOWN_HOSTS`
    (`ssh-keyscan -H <ip> >> known_hosts`, verificando la huella).
 3. **WinRM** en los servidores Windows: escucha HTTPS en 5986 con un certificado
-   que el controlador valide (o `KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO=false`
-   solo en laboratorio) y el transporte acordado (NTLM por defecto).
+   que el controlador valide y el transporte acordado (NTLM por defecto). En el
+   despliegue, `despliegue/confiar-winrm.sh` agrega un certificado autofirmado
+   comprobando su huella ([DESPLIEGUE.md, sección 13](../DESPLIEGUE.md#13-servidores-gestionados));
+   `KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO=false` es solo para laboratorio.
 4. **Cuentas de servicio** en **Configuración → Cuentas de servicio**, asignadas a
    cada servidor o grupo. Linux: contraseña o llave SSH y, si corresponde, la
    clave de `su` como credencial documental. Windows: usuario del grupo
