@@ -2,13 +2,11 @@
 -- 01 - DDL de creación de la base de datos de KomainOS (DEC-34)
 -- =====================================================================================================================
 -- Esquema "KomainOS" completo, tal como lo valida el backend al arrancar (Hibernate en modo validate): 54 tablas,
--- 100 claves foráneas, 42 restricciones CHECK y 35 tipos enumerados. Consolida el modelo final del R2.4, las variables
--- de salud del R3.1 y todos los scripts de cambios/ hasta el 2026-11-11 (cuentas por finalidad, parámetros de lista,
--- indicadores de auditoría, revisiones periódicas por grupo, método de elevación de privilegios, DEC-57, y registro
--- de actividad de las ejecuciones, DEC-59): una base nueva no necesita ninguno de ellos.
--- Verificado el 2026-11-10 contra DBKomainOS antes del DEC-57: igual columna por columna, salvo dos columnas sin uso
--- en esa base (evaluacion.usuario_acceso y mop_tarea.usuario_acceso) y la tabla heredada flyway_schema_history, que
--- este script no crea a propósito. DBKomainOS no tiene los cambios del DEC-57 ni del DEC-59.
+-- 100 claves foráneas, 42 restricciones CHECK y 35 tipos enumerados. Es la base actual y oficial, la misma que está en
+-- servicio en RDS desde el 2026-11-11: el modelo final del R2.4, las variables de salud del R3.1, las cuentas por
+-- finalidad, los parámetros de lista, los indicadores de auditoría, las revisiones periódicas por grupo, el método de
+-- elevación de privilegios (DEC-57) y el registro de actividad de las ejecuciones (DEC-59). Se ejecuta junto con
+-- 02_datos_sistema.sql (datos iniciales); un cambio posterior va también en cambios/ para la base en servicio.
 --
 -- Requiere PostgreSQL 15 o superior (UNIQUE NULLS NOT DISTINCT en umbral_excepcion). No usa extensiones, roles,
 -- propietarios ni tablespaces: funciona en Amazon RDS con el usuario maestro o con cualquier rol que pueda crear
@@ -16,7 +14,7 @@
 --
 --   psql "host=<endpoint> dbname=komainos user=<usuario> sslmode=require" -v ON_ERROR_STOP=1 -1 -f 01_esquema.sql
 --
--- instalar_base.sql ejecuta en orden este script y 02_datos_sistema.sql (04_umbrales_variables.sql es opcional).
+-- Instalación: psql -v ON_ERROR_STOP=1 --single-transaction -f 01_esquema.sql -f 02_datos_sistema.sql
 -- =====================================================================================================================
 
 CREATE SCHEMA IF NOT EXISTS "KomainOS";

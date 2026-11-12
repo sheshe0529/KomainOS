@@ -84,8 +84,8 @@ public class AdaptadorCredencialesInventario implements PuertoCredencialesInvent
     }
 
     /**
-     * Los valores anteriores al DEC-57 se traducen como en cambios/2026-11-10_metodo_elevacion.sql: Genérico es su y
-     * Administrador es sudo sin contraseña, salvo que el usuario sea root
+     * Los valores anteriores al DEC-57 se traducen como lo hizo su migración: Genérico es su y Administrador es sudo
+     * sin contraseña, salvo que el usuario sea root
      */
     private static MetodoElevacion metodo(String texto, String elevacion, String usuario) {
         if (texto == null) {

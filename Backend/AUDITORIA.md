@@ -44,9 +44,8 @@ Los gráficos conservan el acceso de los KPI: administrador y operador; el respo
 
 ## Base de datos y comprobaciones
 
-No se añade ninguna tabla ni se requiere reconstruir datos históricos. El script
-`scripts/bd/cambios/2026-11-06_indicadores_auditoria.sql` agrega índices para las consultas sobre bases existentes
-(DEC-34). Es idempotente y no modifica registros.
+No se añade ninguna tabla ni se requiere reconstruir datos históricos. Los índices de las consultas de auditoría
+están en `scripts/bd/01_esquema.sql` (DEC-34).
 
 Las pruebas `AuditoriaControllerTest`, `ProtectorValoresAuditoriaTest` y `AuditoriaIT` comprueban permisos, validación,
 filtros combinados, fin exclusivo, orden, paginación y ocultación de secretos. `EvolucionDashboardIT` verifica doce

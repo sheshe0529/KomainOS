@@ -2,8 +2,8 @@
 
 El componente implementa el ciclo de R2.1/R2.3/R2.4: revisión periódica, evaluación
 previa, MOP, autorización, cola, ejecución, validaciones, incidencias y cierre.
-Reutiliza las tablas del esquema relacional. Las bases anteriores se actualizan con los scripts fechados de
-`scripts/bd/cambios`; una base nueva usa `01_esquema.sql` (DEC-34).
+Reutiliza las tablas del esquema relacional. Una base nueva se crea con `scripts/bd/01_esquema.sql` y
+`02_datos_sistema.sql` (DEC-34); la base en servicio recibe los cambios de esquema nuevos por `scripts/bd/cambios/`.
 
 Cada script se ejecuta con `ansible-playbook` desde un controlador Linux: SSH para Linux y WinRM para Windows, sin
 agentes. No hay un modo simulado (DEC-56): la imagen Docker del despliegue ([DESPLIEGUE.md](../DESPLIEGUE.md)) trae
@@ -121,13 +121,8 @@ operativos se mide: en los demás no se exige, no se evalúa ni admite excepcion
   000 en RHEL). Por eso las excepciones de umbral tienen un quinto alcance,
   **Sistema operativo**, de menor prioridad que la criticidad: servidor > grupo >
   entorno > criticidad > sistema operativo > global.
-- **Umbrales iniciales.** `04_umbrales_variables.sql` deja un umbral global por
-  variable (numérico, binario o de lista), las listas de referencia de base y las
-  excepciones por sistema operativo de Windows Server y la familia de RHEL; no
-  modifica lo existente y se vuelve a ejecutar al registrar un sistema operativo.
-  `05_datos_prueba_umbrales.sql` agrega ejemplos sobre los servidores de prueba.
-- **Límites.** Los del `04` son genéricos (por ejemplo, CPU ≥ 80/90 %, carga > 1/2 tareas por
-  CPU, uptime ≥ 90/180 días) y se ajustan en **Umbrales**.
+- **Umbrales.** La base inicial no trae umbrales: se registran en **Umbrales**, con sus listas de referencia y
+  excepciones por servidor, grupo, entorno, criticidad o sistema operativo.
 
 Cómo las obtienen los scripts de referencia del R3.2, en `Documentos/Scripts/` (carpeta de documentos del proyecto, fuera del repositorio):
 
@@ -171,20 +166,10 @@ se reescriben. Las versiones nuevas usan únicamente parámetros declarados; al 
 anterior, adapte el nombre de la variable y declare la lista. Los escalares históricos vacíos conservan
 su comportamiento (`''` en Bash y `$null` en PowerShell), pero no se permiten en publicaciones nuevas.
 
-Una base creada antes de este cambio se actualiza con
-`scripts/bd/cambios/2026-11-02_variables_salud_r31.sql` (respaldo previo con
-`pg_dump`): agrega las columnas y deja solo las 21 variables. Los umbrales de una
-métrica anterior equivalente (`cpu_uso_pct` → `cpu_uso`, `puertos_escucha` →
-`red_puerto_no_aut`…) pasan a la variable con sus excepciones y tareas; las
-mediciones anteriores y las métricas sin equivalente se eliminan. Después hay que
-reiniciar el backend y publicar una versión del análisis que
-informe los códigos nuevos (el de `Documentos/Scripts/` ya lo hace).
-
 ## Recorrido de prueba desde el panel
 
-1. **Datos iniciales**: `scripts/bd/instalar_base.sql` (o `02_datos_sistema.sql`)
-   registra las 21 variables del R3.1, sin umbrales: se registran en **Umbrales** o,
-   para partir de uno genérico por variable, con `04_umbrales_variables.sql`. Las reglas de aprobación se definen en **Configuración →
+1. **Datos iniciales**: `scripts/bd/02_datos_sistema.sql` registra las 21 variables del
+   R3.1, sin umbrales: se registran en **Umbrales**. Las reglas de aprobación se definen en **Configuración →
    Políticas de cambio** y los scripts y tareas en **Scripts** y **Tareas** (los de
    referencia están en `Documentos/Scripts/`). El backend desplegado ya no tiene la
    carga de datos de demostración (`POST /api/automatizacion/demostracion`, DEC-56).
@@ -413,16 +398,7 @@ las dos asignaciones, las dos predeterminadas y ambas referencias de las órdene
 Las tablas y detalles del ciclo muestran el nombre de la cuenta de servicio asociada a cada análisis y tarea.
 La validación técnica muestra la cuenta del análisis posterior del servidor.
 
-### Actualizar una base existente
-
-Aplicar una vez, con el backend detenido, los scripts siguientes. Las bases nuevas ya incluyen
-estos cambios en `01_esquema.sql` y no deben ejecutar estos scripts de actualización:
-
-1. `scripts/bd/cambios/2026-11-06_cuentas_por_finalidad.sql`.
-2. `scripts/bd/cambios/2026-11-06_parametros_listas.sql`.
-3. `scripts/bd/cambios/2026-11-06_indicadores_auditoria.sql`.
-
-La cuenta anterior se copia a las dos finalidades. Las versiones publicadas conservan su código,
+Las versiones publicadas conservan su código,
 los parámetros históricos vacíos y la inyección implícita anterior. Las nuevas versiones declaran
 sus listas como parámetros; el campo `obligatorio` deja de existir. La lista elegida como entrada
 es independiente de la lista efectiva con la que un umbral compara los resultados.

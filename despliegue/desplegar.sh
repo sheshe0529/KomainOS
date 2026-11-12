@@ -58,6 +58,8 @@ respaldar() {
 migraciones_pendientes() {
     local f
     for f in Backend/scripts/bd/cambios/*.sql; do
+        # Sin scripts en la carpeta, el patrón queda tal cual: no hay nada que aplicar
+        [[ -f $f ]] || continue
         grep -qxF "$(basename "$f")" "$ESTADO/migraciones_aplicadas" || echo "$f"
     done
 }
