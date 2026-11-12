@@ -32,10 +32,9 @@ UI_preliminar/    pantallas preliminares de referencia
 Requisitos: Java 21, Maven 3.9, Node.js 20 o superior y PostgreSQL 18.
 
 1. **Bases de datos.** Crear `DBKomainOS` (desarrollo) y, para las pruebas de integración, `dbkomainos_test`.
-   En una `DBKomainOS` vacía, ejecutar `Backend/scripts/bd/01_esquema.sql`, `02_datos_sistema.sql` y, si se
-   quieren datos de demostración, `03_datos_prueba.sql` (usuarios con contraseña `Cambiar.2026`); después,
-   `04_umbrales_variables.sql` (umbrales iniciales de las variables de salud) y, con datos de demostración,
-   `05_datos_prueba_umbrales.sql`. Una base creada antes se actualiza con los scripts de `Backend/scripts/bd/cambios`.
+   En una `DBKomainOS` vacía, ejecutar `Backend/scripts/bd/01_esquema.sql` (DDL) y `02_datos_sistema.sql` (datos
+   iniciales); después se registran los datos propios (servidores, cuentas, umbrales) desde el panel. La base se crea
+   desde cero con esos dos scripts: no hay scripts de migración desde versiones anteriores.
    El backend se conecta a la base existente y no modifica su estructura.
 2. **Backend.** Copiar `Backend/.env.example` a `Backend/.env`, completar las claves y ejecutar:
    ```bash
@@ -58,5 +57,5 @@ El detalle de cada parte está en [`Backend/README.md`](Backend/README.md) y [`F
 ## Despliegue
 
 Una sola imagen Docker (`Dockerfile` en la raíz) con el panel compilado, la API y Ansible, en una instancia EC2, y la
-base en Amazon RDS for PostgreSQL. La base se crea con `Backend/scripts/bd/instalar_base.sql` (DDL `01_esquema.sql`
-más los datos del sistema). Pasos, variables y verificación en [DESPLIEGUE.md](DESPLIEGUE.md).
+base en Amazon RDS for PostgreSQL. La base se crea con `Backend/scripts/bd/01_esquema.sql` (DDL) y
+`02_datos_sistema.sql` (datos iniciales). Cada merge a `main` se despliega solo (DESPLIEGUE.md, sección 20). Pasos, variables y verificación en [DESPLIEGUE.md](DESPLIEGUE.md).

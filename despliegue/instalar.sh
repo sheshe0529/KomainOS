@@ -5,7 +5,7 @@
 #   bash despliegue/instalar.sh [--marcar-desplegado <sha>]
 #
 # - Registra como ya aplicadas las migraciones de Backend/scripts/bd/cambios que trae el repositorio: la base debe estar
-#   al día con ellas (la instaló instalar_base.sql y se aplicaron los cambios posteriores).
+#   al día con ellas (se creó con 01_esquema.sql y 02_datos_sistema.sql, o ya se le aplicaron).
 # - --marcar-desplegado evita que se despliegue ese commit: úselo con el commit de main que ya está en servicio.
 # - Crea el servicio y el temporizador de systemd que ejecutan despliegue/vigilar.py cada minuto.
 set -Eeuo pipefail
@@ -32,7 +32,10 @@ main() {
         echo "Migraciones ya registradas: $(wc -l < "$ESTADO/migraciones_aplicadas")"
     else
         local f
-        for f in "$REPO"/Backend/scripts/bd/cambios/*.sql; do basename "$f"; done | sort > "$ESTADO/migraciones_aplicadas"
+        # «if» y no «&&»: con la carpeta vacía el ciclo terminaría en error y set -e detendría la instalación
+        for f in "$REPO"/Backend/scripts/bd/cambios/*.sql; do
+            if [[ -f $f ]]; then basename "$f"; fi
+        done | sort > "$ESTADO/migraciones_aplicadas"
         echo "Registradas como aplicadas $(wc -l < "$ESTADO/migraciones_aplicadas") migraciones (la base está al día)"
     fi
 

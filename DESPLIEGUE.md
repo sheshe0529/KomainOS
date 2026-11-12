@@ -26,15 +26,15 @@ en el servidor es `.env`.
 | `Dockerfile` | Construye la imagen en tres etapas: panel (Node 22), backend (Maven + JDK 21) y ejecución (JRE 21 + `ansible-core` 2.21 + `pywinrm` + `sshpass` + certificados de RDS) | Nada: se usa tal cual |
 | `.dockerignore` | Deja fuera de la imagen `node_modules`, `target`, documentos y cualquier `.env` | Nada |
 | `.env.produccion.example` | Plantilla de las variables de entorno | Copiarlo a **`.env`** y completarlo (paso 8) |
-| `Backend/scripts/bd/instalar_base.sql` | Crea la base: ejecuta `01_esquema.sql` (DDL) y `02_datos_sistema.sql` (solo lo que el backend necesita para operar) | Ejecutarlo **una sola vez** contra RDS (paso 7) |
-| `Backend/scripts/bd/01_esquema.sql` | DDL del esquema `"KomainOS"`: 54 tablas, 100 claves foráneas, 35 enumerados | Lo ejecuta `instalar_base.sql` |
+| `Backend/scripts/bd/01_esquema.sql` | DDL del esquema `"KomainOS"`: 54 tablas, 100 claves foráneas, 35 enumerados | Ejecutarlo **una sola vez** contra RDS, junto con el `02` (paso 7) |
+| `Backend/scripts/bd/02_datos_sistema.sql` | Datos iniciales: solo lo que el backend necesita para operar | Se ejecuta con el `01` (paso 7) |
 | `Backend/src/main/resources/application-prod.yml` | Perfil `prod` que la imagen activa: conexión a RDS, apagado ordenado, IP real detrás de un balanceador, Swagger desactivado | Nada |
 | `iniciar.sh` | Arranca o reinicia el contenedor con las opciones correctas | Se crea en el paso 10 |
 | `docker-compose.yml` | Alternativa a `iniciar.sh` | Opcional: Amazon Linux 2023 no trae el complemento `compose` |
 | `base-temporal.env` e `iniciar-base-temporal.sh` | Base PostgreSQL temporal mientras no exista RDS | Opcional: se crean en la sección 18 y se borran al pasar a RDS |
 
-No se usan en producción: `03_datos_prueba.sql` y `05_datos_prueba_umbrales.sql` (datos de demostración),
-`Backend/.env.example` (desarrollo) ni los scripts de `Backend/scripts/bd/cambios/` (solo para bases creadas antes).
+No se usa en producción `Backend/.env.example` (desarrollo). `Backend/scripts/bd/cambios/` está vacía: ahí van los
+cambios de esquema nuevos, que el despliegue automático aplica en RDS (sección 20).
 
 ---
 
@@ -140,7 +140,7 @@ echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
 ```bash
 git clone https://github.com/sheshe0529/KomainOS.git ~/komainos
 cd ~/komainos
-ls Dockerfile .dockerignore .env.produccion.example Backend/scripts/bd/instalar_base.sql
+ls Dockerfile .dockerignore .env.produccion.example Backend/scripts/bd/01_esquema.sql
 ```
 
 ## 7. Base de datos: crear el esquema en RDS
@@ -162,16 +162,18 @@ Si responde `database "komainos" does not exist` (no se definió el nombre inici
 psql "host=$RDS_HOST port=5432 dbname=postgres user=$RDS_USER sslmode=require" -c "CREATE DATABASE komainos;"
 ```
 
-Instale el esquema y los datos del sistema (desde la carpeta de los scripts, porque se incluyen entre sí):
+Instale el esquema (`01`) y los datos iniciales (`02`) en una sola transacción: si algo falla, no queda nada a medias.
 
 ```bash
 cd ~/komainos/Backend/scripts/bd
-psql "host=$RDS_HOST port=5432 dbname=komainos user=$RDS_USER sslmode=require" -f instalar_base.sql
+psql "host=$RDS_HOST port=5432 dbname=komainos user=$RDS_USER sslmode=require" \
+  -v ON_ERROR_STOP=1 --single-transaction -f 01_esquema.sql -f 02_datos_sistema.sql
+psql "host=$RDS_HOST port=5432 dbname=komainos user=$RDS_USER sslmode=require" \
+  -c "select count(*) as tablas from pg_tables where schemaname = 'KomainOS';"
 cd ~/komainos
 ```
 
-Debe terminar mostrando **54** tablas y `Base de KomainOS instalada`. Si el esquema ya existe, el script no hace
-nada. Solo deja los datos sin los que el backend no funciona: los parámetros del sistema (1 fila), los factores de
+Debe mostrar **54** tablas. Si el esquema ya existe, la transacción falla en el primer `CREATE` y no cambia nada. Solo deja los datos sin los que el backend no funciona: los parámetros del sistema (1 fila), los factores de
 ciclo (4) y las 21 variables de salud que informan los scripts de análisis. No carga umbrales, listas de referencia
 ni datos de demostración: se registran en el panel (paso 12). El administrador tampoco se crea aquí: lo crea el
 backend en su primer arranque (paso 10).
@@ -298,8 +300,7 @@ Si responde dentro del servidor pero desde su PC se agota el tiempo, falta la re
    Linux y la versión de `ansible-core`. El único aviso esperado es el del proceso automático desactivado.
 4. Configure catálogos (entornos, criticidades, sistemas operativos), **Cuentas de servicio**,
    **Configuración → Políticas de cambio** (quién aprueba en cada entorno) y **Umbrales** (con sus listas de
-   referencia). Sin umbrales el análisis funciona, pero nunca activa tareas. Si prefiere partir de unos genéricos y
-   ajustarlos después, ejecute una vez `04_umbrales_variables.sql` como en el paso 7 (`-f 04_umbrales_variables.sql`).
+   referencia). Sin umbrales el análisis funciona, pero nunca activa tareas.
 5. Prepare los servidores gestionados (sección 13), regístrelos en **Inventario** y use **Probar acceso** en cada
    ficha, con la cuenta de evaluación y con la de mantenimiento.
 6. **Scripts:** registre el script de análisis de cada sistema operativo (los de referencia están en
@@ -352,7 +353,8 @@ docker image prune -f
 ```
 
 `.env` no se toca (git lo ignora). Si la versión nueva trae scripts en `Backend/scripts/bd/cambios/`, tome antes una
-instantánea de RDS (**RDS → Instantáneas → Tomar instantánea**) y aplíquelos en orden de fecha con `psql -f`.
+instantánea de RDS (**RDS → Instantáneas → Tomar instantánea**) y aplíquelos en orden de fecha con `psql -f`. Con el
+despliegue automático (sección 20) todo esto ocurre solo.
 
 ## 15. HTTPS (recomendado en producción)
 
@@ -410,7 +412,7 @@ Use la imagen `postgres` de la versión de su RDS (aquí, 18). Para restaurar: `
 | `psql` o el backend se quedan esperando la base (`timed out`) | El grupo de seguridad de RDS no acepta a la instancia, o están en VPC distintas (paso 3.5) |
 | `password authentication failed` | Usuario o contraseña de RDS incorrectos en `.env`. Pruébelos con `psql` (paso 7) y vuelva a guardarlos con el bloque del paso 8; si no recuerda la contraseña, cámbiela en **RDS → Modificar → Contraseña maestra** |
 | `The server does not support SSL` o error de certificado | `KOMAINOS_DB_URL` sin `sslmode=verify-full&sslrootcert=...` o con otro endpoint |
-| `Schema-validation: missing table` | No se ejecutó `instalar_base.sql`, o la URL apunta a otra base |
+| `Schema-validation: missing table` | No se instalaron `01_esquema.sql` y `02_datos_sistema.sql` (paso 7), o la URL apunta a otra base |
 | `Could not resolve placeholder 'KOMAINOS_…'` | Falta esa variable en `.env` |
 | La compilación termina con `Killed` o el código 137 | Falta memoria: agregue la swap del paso 5 |
 | `no space left on device` | `docker system prune -f` o amplíe el volumen EBS |
@@ -446,7 +448,8 @@ until docker exec komainos-pg-temporal pg_isready -U postgres -d komainos; do sl
 ```bash
 cd ~/komainos/Backend/scripts/bd
 PGPASSWORD=$(grep '^POSTGRES_PASSWORD=' ~/komainos/base-temporal.env | cut -d= -f2-) \
-  psql "host=127.0.0.1 port=5432 dbname=komainos user=postgres sslmode=disable" -f instalar_base.sql
+  psql "host=127.0.0.1 port=5432 dbname=komainos user=postgres sslmode=disable" \
+  -v ON_ERROR_STOP=1 --single-transaction -f 01_esquema.sql -f 02_datos_sistema.sql
 cd ~/komainos
 ```
 
@@ -476,7 +479,7 @@ Verifique como en el paso 11. Mientras use la base temporal, aplique cualquier c
 
 **18.4. Pasar a RDS** cuando esté creada (paso 3):
 
-1. Paso 7 completo: comprobar la conexión e instalar `instalar_base.sql` en RDS (54 tablas).
+1. Paso 7 completo: comprobar la conexión e instalar `01_esquema.sql` y `02_datos_sistema.sql` en RDS (54 tablas).
 2. Paso 8, solo el bloque de los datos de RDS (endpoint, usuario y contraseña en `.env`).
 3. Arrancar contra RDS y eliminar la base temporal:
 

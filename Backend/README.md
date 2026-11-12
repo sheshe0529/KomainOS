@@ -20,13 +20,11 @@ tablas (DEC-34). La base se prepara una vez con los scripts de `scripts/bd/`.
    - `DBKomainOS` — desarrollo.
    - `dbkomainos_test` — pruebas de integración. Las pruebas **borran y recrean**
      su esquema `KomainOS` en cada corrida (DEC-22).
-2. Crear el esquema y los datos del sistema en `DBKomainOS` (solo si la base está vacía):
+2. Crear el esquema y los datos iniciales en `DBKomainOS` (solo si la base está vacía), en una sola transacción:
    ```bash
-   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/01_esquema.sql
-   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/02_datos_sistema.sql
-   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/03_datos_prueba.sql   # opcional
-   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/04_umbrales_variables.sql
-   psql -h localhost -U postgres -d DBKomainOS -f scripts/bd/05_datos_prueba_umbrales.sql   # opcional, después del 03 y el 04
+   cd scripts/bd
+   psql -h localhost -U postgres -d DBKomainOS -v ON_ERROR_STOP=1 --single-transaction \
+     -f 01_esquema.sql -f 02_datos_sistema.sql
    ```
 3. Copiar `.env.example` a `.env` y completar la clave de la base, el secreto JWT
    (`openssl rand -base64 32`), la llave maestra de las credenciales
@@ -54,29 +52,9 @@ se cambia con `KOMAINOS_PUERTO`.
 
 | Script | Uso |
 |---|---|
-| `01_esquema.sql` | DDL de creación: el esquema `KomainOS` completo, con 54 tablas, 100 claves foráneas y 35 enumerados. Consolida el R2.4 final (DEC-40), el R3.1 y todos los scripts de `cambios/` (el último, el registro de actividad del DEC-59); verificado contra `DBKomainOS` el 2026-11-10 antes del DEC-57 (DEC-56). Requiere PostgreSQL 15 o superior y funciona en Amazon RDS. `Documentos/Docs/DDL_KOMAINOS.sql` y `01_esquema_vfinal.sql` están desactualizados respecto de él. |
-| `instalar_base.sql` | Instalación sobre una base vacía (por ejemplo, en RDS) con `psql`: `01` y `02` en una sola transacción, sin umbrales ni datos de demostración (`04` es opcional). Se niega a ejecutarse si el esquema ya existe. |
-| `02_datos_sistema.sql` | Datos sin los cuales el sistema no opera: factores de ciclo, parámetros globales y las 21 variables de salud del R3.1 (catálogo de métricas). Idempotente. |
-| `03_datos_prueba.sql` | Datos de demostración: un usuario por rol (contraseña `Cambiar.2026`), catálogos, 8 servidores con ventanas y configuración, un grupo, órdenes en distintos estados y una baja. Las fechas de las órdenes se calculan al ejecutarlo. Solo sobre una base sin datos de negocio. |
-| `04_umbrales_variables.sql` | Umbrales iniciales de las variables del R3.1 para cualquier base (DEC-48): listas de referencia de base, un umbral global por cada variable que no tenga ninguno y excepciones por sistema operativo para Windows Server y la familia de RHEL. Idempotente y no modifica lo existente; se vuelve a ejecutar después de registrar un sistema operativo. Límites genéricos, ajustables en Umbrales. |
-| `05_datos_prueba_umbrales.sql` | Datos de demostración de umbrales: listas propias y excepciones por servidor, grupo, entorno y criticidad sobre los servidores del `03` (DEC-41). Después del `03` y el `04`; no vuelve a cargar si ya existe la lista «Puertos web». |
-| `limpiar_datos_desarrollo.sql` | Vacía los datos de negocio conservando el esquema y los datos del sistema, para volver a cargar `03`. Solo para desarrollo. |
-| `cambios/AAAA-MM-DD_*.sql` | Cambios de estructura para una base creada antes de esa fecha (por ejemplo, `DBKomainOS`). Se aplican una vez, en orden de fecha, y conservan los datos salvo lo que indique su encabezado (el del R3.1 reemplaza el catálogo de métricas); una base nueva no los necesita porque `01_esquema.sql` ya los incluye. |
-
-`scripts/cargar_datos_ejemplo.py` es una alternativa anterior que carga un
-conjunto parecido a través de la API REST, con el backend corriendo.
-
-Para actualizar una base existente con la configuración de revisiones periódicas,
-aplique `2026-11-07_revision_periodica_habilitada.sql` y
-`2026-11-07_revisiones_periodicas_grupales.sql` antes de iniciar esta versión.
-Los servidores conservan la revisión automática habilitada. La revisión grupal
-se habilita desde la configuración de cada grupo.
-
-Para el método de elevación de privilegios (DEC-57), aplique
-`2026-11-10_metodo_elevacion.sql`: el tipo de usuario pasa a ser el método
-(Genérico a su; Administrador de una credencial del inventario a sudo sin
-contraseña, o ninguno si es root; una cuenta de servicio sin su, a ninguno) y la
-contraseña su pasa a ser la contraseña de elevación, que se sigue descifrando.
+| `01_esquema.sql` | DDL de la base actual y oficial: el esquema `KomainOS` completo, con 54 tablas, 100 claves foráneas y 35 enumerados, incluido el registro de actividad de las ejecuciones (DEC-59). Es el mismo esquema de la base en servicio (RDS). Requiere PostgreSQL 15 o superior. |
+| `02_datos_sistema.sql` | Datos iniciales sin los cuales el sistema no opera: factores de ciclo, parámetros globales y las 21 variables de salud del R3.1 (catálogo de métricas). Sin umbrales, datos de demostración ni administrador (lo crea el backend en su primer arranque). Idempotente. |
+| `cambios/` | Vacía: ahí va cada cambio de esquema nuevo para la base en servicio, que el despliegue automático aplica en RDS (ver `cambios/README.md`). |
 
 ## Ciclo de verificación
 
