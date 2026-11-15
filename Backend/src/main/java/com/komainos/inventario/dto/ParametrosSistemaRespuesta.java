@@ -8,15 +8,14 @@ import java.time.Instant;
 import java.util.Optional;
 
 public record ParametrosSistemaRespuesta(Integer maxEjecucionesConcurrentes, Integer maxDuracionTareaMinutos,
-                                         Integer maxDuracionMopMinutos, Integer minCiclosRachaEstable,
-                                         Integer minutosExpiracionToken, Instant fechaActualizacion,
+                                         Integer maxDuracionMopMinutos, Integer minutosExpiracionToken,
+                                         Instant fechaActualizacion,
                                          ReferenciaSimple cuentaServicioEvaluacionPredeterminada,
                                          ReferenciaSimple cuentaServicioMantenimientoPredeterminada) {
 
     public static ParametrosSistemaRespuesta de(ParametrosSistema p, Optional<CuentaEfectiva> evaluacion, Optional<CuentaEfectiva> mantenimiento) {
         return new ParametrosSistemaRespuesta(p.getMaxEjecucionesConcurrentes(), p.getMaxDuracionTareaMinutos(),
-                p.getMaxDuracionMopMinutos(), p.getMinCiclosRachaEstable(), p.getMinutosExpiracionToken(),
-                p.getFechaActualizacion(),
+                p.getMaxDuracionMopMinutos(), p.getMinutosExpiracionToken(), p.getFechaActualizacion(),
                 evaluacion.map(c -> new ReferenciaSimple(c.id(), c.nombre())).orElse(null),
                 mantenimiento.map(c -> new ReferenciaSimple(c.id(), c.nombre())).orElse(null));
     }

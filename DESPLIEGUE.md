@@ -26,14 +26,14 @@ en el servidor es `.env`.
 | `Dockerfile` | Construye la imagen en tres etapas: panel (Node 22), backend (Maven + JDK 21) y ejecución (JRE 21 + `ansible-core` 2.21 + `pywinrm` + `sshpass` + certificados de RDS) | Nada: se usa tal cual |
 | `.dockerignore` | Deja fuera de la imagen `node_modules`, `target`, documentos y cualquier `.env` | Nada |
 | `.env.produccion.example` | Plantilla de las variables de entorno | Copiarlo a **`.env`** y completarlo (paso 8) |
-| `Backend/scripts/bd/01_esquema.sql` | DDL del esquema `"KomainOS"`: 54 tablas, 100 claves foráneas, 35 enumerados | Ejecutarlo **una sola vez** contra RDS, junto con el `02` (paso 7) |
+| `Backend/scripts/bd/01_esquema.sql` | DDL vigente del esquema `"KomainOS"` para bases nuevas | Ejecutarlo **una sola vez** contra una base RDS nueva, junto con el `02` (paso 7) |
 | `Backend/scripts/bd/02_datos_sistema.sql` | Datos iniciales: solo lo que el backend necesita para operar | Se ejecuta con el `01` (paso 7) |
 | `Backend/src/main/resources/application-prod.yml` | Perfil `prod` que la imagen activa: conexión a RDS, apagado ordenado, IP real detrás de un balanceador, Swagger desactivado | Nada |
 | `iniciar.sh` | Arranca o reinicia el contenedor con las opciones correctas | Se crea en el paso 10 |
 | `docker-compose.yml` | Alternativa a `iniciar.sh` | Opcional: Amazon Linux 2023 no trae el complemento `compose` |
 | `base-temporal.env` e `iniciar-base-temporal.sh` | Base PostgreSQL temporal mientras no exista RDS | Opcional: se crean en la sección 18 y se borran al pasar a RDS |
 
-No se usa en producción `Backend/.env.example` (desarrollo). `Backend/scripts/bd/cambios/` está vacía: ahí van los
+No se usa en producción `Backend/.env.example` (desarrollo). En `Backend/scripts/bd/cambios/` van los
 cambios de esquema nuevos, que el despliegue automático aplica en RDS (sección 20).
 
 ---
@@ -259,11 +259,13 @@ Cree el script de arranque, que también sirve para reiniciar después de cambia
 cat > ~/komainos/iniciar.sh <<'EOF'
 #!/bin/bash
 # Arranca (o vuelve a crear) el contenedor de KomainOS con las variables de ~/komainos/.env
+mkdir -p ~/komainos-certificados
 docker rm -f komainos 2>/dev/null
 docker run -d --name komainos --restart unless-stopped \
   --env-file ~/komainos/.env \
   -p 80:8080 \
   -v komainos-ssh:/home/komainos/.ssh \
+  -v ~/komainos-certificados:/opt/komainos/winrm-ca:ro \
   --log-opt max-size=20m --log-opt max-file=5 \
   komainos:latest
 EOF
@@ -272,7 +274,8 @@ chmod +x ~/komainos/iniciar.sh
 ```
 
 `--restart unless-stopped` hace que el contenedor vuelva a arrancar solo si se reinicia la instancia. El volumen
-`komainos-ssh` guarda las claves de host de los servidores gestionados entre versiones.
+`komainos-ssh` guarda las claves de host de los servidores gestionados entre versiones, y `~/komainos-certificados`,
+los certificados WinRM de confianza (sección 13).
 
 ## 11. Verificar
 
@@ -326,8 +329,19 @@ Si responde dentro del servidor pero desde su PC se agota el tiempo, falta la re
   docker exec komainos sh -c 'ssh-keygen -lf ~/.ssh/known_hosts'
   ```
 
-- **Windows (WinRM):** escucha HTTPS en 5986, transporte NTLM. Si el certificado lo emite una CA interna, agregue esa
-  CA a la imagen; `KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO=false` es solo para laboratorio.
+- **Windows (WinRM):** escucha HTTPS en 5986, transporte NTLM, y el controlador valida su certificado. Si es
+  autofirmado (el que crea Windows) o lo emite una CA interna, agréguelo a los de confianza del controlador con su
+  huella, que en el servidor es `CertificateThumbprint` en `winrm enumerate winrm/config/listener`:
+
+  ```bash
+  bash ~/komainos/despliegue/confiar-winrm.sh <IP-del-servidor> <huella-SHA-1>
+  ```
+
+  El script descarga el certificado y lo agrega a `~/komainos-certificados/winrm-confianza.pem` solo si la huella
+  coincide; la primera vez, además, define `REQUESTS_CA_BUNDLE` en `.env` (pywinrm confía solo en ese archivo), agrega el
+  montaje a `iniciar.sh` y reinicia. Comprueba que el TLS se valida sin enviar credenciales. El certificado debe incluir
+  la IP con la que se registra el servidor. `KOMAINOS_ANSIBLE_WINRM_VALIDAR_CERTIFICADO=false` es solo para
+  laboratorio.
 - **Cuentas de servicio:** usuario con contraseña o llave SSH (sin frase de contraseña) y, aparte, la elevación que
   aplicará Ansible: ninguna, `sudo` (con la contraseña del usuario o NOPASSWD), `su` con la contraseña de root, o
   `runas` en Windows. El formulario muestra al final la configuración de Ansible que resulta. Con `sudo`, sudoers debe
@@ -479,7 +493,7 @@ Verifique como en el paso 11. Mientras use la base temporal, aplique cualquier c
 
 **18.4. Pasar a RDS** cuando esté creada (paso 3):
 
-1. Paso 7 completo: comprobar la conexión e instalar `01_esquema.sql` y `02_datos_sistema.sql` en RDS (54 tablas).
+1. Paso 7 completo: comprobar la conexión e instalar `01_esquema.sql` y `02_datos_sistema.sql` en una base RDS nueva.
 2. Paso 8, solo el bloque de los datos de RDS (endpoint, usuario y contraseña en `.env`).
 3. Arrancar contra RDS y eliminar la base temporal:
 
@@ -551,7 +565,7 @@ pull request a main ──▶ GitHub Actions: Pruebas (backend con PostgreSQL 18
 push a main ──▶ GitHub Actions: Despliegue en EC2 ──▶ pruebas ──▶ espera a ver el commit en /actuator/info
                                                           ▲
 EC2: despliegue/vigilar.py (cada minuto) ── ve el commit nuevo de main con sus pruebas aprobadas ──▶ desplegar.sh:
-  construir imagen ─▶ respaldar la base ─▶ migraciones pendientes ─▶ cambiar de versión ─▶ comprobar ─▶ (o volver atrás)
+  construir imagen ─▶ detener si hay migraciones ─▶ respaldar y verificar ─▶ migraciones ─▶ cambiar de versión ─▶ comprobar
 ```
 
 El EC2 **consulta** a GitHub; GitHub no se conecta al EC2. No hace falta abrir el puerto 22 a Internet ni guardar
@@ -565,6 +579,7 @@ cuyas pruebas fallan nunca se despliega.
 | `despliegue/vigilar.py` | En el EC2, cada minuto: ¿hay un commit nuevo en `main` con las pruebas aprobadas? Entonces lo despliega |
 | `despliegue/desplegar.sh` | Construye `komainos:<commit>`, respalda RDS, aplica las migraciones pendientes, cambia de versión y comprueba que la nueva responda con su commit; si no, vuelve a la anterior |
 | `despliegue/instalar.sh` | Instala el temporizador de systemd (una sola vez) |
+| `despliegue/confiar-winrm.sh` | Agrega el certificado WinRM de un servidor Windows a los de confianza del controlador (sección 13) |
 
 **20.1. Instalación en el EC2** (una sola vez, con el repositorio en un `main` que ya tenga `despliegue/`):
 
@@ -578,6 +593,10 @@ bash despliegue/instalar.sh --marcar-desplegado "$(git rev-parse HEAD)"
   sus pruebas pasaron (un commit anterior a esta sección no tiene pruebas registradas y se omite pasada una hora).
 - Registra como aplicadas todas las migraciones de `Backend/scripts/bd/cambios/`: la base debe estar al día con ellas.
   Desde entonces, cada script nuevo en esa carpeta se aplica automáticamente al desplegar, después del respaldo.
+
+Cuando hay migraciones pendientes, primero se detiene la aplicación para incluir las últimas escrituras en el
+respaldo. Antes de modificar el esquema se comprueba que `pg_restore` puede leer ese respaldo. Si la copia o su
+comprobación falla, vuelve a arrancar la versión vigente y no se aplica ninguna migración.
 
 En GitHub, la variable del repositorio `URL_PRODUCCION` (**Settings → Secrets and variables → Actions → Variables**)
 debe tener la URL del panel, por ejemplo `http://<IP-ELASTICA>`.

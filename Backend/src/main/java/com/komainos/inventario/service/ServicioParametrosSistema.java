@@ -54,7 +54,6 @@ public class ServicioParametrosSistema implements PuertoParametrosSesion {
         parametros.setMaxEjecucionesConcurrentes(datos.maxEjecucionesConcurrentes());
         parametros.setMaxDuracionTareaMinutos(datos.maxDuracionTareaMinutos());
         parametros.setMaxDuracionMopMinutos(datos.maxDuracionMopMinutos());
-        parametros.setMinCiclosRachaEstable(datos.minCiclosRachaEstable());
         parametros.setMinutosExpiracionToken(datos.minutosExpiracionToken());
 
         auditoria.registrar(actor, Operacion.de("ACTUALIZAR_PARAMETROS", "configuracion_sistema", parametros.getId())
@@ -67,12 +66,10 @@ public class ServicioParametrosSistema implements PuertoParametrosSesion {
                 "maxEjecucionesConcurrentes", p.getMaxEjecucionesConcurrentes(),
                 "maxDuracionTareaMinutos", p.getMaxDuracionTareaMinutos(),
                 "maxDuracionMopMinutos", p.getMaxDuracionMopMinutos(),
-                "minCiclosRachaEstable", p.getMinCiclosRachaEstable(),
                 "minutosExpiracionToken", p.getMinutosExpiracionToken());
     }
 
     public record DatosParametros(int maxEjecucionesConcurrentes, int maxDuracionTareaMinutos,
-                                  int maxDuracionMopMinutos, int minCiclosRachaEstable,
-                                  int minutosExpiracionToken) {
+                                  int maxDuracionMopMinutos, int minutosExpiracionToken) {
     }
 }

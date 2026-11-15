@@ -27,6 +27,7 @@ import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.service.ProcesoAutomatizacion;
 import com.komainos.mantenimiento.service.ServicioEvaluaciones;
 import com.komainos.mantenimiento.service.ServicioIncidencias;
+import com.komainos.mantenimiento.service.ServicioIncidencias.DatosAtencion;
 import com.komainos.mantenimiento.service.ServicioRevisionPeriodica;
 import com.komainos.mantenimiento.service.ServicioAutorizaciones;
 import com.komainos.mantenimiento.service.ServicioValidaciones;
@@ -44,6 +45,7 @@ import org.springframework.data.domain.PageRequest;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,7 +58,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@DisplayName("Ciclo de mantenimiento con el doble del adaptador Ansible (RF37-RF65)")
+@DisplayName("Ciclo de mantenimiento con el doble del adaptador Ansible (RF37-RF63)")
 class CicloMantenimientoIT extends BaseAutomatizacionIT {
 
     @Autowired
@@ -680,19 +682,24 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
     }
 
     @Test
-    @DisplayName("RF29, RF64: el cierre de un ciclo automático planifica el siguiente")
+    @DisplayName("RF29: el cierre con incidencia planifica el siguiente ciclo con la periodicidad base")
     void siguienteCiclo() {
-        Integer id = lanzarAutorizada(servidor);
+        Servidor objetivo = crear("srv-fallo", "10.90.0.2");
+        Integer id = lanzarAutorizada(objetivo);
         orquestador.drenar();
-        servidores.configurar(servidor.getId(), new ServicioServidor.DatosConfiguracion(7, 30,
+        servidores.configurar(objetivo.getId(), new ServicioServidor.DatosConfiguracion(7, 30,
                 ModalidadPlanificacion.AUTOMATICA, cuenta, cuenta), actor);
+        Integer incidencia = jdbc.queryForObject("select id_incidencia from incidencia", Integer.class);
 
-        validaciones.validar(id, true, "Conforme", comoResponsable());
+        incidencias.atender(incidencia, new DatosAtencion("Carpeta inexistente", "Se creó la carpeta", "Resuelto", true), actor);
 
         assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
-        assertThat(contar("select count(*) from cierre_orden where id_orden = ? and id_orden_siguiente is not null", id))
-                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                select siguiente.fecha_objetivo
+                from cierre_orden c join orden siguiente on siguiente.id_orden = c.id_orden_siguiente
+                where c.id_orden = ?
+                """, Timestamp.class, id).toInstant()).isEqualTo(AHORA.plus(30, ChronoUnit.DAYS));
         assertThat(contar("select count(*) from orden where id_servidor = ? and origen = 'PLANIFICACION_AUTOMATICA'",
-                servidor.getId())).isEqualTo(1);
+                objetivo.getId())).isEqualTo(1);
     }
 }

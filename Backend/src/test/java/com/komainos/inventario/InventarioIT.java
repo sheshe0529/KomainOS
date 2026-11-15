@@ -92,6 +92,29 @@ class InventarioIT extends PruebaIntegracion {
     }
 
     @Test
+    @DisplayName("los parámetros de ejecución se actualizan con los cuatro valores vigentes")
+    void actualizaParametrosDeEjecucion() throws Exception {
+        mockMvc.perform(put("/api/parametros-sistema").with(user(new UsuarioAutenticado(admin)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"maxEjecucionesConcurrentes":3,"maxDuracionTareaMinutos":45,
+                                 "maxDuracionMopMinutos":180,"minutosExpiracionToken":90}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.maxEjecucionesConcurrentes").value(3))
+                .andExpect(jsonPath("$.maxDuracionTareaMinutos").value(45))
+                .andExpect(jsonPath("$.maxDuracionMopMinutos").value(180))
+                .andExpect(jsonPath("$.minutosExpiracionToken").value(90));
+        em.flush();
+        em.clear();
+
+        mockMvc.perform(get("/api/parametros-sistema").with(user(new UsuarioAutenticado(admin))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.maxEjecucionesConcurrentes").value(3))
+                .andExpect(jsonPath("$.minutosExpiracionToken").value(90));
+    }
+
+    @Test
     @DisplayName("alta, configuración y ventana: el servidor queda ACTIVO y la ficha trae todo cargado")
     void flujoDeInventario() {
         Servidor s = crearServidor("srv-app-01", "10.20.1.11", idAlta, responsable);

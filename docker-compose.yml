@@ -20,6 +20,8 @@ services:
     volumes:
       # known_hosts de los servidores gestionados: sobrevive a las actualizaciones de la imagen
       - komainos-ssh:/home/komainos/.ssh
+      # Certificados WinRM de confianza (despliegue/confiar-winrm.sh, DESPLIEGUE.md sección 13)
+      - ~/komainos-certificados:/opt/komainos/winrm-ca:ro
     restart: unless-stopped
     stop_grace_period: 40s
     logging:

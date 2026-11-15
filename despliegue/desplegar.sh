@@ -43,12 +43,14 @@ psql_bd() {
 # pg_dump de la misma versión mayor que el servidor: el psql 15 de Amazon Linux no puede volcar una base 18
 respaldar() {
     local mayor archivo
-    mayor=$(psql_bd -Atc "show server_version_num" | cut -c1-2)
+    mayor=$(psql_bd -Atc "show server_version_num" | cut -c1-2) || return 1
     archivo="komainos_$(date -u +%Y%m%d_%H%M%S)_${CORTO}.dump"
     PGPASSWORD=$BD_CLAVE docker run --rm --user "$(id -u):$(id -g)" -e PGPASSWORD \
         -v "$ESTADO/respaldos:/r" "postgres:${mayor}-alpine" \
-        pg_dump "host=$BD_HOST port=$BD_PUERTO dbname=$BD_NOMBRE user=$BD_USUARIO sslmode=require" -Fc -f "/r/$archivo"
-    chmod 600 "$ESTADO/respaldos/$archivo"
+        pg_dump "host=$BD_HOST port=$BD_PUERTO dbname=$BD_NOMBRE user=$BD_USUARIO sslmode=require" -Fc -f "/r/$archivo" || return 1
+    chmod 600 "$ESTADO/respaldos/$archivo" || return 1
+    docker run --rm --user "$(id -u):$(id -g)" -v "$ESTADO/respaldos:/r:ro" "postgres:${mayor}-alpine" \
+        pg_restore --list "/r/$archivo" >/dev/null || return 1
     RESPALDO="$ESTADO/respaldos/$archivo"
     echo "Respaldo: $RESPALDO ($(stat -c %s "$RESPALDO") bytes)"
     ls -1t "$ESTADO"/respaldos/*.dump | tail -n +$((RESPALDOS_CONSERVADOS + 1)) | xargs -r rm -f
@@ -117,6 +119,7 @@ main() {
     flock -n 9 || fallar "Ya hay un despliegue en curso"
     local registro
     registro="$ESTADO/registros/$(date -u +%Y%m%d_%H%M%S)_${CORTO}.log"
+    touch "$registro"
     exec > >(tee -a "$registro") 2>&1
     ls -1t "$ESTADO"/registros/*.log | tail -n +51 | xargs -r rm -f
 
@@ -132,17 +135,23 @@ main() {
         --build-arg KOMAINOS_CONSTRUCCION="$(date -u +%Y-%m-%dT%H:%M:%SZ)" . >/dev/null
     echo "Imagen komainos:$CORTO"
 
-    paso "2/6 Respaldar la base"
-    respaldar
-
-    paso "3/6 Migraciones pendientes"
     local pendientes f
     mapfile -t pendientes < <(migraciones_pendientes)
+    paso "2/6 Respaldar la base"
+    if ((${#pendientes[@]})); then
+        # El respaldo debe incluir todas las escrituras anteriores a la migración, también las peticiones en curso.
+        docker stop --time 45 komainos >/dev/null
+    fi
+    if ! respaldar; then
+        if ((${#pendientes[@]})); then docker start komainos >/dev/null; fi
+        fallar "No se pudo crear y verificar el respaldo; no se aplicó ninguna migración"
+    fi
+
+    paso "3/6 Migraciones pendientes"
     if ((${#pendientes[@]} == 0)); then
         echo "Ninguna"
     else
-        # La versión en servicio no conoce el esquema nuevo: se detiene antes de cambiarlo
-        docker stop komainos >/dev/null
+        # La versión en servicio ya está detenida desde antes del respaldo.
         for f in "${pendientes[@]}"; do
             echo "Aplicando $(basename "$f")"
             if ! psql_bd -v ON_ERROR_STOP=1 -q -f "$f"; then
@@ -182,4 +191,6 @@ main() {
     paso "Desplegado $CORTO"
 }
 
-main "$@"; exit $?
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+    main "$@"
+fi

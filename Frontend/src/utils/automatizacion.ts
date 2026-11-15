@@ -246,6 +246,63 @@ function diagnosticoDelScript(base: Omit<DiagnosticoFallo, 'titulo'>, salida?: s
   return undefined
 }
 
+const CERTIFICADO = /certificate verify failed|sslcertverificationerror/i
+const CLAVE_HOST = /host key verification failed|remote host identification has changed/i
+
+/**
+ * Fallos de conexión con una causa precisa: el servidor respondió, así que revisar la IP, el puerto o el firewall
+ * (la sugerencia general de comunicación) no los resuelve
+ */
+function diagnosticoDeConexion(base: Omit<DiagnosticoFallo, 'titulo'>): DiagnosticoFallo | undefined {
+  const mensaje = base.mensajeOriginal ?? ''
+  if (CERTIFICADO.test(mensaje)) {
+    const renovar = /expired|mismatch|doesn't match|does not match/i.test(mensaje)
+    const motivo = /self[- ]signed/i.test(mensaje)
+      ? 'su certificado HTTPS es autofirmado y el controlador no confía en él'
+      : /expired/i.test(mensaje)
+        ? 'su certificado HTTPS venció'
+        : renovar
+          ? 'su certificado HTTPS no incluye la dirección IP registrada en el inventario'
+          : 'el controlador no pudo validar su certificado HTTPS (lo emitió una CA que no conoce)'
+    return {
+      ...base,
+      tipo: 'COMUNICACION',
+      titulo: 'Certificado WinRM no confiable',
+      detalle: `El servidor respondió en el puerto WinRM, pero ${motivo}.`,
+      sugerencia: renovar
+        ? 'Renueve el certificado del listener HTTPS de WinRM (con la IP del servidor) y agréguelo a los de confianza del controlador.'
+        : 'Agregue el certificado del servidor (o el de su CA) a los de confianza del controlador con despliegue/confiar-winrm.sh (DESPLIEGUE.md, sección 13) y vuelva a probar.',
+      causas: [
+        'El listener HTTPS de WinRM usa un certificado autofirmado, como el que crea Windows por defecto.',
+        'Lo emitió una CA interna que no está entre los certificados de confianza del controlador.',
+        'El certificado venció o no incluye la dirección IP con la que está registrado el servidor.',
+      ],
+    }
+  }
+  if (CLAVE_HOST.test(mensaje)) {
+    return {
+      ...base,
+      tipo: 'COMUNICACION',
+      titulo: 'Clave SSH del servidor no verificada',
+      detalle: 'El servidor respondió por SSH, pero su clave de host no está en el known_hosts del controlador o cambió.',
+      sugerencia: 'Compare la huella con la del servidor y regístrela en el known_hosts del controlador (DESPLIEGUE.md, sección 13).',
+      causas: [
+        'Es la primera conexión del controlador con ese servidor.',
+        'El servidor se reinstaló o la IP pasó a otro servidor, y su clave ya no es la registrada.',
+      ],
+    }
+  }
+  return undefined
+}
+
+/** Diagnóstico de un resultado que ya trae su tipo de fallo aparte del mensaje, como la prueba de acceso */
+export function diagnosticarResultado(fallo: TipoFallo | undefined, mensaje?: string | null): DiagnosticoFallo {
+  if (!fallo) return diagnosticarFallo(mensaje)
+  if (!mensaje) return { tipo: fallo, titulo: FALLO[fallo].etiqueta, sugerencia: FALLO[fallo].sugerencia, causas: CAUSAS[fallo] }
+  const prefijo = `${ETIQUETA_BACKEND[fallo]}: `
+  return diagnosticarFallo(mensaje.startsWith(prefijo) ? mensaje : prefijo + mensaje)
+}
+
 /** Los resultados históricos conservan el mensaje, con la categoría al principio o dentro de una incidencia. */
 export function diagnosticarFallo(error?: string | null, salida?: string | null): DiagnosticoFallo {
   const mensajeOriginal = error?.trim() || undefined
@@ -270,6 +327,8 @@ export function diagnosticarFallo(error?: string | null, salida?: string | null)
 
   const delScript = !tipo || tipo === 'EJECUCION' ? diagnosticoDelScript(base, salida) : undefined
   if (delScript) return delScript
+  const deConexion = diagnosticoDeConexion(base)
+  if (deConexion) return deConexion
 
   if (!tipo) return { ...base, titulo: 'No se completó', detalle: detalle ?? 'El sistema no registró el motivo.' }
   return {

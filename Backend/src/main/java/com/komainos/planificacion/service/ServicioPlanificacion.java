@@ -36,9 +36,6 @@ import com.komainos.mantenimiento.repository.ConfirmacionFueraVentanaRepositorio
 import com.komainos.mantenimiento.repository.OrdenDetalleRepositorio;
 import com.komainos.mantenimiento.repository.OrdenRepositorio;
 import com.komainos.planificacion.config.PropiedadesPlanificacion;
-import com.komainos.planificacion.model.FactorCiclo;
-import com.komainos.planificacion.model.ResultadoCiclo;
-import com.komainos.planificacion.repository.FactorCicloRepositorio;
 import com.komainos.planificacion.service.algoritmo.PlanificadorVoraz;
 import com.komainos.planificacion.service.algoritmo.Reserva;
 import com.komainos.planificacion.service.algoritmo.ResultadoPlanificacion;
@@ -59,10 +56,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -87,7 +84,6 @@ public class ServicioPlanificacion {
     private final OrdenRepositorio ordenes;
     private final OrdenDetalleRepositorio detalles;
     private final CierreOrdenRepositorio cierres;
-    private final FactorCicloRepositorio factores;
     private final ServidorRepositorio servidores;
     private final GrupoMantenimientoRepositorio grupos;
     private final ConfiguracionServidorRepositorio configuracionesServidor;
@@ -102,7 +98,7 @@ public class ServicioPlanificacion {
     private final PlanificadorVoraz planificador = new PlanificadorVoraz();
 
     public ServicioPlanificacion(OrdenRepositorio ordenes, OrdenDetalleRepositorio detalles,
-                                 CierreOrdenRepositorio cierres, FactorCicloRepositorio factores,
+                                 CierreOrdenRepositorio cierres,
                                  ServidorRepositorio servidores, GrupoMantenimientoRepositorio grupos,
                                  ConfiguracionServidorRepositorio configuracionesServidor,
                                  ConfiguracionGrupoRepositorio configuracionesGrupo,
@@ -113,7 +109,6 @@ public class ServicioPlanificacion {
         this.ordenes = ordenes;
         this.detalles = detalles;
         this.cierres = cierres;
-        this.factores = factores;
         this.servidores = servidores;
         this.grupos = grupos;
         this.configuracionesServidor = configuracionesServidor;
@@ -353,8 +348,6 @@ public class ServicioPlanificacion {
     /** Objetivos en modalidad automática que necesitan su siguiente orden */
     private List<Candidato> buscarCandidatos(Integer soloServidor, Integer soloGrupo) {
         List<Candidato> candidatos = new ArrayList<>();
-        BigDecimal factorNormal = factor(ResultadoCiclo.ESTADO_NORMAL);
-
         if (soloGrupo == null) {
             for (ConfiguracionServidor config : configuracionesServidor.findByModalidadPlanificacion(ModalidadPlanificacion.AUTOMATICA)) {
                 Servidor s = config.getServidor();
@@ -364,7 +357,7 @@ public class ServicioPlanificacion {
                     continue;
                 }
                 siguienteFechaObjetivo(config, !ordenes.existsByServidorId(s.getId()),
-                        cierres.findPendienteDeServidor(s.getId()), factorNormal)
+                        cierres.findPendienteDeServidor(s.getId()))
                         .ifPresent(par -> candidatos.add(new Candidato(s.getId(), null, s.getNivelCriticidad().getPrioridad(),
                                 par.fechaObjetivo(), par.idCierre(), "servidor " + s.getHostname())));
             }
@@ -382,7 +375,7 @@ public class ServicioPlanificacion {
                 }
                 int prioridad = g.criticidadEfectiva().map(NivelCriticidad::getPrioridad).orElse(Integer.MAX_VALUE);
                 siguienteFechaObjetivo(config, !ordenes.existsByGrupoId(idGrupo),
-                        cierres.findPendienteDeGrupo(idGrupo), factorNormal)
+                        cierres.findPendienteDeGrupo(idGrupo))
                         .ifPresent(par -> candidatos.add(new Candidato(null, idGrupo, prioridad, par.fechaObjetivo(),
                                 par.idCierre(), "grupo " + g.getNombre())));
             }
@@ -390,17 +383,17 @@ public class ServicioPlanificacion {
         return candidatos;
     }
 
-    /** Primer ciclo desde la configuración (DEC-09), si no desde el cierre sin orden siguiente (RF64) */
+    /** El primer ciclo usa la fecha de configuración (DEC-09). Los siguientes usan el cierre anterior */
     private Optional<FechaYCierre> siguienteFechaObjetivo(ConfiguracionMantenimiento config, boolean sinOrdenes,
-                                                          Optional<CierreOrden> cierre, BigDecimal factorNormal) {
+                                                          Optional<CierreOrden> cierre) {
         if (cierre.isPresent()) {
             CierreOrden c = cierre.get();
-            return Optional.of(new FechaYCierre(
-                    FechaObjetivo.calcular(c.getFechaCierre(), c.getPeriodicidadBaseDias(), c.getFactorAplicado()), c.getId()));
+            Instant objetivo = c.getFechaCierre().plus(c.getPeriodicidadBaseDias(), ChronoUnit.DAYS);
+            return Optional.of(new FechaYCierre(objetivo, c.getId()));
         }
         if (sinOrdenes) {
-            return Optional.of(new FechaYCierre(
-                    FechaObjetivo.calcular(config.getFechaCreacion(), config.getFrecuenciaMantenimientoDias(), factorNormal), null));
+            Instant objetivo = config.getFechaCreacion().plus(config.getFrecuenciaMantenimientoDias(), ChronoUnit.DAYS);
+            return Optional.of(new FechaYCierre(objetivo, null));
         }
         return Optional.empty();
     }
@@ -616,11 +609,6 @@ public class ServicioPlanificacion {
 
     private Orden buscarOrden(Integer id) {
         return ordenes.findConDetalleById(id).orElseThrow(() -> RecursoNoEncontradoException.de("la orden", id));
-    }
-
-    private BigDecimal factor(ResultadoCiclo resultado) {
-        return factores.findByResultado(resultado).map(FactorCiclo::getFactor)
-                .orElseThrow(() -> new ReglaNegocioException("Falta el factor de ciclo " + resultado));
     }
 
     private Usuario usuarioDe(Actor actor) {

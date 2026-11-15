@@ -6,7 +6,7 @@ import type {
   OrigenUmbral,
   TipoDato,
 } from '@/api/dominio'
-import type { MetricaRespuesta, ValoresUmbralRespuesta } from '@/api/types'
+import type { ListaReferenciaRespuesta, MetricaRespuesta, ValoresUmbralRespuesta } from '@/api/types'
 import type { StatusTone } from '@/components/ui/StatusPill'
 
 export const OPERADORES: { valor: OperadorComparacion; simbolo: string; etiqueta: string }[] = [
@@ -128,6 +128,20 @@ export function filtrarMetricas<T extends MetricaRespuesta>(metricas: readonly T
         .join(' '),
     )
     return palabras.every((p) => contenido.includes(p))
+  })
+}
+
+/** Busca en todas las listas por nombre, tipo y elementos antes de paginar. */
+export function filtrarListas<T extends ListaReferenciaRespuesta>(listas: readonly T[], texto: string): T[] {
+  const palabras = normalizarBusqueda(texto).split(/\s+/).filter(Boolean)
+  if (palabras.length === 0) return [...listas]
+  return listas.filter((lista) => {
+    const contenido = normalizarBusqueda(
+      [lista.nombre, lista.tipoDato ? ETIQUETA_TIPO_DATO[lista.tipoDato] : '', ...(lista.elementos ?? [])]
+        .filter(Boolean)
+        .join(' '),
+    )
+    return palabras.every((palabra) => contenido.includes(palabra))
   })
 }
 

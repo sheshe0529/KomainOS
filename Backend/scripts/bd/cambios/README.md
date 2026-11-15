@@ -1,8 +1,8 @@
 # Cambios de esquema para la base en servicio
 
-Esta carpeta está vacía a propósito: la base en servicio (RDS) ya tiene el esquema de `../01_esquema.sql`, que es el
-único DDL vigente. Aquí va cada cambio de esquema **nuevo**, y el despliegue automático lo aplica en RDS al hacer merge a
-`main`, después de respaldar la base (`despliegue/desplegar.sh`, DEC-58).
+El archivo `../01_esquema.sql` contiene el esquema vigente para bases nuevas. Los scripts de esta carpeta actualizan
+bases existentes. El despliegue automático aplica en RDS los cambios pendientes al hacer merge a `main`, después de
+respaldar la base (`despliegue/desplegar.sh`, DEC-58).
 
 Para cambiar el esquema:
 

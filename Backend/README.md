@@ -13,8 +13,9 @@ con Amazon RDS, con la imagen Docker, está en [DESPLIEGUE.md](../DESPLIEGUE.md)
 
 ## Puesta en marcha
 
-El backend se conecta directamente a una base existente: no crea ni modifica
-tablas (DEC-34). La base se prepara una vez con los scripts de `scripts/bd/`.
+El backend se conecta a una base preparada con los scripts de `scripts/bd/`
+(DEC-34). Si la base ya existe, aplique las migraciones pendientes de
+`scripts/bd/cambios/` antes de arrancar.
 
 1. Crear las bases en el PostgreSQL local (puerto 5432):
    - `DBKomainOS` — desarrollo.
@@ -52,9 +53,9 @@ se cambia con `KOMAINOS_PUERTO`.
 
 | Script | Uso |
 |---|---|
-| `01_esquema.sql` | DDL de la base actual y oficial: el esquema `KomainOS` completo, con 54 tablas, 100 claves foráneas y 35 enumerados, incluido el registro de actividad de las ejecuciones (DEC-59). Es el mismo esquema de la base en servicio (RDS). Requiere PostgreSQL 15 o superior. |
-| `02_datos_sistema.sql` | Datos iniciales sin los cuales el sistema no opera: factores de ciclo, parámetros globales y las 21 variables de salud del R3.1 (catálogo de métricas). Sin umbrales, datos de demostración ni administrador (lo crea el backend en su primer arranque). Idempotente. |
-| `cambios/` | Vacía: ahí va cada cambio de esquema nuevo para la base en servicio, que el despliegue automático aplica en RDS (ver `cambios/README.md`). |
+| `01_esquema.sql` | DDL vigente del esquema `KomainOS` para bases nuevas, con 53 tablas, 99 claves foráneas y 34 enumerados. Requiere PostgreSQL 15 o superior. |
+| `02_datos_sistema.sql` | Datos iniciales: parámetros globales y las 21 variables de salud del R3.1 (catálogo de métricas). Sin umbrales, datos de demostración ni administrador (lo crea el backend en su primer arranque). Idempotente. |
+| `cambios/` | Migraciones para bases existentes. El despliegue automático aplica las pendientes en RDS (ver `cambios/README.md`). |
 
 ## Ciclo de verificación
 
@@ -97,7 +98,7 @@ com.komainos
 ├── inventario/     catálogos, servidores, grupos, ventanas, importación y exportación (RF09–RF21, RF70–RF76)
 ├── credencial/     credenciales documentales, cuentas de servicio, cifrado y revelado (RF04–RF08)
 ├── mantenimiento/  órdenes de mantenimiento, su detalle, historial y máquina de estados
-├── planificacion/  algoritmo voraz, cronograma y proceso automático (RF27–RF38, RF46, RF51, RF64)
+├── planificacion/  algoritmo voraz, cronograma y proceso automático (RF27–RF38, RF46, RF51)
 │   ├── controller/     endpoints REST (@RestController): validan el borde y delegan
 │   ├── dto/            contrato HTTP: *Peticion y *Respuesta
 │   ├── mapper/         entidad → DTO

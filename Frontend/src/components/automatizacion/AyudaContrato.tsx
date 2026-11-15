@@ -3,6 +3,7 @@ import { Check, Copy, Info } from 'lucide-react'
 import type { TipoScript } from '@/api/dominio'
 import type { Lenguaje } from '@/utils/parametrosScript'
 import { EJEMPLO_SALIDA } from '@/utils/plantillasScript'
+import { copiarTexto } from '@/utils/portapapeles'
 
 interface AyudaContratoProps {
   tipo: TipoScript
@@ -16,7 +17,7 @@ export function AyudaContrato({ tipo, lenguaje }: AyudaContratoProps) {
 
   async function copiar() {
     try {
-      await navigator.clipboard.writeText(ejemploJson)
+      await copiarTexto(ejemploJson)
       setCopiado(true)
       window.setTimeout(() => setCopiado(false), 1500)
     } catch {

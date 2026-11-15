@@ -43,9 +43,6 @@ public class ParametrosSistema {
     @Column(name = "max_duracion_mop_minutos", nullable = false)
     private Integer maxDuracionMopMinutos;
 
-    @Column(name = "min_ciclos_racha_estable", nullable = false)
-    private Integer minCiclosRachaEstable;
-
     @Column(name = "minutos_expiracion_token", nullable = false)
     private Integer minutosExpiracionToken;
 
