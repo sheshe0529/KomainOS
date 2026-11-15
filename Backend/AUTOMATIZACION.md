@@ -87,26 +87,26 @@ operativos se mide: en los demás no se exige, no se evalúa ni admite excepcion
 | Código | Variable | Unidad | Activación | Se mide en |
 |---|---|---|---|---|
 | `cpu_uso` | Uso de CPU | % | Umbral | Linux y Windows |
-| `cpu_load` | Carga de CPU (load) | tareas por CPU lógica | Umbral | Linux |
+| `cpu_load` | Carga de CPU (load) | Tareas promedio por CPU lógica | Umbral | Linux |
 | `cpu_iowait` | CPU en espera de E/S (iowait) | % | Umbral | Linux |
-| `disco_iops` | Operaciones de E/S por segundo (por disco) | op/s | Umbral | Linux y Windows |
+| `disco_iops` | Operaciones de E/S por segundo (por disco) | Operaciones por segundo | Umbral | Linux y Windows |
 | `mem_uso` | Uso de memoria | % | Umbral | Linux y Windows |
 | `swap_uso` | Uso de espacio de intercambio | % | Umbral | Linux y Windows |
 | `swap_act` | Actividad de intercambio | KiB/s | Umbral | Linux y Windows |
 | `disco_uso` | Uso de disco (por volumen) | % | Umbral | Linux y Windows |
 | `disco_latencia` | Latencia de E/S de disco (por disco) | ms | Umbral | Linux y Windows |
-| `disco_errores` | Errores de E/S de disco | errores | Umbral | Linux y Windows |
-| `red_error_rx` | Porcentaje de errores de recepción de red (por interfaz) | % | Umbral | Linux y Windows |
-| `aut_fallidas` | Autenticaciones fallidas | intentos | Umbral | Linux y Windows |
+| `disco_errores` | Errores de E/S de disco | Cantidad | Umbral | Linux y Windows |
+| `red_error_rx` | Errores de recepción de red (por interfaz) | % | Umbral | Linux y Windows |
+| `aut_fallidas` | Autenticaciones fallidas | Cantidad | Umbral | Linux y Windows |
 | `admin_acceso` | Acceso directo del administrador | binaria | Umbral (= 1) | Linux y Windows |
 | `admin_no_aut` | Cuentas administradoras no autorizadas | — | Lista (sobrantes) | Linux y Windows |
 | `arch_crit_permisos` | Archivos críticos con permisos inseguros | — | Lista (faltantes) | Linux |
 | `red_puerto_no_aut` | Puertos TCP no autorizados en escucha | — | Lista (sobrantes) | Linux y Windows |
 | `firewall_inactivo` | Firewall del sistema inactivo | binaria | Umbral (= 1) | Linux y Windows |
 | `mac_no_estricto` | Control de acceso obligatorio no estricto | binaria | Umbral (= 1) | Linux |
-| `uptime_dias` | Tiempo de actividad (uptime) | días | Umbral | Linux y Windows |
+| `uptime_dias` | Tiempo de actividad (uptime) | Días | Umbral | Linux y Windows |
 | `serv_no_operativo` | Servicios requeridos no operativos | — | Lista (faltantes) | Linux y Windows |
-| `mem_agotamiento` | Eventos de agotamiento de memoria | eventos | Umbral | Linux y Windows |
+| `mem_agotamiento` | Eventos de agotamiento de memoria | Cantidad | Umbral | Linux y Windows |
 
 - **Binarias.** Valen 1 cuando se incumple la configuración esperada; su umbral
   usa `=` o `≠` con un solo nivel (advertencia o crítico).
