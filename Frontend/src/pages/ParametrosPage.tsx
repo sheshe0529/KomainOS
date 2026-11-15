@@ -39,12 +39,6 @@ const CAMPOS: { campo: CampoParametro; etiqueta: string; unidad: string; ayuda: 
     ayuda: 'Es el tiempo que la planificación reserva por servidor en cada mantenimiento.',
   },
   {
-    campo: 'minCiclosRachaEstable',
-    etiqueta: 'Racha estable',
-    unidad: 'ciclos',
-    ayuda: 'Mantenimientos consecutivos conformes para ampliar la periodicidad.',
-  },
-  {
     campo: 'minutosExpiracionToken',
     etiqueta: 'Vigencia de la sesión',
     unidad: 'min',
@@ -57,7 +51,6 @@ function aFormulario(p?: ParametrosSistemaRespuesta): Formulario {
     maxEjecucionesConcurrentes: String(p?.maxEjecucionesConcurrentes ?? ''),
     maxDuracionTareaMinutos: String(p?.maxDuracionTareaMinutos ?? ''),
     maxDuracionMopMinutos: String(p?.maxDuracionMopMinutos ?? ''),
-    minCiclosRachaEstable: String(p?.minCiclosRachaEstable ?? ''),
     minutosExpiracionToken: String(p?.minutosExpiracionToken ?? ''),
   }
 }
@@ -83,7 +76,6 @@ export function ParametrosPage() {
         maxEjecucionesConcurrentes: Number(valores.maxEjecucionesConcurrentes),
         maxDuracionTareaMinutos: Number(valores.maxDuracionTareaMinutos),
         maxDuracionMopMinutos: Number(valores.maxDuracionMopMinutos),
-        minCiclosRachaEstable: Number(valores.minCiclosRachaEstable),
         minutosExpiracionToken: Number(valores.minutosExpiracionToken),
         versionEsperada: parametros.datos?.fechaActualizacion,
       })

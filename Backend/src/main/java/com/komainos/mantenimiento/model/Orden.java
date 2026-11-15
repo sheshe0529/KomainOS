@@ -94,7 +94,7 @@ public class Orden implements Persistable<Integer> {
     @Column(name = "modo_ejecucion_aplicado", columnDefinition = "enum_modo_ejecucion")
     private ModoEjecucion modoEjecucionAplicado;
 
-    /** Calculada con periodicidad y factor antes de aplicar restricciones (RF64): no cambia al reprogramar */
+    /** Fecha calculada con la periodicidad base antes de aplicar las restricciones de la programación */
     @Column(name = "fecha_objetivo", nullable = false, updatable = false)
     private Instant fechaObjetivo;
 

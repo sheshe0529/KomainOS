@@ -78,4 +78,4 @@ jobs:
           python3 -m py_compile despliegue/vigilar.py
       - name: Decisión de despliegue
         working-directory: despliegue
-        run: python3 -m unittest -v prueba_vigilar.py
+        run: python3 -m unittest -v prueba_vigilar.py prueba_desplegar.py

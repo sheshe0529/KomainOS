@@ -18,6 +18,7 @@ import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrigenOrden;
+import com.komainos.mantenimiento.service.ServicioCierreMantenimiento;
 import com.komainos.mantenimiento.service.ServicioConsultaOrdenes;
 import com.komainos.planificacion.service.ServicioCronograma;
 import com.komainos.planificacion.service.ServicioPlanificacion;
@@ -35,6 +36,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -71,6 +73,7 @@ class PlanificacionIT extends PruebaIntegracion {
     @Autowired ServicioGrupo grupos;
     @Autowired ServicioParametrosSistema parametros;
     @Autowired ServicioPlanificacion planificacion;
+    @Autowired ServicioCierreMantenimiento cierres;
     @Autowired ServicioConsultaOrdenes consulta;
     @Autowired ServicioCronograma cronograma;
     @Autowired MockMvc mockMvc;
@@ -126,7 +129,7 @@ class PlanificacionIT extends PruebaIntegracion {
     }
 
     private void capacidad(int maximo) {
-        parametros.actualizar(new DatosParametros(maximo, 60, 240, 5, 60), actorAdmin);
+        parametros.actualizar(new DatosParametros(maximo, 60, 240, 60), actorAdmin);
     }
 
     @Test
@@ -177,8 +180,50 @@ class PlanificacionIT extends PruebaIntegracion {
 
         List<Orden> generadas = ordenesDe(id);
         assertThat(generadas).hasSize(1);
+        assertThat(generadas.getFirst().getFechaObjetivo()).isEqualTo(AHORA.plus(Duration.ofDays(1)));
         assertThat(generadas.getFirst().getFechaInicioProgramada())
                 .isEqualTo(lima("2026-10-03T22:00"));
+    }
+
+    @Test
+    @DisplayName("RF27/RF29: el grupo conserva su periodicidad y calcula la siguiente fecha objetivo desde el cierre")
+    void ciclosAutomaticosDeGrupo() {
+        Integer a = servidor("srv-ciclo-a", "10.0.2.1", idAlta, responsable);
+        Integer b = servidor("srv-ciclo-b", "10.0.2.2", idMedia, responsable);
+        for (Integer id : List.of(a, b)) {
+            ventanas(id, ventana(SABADO, "00:00", SABADO, "23:00"));
+            configurar(id, ModalidadPlanificacion.BAJO_DEMANDA);
+        }
+        Integer grupo = grupos.crear("Grupo de ciclos", null, actorAdmin).getId();
+        grupos.reemplazarIntegrantes(grupo, List.of(a, b), actorAdmin);
+        grupos.configurar(grupo, new ServicioGrupo.DatosConfiguracionGrupo(7, 17, ModalidadPlanificacion.BAJO_DEMANDA,
+                ModoEjecucion.SECUENCIAL), actorAdmin);
+        // Configuración anterior al cierre: permite distinguir el origen de las dos fechas objetivo.
+        jdbc.update("""
+                update configuracion_mantenimiento set fecha_creacion = ?
+                where id_configuracion_mantenimiento = (
+                    select id_configuracion_mantenimiento from configuracion_grupo where id_grupo_mantenimiento = ?)
+                """, Timestamp.from(AHORA.minus(Duration.ofDays(5))), grupo);
+        grupos.configurar(grupo, new ServicioGrupo.DatosConfiguracionGrupo(7, 17, ModalidadPlanificacion.AUTOMATICA,
+                ModoEjecucion.SECUENCIAL), actorAdmin);
+
+        Integer primera = jdbc.queryForObject("select id_orden from orden where id_grupo_mantenimiento = ?",
+                Integer.class, grupo);
+        Orden inicial = consulta.obtener(primera, alcanceAdmin);
+        assertThat(inicial.getFechaObjetivo()).isEqualTo(AHORA.plus(Duration.ofDays(12)));
+        assertThat(inicial.getFechaInicioProgramada()).isAfterOrEqualTo(inicial.getFechaObjetivo());
+
+        planificacion.cancelar(primera, "Reiniciar el ciclo del grupo", actorAdmin);
+        assertThat(cierres.cerrarCanceladas()).isEqualTo(1);
+
+        Integer siguiente = jdbc.queryForObject("select id_orden_siguiente from cierre_orden where id_orden = ?",
+                Integer.class, primera);
+        Orden nueva = consulta.obtener(siguiente, alcanceAdmin);
+        assertThat(nueva.getFechaObjetivo()).isEqualTo(AHORA.plus(Duration.ofDays(17)));
+        assertThat(nueva.getFechaInicioProgramada()).isAfterOrEqualTo(nueva.getFechaObjetivo());
+        assertThat(nueva.getDetalles()).hasSize(2);
+        assertThat(consulta.obtener(primera, alcanceAdmin).getFechaObjetivo()).isEqualTo(inicial.getFechaObjetivo());
+        assertThat(planificacion.planificarCiclosAutomaticos().ordenesGeneradas()).isEmpty();
     }
 
     @Test

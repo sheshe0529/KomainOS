@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Pencil, Plus, Power, PowerOff, Trash2 } from 'lucide-react'
 import { listasApi } from '@/api/umbrales'
 import type { ListaReferenciaRespuesta } from '@/api/types'
 import { ListaChips } from '@/components/umbrales/ListaChips'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
+import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
@@ -13,17 +14,24 @@ import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { textoDeError } from '@/utils/errores'
-import { ETIQUETA_TIPO_DATO } from '@/utils/umbrales'
+import { ETIQUETA_TIPO_DATO, filtrarListas } from '@/utils/umbrales'
 import { ListaFormulario } from './ListaFormulario'
 
 /** Listas de referencia: conjuntos esperados o permitidos con los que se comparan las métricas de lista */
 export function ListasTab({ esAdmin = false, visita }: { esAdmin?: boolean; visita: number }) {
   const { avisar } = useAvisos()
   const listas = useConsulta(() => listasApi.listar(), [visita])
-  const tabla = usePaginacionLocal(listas.datos ?? [], 'listas')
+  const [busqueda, setBusqueda] = useState('')
+  const filtradas = useMemo(() => filtrarListas(listas.datos ?? [], busqueda), [listas.datos, busqueda])
+  const tabla = usePaginacionLocal(filtradas, 'listas')
   const [editando, setEditando] = useState<ListaReferenciaRespuesta | 'nueva' | null>(null)
   const [eliminando, setEliminando] = useState<ListaReferenciaRespuesta | null>(null)
   const [trabajando, setTrabajando] = useState(false)
+
+  function buscar(texto: string) {
+    setBusqueda(texto)
+    tabla.controles.onCambiar(0)
+  }
 
   async function cambiarEstado(l: ListaReferenciaRespuesta) {
     try {
@@ -53,11 +61,24 @@ export function ListasTab({ esAdmin = false, visita }: { esAdmin?: boolean; visi
 
   return (
     <div className="flex flex-col gap-4">
-      {esAdmin && <div className="flex justify-end">
-        <Boton variante="primario" icono={Plus} onClick={() => setEditando('nueva')}>
-          Nueva lista
-        </Boton>
-      </div>}
+      <div className="flex flex-wrap items-center gap-3">
+        <CampoBusqueda
+          valor={busqueda}
+          onCambiar={buscar}
+          placeholder="Buscar por nombre, tipo o elementos"
+          aria-label="Buscar listas de referencia"
+        />
+        {busqueda.trim() && listas.datos && (
+          <span className="text-xs text-ink-soft" aria-live="polite">
+            {filtradas.length} de {listas.datos.length} listas
+          </span>
+        )}
+        {esAdmin && (
+          <Boton variante="primario" icono={Plus} onClick={() => setEditando('nueva')} className="ml-auto">
+            Nueva lista
+          </Boton>
+        )}
+      </div>
       <MensajeError error={listas.error} onReintentar={listas.recargar} />
       {listas.cargando && !listas.datos ? (
         <Cargando />
@@ -111,10 +132,10 @@ export function ListasTab({ esAdmin = false, visita }: { esAdmin?: boolean; visi
                     </td>
                   </tr>
                 ))}
-                {listas.datos?.length === 0 && (
+                {listas.datos && filtradas.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-ink-soft">
-                      Sin listas
+                      {listas.datos.length === 0 ? 'Sin listas' : 'Ninguna lista coincide con la búsqueda'}
                     </td>
                   </tr>
                 )}

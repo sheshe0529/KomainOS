@@ -981,7 +981,6 @@ export interface ParametrosSistemaPeticion {
   maxEjecucionesConcurrentes: number
   maxDuracionTareaMinutos: number
   maxDuracionMopMinutos: number
-  minCiclosRachaEstable: number
   minutosExpiracionToken: number
   versionEsperada?: string
 }
@@ -990,7 +989,6 @@ export interface ParametrosSistemaRespuesta {
   maxEjecucionesConcurrentes?: number
   maxDuracionTareaMinutos?: number
   maxDuracionMopMinutos?: number
-  minCiclosRachaEstable?: number
   minutosExpiracionToken?: number
   fechaActualizacion?: string
   cuentaServicioEvaluacionPredeterminada?: ReferenciaSimple

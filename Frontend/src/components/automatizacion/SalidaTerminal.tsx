@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, Copy, Download } from 'lucide-react'
 import { BotonIcono } from '@/components/ui/Boton'
 import { descargarTexto } from '@/utils/automatizacion'
+import { copiarTexto } from '@/utils/portapapeles'
 
 interface SalidaTerminalProps {
   salida?: string
@@ -18,7 +19,7 @@ export function SalidaTerminal({ salida, error, nombre = 'salida', altoMaximo = 
 
   async function copiar() {
     try {
-      await navigator.clipboard.writeText(texto)
+      await copiarTexto(texto)
       setCopiado(true)
       window.setTimeout(() => setCopiado(false), 1500)
     } catch {

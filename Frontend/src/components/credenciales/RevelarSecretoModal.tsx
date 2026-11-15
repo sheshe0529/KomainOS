@@ -7,6 +7,7 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { ETIQUETA_AUTENTICACION, ETIQUETA_METODO_ELEVACION } from '@/utils/etiquetas'
 import { errorDeCampo, textoDeError } from '@/utils/errores'
+import { copiarTexto } from '@/utils/portapapeles'
 import { CampoReautenticacion } from './CampoReautenticacion'
 
 interface RevelarSecretoModalProps {
@@ -64,8 +65,10 @@ export function RevelarSecretoModal({ abierto, credencial, onCerrar, onRevelar }
 
   async function copiar(parte: Parte, texto?: string) {
     if (!texto) return
+    setError(undefined)
+    setCopiado(null)
     try {
-      await navigator.clipboard.writeText(texto)
+      await copiarTexto(texto)
       setCopiado(parte)
       window.setTimeout(() => setCopiado(null), 2000)
     } catch (e) {
