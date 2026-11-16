@@ -341,14 +341,14 @@ ALTER TABLE "KomainOS".cierre_orden ALTER COLUMN id_cierre_orden ADD GENERATED B
 CREATE TABLE "KomainOS".configuracion_grupo (
     id_configuracion_mantenimiento integer NOT NULL,
     id_grupo_mantenimiento integer NOT NULL,
-    modo_ejecucion "KomainOS".enum_modo_ejecucion NOT NULL,
-    revision_periodica_habilitada boolean DEFAULT false NOT NULL
+    modo_ejecucion "KomainOS".enum_modo_ejecucion NOT NULL
 );
 CREATE TABLE "KomainOS".configuracion_mantenimiento (
     id_configuracion_mantenimiento integer CONSTRAINT configuracion_mantenimiento_id_configuracion_mantenimi_not_null NOT NULL,
     id_cuenta_servicio_evaluacion integer,
     id_cuenta_servicio_mantenimiento integer,
     frecuencia_revision_dias integer NOT NULL,
+    revision_periodica_habilitada boolean NOT NULL,
     frecuencia_mantenimiento_dias integer CONSTRAINT configuracion_mantenimiento_frecuencia_mantenimiento_d_not_null NOT NULL,
     modalidad_planificacion "KomainOS".enum_modalidad_planificacion NOT NULL,
     fecha_creacion timestamp(0) without time zone DEFAULT (statement_timestamp() AT TIME ZONE 'UTC'::text) NOT NULL,
@@ -365,8 +365,7 @@ ALTER TABLE "KomainOS".configuracion_mantenimiento ALTER COLUMN id_configuracion
 );
 CREATE TABLE "KomainOS".configuracion_servidor (
     id_configuracion_mantenimiento integer NOT NULL,
-    id_servidor integer NOT NULL,
-    revision_periodica_habilitada boolean DEFAULT true NOT NULL
+    id_servidor integer NOT NULL
 );
 CREATE TABLE "KomainOS".configuracion_sistema (
     id_configuracion_sistema integer DEFAULT 1 NOT NULL,

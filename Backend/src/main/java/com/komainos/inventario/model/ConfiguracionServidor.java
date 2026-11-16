@@ -1,6 +1,5 @@
 package com.komainos.inventario.model;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -10,7 +9,6 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
 
@@ -26,15 +24,12 @@ public class ConfiguracionServidor extends ConfiguracionMantenimiento {
     @JoinColumn(name = "id_servidor", nullable = false, unique = true)
     private Servidor servidor;
 
-    @Setter
-    @Column(name = "revision_periodica_habilitada", nullable = false)
-    private boolean revisionPeriodicaHabilitada = true;
-
     public static ConfiguracionServidor nueva(Servidor servidor, int frecuenciaRevisionDias,
                                               int frecuenciaMantenimientoDias, ModalidadPlanificacion modalidad,
                                               Instant ahora) {
         ConfiguracionServidor configuracion = new ConfiguracionServidor();
         configuracion.servidor = servidor;
+        configuracion.setRevisionPeriodicaHabilitada(true);
         configuracion.aplicarComunes(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad);
         configuracion.registrarCreacion(ahora);
         return configuracion;

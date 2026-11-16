@@ -198,10 +198,12 @@ class InventarioIT extends PruebaIntegracion {
         comprobarConfiguracionRevision(rutaServidor, datosServidor, false);
         comprobarConfiguracionRevision(rutaGrupo, datosGrupo, true);
         assertThat(jdbc.queryForObject("""
-                select revision_periodica_habilitada from configuracion_servidor where id_servidor = ?
+                select cm.revision_periodica_habilitada from configuracion_mantenimiento cm
+                join configuracion_servidor cs using (id_configuracion_mantenimiento) where cs.id_servidor = ?
                 """, Boolean.class, servidor.getId())).isFalse();
         assertThat(jdbc.queryForObject("""
-                select revision_periodica_habilitada from configuracion_grupo where id_grupo_mantenimiento = ?
+                select cm.revision_periodica_habilitada from configuracion_mantenimiento cm
+                join configuracion_grupo cg using (id_configuracion_mantenimiento) where cg.id_grupo_mantenimiento = ?
                 """, Boolean.class, idGrupo)).isTrue();
         assertThat(jdbc.queryForList("""
                 select entidad from auditoria where operacion = 'CONFIGURAR_MANTENIMIENTO' and id_usuario = ?
