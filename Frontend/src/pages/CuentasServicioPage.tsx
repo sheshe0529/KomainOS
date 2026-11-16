@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { Ban, Eye, KeyRound, Pencil, Plus, Server, Star, StarOff } from 'lucide-react'
+import { Ban, Eye, KeyRound, Pencil, Plus, Server } from 'lucide-react'
 import { credencialesApi, cuentasServicioApi } from '@/api/credenciales'
-import type { FinalidadCuentaServicio } from '@/api/credenciales'
 import type { CuentaServicioRespuesta } from '@/api/types'
 import { PageHeader } from '@/components/common/PageHeader'
 import { AsignarServidoresModal } from '@/components/credenciales/AsignarServidoresModal'
@@ -19,8 +18,6 @@ import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { ESTADO_CREDENCIAL, ETIQUETA_AUTENTICACION, ETIQUETA_METODO_ELEVACION } from '@/utils/etiquetas'
 import { formatearFecha } from '@/utils/formato'
-import { textoDeError } from '@/utils/errores'
-import { FINALIDADES_CUENTA } from '@/utils/cuentasServicio'
 
 type Dialogo =
   | { tipo: 'nueva' }
@@ -39,7 +36,6 @@ export function CuentasServicioPage() {
   const { avisar } = useAvisos()
   const cuentas = useConsulta(() => cuentasServicioApi.listar(), [])
   const [dialogo, setDialogo] = useState<Dialogo>(null)
-  const [cambiandoPredeterminada, setCambiandoPredeterminada] = useState(false)
 
   const lista = cuentas.datos ?? []
   const tabla = usePaginacionLocal(lista, 'cuentas-servicio')
@@ -50,24 +46,11 @@ export function CuentasServicioPage() {
     avisar(mensaje)
   }
 
-  async function cambiarPredeterminada(c: CuentaServicioRespuesta | null, finalidad: FinalidadCuentaServicio) {
-    setCambiandoPredeterminada(true)
-    try {
-      cuentas.reemplazar(await cuentasServicioApi.definirPredeterminada(c?.id ?? null, finalidad))
-      const etiqueta = finalidad === 'EVALUACION' ? 'evaluación' : 'mantenimiento'
-      avisar(c ? `${c.nombre} es ahora la cuenta predeterminada de ${etiqueta}.` : `El sistema quedó sin cuenta predeterminada de ${etiqueta}.`)
-    } catch (e) {
-      avisar(textoDeError(e), 'error')
-    } finally {
-      setCambiandoPredeterminada(false)
-    }
-  }
-
   return (
     <>
       <PageHeader
         title="Cuentas de servicio"
-        description="Cada servidor y grupo puede evaluar con una cuenta y ejecutar el mantenimiento con otra. Cada finalidad tiene su propia cuenta predeterminada."
+        description="Cada servidor y grupo evalúa con la cuenta que tiene asignada y ejecuta el mantenimiento con otra. No hay cuenta predeterminada: sin asignación no podrá conectarse."
         actions={
           <Boton variante="primario" icono={Plus} onClick={() => setDialogo({ tipo: 'nueva' })}>
             Nueva cuenta
@@ -75,11 +58,6 @@ export function CuentasServicioPage() {
         }
       />
       <MensajeError error={cuentas.error} onReintentar={cuentas.recargar} />
-      {cuentas.datos && FINALIDADES_CUENTA.filter(({ campoPredeterminada }) => !lista.some((cuenta) => cuenta[campoPredeterminada])).map(({ finalidad, etiqueta }) => (
-        <p key={finalidad} className="mb-4 rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
-          {etiqueta}: no hay cuenta predeterminada. Las configuraciones sin cuenta propia para esta finalidad no tendrán con qué conectarse.
-        </p>
-      ))}
       {cuentas.cargando && !cuentas.datos ? (
         <Cargando />
       ) : (
@@ -93,7 +71,6 @@ export function CuentasServicioPage() {
                   <th className="px-4 py-3 font-medium">Mecanismo</th>
                   <th className="px-4 py-3 font-medium">Secreto</th>
                   <th className="px-4 py-3 font-medium">Uso</th>
-                  <th className="px-4 py-3 font-medium">Predeterminada para</th>
                   <th className="px-4 py-3 font-medium">Estado</th>
                   <th className="px-4 py-3 text-right font-medium">Acciones</th>
                 </tr>
@@ -102,19 +79,12 @@ export function CuentasServicioPage() {
                 {tabla.filas.map((c) => {
                   const vigente = c.estado === 'VIGENTE'
                   const estado = c.estado ? ESTADO_CREDENCIAL[c.estado] : undefined
-                  const finalidadesPredeterminadas = FINALIDADES_CUENTA.filter(({ campoPredeterminada }) => c[campoPredeterminada])
-                    .map(({ etiqueta }) => etiqueta.toLowerCase())
                   return (
                     <tr key={c.id} className={`hover:bg-panel-muted ${vigente ? '' : 'text-ink-soft'}`}>
                       <td className="px-4 py-3">
                         <p className={`flex items-center gap-2 font-medium ${vigente ? 'text-ink' : ''}`}>
                           {c.nombre}
                         </p>
-                        {finalidadesPredeterminadas.length > 0 && (
-                          <em className="mt-0.5 block text-xs text-ink-faint">
-                            predeterminada del sistema para {finalidadesPredeterminadas.join(' y ')}
-                          </em>
-                        )}
                         {c.descripcion && <p className="line-clamp-2 max-w-xs text-xs text-ink-faint">{c.descripcion}</p>}
                       </td>
                       <td className="px-4 py-3 font-mono">{c.usuarioAcceso}</td>
@@ -131,26 +101,6 @@ export function CuentasServicioPage() {
                         {c.fechaSecreto ? `Actualizado ${formatearFecha(c.fechaSecreto)}` : '—'}
                       </td>
                       <td className="px-4 py-3 text-ink-soft">{textoUso(c)}</td>
-                      <td className="px-4 py-3">
-                        {vigente ? (
-                          <div className="flex flex-col items-start gap-1">
-                            {FINALIDADES_CUENTA.map(({ finalidad, etiqueta, campoPredeterminada }) => (
-                              <Boton
-                                key={finalidad}
-                                variante="fantasma"
-                                className={`px-2 py-1 text-xs ${c[campoPredeterminada] ? 'text-accent' : ''}`}
-                                icono={c[campoPredeterminada] ? StarOff : Star}
-                                title={`${etiqueta}: ${c[campoPredeterminada] ? 'quitar cuenta predeterminada' : 'usar como predeterminada'}`}
-                                aria-pressed={!!c[campoPredeterminada]}
-                                disabled={cambiandoPredeterminada}
-                                onClick={() => cambiarPredeterminada(c[campoPredeterminada] ? null : c, finalidad)}
-                              >
-                                {etiqueta}
-                              </Boton>
-                            ))}
-                          </div>
-                        ) : '—'}
-                      </td>
                       <td className="px-4 py-3">{estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}</td>
                       <td className="px-4 py-3">
                         {vigente && (

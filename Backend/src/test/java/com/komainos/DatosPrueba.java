@@ -42,7 +42,7 @@ public final class DatosPrueba {
     }
 
     public static NivelCriticidad criticidad(int id, String nombre, int prioridad) {
-        NivelCriticidad n = NivelCriticidad.nuevo(new DatosNivelCriticidad(nombre, prioridad, 7, 30, 24, 48));
+        NivelCriticidad n = NivelCriticidad.nuevo(new DatosNivelCriticidad(nombre, prioridad, 24, 48));
         n.setId(id);
         return n;
     }

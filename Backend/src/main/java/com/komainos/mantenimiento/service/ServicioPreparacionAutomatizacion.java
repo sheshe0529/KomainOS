@@ -12,7 +12,6 @@ import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
 import com.komainos.inventario.repository.UmbralRepositorio;
 import com.komainos.inventario.service.PuertoCuentasServicio;
-import com.komainos.inventario.service.ServicioParametrosSistema;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.mantenimiento.model.TipoEvaluacion;
 import com.komainos.mantenimiento.repository.EvaluacionRepositorio;
@@ -42,7 +41,6 @@ public class ServicioPreparacionAutomatizacion {
 
     private final ServicioServidor servidores;
     private final ConfiguracionServidorRepositorio configuraciones;
-    private final ServicioParametrosSistema parametros;
     private final PuertoCuentasServicio cuentas;
     private final ServicioCatalogoAutomatizacion catalogo;
     private final ServicioPoliticasCambio politicas;
@@ -63,9 +61,11 @@ public class ServicioPreparacionAutomatizacion {
         Optional<ConfiguracionServidor> config = configuraciones.findByServidorId(idServidor);
         lista.add(config.isPresent()
                 ? Comprobacion.ok("CONFIGURACION", "Configuración de mantenimiento",
-                "Revisión cada %d días, mantenimiento cada %d días, modalidad %s".formatted(
-                        config.get().getFrecuenciaRevisionDias(), config.get().getFrecuenciaMantenimientoDias(),
-                        config.get().getModalidadPlanificacion()))
+                "%s, mantenimiento cada %d días, modalidad %s".formatted(
+                        config.get().isRevisionPeriodicaHabilitada()
+                                ? "Revisión cada %d días".formatted(config.get().getFrecuenciaRevisionDias())
+                                : "Revisión periódica inactiva",
+                        config.get().getFrecuenciaMantenimientoDias(), config.get().getModalidadPlanificacion()))
                 : Comprobacion.error("CONFIGURACION", "Sin configuración de mantenimiento",
                 "Defina frecuencias, modalidad y cuenta en la ficha del servidor"));
 
@@ -88,18 +88,17 @@ public class ServicioPreparacionAutomatizacion {
         return new Preparacion(servidor.getId(), servidor.getHostname(), listo, lista);
     }
 
-    private Comprobacion cuenta(Servidor servidor, Integer propia, FinalidadCuenta finalidad) {
-        Integer cuenta = propia != null ? propia : ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad);
+    /** Sin cuenta predeterminada (DEC-60): solo vale la que tiene asignada el servidor */
+    private Comprobacion cuenta(Servidor servidor, Integer cuenta, FinalidadCuenta finalidad) {
         if (cuenta == null) {
             return Comprobacion.error("CUENTA_" + finalidad, "Sin cuenta para " + finalidad.name().toLowerCase(java.util.Locale.ROOT),
-                    "Asigne una al servidor o defina la cuenta predeterminada (RF05, RF06)");
+                    "Asigne una cuenta de servicio al servidor (RF05)");
         }
         String nombre = cuentas.nombre(cuenta).orElse("#" + cuenta);
         try {
             cuentas.exigirAsignable(cuenta, servidor.familia());
             return Comprobacion.ok("CUENTA_" + finalidad, "Cuenta para " + finalidad.name().toLowerCase(java.util.Locale.ROOT),
-                    "%s (%s). Use «Probar acceso» para verificarla".formatted(nombre,
-                            propia != null ? "propia" : "predeterminada"));
+                    "%s. Use «Probar acceso» para verificarla".formatted(nombre));
         } catch (ReglaNegocioException ex) {
             return Comprobacion.error("CUENTA_" + finalidad, "Cuenta para " + finalidad + " no utilizable", ex.getMessage());
         }

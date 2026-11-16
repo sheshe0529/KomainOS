@@ -15,16 +15,17 @@ El estado del controlador se ve en **Automatización → Sala de operaciones** (
 
 ## Cuentas por finalidad
 
-Cada servidor o grupo puede definir una cuenta para **evaluación** y otra para **mantenimiento**, con predeterminadas
-independientes. Pueden ser la misma cuenta. Las revisiones y los análisis previo y posterior usan la de evaluación;
+Cada servidor o grupo define una cuenta para **evaluación** y otra para **mantenimiento**. Pueden ser la misma
+cuenta. No hay cuenta predeterminada (DEC-60): una finalidad sin cuenta asignada no puede analizar ni ejecutar. Las revisiones y los análisis previo y posterior usan la de evaluación;
 la prueba de acceso antes de ejecutar y las tareas de la MOP usan la de mantenimiento.
 
 Las cuentas efectivas se guardan en la orden al programarla y una cuenta ya guardada no cambia cuando se modifica
 la configuración. Si una orden se creó cuando todavía faltaban cuentas, solo los campos nulos pueden completarse
-desde la configuración vigente del servidor/grupo o su predeterminada, inmediatamente antes de la primera evaluación.
+desde la configuración vigente del servidor/grupo, inmediatamente antes de la primera evaluación.
 Se comprueban ambas cuentas antes de cambiar el estado o crear análisis. Si falta alguna o no es asignable, la orden
 sigue programada sin fijar valores parciales. La auditoría registra los valores antes y después de esa preparación.
-Los ciclos históricos con cuenta desconocida conservan el nulo; la migración no les atribuye la predeterminada actual.
+Los ciclos históricos con cuenta desconocida conservan el nulo. Al retirar la cuenta predeterminada (DEC-60), las
+configuraciones que la usaban la recibieron como cuenta propia, y cada asignación quedó en la auditoría.
 
 La prueba de acceso de evaluación verifica autenticación sin exigir administrador; el script de análisis debe tener
 los permisos que requieren sus métricas. La prueba de mantenimiento conserva la comprobación de privilegios.
@@ -347,7 +348,9 @@ Un análisis fallido guarda la salida de su script (DEC-59). En la orden, la eta
 servidor** resume cada fallo en una línea y **Ver detalle** muestra el diagnóstico, las posibles causas y esa salida; el
 **Siguiente paso** solo dice dónde revisarlo. **Ver actividad** lista, con la hora exacta, cada conexión (servidor,
 transporte, cuenta, usuario, autenticación y elevación), la comprobación de acceso, el inicio y el fin de cada análisis
-y tarea y las incidencias; el detalle de cada ejecución del historial muestra lo mismo para su servidor.
+y tarea y las incidencias, en el orden en que ocurrieron y sin separarlos por fase; el detalle de cada ejecución del
+historial muestra lo mismo para su servidor. Cada evento guarda un solo origen (la evaluación, la tarea de la MOP o el
+detalle de la orden) y el servidor sale de ese origen (DEC-60).
 
 Referencias: [módulo script](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/script_module.html),
 [WinRM](https://docs.ansible.com/ansible/latest/os_guide/windows_winrm.html).
@@ -373,8 +376,8 @@ En el frontend: `npm run build`, `npm run lint` y `npm test`.
 ## Cuentas de servicio por finalidad
 
 Cada servidor y grupo configura por separado **Cuenta para evaluaciones** y **Cuenta para
-mantenimiento**. Cada asignación puede heredar su predeterminada del sistema, y ambas pueden
-seleccionar la misma cuenta. La asignación masiva indica la finalidad; la prueba de acceso prueba
+mantenimiento**. No hay cuenta predeterminada (DEC-60): sin asignación, esa finalidad queda sin
+cuenta. Ambas pueden seleccionar la misma cuenta. La asignación masiva indica la finalidad; la prueba de acceso prueba
 las dos cuentas en un solo paso y dice para qué se usa cada una (DEC-59).
 
 En **Nueva cuenta de servicio** o **Nuevo secreto**, la sección **Elevación de privilegios** define
@@ -395,7 +398,7 @@ La orden fija las dos cuentas resueltas al generarse. Los cambios posteriores de
 no sustituyen identificadores ya fijados. Si una orden se creó antes de disponer de una cuenta,
 solo sus identificadores todavía vacíos se completan antes de la primera evaluación; se exige
 que ambas cuentas sean utilizables antes de iniciar esa evaluación. La revocación considera
-las dos asignaciones, las dos predeterminadas y ambas referencias de las órdenes pendientes.
+las dos asignaciones y ambas referencias de las órdenes pendientes.
 
 Las tablas y detalles del ciclo muestran el nombre de la cuenta de servicio asociada a cada análisis y tarea.
 La validación técnica muestra la cuenta del análisis posterior del servidor.

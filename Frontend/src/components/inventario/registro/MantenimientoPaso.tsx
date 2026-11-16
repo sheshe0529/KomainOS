@@ -38,7 +38,7 @@ export function MantenimientoPaso({ servidores, onCambiar }: Props) {
     <div className="flex flex-col gap-5">
       <div>
         <h4 className="font-semibold">Configuración de mantenimiento</h4>
-        <p className="mt-1 text-sm text-ink-soft">Revise cada servidor. Las frecuencias iniciales provienen de su criticidad; los servidores existentes conservan sus valores actuales.</p>
+        <p className="mt-1 text-sm text-ink-soft">Indique las frecuencias de cada servidor: no hay valores predeterminados. Los servidores existentes conservan sus valores actuales.</p>
       </div>
       {servidores.length > 1 && <Campo etiqueta={`Servidor a configurar (${servidores.length})`}>
         <Selector value={s.clave} onChange={(e) => setClave(Number(e.target.value))}>

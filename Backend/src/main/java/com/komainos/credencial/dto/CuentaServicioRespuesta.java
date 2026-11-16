@@ -6,7 +6,7 @@ import com.komainos.ejecucion.model.MetodoElevacion;
 
 import java.time.Instant;
 
-/** Cuenta de servicio con su uso: configuraciones que la tienen asignada y si es la predeterminada (RF05, RF06) */
+/** Cuenta de servicio con su uso: configuraciones que la tienen asignada (RF05). No hay cuenta predeterminada (DEC-60) */
 public record CuentaServicioRespuesta(
         Integer id,
         String nombre,
@@ -21,7 +21,5 @@ public record CuentaServicioRespuesta(
         Instant fechaSecreto,
         Instant fechaRevocacion,
         long servidores,
-        long grupos,
-        boolean predeterminadaEvaluacion,
-        boolean predeterminadaMantenimiento) {
+        long grupos) {
 }

@@ -40,7 +40,7 @@ public final class CatalogoMapeador {
         return new ScriptRespuesta.VersionRespuesta(v.getId(), v.getNumeroVersion(), v.getContenido(), v.getNotasCambio(),
                 v.isHabilitada(), v.getId().equals(vigente), v.getFechaCreacion(),
                 v.getParametros().stream()
-                        .map(p -> new ScriptRespuesta.ParametroRespuesta(p.getNombre(), p.getTipoDato(),
+                        .map(p -> new ScriptRespuesta.ParametroRespuesta(p.getNombre(), p.getTipo(),
                                 p.getValorPorDefecto(), p.getListaReferencia() == null ? null : p.getListaReferencia().getId(),
                                 p.getListaReferencia() == null ? null : new ReferenciaSimple(
                                         p.getListaReferencia().getId(), p.getListaReferencia().getNombre())))

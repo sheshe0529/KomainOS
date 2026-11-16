@@ -11,18 +11,12 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { useConsulta } from '@/hooks/useConsulta'
 import { useRefrescoConsulta } from '@/hooks/useRefrescoConsulta'
-import type { EventoActividad, FaseActividad, NivelActividad } from '@/utils/actividadEjecucion'
+import type { EventoActividad, NivelActividad } from '@/utils/actividadEjecucion'
 import { deRespuestas, nombreDeTarea } from '@/utils/actividadEjecucion'
 import { diagnosticarFallo, formatearSegundos } from '@/utils/automatizacion'
 import { DiagnosticoActividad } from '../RegistroActividad'
 import { SalidaTerminal } from '../SalidaTerminal'
 
-const FASES: { fase: FaseActividad; titulo: string }[] = [
-  { fase: 'ORDEN', titulo: 'Cambios de la orden' },
-  { fase: 'EVALUACION', titulo: 'Evaluación previa' },
-  { fase: 'EJECUCION', titulo: 'Ejecución' },
-  { fase: 'VALIDACION', titulo: 'Validación' },
-]
 const VISTAS = { actividad: 'Actividad', salidas: 'Salida de scripts' } as const
 const FECHA_HORA = new Intl.DateTimeFormat('es-PE', {
   day: '2-digit', month: '2-digit', year: 'numeric',
@@ -204,7 +198,6 @@ interface ActividadOrdenProps {
 export function ActividadOrden({ idOrden, ficha, refrescoMs, onCerrar }: ActividadOrdenProps) {
   const [vista, setVista] = useState<keyof typeof VISTAS>('actividad')
   const [servidor, setServidor] = useState('')
-  const [fase, setFase] = useState<FaseActividad | ''>('')
   const [soloErrores, setSoloErrores] = useState(false)
   const [seleccion, setSeleccion] = useState<string>()
   const origenDetalle = useRef<HTMLButtonElement>(null)
@@ -217,7 +210,6 @@ export function ActividadOrden({ idOrden, ficha, refrescoMs, onCerrar }: Activid
   const servidores = [...new Set([...eventos, ...mops].flatMap((e) => e.servidor ? [e.servidor] : []))].sort((a, b) => a.localeCompare(b))
   const filtrados = eventos.filter((e) =>
     (!servidor || !e.servidor || e.servidor === servidor)
-    && (!fase || e.fase === fase)
     && (!soloErrores || e.nivel === 'ERROR'),
   )
   const tareas = mops.flatMap((m) => (m.tareas ?? []).map((tarea) => ({ clave: `salida-${tarea.id}`, tarea, servidor: m.servidor })))
@@ -280,21 +272,15 @@ export function ActividadOrden({ idOrden, ficha, refrescoMs, onCerrar }: Activid
                 </Selector>
               )}
               {vista === 'actividad' && (
-                <>
-                  <Selector aria-label="Filtrar por etapa" className="min-w-36 flex-1" value={fase} onChange={(e) => setFase(e.target.value as FaseActividad | '')}>
-                    <option value="">Todas las etapas</option>
-                    {FASES.map(({ fase: id, titulo }) => <option value={id} key={id}>{titulo}</option>)}
-                  </Selector>
-                  <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 text-sm text-ink">
-                    <input
-                      type="checkbox"
-                      checked={soloErrores}
-                      onChange={(e) => setSoloErrores(e.target.checked)}
-                      className="h-4 w-4 accent-ink"
-                    />
-                    <span>Solo errores</span>
-                  </label>
-                </>
+                <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={soloErrores}
+                    onChange={(e) => setSoloErrores(e.target.checked)}
+                    className="h-4 w-4 accent-ink"
+                  />
+                  <span>Solo errores</span>
+                </label>
               )}
             </div>
           )}

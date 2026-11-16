@@ -1,5 +1,6 @@
 package com.komainos.inventario.model;
 
+import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.util.Tiempo;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,7 +43,8 @@ public abstract class ConfiguracionMantenimiento {
     @Column(name = "id_cuenta_servicio_mantenimiento")
     private Integer idCuentaServicioMantenimiento;
 
-    @Column(name = "frecuencia_revision_dias", nullable = false)
+    /** Puede faltar con la revisión periódica inactiva: no hay frecuencia predeterminada (DEC-60) */
+    @Column(name = "frecuencia_revision_dias")
     private Integer frecuenciaRevisionDias;
 
     @Column(name = "revision_periodica_habilitada", nullable = false)
@@ -62,11 +64,18 @@ public abstract class ConfiguracionMantenimiento {
     @Column(name = "fecha_actualizacion", nullable = false)
     private Instant fechaActualizacion;
 
-    protected void aplicarComunes(int frecuenciaRevisionDias, int frecuenciaMantenimientoDias,
+    protected void aplicarComunes(Integer frecuenciaRevisionDias, int frecuenciaMantenimientoDias,
                                   ModalidadPlanificacion modalidad) {
         this.frecuenciaRevisionDias = frecuenciaRevisionDias;
         this.frecuenciaMantenimientoDias = frecuenciaMantenimientoDias;
         this.modalidadPlanificacion = modalidad;
+    }
+
+    /** Sin frecuencia predeterminada (DEC-60): la revisión periódica activa necesita la suya */
+    public void exigirFrecuenciaRevision() {
+        if (revisionPeriodicaHabilitada && frecuenciaRevisionDias == null) {
+            throw new ReglaNegocioException("Indique la frecuencia de revisión periódica para habilitarla");
+        }
     }
 
     public boolean esAutomatica() {

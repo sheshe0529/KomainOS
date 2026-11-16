@@ -281,17 +281,17 @@ public class ServicioOrquestador {
             idOrden = inicio.idOrden();
             actividad.inicioEjecucion(idDetalle, inicio.conectividad(), inicio.tareas());
             ResultadoEjecucion acceso = remoto.probarConexion(inicio.conectividad());
-            actividad.finComprobacion(idDetalle, inicio.conectividad(), acceso);
+            actividad.finComprobacion(idDetalle, acceso);
             if (!acceso.correcto()) {
                 transaccion.executeWithoutResult(estado -> fallarInicio(idDetalle, acceso));
             } else {
                 Trabajo trabajo;
                 while ((trabajo = transaccion.execute(estado -> siguiente(idDetalle))) != null) {
                     Trabajo actual = trabajo;
-                    actividad.inicioTarea(idDetalle, actual.actividad());
+                    actividad.inicioTarea(actual.actividad());
                     Instant comienzo = reloj.instant();
                     ResultadoEjecucion resultado = remoto.ejecutar(actual.solicitud());
-                    actividad.finTarea(idDetalle, actual.actividad(), resultado,
+                    actividad.finTarea(actual.actividad(), resultado,
                             Duration.between(comienzo, reloj.instant()));
                     transaccion.executeWithoutResult(estado -> registrar(actual, resultado));
                     if (!resultado.correcto()) {
@@ -303,7 +303,7 @@ public class ServicioOrquestador {
             log.error("No se pudo completar la ejecución del detalle {}", idDetalle, ex);
             transaccion.executeWithoutResult(estado -> fallarPorError(idDetalle, ex));
             if (inicio != null) {
-                actividad.ejecucionInterrumpida(inicio.conectividad().idServidor(), idDetalle, null,
+                actividad.ejecucionInterrumpida(idDetalle, null,
                         "Error del sistema: " + (ex instanceof ReglaNegocioException ? ex.getMessage()
                                 : "error interno; revise el registro del backend"));
             }

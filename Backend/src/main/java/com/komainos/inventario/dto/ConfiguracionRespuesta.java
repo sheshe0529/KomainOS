@@ -7,17 +7,15 @@ import com.komainos.shared.dto.ReferenciaSimple;
 import java.time.Instant;
 
 public record ConfiguracionRespuesta(
+        /** Nula con la revisión periódica inactiva y sin frecuencia definida (DEC-60) */
         Integer frecuenciaRevisionDias,
         boolean revisionPeriodicaHabilitada,
         Integer frecuenciaMantenimientoDias,
         ModalidadPlanificacion modalidadPlanificacion,
         ModoEjecucion modoEjecucion,
-        /** Cuenta propia, nula si usa la predeterminada */
+        /** Cuenta asignada para cada finalidad, nula si no tiene: no hay cuenta predeterminada (DEC-60) */
         Integer idCuentaServicioEvaluacion,
         Integer idCuentaServicioMantenimiento,
-        boolean usaPredeterminadaEvaluacion,
-        boolean usaPredeterminadaMantenimiento,
-        /** La que se usará: la propia o la predeterminada, nula si no hay ninguna */
         ReferenciaSimple cuentaServicioEvaluacion,
         ReferenciaSimple cuentaServicioMantenimiento,
         Instant fechaCreacion,

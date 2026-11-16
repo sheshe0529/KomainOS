@@ -6,7 +6,7 @@ import com.komainos.auditoria.model.RegistroAuditoria;
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.inventario.event.ConfiguracionMantenimientoActualizada;
-import com.komainos.inventario.event.VentanasServidorActualizadas;
+import com.komainos.inventario.model.CalendarioSemanal;
 import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
 import com.komainos.inventario.model.ConfiguracionServidor;
 import com.komainos.inventario.model.DatosServidor;
@@ -29,7 +29,8 @@ import com.komainos.inventario.repository.EspecificacionesServidor;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
 import com.komainos.inventario.repository.SolicitudBajaRepositorio;
-import com.komainos.inventario.service.ServicioAsignacionCuentas.CuentaEfectiva;
+import com.komainos.inventario.service.PuertoOrdenesProgramadas.OrdenFueraDeVentana;
+import com.komainos.inventario.service.ServicioAsignacionCuentas.CuentaAsignada;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.Rol;
 import com.komainos.seguridad.model.Usuario;
@@ -58,6 +59,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Devuelve entidades con lo que la API necesita ya cargado: open-in-view está desactivado */
 @Service
@@ -72,6 +74,7 @@ public class ServicioServidor implements PuertoServidoresACargo {
     private final UsuarioRepositorio usuarios;
     private final ServicioCatalogos catalogos;
     private final PuertoMantenimientos mantenimientos;
+    private final PuertoOrdenesProgramadas ordenesProgramadas;
     private final ServicioAsignacionCuentas cuentasServicio;
     private final ServicioAuditoria auditoria;
     private final ApplicationEventPublisher eventos;
@@ -112,8 +115,8 @@ public class ServicioServidor implements PuertoServidoresACargo {
         return new FichaServidor(
                 servidor,
                 configuracion,
-                configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.EVALUACION)),
-                configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.MANTENIMIENTO)),
+                configuracion.flatMap(c -> cuentasServicio.asignada(c, FinalidadCuenta.EVALUACION)),
+                configuracion.flatMap(c -> cuentasServicio.asignada(c, FinalidadCuenta.MANTENIMIENTO)),
                 grupos.findDelServidor(id),
                 bajas.stream().filter(b -> b.getEstado() == EstadoSolicitudBaja.PENDIENTE).findFirst(),
                 bajas,
@@ -171,7 +174,8 @@ public class ServicioServidor implements PuertoServidoresACargo {
         if (datos.ventanas() == null || datos.ventanas().isEmpty()) {
             throw new ReglaNegocioException("Defina al menos un intervalo de mantenimiento");
         }
-        reemplazarVentanas(id, datos.ventanas(), new AlcanceUsuario(actor.usuarioId(), Rol.ADMINISTRADOR));
+        // Registrar o sobrescribir un servidor ya pide confirmación: las órdenes que queden fuera no se reprograman
+        reemplazarVentanas(id, datos.ventanas(), true, new AlcanceUsuario(actor.usuarioId(), Rol.ADMINISTRADOR));
         configurar(id, datos.configuracion(), datos.versionEsperada(), actor);
     }
 
@@ -202,8 +206,8 @@ public class ServicioServidor implements PuertoServidoresACargo {
         aplicar(limpio, servidor, false);
         if (servidor.familia() != familiaAnterior) {
             configuraciones.findByServidorId(id).ifPresent(c -> {
-                cuentasServicio.validarCuentaEfectiva(c.getIdCuentaServicioEvaluacion(), FinalidadCuenta.EVALUACION, servidor.familia());
-                cuentasServicio.validarCuentaEfectiva(c.getIdCuentaServicioMantenimiento(), FinalidadCuenta.MANTENIMIENTO, servidor.familia());
+                cuentasServicio.validarCuenta(c.getIdCuentaServicioEvaluacion(), servidor.familia());
+                cuentasServicio.validarCuenta(c.getIdCuentaServicioMantenimiento(), servidor.familia());
             });
         }
         auditoria.registrar(actor, Operacion.de("ACTUALIZAR_SERVIDOR", "servidor", id)
@@ -221,24 +225,27 @@ public class ServicioServidor implements PuertoServidoresACargo {
     public ConfiguracionServidor configurar(Integer id, DatosConfiguracion datos, Instant versionEsperada, Actor actor) {
         Servidor servidor = buscar(id);
         servidor.exigirNoDadoDeBaja("configurarlo");
-        NivelCriticidad criticidad = servidor.getNivelCriticidad();
-        int revision = datos.frecuenciaRevisionDias() != null
-                ? datos.frecuenciaRevisionDias() : criticidad.getFrecuenciaRevisionDias();
-        int mantenimiento = datos.frecuenciaMantenimientoDias() != null
-                ? datos.frecuenciaMantenimientoDias() : criticidad.getFrecuenciaMantenimientoDias();
-
         Optional<ConfiguracionServidor> existente = configuraciones.findByServidorId(id);
         existente.ifPresent(c -> Concurrencia.exigirVersion(versionEsperada, c.getFechaActualizacion(),
                 "la configuración de mantenimiento de " + servidor.getHostname()));
+        // Sin frecuencias predeterminadas (DEC-60): la de revisión omitida conserva la que tenía
+        if (datos.frecuenciaMantenimientoDias() == null) {
+            throw new ReglaNegocioException("Indique la frecuencia de mantenimiento del servidor");
+        }
+        int mantenimiento = datos.frecuenciaMantenimientoDias();
+        Integer revision = datos.frecuenciaRevisionDias() != null ? datos.frecuenciaRevisionDias()
+                : existente.map(ConfiguracionServidor::getFrecuenciaRevisionDias).orElse(null);
+
         Map<String, Object> anterior = existente.map(ServicioServidor::instantanea).orElse(null);
-        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicioEvaluacion(), FinalidadCuenta.EVALUACION, servidor.familia());
-        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicioMantenimiento(), FinalidadCuenta.MANTENIMIENTO, servidor.familia());
+        cuentasServicio.validarCuenta(datos.idCuentaServicioEvaluacion(), servidor.familia());
+        cuentasServicio.validarCuenta(datos.idCuentaServicioMantenimiento(), servidor.familia());
         ConfiguracionServidor configuracion = existente.orElseGet(() ->
                 ConfiguracionServidor.nueva(servidor, revision, mantenimiento, datos.modalidad(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad());
         if (datos.revisionPeriodicaHabilitada() != null) {
             configuracion.setRevisionPeriodicaHabilitada(datos.revisionPeriodicaHabilitada());
         }
+        configuracion.exigirFrecuenciaRevision();
         configuracion.setIdCuentaServicioEvaluacion(datos.idCuentaServicioEvaluacion());
         configuracion.setIdCuentaServicioMantenimiento(datos.idCuentaServicioMantenimiento());
         configuraciones.save(configuracion);
@@ -251,10 +258,34 @@ public class ServicioServidor implements PuertoServidoresACargo {
         return configuracion;
     }
 
+    /** Órdenes pendientes que quedarían fuera de la ventana propuesta, sin guardarla: el panel las muestra antes (DEC-60) */
+    @Transactional(readOnly = true)
+    public List<OrdenFueraDeVentana> ordenesFueraDeVentana(Integer id, List<IntervaloSemanal> intervalos,
+                                                           AlcanceUsuario alcance) {
+        obtener(id, alcance);
+        return ordenesProgramadas.fueraDeVentana(id, CalendarioSemanal.deIntervalos(intervalos));
+    }
+
     @Transactional
     public Servidor reemplazarVentanas(Integer id, List<IntervaloSemanal> intervalos, AlcanceUsuario alcance) {
+        return reemplazarVentanas(id, intervalos, false, alcance);
+    }
+
+    /**
+     * RF18, RF19. Cambiar la ventana no reprograma las órdenes (DEC-60): si alguna pendiente queda fuera del nuevo
+     * horario, se exige la confirmación expresa y la auditoría registra cuáles quedaron fuera. Conservan su programación.
+     */
+    @Transactional
+    public Servidor reemplazarVentanas(Integer id, List<IntervaloSemanal> intervalos, boolean confirmarFueraVentana,
+                                       AlcanceUsuario alcance) {
         Servidor servidor = obtener(id, alcance);
         servidor.exigirNoDadoDeBaja("editar su ventana permisiva");
+        List<OrdenFueraDeVentana> fuera = ordenesProgramadas.fueraDeVentana(id, CalendarioSemanal.deIntervalos(intervalos));
+        String codigos = fuera.stream().map(OrdenFueraDeVentana::codigo).collect(Collectors.joining(", "));
+        if (!fuera.isEmpty() && !confirmarFueraVentana) {
+            throw new ReglaNegocioException(("La nueva ventana deja fuera del horario establecido %d orden(es) programada(s): "
+                    + "%s. Confirme expresamente el cambio; las órdenes no se reprogramarán").formatted(fuera.size(), codigos));
+        }
 
         List<Map<String, Object>> anterior = servidor.getVentanas().stream().map(ServicioServidor::instantanea).toList();
         List<VentanaMantenimiento> nuevas = intervalos.stream()
@@ -263,10 +294,14 @@ public class ServicioServidor implements PuertoServidoresACargo {
         servidor.reemplazarVentanas(nuevas);
         servidores.flush();
 
-        auditoria.registrar(alcance.actor(), Operacion.de("ACTUALIZAR_VENTANAS", "servidor", id)
+        Operacion operacion = Operacion.de("ACTUALIZAR_VENTANAS", "servidor", id)
                 .sobreServidor(id)
-                .valores(anterior, nuevas.stream().map(ServicioServidor::instantanea).toList()));
-        eventos.publishEvent(VentanasServidorActualizadas.deServidor(id, alcance.actor()));
+                .valores(anterior, nuevas.stream().map(ServicioServidor::instantanea).toList());
+        if (!fuera.isEmpty()) {
+            operacion = operacion.motivo("Confirmado con %d orden(es) fuera del horario establecido, sin reprogramar: %s"
+                    .formatted(fuera.size(), codigos));
+        }
+        auditoria.registrar(alcance.actor(), operacion);
         return servidor;
     }
 
@@ -529,7 +564,7 @@ public class ServicioServidor implements PuertoServidoresACargo {
                 "diaFin", w.getDiaFin().name(), "horaFin", w.getHoraFin().toString());
     }
 
-    /** idCuentaServicio nula: usa la cuenta predeterminada del sistema (RF06) */
+    /** idCuentaServicio nula: sin cuenta asignada para esa finalidad (RF05) */
     public record DatosConfiguracion(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
                                      ModalidadPlanificacion modalidad, Integer idCuentaServicioEvaluacion,
                                      Integer idCuentaServicioMantenimiento, Boolean revisionPeriodicaHabilitada) {
@@ -548,8 +583,8 @@ public class ServicioServidor implements PuertoServidoresACargo {
     }
 
     public record FichaServidor(Servidor servidor, Optional<ConfiguracionServidor> configuracion,
-                                Optional<CuentaEfectiva> cuentaServicioEvaluacion,
-                                Optional<CuentaEfectiva> cuentaServicioMantenimiento,
+                                Optional<CuentaAsignada> cuentaServicioEvaluacion,
+                                Optional<CuentaAsignada> cuentaServicioMantenimiento,
                                 List<GrupoMantenimiento> grupos, Optional<SolicitudBaja> bajaPendiente,
                                 List<SolicitudBaja> bajas, List<Reactivacion> reactivaciones) {
     }

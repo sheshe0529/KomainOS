@@ -21,8 +21,6 @@ type Formulario = Record<keyof NivelCriticidadPeticion, string>
 const VACIO: Formulario = {
   nombre: '',
   prioridad: '',
-  frecuenciaRevisionDias: '',
-  frecuenciaMantenimientoDias: '',
   plazoAutorizacionHoras: '',
   plazoValidacionHoras: '',
 }
@@ -45,8 +43,6 @@ export function CriticidadesTab() {
         : {
             nombre: nivel.nombre ?? '',
             prioridad: String(nivel.prioridad ?? ''),
-            frecuenciaRevisionDias: String(nivel.frecuenciaRevisionDias ?? ''),
-            frecuenciaMantenimientoDias: String(nivel.frecuenciaMantenimientoDias ?? ''),
             plazoAutorizacionHoras: String(nivel.plazoAutorizacionHoras ?? ''),
             plazoValidacionHoras: String(nivel.plazoValidacionHoras ?? ''),
           },
@@ -60,8 +56,6 @@ export function CriticidadesTab() {
     const datos: NivelCriticidadPeticion = {
       nombre: f.nombre.trim(),
       prioridad: Number(f.prioridad),
-      frecuenciaRevisionDias: Number(f.frecuenciaRevisionDias),
-      frecuenciaMantenimientoDias: Number(f.frecuenciaMantenimientoDias),
       plazoAutorizacionHoras: Number(f.plazoAutorizacionHoras),
       plazoValidacionHoras: Number(f.plazoValidacionHoras),
     }
@@ -98,8 +92,8 @@ export function CriticidadesTab() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <TituloConInfo titulo="Niveles de criticidad" nivel="h4">
-          Menor prioridad = mayor criticidad. Las frecuencias se copian al crear una configuración de mantenimiento; cambiarlas no
-          altera configuraciones existentes.
+          Menor prioridad = mayor criticidad. Las frecuencias de revisión y de mantenimiento se definen en la configuración de
+          cada servidor o grupo.
         </TituloConInfo>
         <Boton variante="primario" icono={Plus} onClick={() => abrir('nuevo')}>
           Nuevo nivel
@@ -116,8 +110,6 @@ export function CriticidadesTab() {
                 <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
                   <th className="px-4 py-3 font-medium">Nivel</th>
                   <th className="px-4 py-3 font-medium">Prioridad</th>
-                  <th className="px-4 py-3 font-medium">Revisión</th>
-                  <th className="px-4 py-3 font-medium">Mantenimiento</th>
                   <th className="px-4 py-3 font-medium">Plazo autorización</th>
                   <th className="px-4 py-3 font-medium">Plazo validación</th>
                   <th className="px-4 py-3 font-medium">Estado</th>
@@ -129,8 +121,6 @@ export function CriticidadesTab() {
                   <tr key={n.id} className="transition-colors hover:bg-panel-muted">
                     <td className="px-4 py-3 font-medium text-ink">{n.nombre}</td>
                     <td className="px-4 py-3 font-mono tabular-nums">{n.prioridad}</td>
-                    <td className="px-4 py-3 text-ink-soft">Cada {n.frecuenciaRevisionDias} días</td>
-                    <td className="px-4 py-3 text-ink-soft">Cada {n.frecuenciaMantenimientoDias} días</td>
                     <td className="px-4 py-3 text-ink-soft">{n.plazoAutorizacionHoras} h</td>
                     <td className="px-4 py-3 text-ink-soft">{n.plazoValidacionHoras} h</td>
                     <td className="px-4 py-3">
@@ -191,8 +181,6 @@ export function CriticidadesTab() {
               <Entrada value={f.nombre} onChange={(e) => setF((p) => ({ ...p, nombre: e.target.value }))} required />
             </Campo>
             {numero('prioridad', 'Prioridad', 0, 'Única para cada nivel; 1 es la más crítica.')}
-            {numero('frecuenciaRevisionDias', 'Frecuencia de revisión (días)', 1)}
-            {numero('frecuenciaMantenimientoDias', 'Frecuencia de mantenimiento (días)', 1)}
             {numero('plazoAutorizacionHoras', 'Plazo de autorización (horas)', 1, 'Con cuánta anticipación al inicio programado se hace la evaluación previa: es el tiempo para reunir las aprobaciones. En un lanzamiento inmediato, es el plazo para aprobar.')}
             {numero('plazoValidacionHoras', 'Plazo de validación (horas)', 1)}
           </form>

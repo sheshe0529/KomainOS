@@ -67,10 +67,10 @@ public class ServicioPruebaAnalisis {
                         implementacion.getVersionSistemaOperativo().descripcionCompleta(), servidor.getHostname(),
                         servidor.getVersionSistemaOperativo().descripcionCompleta()));
             }
-            Integer cuenta = evaluaciones.cuentaAplicable(configuraciones.findByServidorId(idServidor)
-                    .map(c -> c.getIdCuentaServicioEvaluacion()).orElse(null));
+            Integer cuenta = configuraciones.findByServidorId(idServidor)
+                    .map(c -> c.getIdCuentaServicioEvaluacion()).orElse(null);
             if (cuenta == null) {
-                throw new ReglaNegocioException("Asigne una cuenta de servicio al servidor o defina la predeterminada");
+                throw new ReglaNegocioException("Asigne una cuenta de servicio de evaluación al servidor");
             }
             cuentas.exigirAsignable(cuenta, servidor.familia());
             String advertencia = servidor.getVersionSistemaOperativo().getId().equals(implementacion.getVersionSistemaOperativo().getId())

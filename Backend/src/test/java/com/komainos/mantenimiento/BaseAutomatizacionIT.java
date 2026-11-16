@@ -127,7 +127,7 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
         operador = usuarios.crear("oper.auto", "Operador de pruebas", "Clave-prueba-3", Rol.OPERADOR, sistema);
         actor = Actor.usuario(admin.getId());
         entorno = catalogos.crearEntorno("Pruebas", null, actor).getId();
-        criticidad = catalogos.crearCriticidad(new NivelCriticidad.DatosNivelCriticidad("Alta", 1, 7, 30, 24, 48), actor).getId();
+        criticidad = catalogos.crearCriticidad(new NivelCriticidad.DatosNivelCriticidad("Alta", 1, 24, 48), actor).getId();
         var ubuntu = catalogos.crearSistemaOperativo("Ubuntu", FamiliaSistemaOperativo.LINUX, actor);
         versionUbuntu = catalogos.agregarVersion(ubuntu.getId(), "24.04", actor).getVersiones().getFirst().getId();
         cuenta = credenciales.registrarCuenta(new ServicioCredenciales.DatosCredencial("Cuenta de pruebas", "svc_komainos",

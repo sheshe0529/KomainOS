@@ -14,7 +14,7 @@ import { VistaPreviaImportacion } from './importacion/VistaPreviaImportacion'
 import { MantenimientoPaso } from './registro/MantenimientoPaso'
 import { PasosRegistro } from './registro/PasosRegistro'
 import { PlanificacionPaso } from './registro/PlanificacionPaso'
-import { filasSeleccionadas, prepararServidor, problemaMantenimiento, type ServidorPreparado } from './registro/preparacion'
+import { filasSeleccionadas, mantenimientoListo, prepararServidor, problemaMantenimiento, type ServidorPreparado } from './registro/preparacion'
 import { ResumenRegistro } from './registro/ResumenRegistro'
 
 interface ImportarModalProps {
@@ -96,7 +96,7 @@ export function ImportarModal({ abierto, onCerrar, onImportado }: ImportarModalP
 
   const importar = () => ejecutar(async () => {
     setResultado(await intercambioApi.importar(archivo!, sobrescribir, servidores.map((s) => ({
-      fila: s.clave, idServidorExistente: s.idServidorExistente, versionServidor: s.versionServidor, mantenimiento: s.mantenimiento,
+      fila: s.clave, idServidorExistente: s.idServidorExistente, versionServidor: s.versionServidor, mantenimiento: mantenimientoListo(s.mantenimiento),
     }))))
     onImportado()
   })

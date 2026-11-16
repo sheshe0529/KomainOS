@@ -1,25 +1,19 @@
 import type { CuentaServicioRespuesta } from '@/api/types'
 import { ETIQUETA_AUTENTICACION } from '@/utils/etiquetas'
 
-/** Las cuentas se resuelven por finalidad; ambas pueden apuntar a la misma credencial. */
+/** Cada finalidad usa la cuenta asignada, sin cuenta predeterminada (DEC-60); ambas pueden apuntar a la misma credencial. */
 export const FINALIDADES_CUENTA = [
   {
     finalidad: 'EVALUACION',
     etiqueta: 'Evaluación',
     campoId: 'idCuentaServicioEvaluacion',
     campoCuenta: 'cuentaServicioEvaluacion',
-    campoPredeterminada: 'predeterminadaEvaluacion',
-    campoUsaPredeterminada: 'usaPredeterminadaEvaluacion',
-    campoPredeterminadaSistema: 'cuentaServicioEvaluacionPredeterminada',
   },
   {
     finalidad: 'MANTENIMIENTO',
     etiqueta: 'Mantenimiento',
     campoId: 'idCuentaServicioMantenimiento',
     campoCuenta: 'cuentaServicioMantenimiento',
-    campoPredeterminada: 'predeterminadaMantenimiento',
-    campoUsaPredeterminada: 'usaPredeterminadaMantenimiento',
-    campoPredeterminadaSistema: 'cuentaServicioMantenimientoPredeterminada',
   },
 ] as const
 

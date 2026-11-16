@@ -103,8 +103,7 @@ public class ServicioCredenciales {
     public List<CuentaConUso> cuentasDeServicio() {
         UsosCuentas usos = asignaciones.usos();
         return cuentas.findAllByOrderByEstadoAscNombreAsc().stream()
-                .map(c -> new CuentaConUso(c, usos.servidoresDe(c.getId()), usos.gruposDe(c.getId()),
-                        usos.esPredeterminadaEvaluacion(c.getId()), usos.esPredeterminadaMantenimiento(c.getId())))
+                .map(c -> new CuentaConUso(c, usos.servidoresDe(c.getId()), usos.gruposDe(c.getId())))
                 .toList();
     }
 
@@ -464,9 +463,6 @@ public class ServicioCredenciales {
         if (gruposConCuenta > 0) {
             enUso.add("%d grupo(s)".formatted(gruposConCuenta));
         }
-        if (usos.esPredeterminada(cuenta.getId())) {
-            enUso.add("es la cuenta predeterminada del sistema");
-        }
         // Revocar elimina el secreto: una orden ya generada con esta cuenta no podría ejecutarse
         long pendientes = mantenimientos.ordenesPendientesConCuenta(cuenta.getId());
         if (pendientes > 0) {
@@ -540,7 +536,7 @@ public class ServicioCredenciales {
     public record DatosCredencial(String nombre, String usuarioAcceso, String descripcion, Secreto secreto) {
     }
 
-    public record CuentaConUso(CuentaServicio cuenta, long servidores, long grupos, boolean predeterminadaEvaluacion, boolean predeterminadaMantenimiento) {
+    public record CuentaConUso(CuentaServicio cuenta, long servidores, long grupos) {
     }
 
     public record Revelado(Credencial credencial, CredencialSecreto vigente, String secreto, String elevacion) {

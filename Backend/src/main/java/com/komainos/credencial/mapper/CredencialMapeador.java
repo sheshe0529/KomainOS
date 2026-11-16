@@ -81,7 +81,7 @@ public final class CredencialMapeador {
         return new CuentaServicioRespuesta(c.id(), c.nombre(), c.usuarioAcceso(), c.descripcion(), c.estado(),
                 c.tipoAutenticacion(), c.metodoElevacion(), c.conContrasenaElevacion(), c.fechaRegistro(),
                 c.fechaSecreto(), c.fechaRevocacion(),
-                uso.servidores(), uso.grupos(), uso.predeterminadaEvaluacion(), uso.predeterminadaMantenimiento());
+                uso.servidores(), uso.grupos());
     }
 
     public static SecretoReveladoRespuesta revelado(Revelado r, int segundosVisible) {

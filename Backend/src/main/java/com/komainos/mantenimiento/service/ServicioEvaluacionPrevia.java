@@ -164,14 +164,14 @@ public class ServicioEvaluacionPrevia {
             Integer propia = idServidor != null
                     ? configuracionesServidor.findByServidorId(idServidor).map(c -> c.getIdCuentaServicioEvaluacion()).orElse(null)
                     : configuracionesGrupo.findByGrupoId(idGrupo).map(c -> c.getIdCuentaServicioEvaluacion()).orElse(null);
-            if (evaluaciones.cuentaAplicable(propia) == null) {
-                throw new ReglaNegocioException("Asigne una cuenta de servicio o defina la predeterminada antes de lanzar");
+            if (propia == null) {
+                throw new ReglaNegocioException("Asigne una cuenta de servicio de evaluación antes de lanzar");
             }
             Integer mantenimientoPropio = idServidor != null
                     ? configuracionesServidor.findByServidorId(idServidor).map(c -> c.getIdCuentaServicioMantenimiento()).orElse(null)
                     : configuracionesGrupo.findByGrupoId(idGrupo).map(c -> c.getIdCuentaServicioMantenimiento()).orElse(null);
-            if (mantenimientoPropio == null && parametros.obtener().getIdCuentaServicioMantenimientoPredeterminada() == null) {
-                throw new ReglaNegocioException("Asigne una cuenta para mantenimiento o defina su predeterminada antes de lanzar");
+            if (mantenimientoPropio == null) {
+                throw new ReglaNegocioException("Asigne una cuenta de servicio de mantenimiento antes de lanzar");
             }
             for (Servidor s : integrantes) {
                 if (catalogo.buscarAnalisis(s.getVersionSistemaOperativo().getId()).isEmpty()) {
@@ -220,19 +220,17 @@ public class ServicioEvaluacionPrevia {
                         ? configuracionesGrupo.findByGrupoId(orden.getGrupo().getId()).orElse(null)
                         : configuracionesServidor.findByServidorId(orden.getServidor().getId()).orElse(null);
             }
+            // Una orden generada sin cuenta toma la que el objetivo tenga asignada ahora (DEC-60)
             Integer cuenta = orden.getIdCuentaServicioEvaluacion() != null ? orden.getIdCuentaServicioEvaluacion()
-                    : evaluaciones.cuentaAplicable(configuracion == null ? null : configuracion.getIdCuentaServicioEvaluacion());
-            Integer mantenimiento = orden.getIdCuentaServicioMantenimiento();
-            if (mantenimiento == null) {
-                mantenimiento = configuracion == null ? null : configuracion.getIdCuentaServicioMantenimiento();
-                if (mantenimiento == null) mantenimiento = parametros.obtener().getIdCuentaServicioMantenimientoPredeterminada();
-            }
+                    : configuracion == null ? null : configuracion.getIdCuentaServicioEvaluacion();
+            Integer mantenimiento = orden.getIdCuentaServicioMantenimiento() != null ? orden.getIdCuentaServicioMantenimiento()
+                    : configuracion == null ? null : configuracion.getIdCuentaServicioMantenimiento();
             if (cuenta == null) {
-                throw new ReglaNegocioException("La orden %s no tiene cuenta de evaluación: asígnela al servidor o grupo, o defina su predeterminada"
+                throw new ReglaNegocioException("La orden %s no tiene cuenta de evaluación: asígnela al servidor o grupo"
                         .formatted(orden.getCodigo()));
             }
             if (mantenimiento == null) {
-                throw new ReglaNegocioException("La orden %s no tiene cuenta de mantenimiento: asígnela al servidor o grupo, o defina su predeterminada"
+                throw new ReglaNegocioException("La orden %s no tiene cuenta de mantenimiento: asígnela al servidor o grupo"
                         .formatted(orden.getCodigo()));
             }
             for (OrdenDetalle detalle : orden.getDetalles()) {

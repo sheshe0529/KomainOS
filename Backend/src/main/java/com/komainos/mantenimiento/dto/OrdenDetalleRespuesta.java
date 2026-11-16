@@ -12,7 +12,7 @@ public record OrdenDetalleRespuesta(
         OrdenResumenRespuesta resumen,
         ReferenciaSimple solicitante,
         ModoEjecucion modoEjecucionAplicado,
-        /** Cuenta resuelta al generar la orden, nula si no había ninguna asignada ni predeterminada */
+        /** Cuenta asignada al generar la orden, nula si el objetivo no tenía ninguna */
         ReferenciaSimple cuentaServicioEvaluacion,
         ReferenciaSimple cuentaServicioMantenimiento,
         Instant inicioVentanaAplicada,

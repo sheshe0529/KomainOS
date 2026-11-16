@@ -16,9 +16,8 @@ interface SelectorCuentaServicioProps {
 
 export function SelectorCuentaServicio({ finalidad, cuentas, valor, onCambiar, familia, deshabilitado, error }: SelectorCuentaServicioProps) {
   const campos = FINALIDADES_CUENTA.find((item) => item.finalidad === finalidad)!
-  const predeterminada = cuentas.find((cuenta) => cuenta[campos.campoPredeterminada])
-  const efectiva = valor ? cuentas.find((cuenta) => cuenta.id === valor) : predeterminada
-  const incompatible = familia === 'WINDOWS' && efectiva?.tipoAutenticacion === 'LLAVE_SSH'
+  const asignada = valor ? cuentas.find((cuenta) => cuenta.id === valor) : undefined
+  const incompatible = familia === 'WINDOWS' && asignada?.tipoAutenticacion === 'LLAVE_SSH'
 
   return (
     <Campo
@@ -27,13 +26,8 @@ export function SelectorCuentaServicio({ finalidad, cuentas, valor, onCambiar, f
       ayuda={finalidad === 'EVALUACION' ? 'Para las revisiones y las evaluaciones previa y posterior.' : 'Para probar el acceso y ejecutar las tareas de mantenimiento.'}
     >
       <Selector value={valor ?? ''} onChange={(evento) => onCambiar(evento.target.value ? Number(evento.target.value) : undefined)} disabled={deshabilitado}>
-        <option value="">
-          {predeterminada ? (
-            <>{rotuloCuentaServicio(predeterminada)} <em className="text-ink-faint">predeterminada del sistema</em></>
-          ) : (
-            <><em>Predeterminada del sistema</em> (sin definir)</>
-          )}
-        </option>
+        {/* DEC-60: sin cuenta predeterminada, dejarla vacía impide analizar o ejecutar hasta asignar una */}
+        <option value="">Sin cuenta asignada</option>
         {cuentas
           .filter((cuenta) => cuenta.estado === 'VIGENTE' || cuenta.id === valor)
           .map((cuenta) => (

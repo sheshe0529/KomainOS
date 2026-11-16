@@ -32,7 +32,6 @@ export function AsignarServidoresModal({ abierto, cuenta, cuentas, onCerrar, onA
 
   const nombres = useMemo(() => new Map(cuentas.map((c) => [c.id, c.nombre])), [cuentas])
   const campos = FINALIDADES_CUENTA.find((item) => item.finalidad === finalidad)!
-  const predeterminada = cuentas.find((c) => c[campos.campoPredeterminada])
   const visibles = (servidores.datos ?? []).filter((s) => {
     const t = texto.trim().toLowerCase()
     return !t || s.hostname?.toLowerCase().includes(t) || s.direccionIp?.includes(t)
@@ -70,11 +69,7 @@ export function AsignarServidoresModal({ abierto, cuenta, cuentas, onCerrar, onA
   function cuentaActual(s: ServidorAsignableRespuesta) {
     const id = s[campos.campoId]
     if (id) return nombres.get(id) ?? `#${id}`
-    return predeterminada ? (
-      <>{predeterminada.nombre} <em className="text-ink-faint">predeterminada del sistema</em></>
-    ) : (
-      <><em>Predeterminada del sistema</em> (sin definir)</>
-    )
+    return <em className="text-ink-faint">Sin cuenta asignada</em>
   }
 
   return (

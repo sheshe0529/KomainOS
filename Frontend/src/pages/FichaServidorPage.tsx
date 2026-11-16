@@ -89,7 +89,6 @@ export function FichaServidorPage() {
   if (!s) return null
 
   const dadoDeBaja = s.estado === 'DADO_DE_BAJA'
-  const criticidad = catalogos.datos?.criticidades.find((c) => c.id === s.criticidad?.id)
 
   return (
     <div className="flex flex-col gap-6">
@@ -189,7 +188,6 @@ export function FichaServidorPage() {
           abierto
           titulo={`Configuración de mantenimiento de ${s.hostname}`}
           actual={s.configuracion}
-          recomendadas={{ revision: criticidad?.frecuenciaRevisionDias, mantenimiento: criticidad?.frecuenciaMantenimientoDias }}
           familia={s.familiaSistemaOperativo}
           onCerrar={() => setDialogo(null)}
           onGuardar={async (datos) => {
@@ -216,8 +214,14 @@ export function FichaServidorPage() {
           hostname={s.hostname ?? ''}
           actuales={s.ventanas ?? []}
           onCerrar={() => setDialogo(null)}
-          onGuardar={async (ventanas) => {
-            actualizar(await servidoresApi.reemplazarVentanas(idServidor, ventanas), 'Ventana permisiva actualizada.')
+          onVerificar={(ventanas) => servidoresApi.verificarVentanas(idServidor, ventanas)}
+          onGuardar={async (ventanas, confirmarFueraVentana) => {
+            actualizar(
+              await servidoresApi.reemplazarVentanas(idServidor, ventanas, confirmarFueraVentana),
+              confirmarFueraVentana
+                ? 'Ventana permisiva actualizada. Las órdenes fuera del nuevo horario conservan su programación.'
+                : 'Ventana permisiva actualizada.',
+            )
             recargarOrdenes()
           }}
         />

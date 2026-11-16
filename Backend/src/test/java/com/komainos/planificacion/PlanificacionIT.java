@@ -104,8 +104,8 @@ class PlanificacionIT extends PruebaIntegracion {
         alcanceAdmin = new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR);
         responsable = usuarios.crear("resp.plan", "M. Herrera", "clave-segura-2", Rol.RESPONSABLE, sistema);
         idEntorno = catalogos.crearEntorno("Producción", null, sistema).getId();
-        idAlta = catalogos.crearCriticidad(new DatosNivelCriticidad("Alta", 1, 7, 30, 24, 24), sistema).getId();
-        idMedia = catalogos.crearCriticidad(new DatosNivelCriticidad("Media", 2, 14, 30, 24, 48), sistema).getId();
+        idAlta = catalogos.crearCriticidad(new DatosNivelCriticidad("Alta", 1, 24, 24), sistema).getId();
+        idMedia = catalogos.crearCriticidad(new DatosNivelCriticidad("Media", 2, 24, 48), sistema).getId();
         var so = catalogos.crearSistemaOperativo("Ubuntu", FamiliaSistemaOperativo.LINUX, sistema);
         idVersion = catalogos.agregarVersion(so.getId(), "22.04", sistema).getVersiones().getFirst().getId();
     }
@@ -284,18 +284,43 @@ class PlanificacionIT extends PruebaIntegracion {
     }
 
     @Test
-    @DisplayName("DEC-18: si cambia la ventana, la orden programada que queda fuera se reprograma")
-    void cambioDeVentanaReprograma() {
+    @DisplayName("DEC-60: cambiar la ventana no reprograma; con órdenes fuera exige confirmarlo y las conserva")
+    void cambioDeVentanaNoReprograma() {
         Integer id = servidor("srv-ventana", "10.0.0.5", idMedia, responsable);
         ventanas(id, ventana(SABADO, "01:00", SABADO, "09:00"));
         configurar(id, ModalidadPlanificacion.BAJO_DEMANDA);
         Orden orden = planificacion.programar(id, null, lima("2026-10-03T01:00"), null, actorAdmin);
+        List<IntervaloSemanal> domingo = List.of(ventana(DOMINGO, "01:00", DOMINGO, "09:00"));
 
-        ventanas(id, ventana(DOMINGO, "01:00", DOMINGO, "09:00"));
+        // La verificación previa la informa sin guardar nada
+        assertThat(servidores.ordenesFueraDeVentana(id, domingo, alcanceAdmin))
+                .extracting(com.komainos.inventario.service.PuertoOrdenesProgramadas.OrdenFueraDeVentana::codigo)
+                .containsExactly(orden.getCodigo());
+        assertThat(servidores.ordenesFueraDeVentana(id, List.of(ventana(SABADO, "00:00", SABADO, "12:00")),
+                alcanceAdmin)).isEmpty();
 
+        // Sin la confirmación expresa la ventana no cambia
+        assertThatThrownBy(() -> servidores.reemplazarVentanas(id, domingo, false, alcanceAdmin))
+                .isInstanceOf(com.komainos.shared.exception.ReglaNegocioException.class)
+                .hasMessageContaining(orden.getCodigo());
+        assertThat(jdbc.queryForList("select dia_inicio::text from ventana_mantenimiento where id_servidor = ?",
+                String.class, id)).containsExactly("SABADO");
+
+        servidores.reemplazarVentanas(id, domingo, true, alcanceAdmin);
+
+        // La orden conserva su programación: no se reprograma
         Orden actualizada = consulta.obtener(orden.getId(), alcanceAdmin);
-        assertThat(actualizada.getHistorial()).extracting("motivo").contains("Cambio de ventana permisiva");
-        assertThat(actualizada.getFechaInicioProgramada().atZone(LIMA).getDayOfWeek()).isEqualTo(DayOfWeek.SUNDAY);
+        assertThat(actualizada.getEstado()).isEqualTo(EstadoOrden.PROGRAMADA);
+        assertThat(actualizada.getFechaInicioProgramada()).isEqualTo(lima("2026-10-03T01:00"));
+        assertThat(actualizada.getHistorial()).extracting("estadoNuevo").containsExactly(EstadoOrden.PROGRAMADA);
+        assertThat(jdbc.queryForList("select dia_inicio::text from ventana_mantenimiento where id_servidor = ?",
+                String.class, id)).containsExactly("DOMINGO");
+        assertThat(jdbc.queryForObject("""
+                select motivo from auditoria where operacion = 'ACTUALIZAR_VENTANAS' and id_servidor = ?
+                order by id_auditoria desc limit 1""", String.class, id))
+                .contains(orden.getCodigo()).contains("sin reprogramar");
+        assertThat(jdbc.queryForObject("select count(*) from auditoria where operacion = 'REPROGRAMAR_ORDEN'",
+                Integer.class)).isZero();
     }
 
     @Test

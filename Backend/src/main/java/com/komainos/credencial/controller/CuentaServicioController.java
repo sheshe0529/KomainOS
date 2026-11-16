@@ -2,7 +2,6 @@ package com.komainos.credencial.controller;
 
 import com.komainos.credencial.dto.AsignacionServidoresPeticion;
 import com.komainos.credencial.dto.CredencialPeticion;
-import com.komainos.credencial.dto.CuentaPredeterminadaPeticion;
 import com.komainos.credencial.dto.CuentaServicioRespuesta;
 import com.komainos.credencial.dto.ResultadoAsignacionRespuesta;
 import com.komainos.credencial.dto.ServidorAsignableRespuesta;
@@ -55,7 +54,7 @@ public class CuentaServicioController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista las cuentas de servicio con su uso, sin sus secretos (RF05, RF06)")
+    @Operation(summary = "Lista las cuentas de servicio con su uso, sin sus secretos (RF05)")
     public List<CuentaServicioRespuesta> listar() {
         return servicio.cuentasDeServicio().stream().map(CredencialMapeador::cuenta).toList();
     }
@@ -85,13 +84,5 @@ public class CuentaServicioController {
                 AlcanceUsuario.de(solicitante).actor());
         return new ResultadoAsignacionRespuesta(asignados,
                 "Cuenta asignada a %d servidor(es). Aplica a las órdenes nuevas".formatted(asignados));
-    }
-
-    @PutMapping("/predeterminada")
-    @Operation(summary = "Define la cuenta que usan las configuraciones sin cuenta propia (RF06)")
-    public List<CuentaServicioRespuesta> definirPredeterminada(@Valid @RequestBody CuentaPredeterminadaPeticion peticion,
-                                                               @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        asignaciones.definirPredeterminada(peticion.idCuentaServicio(), peticion.finalidad(), AlcanceUsuario.de(solicitante).actor());
-        return listar();
     }
 }

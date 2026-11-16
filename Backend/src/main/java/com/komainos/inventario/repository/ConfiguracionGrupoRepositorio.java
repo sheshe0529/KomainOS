@@ -39,11 +39,8 @@ public interface ConfiguracionGrupoRepositorio extends JpaRepository<Configuraci
             select distinct so.familia from ConfiguracionGrupo c
             join c.grupo g join g.integrantes i join i.servidor s
             join s.versionSistemaOperativo v join v.sistemaOperativo so
-            where (:evaluacion = true and (c.idCuentaServicioEvaluacion = :idCuenta
-                    or (:incluirSinCuenta = true and c.idCuentaServicioEvaluacion is null)))
-               or (:evaluacion = false and (c.idCuentaServicioMantenimiento = :idCuenta
-                    or (:incluirSinCuenta = true and c.idCuentaServicioMantenimiento is null)))""")
+            where (:evaluacion = true and c.idCuentaServicioEvaluacion = :idCuenta)
+               or (:evaluacion = false and c.idCuentaServicioMantenimiento = :idCuenta)""")
     Set<FamiliaSistemaOperativo> familiasQueUsan(@Param("idCuenta") Integer idCuenta,
-                                                 @Param("incluirSinCuenta") boolean incluirSinCuenta,
                                                  @Param("evaluacion") boolean evaluacion);
 }

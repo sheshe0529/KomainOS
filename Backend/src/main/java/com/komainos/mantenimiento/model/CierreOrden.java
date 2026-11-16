@@ -35,7 +35,8 @@ public class CierreOrden {
     @JoinColumn(name = "id_orden_siguiente", unique = true)
     private Orden ordenSiguiente;
 
-    @Column(name = "periodicidad_base_dias", nullable = false)
+    /** Nula si el objetivo ya no tenía configuración al cerrar: no hay frecuencia predeterminada (DEC-60) */
+    @Column(name = "periodicidad_base_dias")
     private Integer periodicidadBaseDias;
 
     @Column(name = "fecha_cierre", nullable = false)
@@ -45,7 +46,7 @@ public class CierreOrden {
     private String observaciones;
 
     /** Conserva la periodicidad vigente al cierre para calcular la fecha objetivo del siguiente ciclo */
-    public static CierreOrden nuevo(Orden orden, int periodicidad, Instant ahora, String observaciones) {
+    public static CierreOrden nuevo(Orden orden, Integer periodicidad, Instant ahora, String observaciones) {
         CierreOrden cierre = new CierreOrden();
         cierre.orden = orden;
         cierre.periodicidadBaseDias = periodicidad;

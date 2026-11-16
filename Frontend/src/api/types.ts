@@ -207,7 +207,7 @@ export interface ConexionRespuesta {
 export interface ConfiguracionGrupoPeticion {
   frecuenciaRevisionDias?: number
   revisionPeriodicaHabilitada?: boolean
-  frecuenciaMantenimientoDias?: number
+  frecuenciaMantenimientoDias: number
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
   modoEjecucion: 'SECUENCIAL' | 'PARALELO'
   idCuentaServicioEvaluacion?: number
@@ -218,7 +218,7 @@ export interface ConfiguracionGrupoPeticion {
 export interface ConfiguracionPeticion {
   frecuenciaRevisionDias?: number
   revisionPeriodicaHabilitada?: boolean
-  frecuenciaMantenimientoDias?: number
+  frecuenciaMantenimientoDias: number
   modalidadPlanificacion: 'AUTOMATICA' | 'BAJO_DEMANDA'
   idCuentaServicioEvaluacion?: number
   idCuentaServicioMantenimiento?: number
@@ -233,8 +233,6 @@ export interface ConfiguracionRespuesta {
   modoEjecucion?: 'SECUENCIAL' | 'PARALELO'
   idCuentaServicioEvaluacion?: number
   idCuentaServicioMantenimiento?: number
-  usaPredeterminadaEvaluacion?: boolean
-  usaPredeterminadaMantenimiento?: boolean
   cuentaServicioEvaluacion?: ReferenciaSimple
   cuentaServicioMantenimiento?: ReferenciaSimple
   fechaCreacion?: string
@@ -285,11 +283,6 @@ export interface CriticidadResumen {
   prioridad?: number
 }
 
-export interface CuentaPredeterminadaPeticion {
-  idCuentaServicio?: number
-  finalidad: 'EVALUACION' | 'MANTENIMIENTO'
-}
-
 export interface CuentaServicioRespuesta {
   id?: number
   nombre?: string
@@ -304,8 +297,6 @@ export interface CuentaServicioRespuesta {
   fechaRevocacion?: string
   servidores?: number
   grupos?: number
-  predeterminadaEvaluacion?: boolean
-  predeterminadaMantenimiento?: boolean
 }
 
 export interface DatosCredencialPeticion {
@@ -446,7 +437,6 @@ export interface EstadoVersionPeticion {
 export interface EventoActividadRespuesta {
   clave?: string
   fecha?: string
-  fase?: 'ORDEN' | 'EVALUACION' | 'EJECUCION' | 'VALIDACION'
   nivel?: 'INFO' | 'WARNING' | 'ERROR'
   estado?: 'EN_CURSO' | 'COMPLETADO' | 'FALLIDO'
   accion?: string
@@ -799,8 +789,6 @@ export interface MotivoPeticion {
 export interface NivelCriticidadPeticion {
   nombre: string
   prioridad: number
-  frecuenciaRevisionDias: number
-  frecuenciaMantenimientoDias: number
   plazoAutorizacionHoras: number
   plazoValidacionHoras: number
 }
@@ -809,8 +797,6 @@ export interface NivelCriticidadRespuesta {
   id?: number
   nombre?: string
   prioridad?: number
-  frecuenciaRevisionDias?: number
-  frecuenciaMantenimientoDias?: number
   plazoAutorizacionHoras?: number
   plazoValidacionHoras?: number
   activo?: boolean
@@ -832,6 +818,14 @@ export interface OrdenDetalleRespuesta {
   finVentanaAplicada?: string
   detalles?: Detalle[]
   historial?: CambioEstado[]
+}
+
+export interface OrdenFueraVentanaRespuesta {
+  idOrden?: number
+  codigo?: string
+  estado?: string
+  inicio?: string
+  fin?: string
 }
 
 export interface OrdenResumenRespuesta {
@@ -860,6 +854,14 @@ export interface Pageable {
 
 export interface PaginaRespuestaAlertaRespuesta {
   contenido?: AlertaRespuesta[]
+  pagina?: number
+  tamano?: number
+  totalElementos?: number
+  totalPaginas?: number
+}
+
+export interface PaginaRespuestaAnalisisGrupoRespuesta {
+  contenido?: AnalisisGrupoRespuesta[]
   pagina?: number
   tamano?: number
   totalElementos?: number
@@ -991,8 +993,6 @@ export interface ParametrosSistemaRespuesta {
   maxDuracionMopMinutos?: number
   minutosExpiracionToken?: number
   fechaActualizacion?: string
-  cuentaServicioEvaluacionPredeterminada?: ReferenciaSimple
-  cuentaServicioMantenimientoPredeterminada?: ReferenciaSimple
 }
 
 export interface ParticipacionServidor {
@@ -1213,10 +1213,10 @@ export interface ResumenProcesoRespuesta {
   ejecutado?: boolean
   evaluadas?: number
   revisadas?: number
-  gruposRevisados?: number
   despachadas?: number
   vencidas?: number
   mensajes?: string[]
+  gruposRevisados?: number
 }
 
 export interface RevisarSalidaPeticion {
@@ -1614,6 +1614,7 @@ export interface VentanaRespuesta {
 
 export interface VentanasPeticion {
   ventanas: VentanaPeticion[]
+  confirmarFueraVentana?: boolean
 }
 
 export interface Version {

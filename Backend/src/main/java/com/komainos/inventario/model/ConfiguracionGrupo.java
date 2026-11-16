@@ -34,7 +34,7 @@ public class ConfiguracionGrupo extends ConfiguracionMantenimiento {
     @Column(name = "modo_ejecucion", nullable = false, columnDefinition = "enum_modo_ejecucion")
     private ModoEjecucion modoEjecucion;
 
-    public static ConfiguracionGrupo nueva(GrupoMantenimiento grupo, int frecuenciaRevisionDias,
+    public static ConfiguracionGrupo nueva(GrupoMantenimiento grupo, Integer frecuenciaRevisionDias,
                                            int frecuenciaMantenimientoDias, ModalidadPlanificacion modalidad,
                                            ModoEjecucion modoEjecucion, Instant ahora) {
         ConfiguracionGrupo configuracion = new ConfiguracionGrupo();
@@ -45,7 +45,7 @@ public class ConfiguracionGrupo extends ConfiguracionMantenimiento {
         return configuracion;
     }
 
-    public void actualizar(int frecuenciaRevisionDias, int frecuenciaMantenimientoDias,
+    public void actualizar(Integer frecuenciaRevisionDias, int frecuenciaMantenimientoDias,
                            ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion) {
         aplicarComunes(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad);
         this.modoEjecucion = modoEjecucion;

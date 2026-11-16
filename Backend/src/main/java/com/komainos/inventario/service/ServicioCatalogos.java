@@ -234,8 +234,8 @@ public class ServicioCatalogos {
     }
 
     private static DatosNivelCriticidad normalizar(DatosNivelCriticidad d) {
-        return new DatosNivelCriticidad(d.nombre().trim(), d.prioridad(), d.frecuenciaRevisionDias(),
-                d.frecuenciaMantenimientoDias(), d.plazoAutorizacionHoras(), d.plazoValidacionHoras());
+        return new DatosNivelCriticidad(d.nombre().trim(), d.prioridad(), d.plazoAutorizacionHoras(),
+                d.plazoValidacionHoras());
     }
 
     private static Map<String, Object> instantanea(Entorno e) {
@@ -248,8 +248,6 @@ public class ServicioCatalogos {
 
     private static Map<String, Object> instantanea(NivelCriticidad n) {
         return Map.of("nombre", n.getNombre(), "prioridad", n.getPrioridad(),
-                "frecuenciaRevisionDias", n.getFrecuenciaRevisionDias(),
-                "frecuenciaMantenimientoDias", n.getFrecuenciaMantenimientoDias(),
                 "plazoAutorizacionHoras", n.getPlazoAutorizacionHoras(),
                 "plazoValidacionHoras", n.getPlazoValidacionHoras(), "activo", n.isActivo());
     }

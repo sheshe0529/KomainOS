@@ -64,6 +64,7 @@ class ServicioServidorTest {
     @Mock UsuarioRepositorio usuarios;
     @Mock ServicioCatalogos catalogos;
     @Mock PuertoMantenimientos mantenimientos;
+    @Mock PuertoOrdenesProgramadas ordenesProgramadas;
     @Mock ServicioAsignacionCuentas cuentasServicio;
     @Mock ServicioAuditoria auditoria;
     @Mock ApplicationEventPublisher eventos;
@@ -76,7 +77,7 @@ class ServicioServidorTest {
     void preparar() {
         Clock reloj = Clock.fixed(Instant.parse("2026-09-27T12:00:00Z"), ZoneOffset.UTC);
         servicio = new ServicioServidor(servidores, direccionesIp, configuraciones, solicitudesBaja, grupos, usuarios, catalogos,
-                mantenimientos, cuentasServicio, auditoria, eventos, reloj);
+                mantenimientos, ordenesProgramadas, cuentasServicio, auditoria, eventos, reloj);
         lenient().when(catalogos.obtenerVersion(1)).thenReturn(DatosPrueba.version(1, "Ubuntu", "22.04"));
         lenient().when(catalogos.obtenerEntorno(1)).thenReturn(DatosPrueba.entorno(1, "Producción"));
         lenient().when(catalogos.obtenerCriticidad(1)).thenReturn(DatosPrueba.criticidad(1, "Alta", 1));
@@ -187,20 +188,40 @@ class ServicioServidorTest {
     class Configuracion {
 
         @Test
-        @DisplayName("HU11 CA2: copia las frecuencias de la criticidad y activa el servidor")
-        void copiaFrecuenciasYActiva() {
+        @DisplayName("Guarda las frecuencias indicadas y activa el servidor")
+        void guardaFrecuenciasYActiva() {
             Servidor servidor = DatosPrueba.servidor(3, "srv-db-01", responsable);
             when(servidores.findConDetalleById(3)).thenReturn(Optional.of(servidor));
             when(configuraciones.findByServidorId(3)).thenReturn(Optional.empty());
 
             ConfiguracionServidor config = servicio.configurar(3,
-                    new DatosConfiguracion(null, null, ModalidadPlanificacion.AUTOMATICA), admin);
+                    new DatosConfiguracion(7, 30, ModalidadPlanificacion.AUTOMATICA), admin);
 
             assertThat(config.getFrecuenciaRevisionDias()).isEqualTo(7);
             assertThat(config.getFrecuenciaMantenimientoDias()).isEqualTo(30);
             assertThat(config.isRevisionPeriodicaHabilitada()).isTrue();
             assertThat(servidor.getEstado()).isEqualTo(EstadoServidor.ACTIVO);
             verify(eventos).publishEvent(new ConfiguracionMantenimientoActualizada(3, null));
+        }
+
+        @Test
+        @DisplayName("DEC-60: sin frecuencias predeterminadas exige la de mantenimiento y la de una revisión activa")
+        void exigeFrecuenciasSinPredeterminadas() {
+            Servidor servidor = DatosPrueba.servidor(3, "srv-db-01", responsable);
+            when(servidores.findConDetalleById(3)).thenReturn(Optional.of(servidor));
+            when(configuraciones.findByServidorId(3)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> servicio.configurar(3,
+                    new DatosConfiguracion(7, null, ModalidadPlanificacion.AUTOMATICA), admin))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("frecuencia de mantenimiento");
+            assertThatThrownBy(() -> servicio.configurar(3,
+                    new DatosConfiguracion(null, 30, ModalidadPlanificacion.AUTOMATICA), admin))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("frecuencia de revisión");
+
+            ConfiguracionServidor sinRevision = servicio.configurar(3, new DatosConfiguracion(null, 30,
+                    ModalidadPlanificacion.AUTOMATICA, null, null, false), admin);
+            assertThat(sinRevision.getFrecuenciaRevisionDias()).isNull();
+            assertThat(sinRevision.isRevisionPeriodicaHabilitada()).isFalse();
         }
 
         @Test

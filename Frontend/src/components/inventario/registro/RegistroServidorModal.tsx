@@ -10,7 +10,7 @@ import { ServidorFormulario } from '../ServidorFormulario'
 import { MantenimientoPaso } from './MantenimientoPaso'
 import { PasosRegistro } from './PasosRegistro'
 import { PlanificacionPaso } from './PlanificacionPaso'
-import { prepararServidor, problemaMantenimiento, type ServidorPreparado } from './preparacion'
+import { mantenimientoListo, prepararServidor, problemaMantenimiento, type ServidorPreparado } from './preparacion'
 import { ResumenRegistro } from './ResumenRegistro'
 
 interface Props {
@@ -60,7 +60,7 @@ export function RegistroServidorModal({ abierto, catalogos, responsables, onCerr
     setTrabajando(true)
     setError(undefined)
     try {
-      onGuardado(await servidoresApi.registrar({ servidor: datos, mantenimiento: servidores[0].mantenimiento }))
+      onGuardado(await servidoresApi.registrar({ servidor: datos, mantenimiento: mantenimientoListo(servidores[0].mantenimiento) }))
     } catch (e) { setError(e) } finally { setTrabajando(false) }
   }
 

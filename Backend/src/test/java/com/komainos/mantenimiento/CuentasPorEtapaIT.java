@@ -6,7 +6,6 @@ import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.ejecucion.model.TipoFallo;
 import com.komainos.inventario.model.FinalidadCuenta;
 import com.komainos.inventario.model.ModalidadPlanificacion;
-import com.komainos.inventario.service.ServicioAsignacionCuentas;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.Evaluacion;
@@ -19,8 +18,6 @@ import com.komainos.seguridad.model.Rol;
 import com.komainos.shared.exception.ReglaNegocioException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,11 +29,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-@DisplayName("Cuentas independientes por etapa del mantenimiento, con el doble del adaptador Ansible (RF05, RF06, RF38, RF52, RF55)")
+@DisplayName("Cuentas independientes por etapa del mantenimiento, con el doble del adaptador Ansible (RF05, RF38, RF52, RF55)")
 class CuentasPorEtapaIT extends BaseAutomatizacionIT {
 
-    @Autowired
-    ServicioAsignacionCuentas asignaciones;
     @Autowired
     ServicioConectividad conectividad;
     @Autowired
@@ -44,26 +39,22 @@ class CuentasPorEtapaIT extends BaseAutomatizacionIT {
     @Autowired
     ServicioPlanificacion planificacion;
 
-    @ParameterizedTest(name = "La orden conserva A para evaluar y B para mantener; cuentas heredadas: {0}")
-    @ValueSource(booleans = {false, true})
-    void conservaCuentasDuranteTodoElCiclo(boolean heredadas) {
+    @Test
+    @DisplayName("La orden conserva A para evaluar y B para mantener aunque la configuración cambie")
+    void conservaCuentasDuranteTodoElCiclo() {
         Integer cuentaEvaluacion = nuevaCuenta("Evaluación inicial", "svc_lectura");
         Integer cuentaMantenimiento = nuevaCuenta("Mantenimiento inicial", "svc_mantenimiento");
         Integer nuevaEvaluacion = nuevaCuenta("Evaluación siguiente", "svc_lectura_nueva");
         Integer nuevoMantenimiento = nuevaCuenta("Mantenimiento siguiente", "svc_mantenimiento_nuevo");
 
-        asignaciones.definirPredeterminada(cuentaEvaluacion, FinalidadCuenta.EVALUACION, actor);
-        asignaciones.definirPredeterminada(cuentaMantenimiento, FinalidadCuenta.MANTENIMIENTO, actor);
-        configurar(servidor.getId(), heredadas ? null : cuentaEvaluacion, heredadas ? null : cuentaMantenimiento);
+        configurar(servidor.getId(), cuentaEvaluacion, cuentaMantenimiento);
         Integer idOrden = programacion.inmediata(servidor.getId(), null, false,
                 "Separación de cuentas por etapa", null, actor).getId();
         assertThat(estado(idOrden)).isEqualTo(EstadoOrden.PROGRAMADA);
         comprobarCuentasDeOrden(idOrden, cuentaEvaluacion, cuentaMantenimiento);
 
-        // Una orden conserva sus cuentas aunque cambien la configuración y ambas predeterminadas antes de evaluarla.
+        // Una orden conserva sus cuentas aunque cambie la configuración antes de evaluarla.
         configurar(servidor.getId(), nuevaEvaluacion, nuevoMantenimiento);
-        asignaciones.definirPredeterminada(nuevaEvaluacion, FinalidadCuenta.EVALUACION, actor);
-        asignaciones.definirPredeterminada(nuevoMantenimiento, FinalidadCuenta.MANTENIMIENTO, actor);
         comprobarCuentasDeOrden(idOrden, cuentaEvaluacion, cuentaMantenimiento);
         clearInvocations(transporte);
 
@@ -132,8 +123,7 @@ class CuentasPorEtapaIT extends BaseAutomatizacionIT {
 
         Integer cuentaEvaluacion = nuevaCuenta("Evaluación disponible", "svc_lectura");
         Integer cuentaMantenimiento = nuevaCuenta("Mantenimiento disponible", "svc_mantenimiento");
-        configurar(servidor.getId(), cuentaEvaluacion, null);
-        asignaciones.definirPredeterminada(cuentaMantenimiento, FinalidadCuenta.MANTENIMIENTO, actor);
+        configurar(servidor.getId(), cuentaEvaluacion, cuentaMantenimiento);
 
         evaluacion.evaluar(idOrden, actor);
         assertThat(estado(idOrden)).isEqualTo(EstadoOrden.PENDIENTE_AUTORIZACION);
@@ -144,8 +134,6 @@ class CuentasPorEtapaIT extends BaseAutomatizacionIT {
                 Integer.class, idOrden)).isEqualTo(cuentaMantenimiento);
 
         configurar(servidor.getId(), cuenta, cuenta);
-        asignaciones.definirPredeterminada(cuenta, FinalidadCuenta.EVALUACION, actor);
-        asignaciones.definirPredeterminada(cuenta, FinalidadCuenta.MANTENIMIENTO, actor);
         comprobarCuentasDeOrden(idOrden, cuentaEvaluacion, cuentaMantenimiento);
         assertThat(evaluaciones.deOrden(idOrden, TipoEvaluacion.PREVIA))
                 .extracting(Evaluacion::getIdCuentaServicio).containsExactly(cuentaEvaluacion);

@@ -6,9 +6,9 @@ import com.komainos.mantenimiento.model.EstadoEvaluacion;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.EstadoTareaMop;
 import com.komainos.mantenimiento.model.Evaluacion;
-import com.komainos.mantenimiento.model.FaseActividad;
 import com.komainos.mantenimiento.model.HistorialEstadoOrden;
 import com.komainos.mantenimiento.model.Incidencia;
+import com.komainos.mantenimiento.model.Mop;
 import com.komainos.mantenimiento.model.MopTarea;
 import com.komainos.mantenimiento.model.NivelActividad;
 import com.komainos.mantenimiento.model.OrdenDetalle;
@@ -30,14 +30,15 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Actividad de una orden y de una ejecución del historial (DEC-59). Une, en orden cronológico:
+ * Actividad de una orden y de una ejecución del historial (DEC-59). Une, en el orden en que ocurrieron:
  * <ul>
  *   <li>los cambios de estado de la orden (su historial);</li>
  *   <li>los eventos registrados por cada ejecución remota: conexión, comprobación de acceso, análisis y tareas;</li>
  *   <li>las incidencias;</li>
  *   <li>para los análisis y las tareas anteriores al registro, su inicio y su fin, que ya guardaban.</li>
  * </ul>
- * El alcance es el de la ficha de la orden: un responsable solo ve sus servidores.
+ * Cada evento registrado tiene un solo origen y el servidor sale de él (DEC-60). El alcance es el de la ficha de la
+ * orden: un responsable solo ve sus servidores.
  */
 @Service
 @RequiredArgsConstructor
@@ -74,42 +75,56 @@ public class ServicioConsultaActividad {
     @Transactional(readOnly = true)
     public List<Evento> deOrden(Integer idOrden, AlcanceUsuario alcance) {
         ServicioConsultaAutomatizacion.FichaAutomatizacion ficha = consulta.ficha(idOrden, alcance);
-        Map<Integer, String> hosts = new HashMap<>();
-        Set<Integer> visibles = new HashSet<>();
-        ficha.mops().forEach(m -> visibles.add(m.getDetalle().getId()));
-        ficha.evaluaciones().forEach(e -> {
+        // Los orígenes que la ficha ya cargó con el alcance del usuario, con el servidor de cada uno
+        Map<Integer, String> hostPorDetalle = new HashMap<>();
+        Map<Integer, String> hostPorEvaluacion = new HashMap<>();
+        Map<Integer, String> hostPorTarea = new HashMap<>();
+        for (Mop m : ficha.mops()) {
+            String host = m.getDetalle().getServidor().getHostname();
+            hostPorDetalle.put(m.getDetalle().getId(), host);
+            m.getTareas().forEach(t -> hostPorTarea.put(t.getId(), host));
+        }
+        for (Evaluacion e : ficha.evaluaciones()) {
+            hostPorEvaluacion.put(e.getId(), e.getServidor().getHostname());
             if (e.getDetalle() != null) {
-                visibles.add(e.getDetalle().getId());
+                hostPorDetalle.put(e.getDetalle().getId(), e.getServidor().getHostname());
             }
-        });
-        for (OrdenDetalle d : ficha.orden().getDetalles()) {
-            hosts.put(d.getServidor().getId(), d.getServidor().getHostname());
         }
 
         List<Evento> eventos = new ArrayList<>();
         for (HistorialEstadoOrden h : ficha.orden().getHistorial()) {
             Hito hito = HITOS.get(h.getEstadoNuevo());
             if (hito != null) {
-                eventos.add(new Evento("orden-" + h.getId(), h.getFechaHora(),
-                        h.getEstadoNuevo() == EstadoOrden.PENDIENTE_VALIDACION ? FaseActividad.VALIDACION
-                                : FaseActividad.ORDEN,
-                        hito.nivel(), hito.nivel() == NivelActividad.ERROR ? EstadoActividad.FALLIDO : null,
+                eventos.add(new Evento("orden-" + h.getId(), h.getFechaHora(), hito.nivel(),
+                        hito.nivel() == NivelActividad.ERROR ? EstadoActividad.FALLIDO : null,
                         hito.accion(), h.getMotivo(), null, null, null, null, null, null));
             }
         }
 
-        List<ActividadEjecucion> registradas = visibles.isEmpty() ? List.of()
-                : actividades.findByIdDetalleInOrderByFechaHoraAscIdAsc(visibles);
+        List<ActividadEjecucion> registradas = new ArrayList<>();
+        if (!hostPorDetalle.isEmpty()) {
+            registradas.addAll(actividades.findByIdDetalleInOrderByFechaHoraAscIdAsc(hostPorDetalle.keySet()));
+        }
+        if (!hostPorEvaluacion.isEmpty()) {
+            registradas.addAll(actividades.findByIdEvaluacionInOrderByFechaHoraAscIdAsc(hostPorEvaluacion.keySet()));
+        }
+        if (!hostPorTarea.isEmpty()) {
+            registradas.addAll(actividades.findByIdTareaInOrderByFechaHoraAscIdAsc(hostPorTarea.keySet()));
+        }
         Set<Integer> analisisRegistrados = new HashSet<>();
         Set<Integer> tareasRegistradas = new HashSet<>();
         for (ActividadEjecucion a : registradas) {
-            eventos.add(evento(a, hosts.get(a.getIdServidor())));
+            String host;
             if (a.getIdEvaluacion() != null) {
                 analisisRegistrados.add(a.getIdEvaluacion());
-            }
-            if (a.getIdTarea() != null) {
+                host = hostPorEvaluacion.get(a.getIdEvaluacion());
+            } else if (a.getIdTarea() != null) {
                 tareasRegistradas.add(a.getIdTarea());
+                host = hostPorTarea.get(a.getIdTarea());
+            } else {
+                host = hostPorDetalle.get(a.getIdDetalle());
             }
+            eventos.add(evento(a, host));
         }
         // Lo ejecutado antes del registro de actividad: inicio y fin que guardan el análisis y la tarea
         for (Evaluacion e : ficha.evaluaciones()) {
@@ -122,12 +137,9 @@ public class ServicioConsultaActividad {
                 .forEach(t -> eventos.addAll(deTarea(t, m.getDetalle().getServidor().getHostname()))));
 
         for (Incidencia i : ficha.incidencias()) {
-            eventos.add(new Evento("incidencia-" + i.getId(), i.getFechaApertura(),
-                    i.getOrigen() == OrigenIncidencia.VALIDACION_TECNICA_NO_CONFORME
-                            || i.getOrigen() == OrigenIncidencia.RECHAZO_FUNCIONAL
-                            ? FaseActividad.VALIDACION : FaseActividad.EJECUCION,
-                    NivelActividad.ERROR, EstadoActividad.FALLIDO, "Incidencia registrada", ORIGEN.get(i.getOrigen()),
-                    i.getError(), i.getDetalle().getServidor().getHostname(), null, null, null, null));
+            eventos.add(new Evento("incidencia-" + i.getId(), i.getFechaApertura(), NivelActividad.ERROR,
+                    EstadoActividad.FALLIDO, "Incidencia registrada", ORIGEN.get(i.getOrigen()), i.getError(),
+                    i.getDetalle().getServidor().getHostname(), null, null, null, null));
         }
         eventos.sort(CRONOLOGICO.reversed());
         return eventos;
@@ -143,8 +155,8 @@ public class ServicioConsultaActividad {
         OrdenDetalle detalle = tarea.getMop().getDetalle();
         String host = detalle.getServidor().getHostname();
         List<Evento> eventos = new ArrayList<>();
-        actividades.findByIdDetalleAndIdTareaIsNullAndFaseOrderByFechaHoraAscIdAsc(detalle.getId(),
-                FaseActividad.EJECUCION).forEach(a -> eventos.add(evento(a, host)));
+        // Los eventos del detalle son solo los pasos generales: los de análisis y tareas tienen su propio origen
+        actividades.findByIdDetalleOrderByFechaHoraAscIdAsc(detalle.getId()).forEach(a -> eventos.add(evento(a, host)));
         List<ActividadEjecucion> propias = actividades.findByIdTareaOrderByFechaHoraAscIdAsc(idTarea);
         if (propias.isEmpty()) {
             eventos.addAll(deTarea(tarea, host));
@@ -160,31 +172,29 @@ public class ServicioConsultaActividad {
             .thenComparing(Evento::secuencia, Comparator.nullsFirst(Comparator.naturalOrder()));
 
     private static Evento evento(ActividadEjecucion a, String host) {
-        return new Evento("actividad-" + a.getId(), a.getFechaHora(), a.getFase(), a.getNivel(), a.getEstado(),
-                a.getAccion(), a.getDetalle(), a.getError(), host, a.getScript(), a.getIdTarea(), a.getIdEvaluacion(),
-                a.getId());
+        return new Evento("actividad-" + a.getId(), a.getFechaHora(), a.getNivel(), a.getEstado(), a.getAccion(),
+                a.getDetalle(), a.getError(), host, a.getScript(), a.getIdTarea(), a.getIdEvaluacion(), a.getId());
     }
 
     private static List<Evento> deAnalisis(Evaluacion e) {
         TipoEvaluacion tipo = e.getTipo();
-        FaseActividad fase = ServicioActividad.fase(e.getTipo());
         String script = ServicioActividad.version(e);
         String host = e.getServidor().getHostname();
         List<Evento> eventos = new ArrayList<>();
         if (e.getFechaInicio() != null) {
-            eventos.add(new Evento("analisis-" + e.getId() + "-inicio", e.getFechaInicio(), fase, NivelActividad.INFO,
+            eventos.add(new Evento("analisis-" + e.getId() + "-inicio", e.getFechaInicio(), NivelActividad.INFO,
                     e.getEstado() == EstadoEvaluacion.EN_CURSO ? EstadoActividad.EN_CURSO : null,
                     ServicioActividad.operacion(tipo, e.getEstado() == EstadoEvaluacion.EN_CURSO ? "en curso" : "iniciada"),
                     null, null, host, script, null, e.getId(), null));
         }
         if (e.getEstado() == EstadoEvaluacion.FINALIZADA) {
-            eventos.add(new Evento("analisis-" + e.getId() + "-fin", e.getFechaFin(), fase, NivelActividad.INFO,
-                    EstadoActividad.COMPLETADO, ServicioActividad.operacion(tipo, "completada"), null, null, host, script, null,
-                    e.getId(), null));
+            eventos.add(new Evento("analisis-" + e.getId() + "-fin", e.getFechaFin(), NivelActividad.INFO,
+                    EstadoActividad.COMPLETADO, ServicioActividad.operacion(tipo, "completada"), null, null, host, script,
+                    null, e.getId(), null));
         } else if (e.getEstado() == EstadoEvaluacion.FALLIDA) {
-            eventos.add(new Evento("analisis-" + e.getId() + "-fin", e.getFechaFin(), fase, NivelActividad.ERROR,
-                    EstadoActividad.FALLIDO, ServicioActividad.operacion(tipo, "ha fallado"), null, e.getError(), host, script, null,
-                    e.getId(), null));
+            eventos.add(new Evento("analisis-" + e.getId() + "-fin", e.getFechaFin(), NivelActividad.ERROR,
+                    EstadoActividad.FALLIDO, ServicioActividad.operacion(tipo, "ha fallado"), null, e.getError(), host,
+                    script, null, e.getId(), null));
         }
         return eventos;
     }
@@ -197,14 +207,14 @@ public class ServicioConsultaActividad {
         List<Evento> eventos = new ArrayList<>();
         if (t.getFechaInicio() != null) {
             boolean enCurso = t.getEstado() == EstadoTareaMop.EN_EJECUCION;
-            eventos.add(new Evento("tarea-" + t.getId() + "-inicio", t.getFechaInicio(), FaseActividad.EJECUCION,
-                    NivelActividad.INFO, enCurso ? EstadoActividad.EN_CURSO : null,
-                    nombre + (enCurso ? " en curso" : " iniciada"), null, null, host, script, t.getId(), null, null));
+            eventos.add(new Evento("tarea-" + t.getId() + "-inicio", t.getFechaInicio(), NivelActividad.INFO,
+                    enCurso ? EstadoActividad.EN_CURSO : null, nombre + (enCurso ? " en curso" : " iniciada"), null,
+                    null, host, script, t.getId(), null, null));
         }
         if (t.getFechaFin() != null && (t.getEstado() == EstadoTareaMop.FINALIZADA
                 || t.getEstado() == EstadoTareaMop.FALLIDA)) {
             boolean correcta = t.getEstado() == EstadoTareaMop.FINALIZADA;
-            eventos.add(new Evento("tarea-" + t.getId() + "-fin", t.getFechaFin(), FaseActividad.EJECUCION,
+            eventos.add(new Evento("tarea-" + t.getId() + "-fin", t.getFechaFin(),
                     correcta ? NivelActividad.INFO : NivelActividad.ERROR,
                     correcta ? EstadoActividad.COMPLETADO : EstadoActividad.FALLIDO,
                     nombre + (correcta ? " completada" : " ha fallado"),
@@ -218,12 +228,12 @@ public class ServicioConsultaActividad {
     }
 
     /**
-     * Un evento de la actividad.
+     * Un evento de la actividad, sin fase: se muestran en el orden en que ocurrieron (DEC-60).
      *
      * @param secuencia orden de registro entre eventos del mismo instante; nulo en los que no vienen del registro
      */
-    public record Evento(String clave, Instant fecha, FaseActividad fase, NivelActividad nivel, EstadoActividad estado,
-                         String accion, String detalle, String error, String servidor, String script, Integer idTarea,
+    public record Evento(String clave, Instant fecha, NivelActividad nivel, EstadoActividad estado, String accion,
+                         String detalle, String error, String servidor, String script, Integer idTarea,
                          Integer idEvaluacion, Integer secuencia) {
     }
 }
