@@ -45,6 +45,9 @@ public abstract class ConfiguracionMantenimiento {
     @Column(name = "frecuencia_revision_dias", nullable = false)
     private Integer frecuenciaRevisionDias;
 
+    @Column(name = "revision_periodica_habilitada", nullable = false)
+    private boolean revisionPeriodicaHabilitada;
+
     @Column(name = "frecuencia_mantenimiento_dias", nullable = false)
     private Integer frecuenciaMantenimientoDias;
 
@@ -65,8 +68,6 @@ public abstract class ConfiguracionMantenimiento {
         this.frecuenciaMantenimientoDias = frecuenciaMantenimientoDias;
         this.modalidadPlanificacion = modalidad;
     }
-
-    public abstract boolean isRevisionPeriodicaHabilitada();
 
     public boolean esAutomatica() {
         return modalidadPlanificacion == ModalidadPlanificacion.AUTOMATICA;

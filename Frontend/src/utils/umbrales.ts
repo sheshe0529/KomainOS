@@ -6,8 +6,18 @@ import type {
   OrigenUmbral,
   TipoDato,
 } from '@/api/dominio'
-import type { ListaReferenciaRespuesta, MetricaRespuesta, ValoresUmbralRespuesta } from '@/api/types'
+import type { ListaReferenciaRespuesta, MetricaRespuesta, UmbralServidorRespuesta, ValoresUmbralRespuesta } from '@/api/types'
 import type { StatusTone } from '@/components/ui/StatusPill'
+
+/** El backend ya resuelve la precedencia: enGrupos solo contiene excepciones de grupo que efectivamente ganan. */
+export function umbralEnGrupo(umbral: UmbralServidorRespuesta, idGrupo: number): UmbralServidorRespuesta {
+  const enGrupo = umbral.enGrupos?.find((g) => g.grupo?.id === idGrupo)
+  return {
+    ...umbral,
+    ...(enGrupo ? { aplicado: enGrupo.valores, origen: 'GRUPO' as const, excepcion: enGrupo.excepcion } : {}),
+    enGrupos: [],
+  }
+}
 
 export const OPERADORES: { valor: OperadorComparacion; simbolo: string; etiqueta: string }[] = [
   { valor: 'MAYOR', simbolo: '>', etiqueta: 'Mayor que' },

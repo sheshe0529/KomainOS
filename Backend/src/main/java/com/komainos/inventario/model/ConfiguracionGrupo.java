@@ -12,7 +12,6 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
@@ -35,15 +34,12 @@ public class ConfiguracionGrupo extends ConfiguracionMantenimiento {
     @Column(name = "modo_ejecucion", nullable = false, columnDefinition = "enum_modo_ejecucion")
     private ModoEjecucion modoEjecucion;
 
-    @Setter
-    @Column(name = "revision_periodica_habilitada", nullable = false)
-    private boolean revisionPeriodicaHabilitada;
-
     public static ConfiguracionGrupo nueva(GrupoMantenimiento grupo, int frecuenciaRevisionDias,
                                            int frecuenciaMantenimientoDias, ModalidadPlanificacion modalidad,
                                            ModoEjecucion modoEjecucion, Instant ahora) {
         ConfiguracionGrupo configuracion = new ConfiguracionGrupo();
         configuracion.grupo = grupo;
+        configuracion.setRevisionPeriodicaHabilitada(false);
         configuracion.actualizar(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad, modoEjecucion);
         configuracion.registrarCreacion(ahora);
         return configuracion;

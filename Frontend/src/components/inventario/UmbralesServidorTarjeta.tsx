@@ -9,15 +9,16 @@ import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
-import { describirValores, ETIQUETA_ORIGEN } from '@/utils/umbrales'
+import { describirValores, ETIQUETA_ORIGEN, umbralEnGrupo } from '@/utils/umbrales'
 
 interface UmbralesServidorTarjetaProps {
   idServidor: number
 }
 
-function TablaUmbrales({ idServidor }: { idServidor: number }) {
+export function TablaUmbrales({ idServidor, idGrupo }: { idServidor: number; idGrupo?: number }) {
   const umbrales = useConsulta(() => umbralesApi.delServidor(idServidor), [idServidor])
-  const { filas, controles } = usePaginacionLocal(umbrales.datos ?? [], 'umbrales-servidor')
+  const datos = idGrupo === undefined ? umbrales.datos ?? [] : (umbrales.datos ?? []).map((u) => umbralEnGrupo(u, idGrupo))
+  const { filas, controles } = usePaginacionLocal(datos, idGrupo === undefined ? 'umbrales-servidor' : 'umbrales-grupo')
 
   if (umbrales.cargando && !umbrales.datos) return <Cargando />
   if (umbrales.error) return <MensajeError error={umbrales.error} onReintentar={umbrales.recargar} />
