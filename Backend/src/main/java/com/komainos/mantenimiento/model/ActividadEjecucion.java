@@ -20,6 +20,9 @@ import java.time.Instant;
  * Un paso de una ejecución remota con su hora exacta: conexión, comprobación de acceso, inicio y fin de un análisis o de
  * una tarea (DEC-59). Es un registro: no se modifica. Las referencias son identificadores, sin asociaciones, porque se
  * escribe en su propia transacción mientras la ejecución avanza.
+ * <p>
+ * Cada evento tiene un solo origen y el servidor sale de él (DEC-60): la evaluación, la tarea de la MOP o, para los
+ * pasos generales de la ejecución en un servidor, el detalle de la orden.
  */
 @Entity
 @Table(name = "actividad_ejecucion")
@@ -32,23 +35,17 @@ public class ActividadEjecucion {
     @Column(name = "id_actividad_ejecucion")
     private Integer id;
 
-    @Column(name = "id_servidor", nullable = false)
-    private Integer idServidor;
-
-    /** El servidor dentro de una orden; nulo en una revisión periódica */
+    /** Un paso general de la ejecución en el servidor: inicio, comprobación de acceso y cierre */
     @Column(name = "id_orden_detalle")
     private Integer idDetalle;
 
+    /** Un paso de un análisis: evaluación previa, análisis posterior o revisión periódica */
     @Column(name = "id_evaluacion")
     private Integer idEvaluacion;
 
+    /** Un paso de una tarea de la MOP */
     @Column(name = "id_mop_tarea")
     private Integer idTarea;
-
-    @Enumerated(EnumType.STRING)
-    @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(name = "fase", nullable = false, columnDefinition = "enum_fase_actividad")
-    private FaseActividad fase;
 
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType.class)
@@ -77,26 +74,39 @@ public class ActividadEjecucion {
     @Column(name = "fecha_hora", nullable = false)
     private Instant fechaHora;
 
-    public static ActividadEjecucion de(Integer idServidor, Integer idDetalle, Integer idEvaluacion, Integer idTarea,
-                                        FaseActividad fase, NivelActividad nivel, EstadoActividad estado,
-                                        String accion, String detalle, String error, String script, Instant ahora) {
+    public static ActividadEjecucion deEvaluacion(Integer idEvaluacion, Paso paso) {
+        return nuevo(null, idEvaluacion, null, paso);
+    }
+
+    public static ActividadEjecucion deTarea(Integer idTarea, Paso paso) {
+        return nuevo(null, null, idTarea, paso);
+    }
+
+    public static ActividadEjecucion deDetalle(Integer idDetalle, Paso paso) {
+        return nuevo(idDetalle, null, null, paso);
+    }
+
+    private static ActividadEjecucion nuevo(Integer idDetalle, Integer idEvaluacion, Integer idTarea, Paso paso) {
         ActividadEjecucion a = new ActividadEjecucion();
-        a.idServidor = idServidor;
         a.idDetalle = idDetalle;
         a.idEvaluacion = idEvaluacion;
         a.idTarea = idTarea;
-        a.fase = fase;
-        a.nivel = nivel;
-        a.estado = estado;
-        a.accion = recortar(accion, 300);
-        a.detalle = detalle;
-        a.error = error;
-        a.script = recortar(script, 300);
-        a.fechaHora = ahora;
+        a.nivel = paso.nivel();
+        a.estado = paso.estado();
+        a.accion = recortar(paso.accion(), 300);
+        a.detalle = paso.detalle();
+        a.error = paso.error();
+        a.script = recortar(paso.script(), 300);
+        a.fechaHora = paso.fechaHora();
         return a;
     }
 
     private static String recortar(String texto, int largo) {
         return texto == null || texto.length() <= largo ? texto : texto.substring(0, largo - 1) + "…";
+    }
+
+    /** Lo que se registra de un paso, sea cual sea su origen */
+    public record Paso(NivelActividad nivel, EstadoActividad estado, String accion, String detalle, String error,
+                       String script, Instant fechaHora) {
     }
 }

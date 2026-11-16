@@ -6,7 +6,6 @@ import com.komainos.inventario.model.FinalidadCuenta;
 import com.komainos.mantenimiento.model.EstadoActividad;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoTareaMop;
-import com.komainos.mantenimiento.model.FaseActividad;
 import com.komainos.mantenimiento.model.NivelActividad;
 import com.komainos.mantenimiento.model.PrioridadOrden;
 import com.komainos.mantenimiento.service.ServicioConsultaActividad.Evento;
@@ -21,18 +20,18 @@ public final class OperacionRespuestas {
     }
 
     /**
-     * Un evento de «Ver actividad» (DEC-59). El error conserva su categoría al principio («Error de autenticación: …»)
-     * para que el panel ofrezca el diagnóstico.
+     * Un evento de «Ver actividad» (DEC-59), sin fase: el registro se lee en el orden en que ocurrió (DEC-60). El error
+     * conserva su categoría al principio («Error de autenticación: …») para que el panel ofrezca el diagnóstico.
      *
      * @param idTarea ejecución de la MOP a la que pertenece (su salida se consulta en el historial de ejecución)
      */
-    public record EventoActividadRespuesta(String clave, Instant fecha, FaseActividad fase, NivelActividad nivel,
-                                           EstadoActividad estado, String accion, String detalle, String error,
-                                           String servidor, String script, Integer idTarea, Integer idEvaluacion) {
+    public record EventoActividadRespuesta(String clave, Instant fecha, NivelActividad nivel, EstadoActividad estado,
+                                           String accion, String detalle, String error, String servidor, String script,
+                                           Integer idTarea, Integer idEvaluacion) {
 
         public static EventoActividadRespuesta de(Evento e) {
-            return new EventoActividadRespuesta(e.clave(), e.fecha(), e.fase(), e.nivel(), e.estado(), e.accion(),
-                    e.detalle(), e.error(), e.servidor(), e.script(), e.idTarea(), e.idEvaluacion());
+            return new EventoActividadRespuesta(e.clave(), e.fecha(), e.nivel(), e.estado(), e.accion(), e.detalle(),
+                    e.error(), e.servidor(), e.script(), e.idTarea(), e.idEvaluacion());
         }
     }
 

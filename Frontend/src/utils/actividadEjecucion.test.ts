@@ -7,20 +7,20 @@ const fecha = '2026-11-10T23:31:04.125Z'
 describe('actividad registrada por el backend (DEC-59)', () => {
   it('conserva la hora exacta, el servidor y la tarea de cada evento', () => {
     expect(deRespuesta({
-      clave: 'actividad-7', fecha, fase: 'EJECUCION', nivel: 'INFO', estado: 'COMPLETADO',
+      clave: 'actividad-7', fecha, nivel: 'INFO', estado: 'COMPLETADO',
       accion: 'Tarea «Liberar temporales» completada', detalle: 'Código de salida 0 · 2 s',
       servidor: 'SERVLNXV01', script: 'Liberar temporales v3', idTarea: 12,
     })).toMatchObject({
-      clave: 'actividad-7', fecha, fase: 'EJECUCION', nivel: 'INFO', estado: 'COMPLETADO', servidor: 'SERVLNXV01',
+      clave: 'actividad-7', fecha, nivel: 'INFO', estado: 'COMPLETADO', servidor: 'SERVLNXV01',
       script: 'Liberar temporales v3', idTarea: 12, detalle: 'Código de salida 0 · 2 s', diagnostico: undefined,
     })
   })
 
   it('diagnostica los errores y no las advertencias', () => {
     const [fallo, advertencia] = deRespuestas([
-      { clave: 'a-1', nivel: 'ERROR', fase: 'EJECUCION', accion: 'Comprobación de acceso fallida',
+      { clave: 'a-1', nivel: 'ERROR', accion: 'Comprobación de acceso fallida',
         error: 'Error de autenticación: el servidor rechazó la cuenta' },
-      { clave: 'a-2', nivel: 'WARNING', fase: 'EJECUCION', accion: 'Acceso verificado sin privilegios de administrador',
+      { clave: 'a-2', nivel: 'WARNING', accion: 'Acceso verificado sin privilegios de administrador',
         detalle: 'Los scripts se ejecutarán como ops (uid 1001)' },
     ])
     expect(fallo.diagnostico).toMatchObject({ tipo: 'AUTENTICACION', titulo: 'Error de autenticación' })
@@ -30,7 +30,9 @@ describe('actividad registrada por el backend (DEC-59)', () => {
 
   it('completa lo que falta con valores seguros', () => {
     expect(deRespuestas(undefined)).toEqual([])
-    expect(deRespuesta({}, 3)).toMatchObject({ clave: 'evento-3', nivel: 'INFO', fase: 'ORDEN' })
+    expect(deRespuesta({}, 3)).toMatchObject({ clave: 'evento-3', nivel: 'INFO' })
+    // DEC-60: sin fase, el registro se lee en el orden en que ocurrió
+    expect(deRespuesta({}, 3)).not.toHaveProperty('fase')
   })
 })
 

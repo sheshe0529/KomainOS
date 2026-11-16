@@ -24,7 +24,6 @@ import { FilaNavegable } from '@/components/ui/FilaNavegable'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
-import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
 import { ESTADO_GRUPO, ESTADO_SERVIDOR } from '@/utils/etiquetas'
@@ -54,7 +53,6 @@ export function FichaGrupoPage() {
   const [versionOrdenes, setVersionOrdenes] = useState(0)
 
   const ficha = useConsulta(() => gruposApi.ficha(idGrupo), [idGrupo])
-  const catalogos = useCatalogos()
   const g = ficha.datos
   const integrantes = usePaginacionLocal(g?.integrantes ?? [], 'integrantes-grupo')
 
@@ -88,7 +86,6 @@ export function FichaGrupoPage() {
 
   const estado = g.estado ? ESTADO_GRUPO[g.estado] : undefined
   const inactivo = g.estado === 'INACTIVO'
-  const criticidad = catalogos.datos?.criticidades.find((c) => c.id === g.criticidad?.id)
 
   return (
     <div className="flex flex-col gap-6">
@@ -269,7 +266,6 @@ export function FichaGrupoPage() {
           conModoEjecucion
           titulo={`Configuración de mantenimiento de ${g.nombre}`}
           actual={g.configuracion}
-          recomendadas={{ revision: criticidad?.frecuenciaRevisionDias, mantenimiento: criticidad?.frecuenciaMantenimientoDias }}
           familia={g.integrantes?.[0]?.familiaSistemaOperativo}
           onCerrar={() => setDialogo(null)}
           onGuardar={async (datos) => {

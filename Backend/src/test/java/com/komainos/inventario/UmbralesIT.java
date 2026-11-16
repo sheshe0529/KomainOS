@@ -71,8 +71,8 @@ class UmbralesIT extends PruebaIntegracion {
         Usuario otroResponsable = usuarios.crear("resp2.umb", "J. Paredes", "clave-segura-4", Rol.RESPONSABLE, sistema);
         idProduccion = catalogos.crearEntorno("Producción", null, sistema).getId();
         Integer idDesarrollo = catalogos.crearEntorno("Desarrollo", null, sistema).getId();
-        idAlta = catalogos.crearCriticidad(new DatosNivelCriticidad("Alta", 1, 7, 30, 24, 24), sistema).getId();
-        Integer idMedia = catalogos.crearCriticidad(new DatosNivelCriticidad("Media", 2, 14, 30, 24, 48), sistema).getId();
+        idAlta = catalogos.crearCriticidad(new DatosNivelCriticidad("Alta", 1, 24, 24), sistema).getId();
+        Integer idMedia = catalogos.crearCriticidad(new DatosNivelCriticidad("Media", 2, 24, 48), sistema).getId();
         Integer ubuntu = catalogos.crearSistemaOperativo("Ubuntu", FamiliaSistemaOperativo.LINUX, sistema).getId();
         Integer version = catalogos.agregarVersion(ubuntu, "22.04", sistema).getVersiones().getFirst().getId();
         Actor actorAdmin = Actor.usuario(admin.getId());

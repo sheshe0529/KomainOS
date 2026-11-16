@@ -15,14 +15,6 @@ public record NivelCriticidadPeticion(
         @Min(value = 0, message = "La prioridad no puede ser negativa")
         Integer prioridad,
 
-        @NotNull(message = "La frecuencia de revisión es obligatoria")
-        @Min(value = 1, message = "La frecuencia de revisión debe ser de al menos 1 día")
-        Integer frecuenciaRevisionDias,
-
-        @NotNull(message = "La frecuencia de mantenimiento es obligatoria")
-        @Min(value = 1, message = "La frecuencia de mantenimiento debe ser de al menos 1 día")
-        Integer frecuenciaMantenimientoDias,
-
         @NotNull(message = "El plazo de autorización es obligatorio")
         @Min(value = 1, message = "El plazo de autorización debe ser de al menos 1 hora")
         Integer plazoAutorizacionHoras,
@@ -32,7 +24,6 @@ public record NivelCriticidadPeticion(
         Integer plazoValidacionHoras) {
 
     public DatosNivelCriticidad aDatos() {
-        return new DatosNivelCriticidad(nombre, prioridad, frecuenciaRevisionDias, frecuenciaMantenimientoDias,
-                plazoAutorizacionHoras, plazoValidacionHoras);
+        return new DatosNivelCriticidad(nombre, prioridad, plazoAutorizacionHoras, plazoValidacionHoras);
     }
 }

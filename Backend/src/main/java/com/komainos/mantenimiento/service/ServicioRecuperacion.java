@@ -98,7 +98,7 @@ public class ServicioRecuperacion {
             for (MopTarea tarea : tareas.findByEstado(EstadoTareaMop.EN_EJECUCION)) {
                 tarea.interrumpir("La tarea " + MOTIVO + "; su resultado es desconocido", ahora);
                 OrdenDetalle detalleTarea = tarea.getMop().getDetalle();
-                actividad.ejecucionInterrumpida(detalleTarea.getServidor().getId(), detalleTarea.getId(), tarea.getId(),
+                actividad.ejecucionInterrumpida(detalleTarea.getId(), tarea.getId(),
                         "La tarea " + MOTIVO + "; su resultado es desconocido");
             }
             List<OrdenDetalle> enEjecucion = detalles.findByEstado(EstadoDetalleOrden.EN_EJECUCION);
@@ -107,7 +107,7 @@ public class ServicioRecuperacion {
                 incidencias.registrar(detalle, OrigenIncidencia.FALLO_EJECUCION,
                         "La ejecución en %s %s; revise el servidor antes de cerrar la incidencia"
                                 .formatted(detalle.getServidor().getHostname(), MOTIVO));
-                actividad.ejecucionInterrumpida(detalle.getServidor().getId(), detalle.getId(), null,
+                actividad.ejecucionInterrumpida(detalle.getId(), null,
                         "La ejecución " + MOTIVO + "; revise el servidor antes de cerrar la incidencia");
             }
             return enEjecucion.size();

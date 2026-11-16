@@ -14,7 +14,6 @@ import com.komainos.inventario.repository.ConfiguracionGrupoRepositorio;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.service.PuertoCuentasServicio;
-import com.komainos.inventario.service.ServicioParametrosSistema;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
 import com.komainos.shared.exception.ReglaNegocioException;
@@ -35,7 +34,7 @@ import java.util.function.Function;
 
 /**
  * Verificación de conectividad, autenticación y permisos de una cuenta de servicio (RF71, HU03 CA3, HU04 CA4). Sin
- * cuenta indicada se prueba la que usaría la finalidad: la del servidor o grupo, o la predeterminada. Con una cuenta
+ * cuenta indicada se prueba la que tiene asignada el servidor o grupo para cada finalidad. Con una cuenta
  * indicada se prueba antes de asignarla; en un grupo se comprueba cada integrante (CP021). Los errores distinguen
  * comunicación, autenticación y permisos, que desde el DEC-57 significa que la elevación configurada falló (CP022,
  * CP023). Con acceso correcto informa si los scripts se ejecutarán con privilegios de administrador, sin exigirlo.
@@ -48,7 +47,6 @@ public class ServicioConectividad {
     private final GrupoMantenimientoRepositorio grupos;
     private final ConfiguracionServidorRepositorio configuracionesServidor;
     private final ConfiguracionGrupoRepositorio configuracionesGrupo;
-    private final ServicioParametrosSistema parametros;
     private final PuertoCuentasServicio cuentas;
     private final EjecutorRemoto remoto;
     private final ServicioAuditoria auditoria;
@@ -56,14 +54,13 @@ public class ServicioConectividad {
 
     public ServicioConectividad(ServicioServidor servidores, GrupoMantenimientoRepositorio grupos,
                                 ConfiguracionServidorRepositorio configuracionesServidor,
-                                ConfiguracionGrupoRepositorio configuracionesGrupo, ServicioParametrosSistema parametros,
+                                ConfiguracionGrupoRepositorio configuracionesGrupo,
                                 PuertoCuentasServicio cuentas, EjecutorRemoto remoto, ServicioAuditoria auditoria,
                                 PlatformTransactionManager transacciones) {
         this.servidores = servidores;
         this.grupos = grupos;
         this.configuracionesServidor = configuracionesServidor;
         this.configuracionesGrupo = configuracionesGrupo;
-        this.parametros = parametros;
         this.cuentas = cuentas;
         this.remoto = remoto;
         this.auditoria = auditoria;
@@ -135,9 +132,8 @@ public class ServicioConectividad {
         for (FinalidadCuenta finalidad : FinalidadCuenta.values()) {
             Integer cuenta = cuentaDe.apply(finalidad);
             if (cuenta == null) {
-                throw new ReglaNegocioException("Asigne una cuenta de servicio de %s o defina la predeterminada para "
-                        .formatted(finalidad == FinalidadCuenta.EVALUACION ? "evaluación" : "mantenimiento")
-                        + "probar el acceso");
+                throw new ReglaNegocioException("Asigne una cuenta de servicio de %s para probar el acceso"
+                        .formatted(finalidad == FinalidadCuenta.EVALUACION ? "evaluación" : "mantenimiento"));
             }
             cuentasAProbar.computeIfAbsent(cuenta, c -> new ArrayList<>()).add(finalidad);
         }
@@ -147,13 +143,13 @@ public class ServicioConectividad {
     private Integer cuentaDelServidor(Integer idServidor, FinalidadCuenta finalidad) {
         return configuracionesServidor.findByServidorId(idServidor)
                 .map(c -> ServicioAsignacionCuentas.propia(c, finalidad))
-                .orElse(ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad));
+                .orElse(null);
     }
 
     private Integer cuentaDelGrupo(Integer idGrupo, FinalidadCuenta finalidad) {
         return configuracionesGrupo.findByGrupoId(idGrupo)
                 .map(c -> ServicioAsignacionCuentas.propia(c, finalidad))
-                .orElse(ServicioAsignacionCuentas.predeterminadaId(parametros.obtener(), finalidad));
+                .orElse(null);
     }
 
     private List<Servidor> integrantes(Integer idGrupo) {
@@ -182,7 +178,7 @@ public class ServicioConectividad {
     /** La cuenta debe existir, estar vigente y servir para la familia del servidor (una llave SSH no sirve en WinRM) */
     private Prueba preparar(Servidor s, Integer cuenta, List<FinalidadCuenta> finalidades) {
         if (cuenta == null) {
-            throw new ReglaNegocioException("Asigne una cuenta de servicio o defina la predeterminada para probar el acceso");
+            throw new ReglaNegocioException("Asigne una cuenta de servicio para probar el acceso");
         }
         String nombre = cuentas.nombre(cuenta).orElseThrow(() -> RecursoNoEncontradoException.de("la cuenta de servicio", cuenta));
         String problema = null;

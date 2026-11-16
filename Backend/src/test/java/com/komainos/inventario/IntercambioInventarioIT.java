@@ -69,8 +69,8 @@ class IntercambioInventarioIT extends PruebaIntegracion {
         comoOperador = new UsuarioAutenticado(operador);
 
         Integer idEntorno = catalogos.crearEntorno("Producción", null, sistema).getId();
-        catalogos.crearCriticidad(new DatosNivelCriticidad("Alta", 1, 7, 30, 24, 48), sistema);
-        Integer idMedia = catalogos.crearCriticidad(new DatosNivelCriticidad("Media", 2, 14, 60, 12, 72), sistema).getId();
+        catalogos.crearCriticidad(new DatosNivelCriticidad("Alta", 1, 24, 48), sistema);
+        Integer idMedia = catalogos.crearCriticidad(new DatosNivelCriticidad("Media", 2, 12, 72), sistema).getId();
         var so = catalogos.crearSistemaOperativo("Ubuntu", FamiliaSistemaOperativo.LINUX, sistema);
         Integer idVersion = catalogos.agregarVersion(so.getId(), "22.04", sistema).getVersiones().getFirst().getId();
 

@@ -4,22 +4,22 @@ import { filasSeleccionadas, prepararServidor, problemaMantenimiento } from './p
 
 const catalogos: Catalogos = {
   entornos: [],
-  criticidades: [{ id: 1, nombre: 'Alta', frecuenciaRevisionDias: 7, frecuenciaMantenimientoDias: 30 }],
+  criticidades: [{ id: 1, nombre: 'Alta' }],
   sistemasOperativos: [{ id: 1, nombre: 'Ubuntu', familia: 'LINUX', versiones: [{ id: 2, version: '24.04' }] }],
 }
 const datos = { hostname: 'srv-01', direccionIp: '10.0.0.1', idNivelCriticidad: 1, idVersionSistemaOperativo: 2 }
 
 describe('Registro por etapas (RF09, RF12, RF17-RF19)', () => {
-  it('copia las frecuencias de criticidad y exige una ventana antes de continuar', () => {
+  it('DEC-60: no propone frecuencias predeterminadas y exige indicarlas y una ventana antes de continuar', () => {
     const s = prepararServidor(datos, catalogos)
-    expect(s.mantenimiento.configuracion).toMatchObject({
-      frecuenciaRevisionDias: 7,
-      frecuenciaMantenimientoDias: 30,
-      revisionPeriodicaHabilitada: true,
-      modalidadPlanificacion: 'AUTOMATICA',
-    })
+    expect(s.mantenimiento.configuracion.frecuenciaRevisionDias).toBeUndefined()
+    expect(s.mantenimiento.configuracion.frecuenciaMantenimientoDias).toBeUndefined()
+    expect(s.mantenimiento.configuracion).toMatchObject({ revisionPeriodicaHabilitada: true, modalidadPlanificacion: 'AUTOMATICA' })
+    expect(problemaMantenimiento(s)).toContain('frecuencias')
+
+    s.mantenimiento.configuracion.frecuenciaRevisionDias = 7
+    s.mantenimiento.configuracion.frecuenciaMantenimientoDias = 30
     expect(problemaMantenimiento(s)).toContain('intervalo')
-    expect(catalogos.criticidades[0].frecuenciaRevisionDias).toBe(7)
   })
 
   it('conserva la configuración de un servidor existente con revisión desactivada', () => {
@@ -62,7 +62,7 @@ describe('Registro por etapas (RF09, RF12, RF17-RF19)', () => {
     const listo = { ...s, mantenimiento: { ...s.mantenimiento, ventanas: [{ diaInicio: 'SABADO' as const, horaInicio: '22:00', diaFin: 'DOMINGO' as const, horaFin: '02:00' }] } }
     const sinFrecuencia = (habilitada: boolean) => ({
       ...listo,
-      mantenimiento: { ...listo.mantenimiento, configuracion: { ...listo.mantenimiento.configuracion, frecuenciaRevisionDias: undefined, revisionPeriodicaHabilitada: habilitada } },
+      mantenimiento: { ...listo.mantenimiento, configuracion: { ...listo.mantenimiento.configuracion, frecuenciaRevisionDias: undefined, frecuenciaMantenimientoDias: 30, revisionPeriodicaHabilitada: habilitada } },
     })
     expect(problemaMantenimiento(sinFrecuencia(false))).toBeUndefined()
     expect(problemaMantenimiento(sinFrecuencia(true))).toContain('frecuencias')
@@ -70,6 +70,7 @@ describe('Registro por etapas (RF09, RF12, RF17-RF19)', () => {
 
   it('rechaza frecuencias vacías, decimales y ventanas con fin anterior o igual al inicio', () => {
     const s = prepararServidor(datos, catalogos)
+    s.mantenimiento.configuracion.frecuenciaMantenimientoDias = 30
     s.mantenimiento.configuracion.frecuenciaRevisionDias = 1.5
     expect(problemaMantenimiento(s)).toContain('enteros')
     s.mantenimiento.configuracion.frecuenciaRevisionDias = 7

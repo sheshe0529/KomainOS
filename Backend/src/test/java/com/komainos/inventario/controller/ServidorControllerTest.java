@@ -145,4 +145,45 @@ class ServidorControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"));
     }
+
+    @Test
+    @DisplayName("DEC-60: la verificación lista las órdenes que quedarían fuera de la ventana propuesta sin guardarla")
+    void verificaOrdenesFueraDeVentana() throws Exception {
+        when(servicio.ordenesFueraDeVentana(org.mockito.ArgumentMatchers.eq(1), any(), any())).thenReturn(List.of(
+                new com.komainos.inventario.service.PuertoOrdenesProgramadas.OrdenFueraDeVentana(9, "OM-2026-0009",
+                        "PROGRAMADA", Instant.parse("2026-10-03T06:00:00Z"), Instant.parse("2026-10-03T10:00:00Z"))));
+
+        mockMvc.perform(post("/api/servidores/1/ventanas/verificacion")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"ventanas":[{"diaInicio":"DOMINGO","horaInicio":"01:00","diaFin":"DOMINGO","horaFin":"05:00"}]}
+                                """)
+                        .with(user(DatosPrueba.autenticado(1, "admin", Rol.ADMINISTRADOR))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].codigo").value("OM-2026-0009"))
+                .andExpect(jsonPath("$[0].estado").value("PROGRAMADA"))
+                .andExpect(jsonPath("$[0].inicio").value("2026-10-03T06:00:00Z"));
+        org.mockito.Mockito.verify(servicio, org.mockito.Mockito.never())
+                .reemplazarVentanas(any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any());
+    }
+
+    @Test
+    @DisplayName("DEC-60: guardar la ventana pasa la confirmación expresa al servicio, que no reprograma")
+    void guardaConConfirmacion() throws Exception {
+        Servidor servidor = DatosPrueba.servidor(1, "srv-app-01", responsable);
+        when(servicio.ficha(org.mockito.ArgumentMatchers.eq(1), any())).thenReturn(new ServicioServidor.FichaServidor(
+                servidor, java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(), List.of(),
+                java.util.Optional.empty(), List.of(), List.of()));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/servidores/1/ventanas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"ventanas":[{"diaInicio":"DOMINGO","horaInicio":"01:00","diaFin":"DOMINGO","horaFin":"05:00"}],
+                                 "confirmarFueraVentana":true}
+                                """)
+                        .with(user(DatosPrueba.autenticado(1, "admin", Rol.ADMINISTRADOR))))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(servicio).reemplazarVentanas(org.mockito.ArgumentMatchers.eq(1), any(),
+                org.mockito.ArgumentMatchers.eq(true), any());
+    }
 }

@@ -7,6 +7,7 @@ import com.komainos.inventario.dto.ResultadoBajaRespuesta;
 import com.komainos.inventario.dto.ServidorPeticion;
 import com.komainos.inventario.dto.RegistroServidorPeticion;
 import com.komainos.inventario.dto.ServidorResumenRespuesta;
+import com.komainos.inventario.dto.OrdenFueraVentanaRespuesta;
 import com.komainos.inventario.dto.VentanasPeticion;
 import com.komainos.inventario.mapper.InventarioMapeador;
 import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
@@ -36,6 +37,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/servidores")
@@ -122,19 +125,35 @@ public class ServidorController {
         return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 
-    /** El responsable solo edita la ventana de sus servidores, lo verifica el servicio (RF19) */
+    /**
+     * El responsable solo edita la ventana de sus servidores, lo verifica el servicio (RF19). No reprograma: si quedan
+     * órdenes pendientes fuera del nuevo horario, exige confirmarFueraVentana (DEC-60)
+     */
     @PutMapping("/{id}/ventanas")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'RESPONSABLE')")
-    @Operation(summary = "Reemplaza la ventana permisiva del servidor (RF18, RF19)")
+    @Operation(summary = "Reemplaza la ventana permisiva del servidor sin reprogramar sus órdenes (RF18, RF19)")
     public FichaServidorRespuesta reemplazarVentanas(@PathVariable Integer id,
                                                      @Valid @RequestBody VentanasPeticion peticion,
                                                      @AuthenticationPrincipal UsuarioAutenticado solicitante) {
         AlcanceUsuario alcance = AlcanceUsuario.de(solicitante);
-        var intervalos = peticion.ventanas().stream()
+        servicio.reemplazarVentanas(id, intervalos(peticion), peticion.confirmarFueraVentana(), alcance);
+        return InventarioMapeador.ficha(servicio.ficha(id, alcance));
+    }
+
+    @PostMapping("/{id}/ventanas/verificacion")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'RESPONSABLE')")
+    @Operation(summary = "Órdenes pendientes que quedarían fuera de la ventana propuesta, sin guardarla (RF18, RF19)")
+    public List<OrdenFueraVentanaRespuesta> verificarVentanas(@PathVariable Integer id,
+                                                              @Valid @RequestBody VentanasPeticion peticion,
+                                                              @AuthenticationPrincipal UsuarioAutenticado solicitante) {
+        return servicio.ordenesFueraDeVentana(id, intervalos(peticion), AlcanceUsuario.de(solicitante)).stream()
+                .map(OrdenFueraVentanaRespuesta::de).toList();
+    }
+
+    private static List<IntervaloSemanal> intervalos(VentanasPeticion peticion) {
+        return peticion.ventanas().stream()
                 .map(v -> new IntervaloSemanal(v.diaInicio(), v.horaInicio(), v.diaFin(), v.horaFin()))
                 .toList();
-        servicio.reemplazarVentanas(id, intervalos, alcance);
-        return InventarioMapeador.ficha(servicio.ficha(id, alcance));
     }
 
     /** La baja es una transición de estado y no un DELETE: se conserva el historial (RF72) */

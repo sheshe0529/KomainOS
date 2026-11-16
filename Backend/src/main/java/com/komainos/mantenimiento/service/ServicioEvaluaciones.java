@@ -69,8 +69,8 @@ public class ServicioEvaluaciones {
     private final Clock reloj;
 
     /**
-     * Comprueba que el servidor se pueda analizar y deja la evaluación EN_CURSO. Sin cuenta propia usa la cuenta
-     * predeterminada (RF06).
+     * Comprueba que el servidor se pueda analizar y deja la evaluación EN_CURSO. Usa la cuenta asignada: no hay cuenta
+     * predeterminada (DEC-60).
      *
      * @throws ReglaNegocioException si falta la cuenta o el script de análisis compatible (RF24); antes de escribir
      *                               nada, así quien prepara varios servidores registra el motivo y sigue con los demás
@@ -87,14 +87,14 @@ public class ServicioEvaluaciones {
 
     private Evaluacion iniciar(Servidor servidor, OrdenDetalle detalle, TipoEvaluacion tipo, Integer idCuenta,
                                 RevisionPeriodicaGrupo revisionGrupo) {
-        Integer cuenta = detalle == null ? cuentaAplicable(idCuenta) : idCuenta;
+        Integer cuenta = idCuenta;
         if (cuenta == null) {
             if (revisionGrupo != null) {
-                throw new ReglaNegocioException(("Asigne una cuenta de servicio al grupo o defina la cuenta "
-                        + "predeterminada para analizar el servidor %s").formatted(servidor.getHostname()));
+                throw new ReglaNegocioException("Asigne una cuenta de servicio de evaluación al grupo para analizar el "
+                        + "servidor %s".formatted(servidor.getHostname()));
             }
-            throw new ReglaNegocioException(("Asigne una cuenta de servicio al servidor %s o defina la cuenta "
-                    + "predeterminada para analizarlo").formatted(servidor.getHostname()));
+            throw new ReglaNegocioException("Asigne una cuenta de servicio de evaluación al servidor %s para analizarlo"
+                    .formatted(servidor.getHostname()));
         }
         cuentas.exigirAsignable(cuenta, servidor.familia());
         VersionScript version = catalogo.buscarAnalisis(servidor.getVersionSistemaOperativo().getId())
@@ -179,10 +179,6 @@ public class ServicioEvaluaciones {
     @Transactional(readOnly = true)
     public List<ListaEjecucion> listas(ContextoEvaluacion contexto) {
         return ListasAnalisis.calcular(metricas.findAllByOrderByNombreAsc(), umbrales.findAplicables(), contexto);
-    }
-
-    public Integer cuentaAplicable(Integer idCuenta) {
-        return idCuenta != null ? idCuenta : parametros.obtener().getIdCuentaServicioEvaluacionPredeterminada();
     }
 
     public int maxMinutos() {

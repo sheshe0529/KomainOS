@@ -1,10 +1,7 @@
 package com.komainos.inventario.controller;
 
-import com.komainos.inventario.model.FinalidadCuenta;
-
 import com.komainos.inventario.dto.ParametrosSistemaPeticion;
 import com.komainos.inventario.dto.ParametrosSistemaRespuesta;
-import com.komainos.inventario.service.ServicioAsignacionCuentas;
 import com.komainos.inventario.service.ServicioParametrosSistema;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.UsuarioAutenticado;
@@ -27,14 +24,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ParametrosSistemaController {
 
     private final ServicioParametrosSistema servicio;
-    private final ServicioAsignacionCuentas cuentasServicio;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'OPERADOR')")
     @Operation(summary = "Consulta los parámetros de ejecución")
     public ParametrosSistemaRespuesta obtener() {
-        return ParametrosSistemaRespuesta.de(servicio.obtener(), cuentasServicio.predeterminada(FinalidadCuenta.EVALUACION),
-                cuentasServicio.predeterminada(FinalidadCuenta.MANTENIMIENTO));
+        return ParametrosSistemaRespuesta.de(servicio.obtener());
     }
 
     @PutMapping
@@ -42,8 +37,7 @@ public class ParametrosSistemaController {
     @Operation(summary = "Actualiza los parámetros de ejecución")
     public ParametrosSistemaRespuesta actualizar(@Valid @RequestBody ParametrosSistemaPeticion peticion,
                                                  @AuthenticationPrincipal UsuarioAutenticado solicitante) {
-        return ParametrosSistemaRespuesta.de(servicio.actualizar(peticion.aDatos(),
-                peticion.versionEsperada(), AlcanceUsuario.de(solicitante).actor()), cuentasServicio.predeterminada(FinalidadCuenta.EVALUACION),
-                cuentasServicio.predeterminada(FinalidadCuenta.MANTENIMIENTO));
+        return ParametrosSistemaRespuesta.de(servicio.actualizar(peticion.aDatos(), peticion.versionEsperada(),
+                AlcanceUsuario.de(solicitante).actor()));
     }
 }

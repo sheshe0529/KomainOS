@@ -24,7 +24,7 @@ public class ConfiguracionServidor extends ConfiguracionMantenimiento {
     @JoinColumn(name = "id_servidor", nullable = false, unique = true)
     private Servidor servidor;
 
-    public static ConfiguracionServidor nueva(Servidor servidor, int frecuenciaRevisionDias,
+    public static ConfiguracionServidor nueva(Servidor servidor, Integer frecuenciaRevisionDias,
                                               int frecuenciaMantenimientoDias, ModalidadPlanificacion modalidad,
                                               Instant ahora) {
         ConfiguracionServidor configuracion = new ConfiguracionServidor();
@@ -35,7 +35,7 @@ public class ConfiguracionServidor extends ConfiguracionMantenimiento {
         return configuracion;
     }
 
-    public void actualizar(int frecuenciaRevisionDias, int frecuenciaMantenimientoDias,
+    public void actualizar(Integer frecuenciaRevisionDias, int frecuenciaMantenimientoDias,
                            ModalidadPlanificacion modalidad) {
         aplicarComunes(frecuenciaRevisionDias, frecuenciaMantenimientoDias, modalidad);
     }

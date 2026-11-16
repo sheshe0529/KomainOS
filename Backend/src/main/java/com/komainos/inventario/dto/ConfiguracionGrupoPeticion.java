@@ -7,14 +7,16 @@ import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
 
-/** Las frecuencias omitidas se toman de la criticidad efectiva del grupo */
+/** Sin frecuencias predeterminadas (DEC-60): la de revisión es obligatoria con la revisión periódica activa */
 public record ConfiguracionGrupoPeticion(
+        /** Si se omite, conserva la actual */
         @Min(value = 1, message = "La frecuencia de revisión debe ser de al menos 1 día")
         Integer frecuenciaRevisionDias,
 
         /** Si se omite, conserva la selección actual. Una configuración nueva empieza con las revisiones deshabilitadas. */
         Boolean revisionPeriodicaHabilitada,
 
+        @NotNull(message = "La frecuencia de mantenimiento es obligatoria")
         @Min(value = 1, message = "La frecuencia de mantenimiento debe ser de al menos 1 día")
         Integer frecuenciaMantenimientoDias,
 
@@ -24,7 +26,7 @@ public record ConfiguracionGrupoPeticion(
         @NotNull(message = "El modo de ejecución es obligatorio para un grupo")
         ModoEjecucion modoEjecucion,
 
-        /** Nula: usa la cuenta predeterminada del sistema (RF05, RF06) */
+        /** Nula: sin cuenta para esa finalidad, no se podrá analizar ni ejecutar hasta asignarla (RF05) */
         Integer idCuentaServicioEvaluacion,
         Integer idCuentaServicioMantenimiento,
 

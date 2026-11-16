@@ -20,18 +20,12 @@ export function ResumenRegistro({ servidores, omitidos = 0 }: { servidores: Serv
             <br />Mantenimiento: cada {c.frecuenciaMantenimientoDias} días
           </td>
           <td className="px-3 py-3 align-top text-xs">
-            {FINALIDADES_CUENTA.map(({ finalidad, etiqueta, campoId, campoPredeterminada }) => {
+            {FINALIDADES_CUENTA.map(({ finalidad, etiqueta, campoId }) => {
               const id = c[campoId]
-              const cuenta = cuentas.datos?.find((item) => id == null ? item[campoPredeterminada] : item.id === id)
+              const cuenta = id == null ? undefined : cuentas.datos?.find((item) => item.id === id)
               return (
                 <span key={finalidad} className="block">
-                  {etiqueta}: {id != null ? (cuenta?.nombre ?? `Cuenta #${id}`) : (
-                    <>
-                      {cuenta?.nombre && `${cuenta.nombre} `}
-                      <em className="text-ink-faint">predeterminada del sistema</em>
-                      {cuentas.datos && !cuenta && ' (sin definir)'}
-                    </>
-                  )}
+                  {etiqueta}: {id != null ? (cuenta?.nombre ?? `Cuenta #${id}`) : <em className="text-warning">sin cuenta asignada</em>}
                 </span>
               )
             })}

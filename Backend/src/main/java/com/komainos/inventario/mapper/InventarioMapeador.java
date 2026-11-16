@@ -20,7 +20,7 @@ import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.model.SolicitudBaja;
 import com.komainos.inventario.model.VentanaMantenimiento;
 import com.komainos.inventario.model.VersionSistemaOperativo;
-import com.komainos.inventario.service.ServicioAsignacionCuentas.CuentaEfectiva;
+import com.komainos.inventario.service.ServicioAsignacionCuentas.CuentaAsignada;
 import com.komainos.inventario.service.ServicioGrupo.FichaGrupo;
 import com.komainos.inventario.service.ServicioServidor.FichaServidor;
 import com.komainos.shared.dto.ReferenciaSimple;
@@ -82,13 +82,12 @@ public final class InventarioMapeador {
                         .toList());
     }
 
-    public static ConfiguracionRespuesta configuracion(ConfiguracionMantenimiento c, Optional<CuentaEfectiva> evaluacion, Optional<CuentaEfectiva> mantenimiento) {
+    public static ConfiguracionRespuesta configuracion(ConfiguracionMantenimiento c, Optional<CuentaAsignada> evaluacion, Optional<CuentaAsignada> mantenimiento) {
         return new ConfiguracionRespuesta(
                 c.getFrecuenciaRevisionDias(), c.isRevisionPeriodicaHabilitada(),
                 c.getFrecuenciaMantenimientoDias(), c.getModalidadPlanificacion(),
                 c instanceof ConfiguracionGrupo g ? g.getModoEjecucion() : null,
                 c.getIdCuentaServicioEvaluacion(), c.getIdCuentaServicioMantenimiento(),
-                c.getIdCuentaServicioEvaluacion() == null, c.getIdCuentaServicioMantenimiento() == null,
                 evaluacion.map(e -> new ReferenciaSimple(e.id(), e.nombre())).orElse(null),
                 mantenimiento.map(e -> new ReferenciaSimple(e.id(), e.nombre())).orElse(null),
                 c.getFechaCreacion(), c.getFechaActualizacion());

@@ -72,7 +72,7 @@ class ImportacionCredencialesIT extends PruebaIntegracion {
         alcanceAdmin = new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR);
 
         Integer entorno = catalogos.crearEntorno("Producción", null, sistema).getId();
-        Integer criticidad = catalogos.crearCriticidad(new DatosNivelCriticidad("Alta", 1, 7, 30, 24, 48), sistema).getId();
+        Integer criticidad = catalogos.crearCriticidad(new DatosNivelCriticidad("Alta", 1, 24, 48), sistema).getId();
         var ubuntu = catalogos.crearSistemaOperativo("Ubuntu", FamiliaSistemaOperativo.LINUX, sistema);
         Integer version = catalogos.agregarVersion(ubuntu.getId(), "22.04", sistema).getVersiones().getFirst().getId();
         var windows = catalogos.crearSistemaOperativo("Windows", FamiliaSistemaOperativo.WINDOWS, sistema);

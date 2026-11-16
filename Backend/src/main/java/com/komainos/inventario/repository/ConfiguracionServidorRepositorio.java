@@ -37,15 +37,11 @@ public interface ConfiguracionServidorRepositorio extends JpaRepository<Configur
             from ConfiguracionServidor c""")
     List<CuentasConfiguradas> cuentasConfiguradas();
 
-    /** Con incluirSinCuenta también cuentan los que usan la predeterminada */
     @Query("""
             select distinct so.familia from ConfiguracionServidor c
             join c.servidor s join s.versionSistemaOperativo v join v.sistemaOperativo so
-            where (:evaluacion = true and (c.idCuentaServicioEvaluacion = :idCuenta
-                    or (:incluirSinCuenta = true and c.idCuentaServicioEvaluacion is null)))
-               or (:evaluacion = false and (c.idCuentaServicioMantenimiento = :idCuenta
-                    or (:incluirSinCuenta = true and c.idCuentaServicioMantenimiento is null)))""")
+            where (:evaluacion = true and c.idCuentaServicioEvaluacion = :idCuenta)
+               or (:evaluacion = false and c.idCuentaServicioMantenimiento = :idCuenta)""")
     Set<FamiliaSistemaOperativo> familiasQueUsan(@Param("idCuenta") Integer idCuenta,
-                                                 @Param("incluirSinCuenta") boolean incluirSinCuenta,
                                                  @Param("evaluacion") boolean evaluacion);
 }

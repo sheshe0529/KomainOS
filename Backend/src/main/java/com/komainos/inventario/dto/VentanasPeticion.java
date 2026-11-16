@@ -9,5 +9,11 @@ import java.util.List;
 public record VentanasPeticion(
         @NotNull(message = "La lista de ventanas es obligatoria")
         @Size(max = 50, message = "No se admiten más de 50 intervalos")
-        List<@Valid @NotNull(message = "Un intervalo de la ventana está vacío") VentanaPeticion> ventanas) {
+        List<@Valid @NotNull(message = "Un intervalo de la ventana está vacío") VentanaPeticion> ventanas,
+
+        /**
+         * Confirmación expresa de guardar la ventana aunque deje órdenes pendientes fuera de su horario: no se
+         * reprograman (DEC-60). La verificación previa la ignora
+         */
+        boolean confirmarFueraVentana) {
 }

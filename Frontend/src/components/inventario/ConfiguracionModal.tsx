@@ -17,11 +17,11 @@ import { RevisionPeriodicaCampo } from './RevisionPeriodicaCampo'
 
 export interface DatosConfiguracion {
   frecuenciaRevisionDias?: number
-  frecuenciaMantenimientoDias?: number
+  frecuenciaMantenimientoDias: number
   revisionPeriodicaHabilitada: boolean
   modalidadPlanificacion: ModalidadPlanificacion
   modoEjecucion?: ModoEjecucion
-  /** Cada asignación omitida usa la predeterminada de su finalidad (RF06). */
+  /** Sin cuenta predeterminada (DEC-60): una finalidad sin asignación no puede analizar ni ejecutar. */
   idCuentaServicioEvaluacion?: number
   idCuentaServicioMantenimiento?: number
 }
@@ -30,8 +30,6 @@ interface ConfiguracionModalProps {
   abierto: boolean
   titulo: string
   actual?: ConfiguracionRespuesta
-  /** Frecuencias de la criticidad, que se copian si se dejan vacías (HU11 CA2) */
-  recomendadas?: { revision?: number; mantenimiento?: number }
   /** Solo para grupos: pide el modo de ejecución (RF17) */
   conModoEjecucion?: boolean
   /** WinRM no admite cuentas con llave SSH (HU04 CA3) */
@@ -44,7 +42,6 @@ export function ConfiguracionModal({
   abierto,
   titulo,
   actual,
-  recomendadas,
   conModoEjecucion,
   familia,
   onCerrar,
@@ -70,7 +67,8 @@ export function ConfiguracionModal({
     try {
       await onGuardar({
         frecuenciaRevisionDias: revision ? Number(revision) : undefined,
-        frecuenciaMantenimientoDias: mantenimiento ? Number(mantenimiento) : undefined,
+        // El campo es obligatorio: sin frecuencia predeterminada (DEC-60)
+        frecuenciaMantenimientoDias: Number(mantenimiento),
         revisionPeriodicaHabilitada,
         modalidadPlanificacion: modalidad,
         modoEjecucion: conModoEjecucion ? modo : undefined,
@@ -108,30 +106,20 @@ export function ConfiguracionModal({
         >
           <Campo
             etiqueta="Frecuencia de revisión (días)"
+            obligatorio
             className="sm:max-w-xs"
             error={errorDeCampo(error, 'frecuenciaRevisionDias')}
-            ayuda={recomendadas?.revision ? `Si la deja vacía se usa la de la criticidad: ${recomendadas.revision} días` : undefined}
           >
-            <Entrada type="number" min={1} value={revision} placeholder={recomendadas?.revision?.toString()} onChange={(e) => setRevision(e.target.value)} />
+            <Entrada type="number" min={1} step={1} value={revision} required onChange={(e) => setRevision(e.target.value)} />
           </Campo>
         </RevisionPeriodicaCampo>
         <Campo
           etiqueta="Frecuencia de mantenimiento (días)"
+          obligatorio
           className="sm:max-w-xs"
           error={errorDeCampo(error, 'frecuenciaMantenimientoDias')}
-          ayuda={
-            recomendadas?.mantenimiento
-              ? `Si la deja vacía se usa la de la criticidad: ${recomendadas.mantenimiento} días`
-              : undefined
-          }
         >
-          <Entrada
-            type="number"
-            min={1}
-            value={mantenimiento}
-            placeholder={recomendadas?.mantenimiento?.toString()}
-            onChange={(e) => setMantenimiento(e.target.value)}
-          />
+          <Entrada type="number" min={1} step={1} value={mantenimiento} required onChange={(e) => setMantenimiento(e.target.value)} />
         </Campo>
 
         <fieldset className="flex flex-col gap-2">

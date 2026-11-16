@@ -13,7 +13,6 @@ import com.komainos.mantenimiento.model.EstadoActividad;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoTareaMop;
 import com.komainos.mantenimiento.model.Evaluacion;
-import com.komainos.mantenimiento.model.FaseActividad;
 import com.komainos.mantenimiento.model.Mop;
 import com.komainos.mantenimiento.model.NivelActividad;
 import com.komainos.mantenimiento.model.OrdenDetalle;
@@ -91,8 +90,7 @@ public class ServicioActividad {
     /** Antes de conectarse: qué análisis empieza y con qué cuenta y transporte se conecta */
     public Analisis inicioAnalisis(Integer idEvaluacion, SolicitudEjecucion solicitud) {
         Analisis a = seguro(() -> lectura.execute(estado -> evaluaciones.findConDetalleById(idEvaluacion)
-                .map(e -> new Analisis(e.getId(), e.getServidor().getId(),
-                        e.getDetalle() == null ? null : e.getDetalle().getId(), e.getTipo(), version(e)))
+                .map(e -> new Analisis(e.getId(), e.getTipo(), version(e)))
                 .orElse(null)));
         if (a == null) {
             return null;
@@ -150,46 +148,42 @@ public class ServicioActividad {
     // ---------------------------------------------------------------------------------------------------------------
 
     public void inicioEjecucion(Integer idDetalle, SolicitudEjecucion acceso, int tareas) {
-        Integer servidor = acceso.idServidor();
-        registrar(evento(servidor, idDetalle, null, NivelActividad.INFO, null, "Ejecución iniciada",
-                tareas == 1 ? "1 tarea en la MOP" : tareas + " tareas en la MOP", null, null));
-        registrar(evento(servidor, idDetalle, null, NivelActividad.INFO, null, "Comprobación de acceso iniciada",
-                conexion(acceso), null, null));
+        registrar(ActividadEjecucion.deDetalle(idDetalle, paso(NivelActividad.INFO, null, "Ejecución iniciada",
+                tareas == 1 ? "1 tarea en la MOP" : tareas + " tareas en la MOP", null, null)));
+        registrar(ActividadEjecucion.deDetalle(idDetalle, paso(NivelActividad.INFO, null,
+                "Comprobación de acceso iniciada", conexion(acceso), null, null)));
     }
 
     /** El script de la prueba informa con qué usuario y privilegios se ejecutarán las tareas (DEC-57) */
-    public void finComprobacion(Integer idDetalle, SolicitudEjecucion acceso, ResultadoEjecucion resultado) {
-        Integer servidor = acceso.idServidor();
+    public void finComprobacion(Integer idDetalle, ResultadoEjecucion resultado) {
         if (!resultado.correcto()) {
-            registrar(evento(servidor, idDetalle, null, NivelActividad.ERROR, EstadoActividad.FALLIDO,
-                    "Comprobación de acceso fallida", null, resultado.error(), null));
+            registrar(ActividadEjecucion.deDetalle(idDetalle, paso(NivelActividad.ERROR, EstadoActividad.FALLIDO,
+                    "Comprobación de acceso fallida", null, resultado.error(), null)));
             return;
         }
         ServicioConectividad.Permisos permisos = ServicioConectividad.permisos(resultado.salida());
         boolean sinPrivilegios = Boolean.FALSE.equals(permisos.administrador());
-        registrar(evento(servidor, idDetalle, null, sinPrivilegios ? NivelActividad.WARNING : NivelActividad.INFO,
-                EstadoActividad.COMPLETADO,
+        registrar(ActividadEjecucion.deDetalle(idDetalle, paso(
+                sinPrivilegios ? NivelActividad.WARNING : NivelActividad.INFO, EstadoActividad.COMPLETADO,
                 sinPrivilegios ? "Acceso verificado sin privilegios de administrador" : "Acceso verificado",
-                permisos.mensaje().isBlank() ? null : permisos.mensaje(), null, null));
+                permisos.mensaje().isBlank() ? null : permisos.mensaje(), null, null)));
     }
 
-    public void inicioTarea(Integer idDetalle, Tarea t) {
-        registrar(evento(t.solicitud().idServidor(), idDetalle, t.idTarea(), NivelActividad.INFO, null,
+    public void inicioTarea(Tarea t) {
+        registrar(ActividadEjecucion.deTarea(t.idTarea(), paso(NivelActividad.INFO, null,
                 "Tarea «%s» iniciada".formatted(t.nombre()),
-                "Paso %d de %d · %s".formatted(t.paso(), t.total(), conexion(t.solicitud())), null, t.script()));
+                "Paso %d de %d · %s".formatted(t.paso(), t.total(), conexion(t.solicitud())), null, t.script())));
     }
 
-    public void finTarea(Integer idDetalle, Tarea t, ResultadoEjecucion resultado, Duration duracion) {
+    public void finTarea(Tarea t, ResultadoEjecucion resultado, Duration duracion) {
         String detalle = resultado.codigoRetorno() == null ? "Duración: " + texto(duracion)
                 : "Código de salida %d · %s".formatted(resultado.codigoRetorno(), texto(duracion));
         if (resultado.correcto()) {
-            registrar(evento(t.solicitud().idServidor(), idDetalle, t.idTarea(), NivelActividad.INFO,
-                    EstadoActividad.COMPLETADO, "Tarea «%s» completada".formatted(t.nombre()), detalle, null,
-                    t.script()));
+            registrar(ActividadEjecucion.deTarea(t.idTarea(), paso(NivelActividad.INFO, EstadoActividad.COMPLETADO,
+                    "Tarea «%s» completada".formatted(t.nombre()), detalle, null, t.script())));
         } else {
-            registrar(evento(t.solicitud().idServidor(), idDetalle, t.idTarea(), NivelActividad.ERROR,
-                    EstadoActividad.FALLIDO, "Tarea «%s» ha fallado".formatted(t.nombre()), detalle, resultado.error(),
-                    t.script()));
+            registrar(ActividadEjecucion.deTarea(t.idTarea(), paso(NivelActividad.ERROR, EstadoActividad.FALLIDO,
+                    "Tarea «%s» ha fallado".formatted(t.nombre()), detalle, resultado.error(), t.script())));
         }
     }
 
@@ -204,7 +198,7 @@ public class ServicioActividad {
             long total = mop.getTareas().size();
             long completadas = mop.getTareas().stream().filter(t -> t.getEstado() == EstadoTareaMop.FINALIZADA).count();
             long sinIniciar = mop.getTareas().stream().filter(t -> t.getEstado() == EstadoTareaMop.NO_INICIADA).count();
-            return new Resumen(d.getServidor().getId(), d.getEstado(), total, completadas, sinIniciar);
+            return new Resumen(d.getEstado(), total, completadas, sinIniciar);
         }));
         if (r == null) {
             return;
@@ -213,24 +207,28 @@ public class ServicioActividad {
                 r.total() == 1 ? "tarea" : "tareas")
                 + (r.sinIniciar() == 0 ? "" : " · %d sin iniciar".formatted(r.sinIniciar()));
         if (r.estado() == EstadoDetalleOrden.FINALIZADO) {
-            registrar(evento(r.idServidor(), idDetalle, null, NivelActividad.INFO, EstadoActividad.COMPLETADO,
-                    "Ejecución completada", detalle, null, null));
+            registrar(ActividadEjecucion.deDetalle(idDetalle, paso(NivelActividad.INFO, EstadoActividad.COMPLETADO,
+                    "Ejecución completada", detalle, null, null)));
         } else if (r.estado() == EstadoDetalleOrden.FALLIDO) {
-            registrar(evento(r.idServidor(), idDetalle, null, NivelActividad.ERROR, EstadoActividad.FALLIDO,
-                    "Ejecución fallida", detalle, null, null));
+            registrar(ActividadEjecucion.deDetalle(idDetalle, paso(NivelActividad.ERROR, EstadoActividad.FALLIDO,
+                    "Ejecución fallida", detalle, null, null)));
         }
     }
 
-    /** Un error del propio backend o un reinicio que dejó la ejecución a medias */
-    public void ejecucionInterrumpida(Integer idServidor, Integer idDetalle, Integer idTarea, String motivo) {
-        registrar(evento(idServidor, idDetalle, idTarea, NivelActividad.ERROR, EstadoActividad.FALLIDO,
-                idTarea == null ? "Ejecución interrumpida" : "Tarea interrumpida", null, motivo, null));
+    /** Un error del propio backend o un reinicio que dejó la ejecución a medias: de la tarea si había una en curso */
+    public void ejecucionInterrumpida(Integer idDetalle, Integer idTarea, String motivo) {
+        if (idTarea != null) {
+            registrar(ActividadEjecucion.deTarea(idTarea, paso(NivelActividad.ERROR, EstadoActividad.FALLIDO,
+                    "Tarea interrumpida", null, motivo, null)));
+        } else {
+            registrar(ActividadEjecucion.deDetalle(idDetalle, paso(NivelActividad.ERROR, EstadoActividad.FALLIDO,
+                    "Ejecución interrumpida", null, motivo, null)));
+        }
     }
 
     public void analisisInterrumpido(Evaluacion e, String motivo) {
-        registrar(ActividadEjecucion.de(e.getServidor().getId(), e.getDetalle() == null ? null : e.getDetalle().getId(),
-                e.getId(), null, fase(e.getTipo()), NivelActividad.ERROR, EstadoActividad.FALLIDO,
-                operacion(e.getTipo(), "interrumpida"), null, motivo, version(e), ahora()));
+        registrar(ActividadEjecucion.deEvaluacion(e.getId(), paso(NivelActividad.ERROR, EstadoActividad.FALLIDO,
+                operacion(e.getTipo(), "interrumpida"), null, motivo, version(e))));
     }
 
     /** «Evaluación previa completada», pero «Análisis posterior completado»: el participio concuerda con el análisis */
@@ -275,10 +273,6 @@ public class ServicioActividad {
                 .anyMatch(t -> error.startsWith(t.etiqueta()));
     }
 
-    static FaseActividad fase(TipoEvaluacion tipo) {
-        return tipo == TipoEvaluacion.POSTERIOR ? FaseActividad.VALIDACION : FaseActividad.EVALUACION;
-    }
-
     static String version(Evaluacion e) {
         return e.getVersion() == null ? null
                 : "%s v%d".formatted(e.getVersion().getImplementacion().getScript().getNombre(),
@@ -297,11 +291,9 @@ public class ServicioActividad {
         return inicio == null || fin == null ? null : Duration.between(inicio, fin);
     }
 
-    private ActividadEjecucion evento(Integer idServidor, Integer idDetalle, Integer idTarea, NivelActividad nivel,
-                                      EstadoActividad estado, String accion, String detalle, String error,
-                                      String script) {
-        return ActividadEjecucion.de(idServidor, idDetalle, null, idTarea, FaseActividad.EJECUCION, nivel, estado,
-                accion, detalle, error, script, ahora());
+    private ActividadEjecucion.Paso paso(NivelActividad nivel, EstadoActividad estado, String accion, String detalle,
+                                         String error, String script) {
+        return new ActividadEjecucion.Paso(nivel, estado, accion, detalle, error, script, ahora());
     }
 
     private void registrar(ActividadEjecucion evento) {
@@ -323,13 +315,12 @@ public class ServicioActividad {
     }
 
     /** Un análisis en curso: lo que hace falta para registrar sus eventos sin volver a leerlo */
-    public record Analisis(Integer idEvaluacion, Integer idServidor, Integer idDetalle, TipoEvaluacion tipo,
-                           String script) {
+    public record Analisis(Integer idEvaluacion, TipoEvaluacion tipo, String script) {
 
         ActividadEjecucion evento(Instant ahora, NivelActividad nivel, EstadoActividad estado, String accion,
                                   String detalle, String error) {
-            return ActividadEjecucion.de(idServidor, idDetalle, idEvaluacion, null, fase(tipo), nivel, estado, accion,
-                    detalle, error, script, ahora);
+            return ActividadEjecucion.deEvaluacion(idEvaluacion,
+                    new ActividadEjecucion.Paso(nivel, estado, accion, detalle, error, script, ahora));
         }
     }
 
@@ -341,7 +332,6 @@ public class ServicioActividad {
     private record Final(String estado, String error, NivelAlerta nivel, int mediciones, Duration duracion) {
     }
 
-    private record Resumen(Integer idServidor, EstadoDetalleOrden estado, long total, long completadas,
-                           long sinIniciar) {
+    private record Resumen(EstadoDetalleOrden estado, long total, long completadas, long sinIniciar) {
     }
 }

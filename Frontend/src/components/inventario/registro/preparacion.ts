@@ -4,6 +4,13 @@ import type { FichaServidorRespuesta, FilaAnalisisRespuesta, ServidorPeticion } 
 import type { Catalogos } from '@/hooks/useCatalogos'
 import { duracion } from '@/utils/ventanas'
 
+/** Borrador del asistente: sin frecuencias predeterminadas (DEC-60), la de mantenimiento falta hasta que se indica */
+export type MantenimientoBorrador = Omit<MantenimientoRegistroPeticion, 'configuracion'> & {
+  configuracion: Omit<MantenimientoRegistroPeticion['configuracion'], 'frecuenciaMantenimientoDias'> & {
+    frecuenciaMantenimientoDias?: number
+  }
+}
+
 export interface ServidorPreparado {
   clave: number
   hostname: string
@@ -13,10 +20,17 @@ export interface ServidorPreparado {
   sistemaOperativo?: string
   idServidorExistente?: number
   versionServidor?: string
-  mantenimiento: MantenimientoRegistroPeticion
+  mantenimiento: MantenimientoBorrador
 }
 
-/** Las frecuencias se copian de la criticidad; los duplicados conservan su configuración actual (HU11 CA2). */
+/** El mantenimiento listo para enviar; antes de confirmar, problemaMantenimiento ya exigió las frecuencias */
+export function mantenimientoListo(m: MantenimientoBorrador): MantenimientoRegistroPeticion {
+  const { frecuenciaMantenimientoDias } = m.configuracion
+  if (frecuenciaMantenimientoDias == null) throw new Error('Indique la frecuencia de mantenimiento antes de confirmar.')
+  return { ...m, configuracion: { ...m.configuracion, frecuenciaMantenimientoDias } }
+}
+
+/** Sin frecuencias predeterminadas (DEC-60): se indican por servidor; los duplicados conservan su configuración actual. */
 export function prepararServidor(
   datos: Pick<ServidorPeticion, 'hostname' | 'direccionIp' | 'idNivelCriticidad' | 'idVersionSistemaOperativo'>,
   catalogos: Catalogos,
@@ -38,8 +52,8 @@ export function prepararServidor(
     versionServidor: existente?.fechaActualizacion,
     mantenimiento: {
       configuracion: {
-        frecuenciaRevisionDias: actual?.frecuenciaRevisionDias ?? criticidad?.frecuenciaRevisionDias,
-        frecuenciaMantenimientoDias: actual?.frecuenciaMantenimientoDias ?? criticidad?.frecuenciaMantenimientoDias,
+        frecuenciaRevisionDias: actual?.frecuenciaRevisionDias,
+        frecuenciaMantenimientoDias: actual?.frecuenciaMantenimientoDias,
         revisionPeriodicaHabilitada: actual?.revisionPeriodicaHabilitada ?? true,
         modalidadPlanificacion: actual?.modalidadPlanificacion ?? 'AUTOMATICA',
         idCuentaServicioEvaluacion: actual?.idCuentaServicioEvaluacion,
@@ -60,7 +74,7 @@ export function filasSeleccionadas(filas: FilaAnalisisRespuesta[], sobrescribir:
 
 export function problemaMantenimiento(s: ServidorPreparado): string | undefined {
   const { configuracion: c, ventanas } = s.mantenimiento
-  // Con la revisión inactiva su frecuencia no se muestra ni se exige: si falta, el backend usa la de la criticidad
+  // Con la revisión inactiva su frecuencia no se muestra ni se exige; si falta, la configuración queda sin ella
   const revisionInvalida = c.revisionPeriodicaHabilitada !== false &&
     (!Number.isInteger(c.frecuenciaRevisionDias) || c.frecuenciaRevisionDias! < 1)
   if (revisionInvalida || !Number.isInteger(c.frecuenciaMantenimientoDias) || c.frecuenciaMantenimientoDias! < 1) {

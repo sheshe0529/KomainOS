@@ -9,6 +9,7 @@ import type {
   FichaServidorRespuesta,
   GrupoPeticion,
   GrupoResumenRespuesta,
+  OrdenFueraVentanaRespuesta,
   ResultadoBajaRespuesta,
   ServidorPeticion,
   ServidorResumenRespuesta,
@@ -49,8 +50,12 @@ export const servidoresApi = {
   actualizar: (id: number, datos: ServidorPeticion) => http.put<FichaServidorRespuesta>(`/servidores/${id}`, datos),
   configurar: (id: number, datos: ConfiguracionPeticion) =>
     http.put<FichaServidorRespuesta>(`/servidores/${id}/configuracion`, datos),
-  reemplazarVentanas: (id: number, ventanas: VentanaPeticion[]) =>
-    http.put<FichaServidorRespuesta>(`/servidores/${id}/ventanas`, { ventanas }),
+  /** Órdenes pendientes que quedarían fuera de la ventana propuesta, sin guardarla (DEC-60) */
+  verificarVentanas: (id: number, ventanas: VentanaPeticion[]) =>
+    http.post<OrdenFueraVentanaRespuesta[]>(`/servidores/${id}/ventanas/verificacion`, { ventanas }),
+  /** No reprograma: con órdenes fuera del nuevo horario exige confirmarFueraVentana */
+  reemplazarVentanas: (id: number, ventanas: VentanaPeticion[], confirmarFueraVentana = false) =>
+    http.put<FichaServidorRespuesta>(`/servidores/${id}/ventanas`, { ventanas, confirmarFueraVentana }),
   darDeBaja: (id: number, datos: BajaPeticion) => http.post<ResultadoBajaRespuesta>(`/servidores/${id}/baja`, datos),
   reactivar: (id: number) => http.post<FichaServidorRespuesta>(`/servidores/${id}/reactivacion`),
 }

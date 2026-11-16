@@ -1,6 +1,7 @@
 package com.komainos.catalogo.model;
 
 import com.komainos.inventario.model.ListaReferencia;
+import com.komainos.inventario.model.TipoDato;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -40,10 +41,11 @@ public class ParametroScript {
     @Column(name = "nombre", nullable = false, length = 255)
     private String nombre;
 
+    /** Tipo del escalar; nulo en un parámetro de lista, cuyos elementos tienen el tipo de su lista (DEC-60) */
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(name = "tipo_dato", nullable = false, columnDefinition = "enum_tipo_parametro_script")
-    private TipoParametro tipoDato;
+    @Column(name = "tipo_dato", columnDefinition = "enum_tipo_dato_parametro")
+    private TipoDato tipoDato;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_lista_referencia")
@@ -60,10 +62,15 @@ public class ParametroScript {
         ParametroScript parametro = new ParametroScript();
         parametro.version = version;
         parametro.nombre = nombre;
-        parametro.tipoDato = tipo;
+        parametro.tipoDato = tipo == TipoParametro.LISTA ? null : tipo.tipoEscalar();
         parametro.listaReferencia = lista;
         parametro.valorPorDefecto = valorPorDefecto;
         parametro.orden = orden;
         return parametro;
+    }
+
+    /** Forma del parámetro: LISTA si toma los elementos de una lista de referencia, si no su tipo escalar */
+    public TipoParametro getTipo() {
+        return tipoDato == null ? TipoParametro.LISTA : TipoParametro.valueOf(tipoDato.name());
     }
 }

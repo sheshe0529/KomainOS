@@ -2,19 +2,18 @@ import type { EventoActividadRespuesta, TareaMopRespuesta } from '@/api/types'
 import { diagnosticarFallo } from './automatizacion'
 import type { DiagnosticoFallo } from './automatizacion'
 
-export type FaseActividad = NonNullable<EventoActividadRespuesta['fase']>
 export type NivelActividad = NonNullable<EventoActividadRespuesta['nivel']>
 
 /**
  * Un evento de «Ver actividad» (DEC-59). El backend registra cada conexión, la comprobación de acceso, los análisis y
  * las tareas con su hora exacta; para lo ejecutado antes de ese registro reconstruye el inicio y el fin que ya guardaba.
+ * Sin fase (DEC-60): los eventos se muestran en el orden en que ocurrieron.
  */
 export interface EventoActividad {
   clave: string
   accion: string
   script?: string
   nivel: NivelActividad
-  fase: FaseActividad
   estado?: EventoActividadRespuesta['estado']
   fecha?: string
   servidor?: string
@@ -33,7 +32,6 @@ export function deRespuesta(e: EventoActividadRespuesta, indice = 0): EventoActi
     accion: e.accion ?? 'Evento sin descripción',
     script: e.script,
     nivel: e.nivel ?? 'INFO',
-    fase: e.fase ?? 'ORDEN',
     estado: e.estado,
     fecha: e.fecha,
     servidor: e.servidor,

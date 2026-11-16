@@ -3,7 +3,6 @@ package com.komainos.planificacion.service;
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.inventario.event.ConfiguracionMantenimientoActualizada;
-import com.komainos.inventario.event.VentanasServidorActualizadas;
 import com.komainos.inventario.model.CalendarioSemanal;
 import com.komainos.inventario.model.ConfiguracionGrupo;
 import com.komainos.inventario.model.ConfiguracionMantenimiento;
@@ -48,7 +47,6 @@ import com.komainos.shared.model.Actor;
 import com.komainos.shared.model.Intervalo;
 import com.komainos.shared.util.Tiempo;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -62,7 +60,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -319,32 +316,6 @@ public class ServicioPlanificacion {
         }
     }
 
-    /** Corre en la transacción de quien publica: todo va por métodos privados para que una excepción capturada no la marque para deshacerse (DEC-18) */
-    @EventListener
-    public void alCambiarVentanas(VentanasServidorActualizadas evento) {
-        Usuario autor = evento.actor().esSistema() ? null : usuarios.findById(evento.actor().usuarioId()).orElse(null);
-        for (Orden orden : ordenes.findDelServidorEnEstados(evento.idServidor(), EnumSet.of(EstadoOrden.PROGRAMADA))) {
-            if (sigueDentroDeSuVentana(orden)) {
-                continue;
-            }
-            try {
-                Map<String, Object> anterior = orden.instantaneaProgramacion();
-                // La programación vigente ya no está en la ventana: vale el primer intervalo desde la fecha objetivo
-                reprogramarInterno(orden, null, null, "Cambio de ventana permisiva", autor);
-                auditoria.registrar(evento.actor(), Operacion.de("REPROGRAMAR_ORDEN", "orden", orden.getId())
-                        .sobreOrden(orden.getId()).sobreServidor(evento.idServidor())
-                        .valores(anterior, orden.instantaneaProgramacion())
-                        .motivo("Cambio de ventana permisiva"));
-            } catch (ReglaNegocioException ex) {
-                log.warn("La orden {} quedó fuera de la nueva ventana y no pudo reprogramarse: {}",
-                        orden.getCodigo(), ex.getMessage());
-                auditoria.registrar(evento.actor(), Operacion.de("REPROGRAMACION_PENDIENTE", "orden", orden.getId())
-                        .sobreOrden(orden.getId()).sobreServidor(evento.idServidor())
-                        .motivo("Fuera de la nueva ventana permisiva: " + ex.getMessage()));
-            }
-        }
-    }
-
     /** Objetivos en modalidad automática que necesitan su siguiente orden */
     private List<Candidato> buscarCandidatos(Integer soloServidor, Integer soloGrupo) {
         List<Candidato> candidatos = new ArrayList<>();
@@ -383,12 +354,17 @@ public class ServicioPlanificacion {
         return candidatos;
     }
 
-    /** El primer ciclo usa la fecha de configuración (DEC-09). Los siguientes usan el cierre anterior */
+    /**
+     * El primer ciclo usa la fecha de configuración (DEC-09). Los siguientes usan el cierre anterior con su periodicidad o,
+     * si se cerró sin configuración (DEC-60), con la de la configuración actual
+     */
     private Optional<FechaYCierre> siguienteFechaObjetivo(ConfiguracionMantenimiento config, boolean sinOrdenes,
                                                           Optional<CierreOrden> cierre) {
         if (cierre.isPresent()) {
             CierreOrden c = cierre.get();
-            Instant objetivo = c.getFechaCierre().plus(c.getPeriodicidadBaseDias(), ChronoUnit.DAYS);
+            int periodicidad = c.getPeriodicidadBaseDias() != null ? c.getPeriodicidadBaseDias()
+                    : config.getFrecuenciaMantenimientoDias();
+            Instant objetivo = c.getFechaCierre().plus(periodicidad, ChronoUnit.DAYS);
             return Optional.of(new FechaYCierre(objetivo, c.getId()));
         }
         if (sinOrdenes) {
@@ -445,14 +421,6 @@ public class ServicioPlanificacion {
                 .map(t -> new Orden.TramoDetalle(t.idServidor(), t.posicion(), t.inicio(), t.fin()))
                 .toList();
         orden.reprogramar(programacion(resultado), tramos, autor, motivo, ahora);
-    }
-
-    private boolean sigueDentroDeSuVentana(Orden orden) {
-        Intervalo programada = new Intervalo(orden.getFechaInicioProgramada(), orden.getFechaFinProgramada());
-        CalendarioSemanal ventana = objetivoDeOrden(orden).ventana();
-        return ventana.proyectar(programada.inicio().minus(Duration.ofDays(8)), programada.fin().plus(Duration.ofDays(1)),
-                        propiedades.zona())
-                .stream().anyMatch(v -> v.contiene(programada));
     }
 
     private Objetivo objetivo(Integer idServidor, Integer idGrupo) {
@@ -547,15 +515,14 @@ public class ServicioPlanificacion {
         return crearOrden(o, r, origen, solicitante, motivo, ahora, null);
     }
 
-    /** ck_orden_evaluacion_origen: la evaluación de origen se asigna antes de insertar */
+    /**
+     * ck_orden_evaluacion_origen: la evaluación de origen se asigna antes de insertar. La orden guarda las cuentas que
+     * tiene asignadas el objetivo; no hay cuenta predeterminada (DEC-60)
+     */
     private Orden crearOrden(Objetivo o, ResultadoPlanificacion r, OrigenOrden origen, Usuario solicitante,
                              String motivo, Instant ahora, Integer idEvaluacionOrigen) {
-        Integer evaluacion = o.configuracion().getIdCuentaServicioEvaluacion() != null
-                ? o.configuracion().getIdCuentaServicioEvaluacion()
-                : parametros.obtener().getIdCuentaServicioEvaluacionPredeterminada();
-        Integer mantenimiento = o.configuracion().getIdCuentaServicioMantenimiento() != null
-                ? o.configuracion().getIdCuentaServicioMantenimiento()
-                : parametros.obtener().getIdCuentaServicioMantenimientoPredeterminada();
+        Integer evaluacion = o.configuracion().getIdCuentaServicioEvaluacion();
+        Integer mantenimiento = o.configuracion().getIdCuentaServicioMantenimiento();
         Orden orden = Orden.nueva(ordenes.siguienteId(), o.servidor(), o.grupo(), o.criticidad(), evaluacion, mantenimiento,
                 solicitante, origen, o.modo(), programacion(r), ahora, motivo);
         if (idEvaluacionOrigen != null) {

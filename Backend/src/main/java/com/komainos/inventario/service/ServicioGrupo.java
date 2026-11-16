@@ -17,7 +17,7 @@ import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionGrupoRepositorio;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
-import com.komainos.inventario.service.ServicioAsignacionCuentas.CuentaEfectiva;
+import com.komainos.inventario.service.ServicioAsignacionCuentas.CuentaAsignada;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.shared.exception.ConflictoException;
 import com.komainos.shared.exception.RecursoNoEncontradoException;
@@ -73,8 +73,8 @@ public class ServicioGrupo {
     public FichaGrupo ficha(Integer id, AlcanceUsuario alcance) {
         GrupoMantenimiento grupo = visible(id, alcance);
         Optional<ConfiguracionGrupo> configuracion = configuraciones.findByGrupoId(id);
-        return new FichaGrupo(grupo, configuracion, configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.EVALUACION)),
-                configuracion.flatMap(c -> cuentasServicio.efectiva(c, FinalidadCuenta.MANTENIMIENTO)),
+        return new FichaGrupo(grupo, configuracion, configuracion.flatMap(c -> cuentasServicio.asignada(c, FinalidadCuenta.EVALUACION)),
+                configuracion.flatMap(c -> cuentasServicio.asignada(c, FinalidadCuenta.MANTENIMIENTO)),
                 grupo.criticidadEfectiva(), ventanaEfectiva(grupo).aIntervalos());
     }
 
@@ -160,29 +160,26 @@ public class ServicioGrupo {
     @Transactional
     public ConfiguracionGrupo configurar(Integer id, DatosConfiguracionGrupo datos, Instant versionEsperada, Actor actor) {
         GrupoMantenimiento grupo = buscar(id);
-        Optional<NivelCriticidad> criticidad = grupo.criticidadEfectiva();
-        if ((datos.frecuenciaRevisionDias() == null || datos.frecuenciaMantenimientoDias() == null)
-                && criticidad.isEmpty()) {
-            throw new ReglaNegocioException(
-                    "El grupo no tiene integrantes: indique las frecuencias de revisión y de mantenimiento");
-        }
-        int revision = datos.frecuenciaRevisionDias() != null
-                ? datos.frecuenciaRevisionDias() : criticidad.orElseThrow().getFrecuenciaRevisionDias();
-        int mantenimiento = datos.frecuenciaMantenimientoDias() != null
-                ? datos.frecuenciaMantenimientoDias() : criticidad.orElseThrow().getFrecuenciaMantenimientoDias();
-
         Optional<ConfiguracionGrupo> existente = configuraciones.findByGrupoId(id);
         existente.ifPresent(c -> Concurrencia.exigirVersion(versionEsperada, c.getFechaActualizacion(),
                 "la configuración de mantenimiento del grupo " + grupo.getNombre()));
+        // Sin frecuencias predeterminadas (DEC-60): la de revisión omitida conserva la que tenía
+        if (datos.frecuenciaMantenimientoDias() == null) {
+            throw new ReglaNegocioException("Indique la frecuencia de mantenimiento del grupo");
+        }
+        int mantenimiento = datos.frecuenciaMantenimientoDias();
+        Integer revision = datos.frecuenciaRevisionDias() != null ? datos.frecuenciaRevisionDias()
+                : existente.map(ConfiguracionGrupo::getFrecuenciaRevisionDias).orElse(null);
         Map<String, Object> anterior = existente.map(ServicioGrupo::instantanea).orElse(null);
-        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicioEvaluacion(), FinalidadCuenta.EVALUACION, familia(grupo));
-        cuentasServicio.validarCuentaEfectiva(datos.idCuentaServicioMantenimiento(), FinalidadCuenta.MANTENIMIENTO, familia(grupo));
+        cuentasServicio.validarCuenta(datos.idCuentaServicioEvaluacion(), familia(grupo));
+        cuentasServicio.validarCuenta(datos.idCuentaServicioMantenimiento(), familia(grupo));
         ConfiguracionGrupo configuracion = existente.orElseGet(() -> ConfiguracionGrupo.nueva(
                 grupo, revision, mantenimiento, datos.modalidad(), datos.modoEjecucion(), Tiempo.ahora(reloj)));
         configuracion.actualizar(revision, mantenimiento, datos.modalidad(), datos.modoEjecucion());
         if (datos.revisionPeriodicaHabilitada() != null) {
             configuracion.setRevisionPeriodicaHabilitada(datos.revisionPeriodicaHabilitada());
         }
+        configuracion.exigirFrecuenciaRevision();
         configuracion.setIdCuentaServicioEvaluacion(datos.idCuentaServicioEvaluacion());
         configuracion.setIdCuentaServicioMantenimiento(datos.idCuentaServicioMantenimiento());
         configuraciones.save(configuracion);
@@ -288,7 +285,7 @@ public class ServicioGrupo {
         return v;
     }
 
-    /** idCuentaServicio nula: usa la cuenta predeterminada del sistema (RF06) */
+    /** idCuentaServicio nula: sin cuenta asignada para esa finalidad (RF05) */
     public record DatosConfiguracionGrupo(Integer frecuenciaRevisionDias, Integer frecuenciaMantenimientoDias,
                                           ModalidadPlanificacion modalidad, ModoEjecucion modoEjecucion,
                                           Integer idCuentaServicioEvaluacion, Integer idCuentaServicioMantenimiento,
@@ -309,8 +306,8 @@ public class ServicioGrupo {
 
     /** ventanaEfectiva y cuentaServicio quedan vacías en el listado para no calcularlas por cada grupo */
     public record FichaGrupo(GrupoMantenimiento grupo, Optional<ConfiguracionGrupo> configuracion,
-                             Optional<CuentaEfectiva> cuentaServicioEvaluacion,
-                                Optional<CuentaEfectiva> cuentaServicioMantenimiento,
+                             Optional<CuentaAsignada> cuentaServicioEvaluacion,
+                                Optional<CuentaAsignada> cuentaServicioMantenimiento,
                              Optional<NivelCriticidad> criticidadEfectiva, List<IntervaloSemanal> ventanaEfectiva) {
     }
 }

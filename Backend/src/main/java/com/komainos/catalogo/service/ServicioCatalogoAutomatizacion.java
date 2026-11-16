@@ -282,15 +282,14 @@ public class ServicioCatalogoAutomatizacion {
         cargarParametros(version);
         List<ParametroEjecucion> valores = new ArrayList<>();
         for (ParametroScript p : version.getParametros()) {
-            if (p.getTipoDato() == TipoParametro.LISTA) {
+            if (p.getTipo() == TipoParametro.LISTA) {
                 ListaReferencia lista = p.getListaReferencia();
                 if (lista == null) {
                     throw new ReglaNegocioException("El parámetro %s no tiene lista de referencia".formatted(p.getNombre()));
                 }
                 valores.add(ParametroEjecucion.lista(p.getNombre(), lista.getTipoDato(), lista.elementosVigentes()));
             } else {
-                valores.add(new ParametroEjecucion(p.getNombre(), p.getTipoDato().tipoEscalar(),
-                        vacioANulo(p.getValorPorDefecto())));
+                valores.add(new ParametroEjecucion(p.getNombre(), p.getTipoDato(), vacioANulo(p.getValorPorDefecto())));
             }
         }
         return valores;

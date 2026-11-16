@@ -31,12 +31,6 @@ public class NivelCriticidad {
     @Column(name = "prioridad", nullable = false)
     private Integer prioridad;
 
-    @Column(name = "frecuencia_revision_dias", nullable = false)
-    private Integer frecuenciaRevisionDias;
-
-    @Column(name = "frecuencia_mantenimiento_dias", nullable = false)
-    private Integer frecuenciaMantenimientoDias;
-
     /** Anticipación de la evaluación previa y plazo de autorización (RF38, RF75) */
     @Column(name = "plazo_autorizacion_horas", nullable = false)
     private Integer plazoAutorizacionHoras;
@@ -57,8 +51,6 @@ public class NivelCriticidad {
     public void aplicar(DatosNivelCriticidad datos) {
         nombre = datos.nombre();
         prioridad = datos.prioridad();
-        frecuenciaRevisionDias = datos.frecuenciaRevisionDias();
-        frecuenciaMantenimientoDias = datos.frecuenciaMantenimientoDias();
         plazoAutorizacionHoras = datos.plazoAutorizacionHoras();
         plazoValidacionHoras = datos.plazoValidacionHoras();
     }
@@ -81,8 +73,8 @@ public class NivelCriticidad {
         activo = false;
     }
 
-    public record DatosNivelCriticidad(String nombre, int prioridad, int frecuenciaRevisionDias,
-                                       int frecuenciaMantenimientoDias, int plazoAutorizacionHoras,
+    /** Sin frecuencias: cada configuración de mantenimiento define las suyas (DEC-60) */
+    public record DatosNivelCriticidad(String nombre, int prioridad, int plazoAutorizacionHoras,
                                        int plazoValidacionHoras) {
     }
 }

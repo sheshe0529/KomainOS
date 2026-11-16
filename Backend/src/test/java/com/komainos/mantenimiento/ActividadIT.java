@@ -58,14 +58,15 @@ class ActividadIT extends BaseAutomatizacionIT {
         assertThat(acciones(eventos)).contains("Autorización solicitada", "Orden autorizada",
                 "Validación funcional solicitada");
 
-        Map<String, Object> conexion = ultimo(eventos, "Conexión iniciada", "EVALUACION");
+        // Sin fase (DEC-60): los eventos de un análisis se reconocen por su evaluación
+        Map<String, Object> conexion = ultimo(eventos, "Conexión iniciada", e -> e.get("idEvaluacion") != null);
         assertThat(conexion.get("nivel")).isEqualTo("INFO");
         assertThat((String) conexion.get("detalle"))
                 .startsWith("srv-prueba (10.90.0.1) por SSH (puerto ")
                 .contains("cuenta «Cuenta de pruebas»: usuario svc_komainos con contraseña");
         assertThat(conexion.get("script")).isEqualTo(ANALISIS + " v1");
 
-        Map<String, Object> acceso = ultimo(eventos, "Acceso verificado", "EJECUCION");
+        Map<String, Object> acceso = ultimo(eventos, "Acceso verificado", e -> e.get("idEvaluacion") == null);
         assertThat(acceso.get("nivel")).isEqualTo("INFO");
         assertThat(acceso.get("estado")).isEqualTo("COMPLETADO");
         assertThat((String) acceso.get("detalle")).contains("con privilegios de administrador")
@@ -80,7 +81,19 @@ class ActividadIT extends BaseAutomatizacionIT {
                 .startsWith("Paso 1 de 2 · srv-prueba (10.90.0.1)");
         assertThat(evento(eventos, "Ejecución completada").get("detalle"))
                 .isEqualTo("2 de 2 tareas completadas");
-        assertThat(evento(eventos, "Análisis posterior completado").get("fase")).isEqualTo("VALIDACION");
+        assertThat(evento(eventos, "Análisis posterior completado").get("idEvaluacion")).isNotNull();
+        assertThat(eventos).allSatisfy(e -> assertThat(e).doesNotContainKey("fase"));
+        // DEC-60: cada evento guarda un solo origen, sin servidor ni fase; el servidor sale de ese origen
+        assertThat(jdbc.queryForObject("""
+                select count(*) from actividad_ejecucion
+                where num_nonnulls(id_orden_detalle, id_evaluacion, id_mop_tarea) <> 1""", Integer.class)).isZero();
+        assertThat(jdbc.queryForList("""
+                select case when id_evaluacion is not null then 'evaluacion'
+                            when id_mop_tarea is not null then 'tarea' else 'detalle' end
+                from actividad_ejecucion order by 1""", String.class))
+                .containsExactly("detalle", "detalle", "detalle", "detalle", "evaluacion", "evaluacion", "evaluacion",
+                        "evaluacion", "evaluacion", "evaluacion", "evaluacion", "evaluacion", "tarea", "tarea", "tarea",
+                        "tarea");
         assertThat((String) evento(eventos, "Evaluación previa completada").get("detalle"))
                 .startsWith("Resultado del análisis: Advertencia · ");
         // RNF11: ni la contraseña de la cuenta ni las variables de conexión salen en la actividad
@@ -266,9 +279,10 @@ class ActividadIT extends BaseAutomatizacionIT {
                 .orElseThrow(() -> new AssertionError("Sin el evento «%s» en %s".formatted(accion, acciones(eventos))));
     }
 
-    /** El más reciente de esa acción en la fase */
-    private static Map<String, Object> ultimo(List<Map<String, Object>> eventos, String accion, String fase) {
-        return eventos.stream().filter(e -> accion.equals(e.get("accion")) && fase.equals(e.get("fase"))).findFirst()
-                .orElseThrow(() -> new AssertionError("Sin el evento «%s» en %s".formatted(accion, fase)));
+    /** El más reciente de esa acción que cumple la condición */
+    private static Map<String, Object> ultimo(List<Map<String, Object>> eventos, String accion,
+                                              java.util.function.Predicate<Map<String, Object>> condicion) {
+        return eventos.stream().filter(e -> accion.equals(e.get("accion")) && condicion.test(e)).findFirst()
+                .orElseThrow(() -> new AssertionError("Sin el evento «%s»".formatted(accion)));
     }
 }

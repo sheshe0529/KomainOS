@@ -67,13 +67,15 @@ public class ServicioCierreMantenimiento {
         return cerradas;
     }
 
-    /** RF46: la periodicidad de la configuración del objetivo, o la de la criticidad si no la tiene */
-    private int periodicidad(Orden orden) {
-        int porCriticidad = orden.getNivelCriticidad().getFrecuenciaMantenimientoDias();
+    /**
+     * RF46: la periodicidad de la configuración del objetivo. Sin configuración (por ejemplo, tras la baja) queda nula:
+     * no hay frecuencia predeterminada ni siguiente ciclo que calcular (DEC-60)
+     */
+    private Integer periodicidad(Orden orden) {
         return orden.esGrupal()
                 ? configuracionesGrupo.findByGrupoId(orden.getGrupo().getId())
-                .map(c -> c.getFrecuenciaMantenimientoDias()).orElse(porCriticidad)
+                .map(c -> c.getFrecuenciaMantenimientoDias()).orElse(null)
                 : configuracionesServidor.findByServidorId(orden.getServidor().getId())
-                .map(c -> c.getFrecuenciaMantenimientoDias()).orElse(porCriticidad);
+                .map(c -> c.getFrecuenciaMantenimientoDias()).orElse(null);
     }
 }

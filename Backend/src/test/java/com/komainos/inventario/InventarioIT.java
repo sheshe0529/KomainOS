@@ -75,8 +75,8 @@ class InventarioIT extends PruebaIntegracion {
         responsable = usuarios.crear("resp.it", "M. Herrera", "clave-segura-2", Rol.RESPONSABLE, sistema);
         otroResponsable = usuarios.crear("resp2.it", "J. Paredes", "clave-segura-3", Rol.RESPONSABLE, sistema);
         idEntorno = catalogos.crearEntorno("Producción IT", null, sistema).getId();
-        idAlta = catalogos.crearCriticidad(new DatosNivelCriticidad("Alta IT", 1, 7, 30, 24, 48), sistema).getId();
-        idMedia = catalogos.crearCriticidad(new DatosNivelCriticidad("Media IT", 2, 14, 60, 12, 72), sistema).getId();
+        idAlta = catalogos.crearCriticidad(new DatosNivelCriticidad("Alta IT", 1, 24, 48), sistema).getId();
+        idMedia = catalogos.crearCriticidad(new DatosNivelCriticidad("Media IT", 2, 12, 72), sistema).getId();
         var so = catalogos.crearSistemaOperativo("Ubuntu IT", FamiliaSistemaOperativo.LINUX, sistema);
         idVersion = catalogos.agregarVersion(so.getId(), "22.04", sistema).getVersiones().getFirst().getId();
     }
@@ -119,7 +119,7 @@ class InventarioIT extends PruebaIntegracion {
     void flujoDeInventario() {
         Servidor s = crearServidor("srv-app-01", "10.20.1.11", idAlta, responsable);
         AlcanceUsuario alcanceAdmin = new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR);
-        servidores.configurar(s.getId(), new DatosConfiguracion(null, null, ModalidadPlanificacion.BAJO_DEMANDA),
+        servidores.configurar(s.getId(), new DatosConfiguracion(7, 30, ModalidadPlanificacion.BAJO_DEMANDA),
                 alcanceAdmin.actor());
         servidores.reemplazarVentanas(s.getId(), List.of(ventana(SABADO, "22:00", DOMINGO, "02:00")), alcanceAdmin);
         em.flush();
@@ -155,7 +155,7 @@ class InventarioIT extends PruebaIntegracion {
                 ventana(DOMINGO, "00:00", DOMINGO, "04:00")), alcanceAdmin);
         Integer idGrupo = grupos.crear("Grupo DB IT", null, alcanceAdmin.actor()).getId();
         grupos.reemplazarIntegrantes(idGrupo, List.of(a.getId(), b.getId()), alcanceAdmin.actor());
-        grupos.configurar(idGrupo, new ServicioGrupo.DatosConfiguracionGrupo(null, null,
+        grupos.configurar(idGrupo, new ServicioGrupo.DatosConfiguracionGrupo(null, 30,
                 ModalidadPlanificacion.BAJO_DEMANDA, ModoEjecucion.PARALELO), alcanceAdmin.actor());
         em.flush();
         em.clear();
@@ -178,21 +178,23 @@ class InventarioIT extends PruebaIntegracion {
         grupos.reemplazarIntegrantes(idGrupo, List.of(servidor.getId()), sistema);
         String rutaServidor = "/api/servidores/" + servidor.getId() + "/configuracion";
         String rutaGrupo = "/api/grupos/" + idGrupo + "/configuracion";
+        // Sin frecuencias predeterminadas (DEC-60): la de revisión omitida conserva la que ya tenía
         String datosServidor = """
-                {"modalidadPlanificacion":"BAJO_DEMANDA"}
+                {"modalidadPlanificacion":"BAJO_DEMANDA","frecuenciaRevisionDias":7,"frecuenciaMantenimientoDias":30}
                 """;
         String datosGrupo = """
-                {"modalidadPlanificacion":"BAJO_DEMANDA","modoEjecucion":"PARALELO"}
+                {"modalidadPlanificacion":"BAJO_DEMANDA","modoEjecucion":"PARALELO","frecuenciaMantenimientoDias":30}
                 """;
 
         comprobarConfiguracionRevision(rutaServidor, datosServidor, true);
         comprobarConfiguracionRevision(rutaGrupo, datosGrupo, false);
 
         comprobarConfiguracionRevision(rutaServidor, """
-                {"modalidadPlanificacion":"BAJO_DEMANDA","revisionPeriodicaHabilitada":false}
+                {"modalidadPlanificacion":"BAJO_DEMANDA","frecuenciaMantenimientoDias":30,"revisionPeriodicaHabilitada":false}
                 """, false);
         comprobarConfiguracionRevision(rutaGrupo, """
-                {"modalidadPlanificacion":"BAJO_DEMANDA","modoEjecucion":"PARALELO","revisionPeriodicaHabilitada":true}
+                {"modalidadPlanificacion":"BAJO_DEMANDA","modoEjecucion":"PARALELO","frecuenciaRevisionDias":7,
+                 "frecuenciaMantenimientoDias":30,"revisionPeriodicaHabilitada":true}
                 """, true);
 
         comprobarConfiguracionRevision(rutaServidor, datosServidor, false);
