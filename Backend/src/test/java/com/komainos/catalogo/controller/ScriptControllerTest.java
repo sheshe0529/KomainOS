@@ -26,6 +26,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -115,5 +116,17 @@ class ScriptControllerTest {
                         .with(user(DatosPrueba.autenticado(1, "oper", Rol.OPERADOR))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElementos").value(0));
+    }
+
+    @Test
+    @DisplayName("El listado de tareas pasa al servicio el texto del buscador")
+    void listadoDeTareasConBuscador() throws Exception {
+        when(servicio.tareas(eq("memoria"), any())).thenReturn(Page.empty());
+
+        mvc.perform(get("/api/tareas").param("texto", "memoria")
+                        .with(user(DatosPrueba.autenticado(1, "oper", Rol.OPERADOR))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElementos").value(0));
+        verify(servicio).tareas(eq("memoria"), any());
     }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aNumero, filtrarMetricas, normalizarElemento, operadoresPara, problemaDeValores } from './umbrales'
+import { aNumero, filtrarMetricas, filtrarUmbrales, normalizarElemento, operadoresPara, problemaDeValores } from './umbrales'
 
 describe('problemaDeValores: las mismas reglas que el backend (HU12 CA2)', () => {
   it('acepta valores coherentes con el operador, o uno solo de los dos niveles', () => {
@@ -93,5 +93,32 @@ describe('filtrarMetricas: buscador de la pestaña Métricas', () => {
     expect(filtrarMetricas(metricas, 'lista inactiva').map((m) => m.id)).toEqual([3])
     expect(filtrarMetricas(metricas, 'memoria linux').map((m) => m.id)).toEqual([1])
     expect(filtrarMetricas(metricas, 'memoria solo')).toEqual([])
+  })
+})
+
+describe('filtrarUmbrales: buscador de la pestaña Umbrales', () => {
+  const memoria = { id: 1, codigo: 'mem_uso', nombre: 'Uso de memoria', tipoDato: 'DECIMAL' as const, esLista: false, activo: true }
+  const puertos = { id: 2, codigo: 'red_puerto_no_aut', nombre: 'Puertos TCP no autorizados', tipoDato: 'INTEGER' as const, esLista: true, activo: false }
+  const umbrales = [
+    { id: 10, nombre: 'Memoria alta', metrica: memoria, activo: true },
+    { id: 11, nombre: 'Memoria en producción', metrica: memoria, activo: false },
+    { id: 12, nombre: 'Puertos permitidos', metrica: puertos, activo: true, lista: { id: 5, nombre: 'Puertos de la DMZ' } },
+  ]
+
+  it('sin texto devuelve todos', () => {
+    expect(filtrarUmbrales(umbrales, ' ')).toHaveLength(3)
+  })
+
+  it('busca en el umbral, su métrica, el código y la lista sin distinguir mayúsculas ni tildes', () => {
+    expect(filtrarUmbrales(umbrales, 'PRODUCCION').map((u) => u.id)).toEqual([11])
+    expect(filtrarUmbrales(umbrales, 'uso de memoria').map((u) => u.id)).toEqual([10, 11])
+    expect(filtrarUmbrales(umbrales, 'red_puerto').map((u) => u.id)).toEqual([12])
+    expect(filtrarUmbrales(umbrales, 'dmz').map((u) => u.id)).toEqual([12])
+  })
+
+  it('todas las palabras deben aparecer, en cualquier orden, también el estado', () => {
+    expect(filtrarUmbrales(umbrales, 'inactivo memoria').map((u) => u.id)).toEqual([11])
+    expect(filtrarUmbrales(umbrales, 'metrica inactiva').map((u) => u.id)).toEqual([12])
+    expect(filtrarUmbrales(umbrales, 'memoria dmz')).toEqual([])
   })
 })

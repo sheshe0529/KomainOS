@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -38,10 +39,12 @@ public class TareaController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'OPERADOR')")
-    @Operation(summary = "Lista las tareas con su script y los sistemas operativos compatibles")
+    @Operation(summary = "Lista las tareas con su script y los sistemas operativos compatibles; con texto, las que lo "
+            + "contienen en su nombre, su descripción o el nombre de su script")
     public PaginaRespuesta<TareaRespuesta> listar(
+            @RequestParam(required = false) String texto,
             @PageableDefault(size = 20, sort = {"prioridad", "nombre"}, direction = Sort.Direction.ASC) Pageable pagina) {
-        return PaginaRespuesta.de(servicio.tareas(pagina), CatalogoMapeador::tarea);
+        return PaginaRespuesta.de(servicio.tareas(texto, pagina), CatalogoMapeador::tarea);
     }
 
     @GetMapping("/{id}")

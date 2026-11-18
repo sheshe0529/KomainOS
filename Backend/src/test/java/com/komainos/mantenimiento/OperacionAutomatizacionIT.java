@@ -6,6 +6,7 @@ import com.komainos.alerta.service.ServicioAlertas.DatosAlerta;
 import com.komainos.ejecucion.service.DiagnosticoAutomatizacion.Diagnostico;
 import com.komainos.ejecucion.service.DiagnosticoAutomatizacion.Transporte;
 import com.komainos.catalogo.model.NivelAfectacion;
+import com.komainos.catalogo.model.Tarea;
 import com.komainos.credencial.model.TipoAutenticacion;
 import com.komainos.credencial.service.ServicioCredenciales;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
@@ -374,6 +375,26 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
             mvc.perform(get("/api/tareas").with(como(operador)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.contenido[0].sistemasCompatibles[0]").value("Ubuntu 24.04"));
+        }
+
+        @Test
+        @DisplayName("El buscador de tareas encuentra por nombre, descripción o script, sin distinguir mayúsculas")
+        void buscadorDeTareas() throws Exception {
+            Integer limpieza = jdbc.queryForObject("select id_script from script where nombre = ?", Integer.class, LIMPIEZA);
+            catalogo.guardarTarea(null, limpieza, new Tarea.DatosTarea("Depurar bitácoras", null,
+                    NivelAfectacion.SIN_AFECTACION, 30, 5, false), Set.of(), actor);
+
+            // Por el script: la tarea que se llama como él y la que solo lo usa, por prioridad
+            mvc.perform(get("/api/tareas").param("texto", "LIBERAR archivos").with(como(operador)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalElementos").value(2))
+                    .andExpect(jsonPath("$.contenido[0].nombre").value(LIMPIEZA))
+                    .andExpect(jsonPath("$.contenido[1].nombre").value("Depurar bitácoras"));
+            mvc.perform(get("/api/tareas").param("texto", "diagnóstico de memoria").with(como(operador)))
+                    .andExpect(jsonPath("$.totalElementos").value(1))
+                    .andExpect(jsonPath("$.contenido[0].nombre").value(MEMORIA));
+            mvc.perform(get("/api/tareas").param("texto", "no existe").with(como(operador)))
+                    .andExpect(jsonPath("$.totalElementos").value(0));
         }
     }
 

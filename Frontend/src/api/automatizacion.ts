@@ -75,10 +75,15 @@ export const scriptsApi = {
     ),
 }
 
+/** Texto que se busca en el nombre o la descripción de la tarea y en el nombre de su script */
+export interface FiltroTareas {
+  texto?: string
+}
+
 /** Tareas de mantenimiento: script, afectación, prioridad y umbrales que las activan (RF23, RF24) */
 export const tareasApi = {
-  listar: (pagina = 0, tamano = 25) =>
-    http.get<Pagina<TareaRespuesta>>(`/tareas${consulta({ page: pagina, size: tamano })}`),
+  listar: (filtro: FiltroTareas = {}, pagina = 0, tamano = 25) =>
+    http.get<Pagina<TareaRespuesta>>(`/tareas${consulta({ ...filtro, page: pagina, size: tamano })}`),
   obtener: (id: number) => http.get<TareaRespuesta>(`/tareas/${id}`),
   guardar: (id: number | undefined, datos: TareaPeticion) =>
     id ? http.put<TareaRespuesta>(`/tareas/${id}`, datos) : http.post<TareaRespuesta>('/tareas', datos),
