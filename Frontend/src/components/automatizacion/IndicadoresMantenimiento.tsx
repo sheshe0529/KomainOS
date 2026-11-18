@@ -97,8 +97,8 @@ export function IndicadoresMantenimiento() {
                     ? `${k.numerador?.toLocaleString('es-PE', { maximumFractionDigits: 1 })} ${k.unidad === 'h' ? 'horas acumuladas en' : 'de'} ${k.denominador} registros`
                     : 'Sin datos en el periodo'}
                 </p>
-                <p className="mt-1 text-xs text-ink-faint">
-                  {k.meta == null ? 'Meta según SLA de la organización' : `Meta: ≥ ${k.meta} %`}
+                <p className="mt-1 text-xs text-ink-faint" title={k.meta == null ? undefined : 'Meta del indicador'}>
+                  {k.meta == null ? 'Meta según SLA de la organización' : `≥ ${k.meta} %`}
                 </p>
               </article>
             ))}

@@ -1,17 +1,27 @@
 import type { ReactNode } from 'react'
+import { Info } from '@/components/ui/Info'
 
 interface TarjetaProps {
   titulo: string
+  /** Explicación de la tarjeta detrás de un ⓘ junto al título */
+  info?: ReactNode
   acciones?: ReactNode
   children: ReactNode
   className?: string
 }
 
-export function Tarjeta({ titulo, acciones, children, className = '' }: TarjetaProps) {
+export function Tarjeta({ titulo, info, acciones, children, className = '' }: TarjetaProps) {
   return (
     <section className={`rounded-xl border border-line bg-panel p-5 ${className}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-ink">{titulo}</h3>
+        {info ? (
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-base font-semibold text-ink">{titulo}</h3>
+            <Info etiqueta={`Sobre: ${titulo}`}>{info}</Info>
+          </div>
+        ) : (
+          <h3 className="text-base font-semibold text-ink">{titulo}</h3>
+        )}
         {acciones && <div className="flex items-center gap-1">{acciones}</div>}
       </div>
       {children}

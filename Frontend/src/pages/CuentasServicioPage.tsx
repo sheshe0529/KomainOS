@@ -50,7 +50,7 @@ export function CuentasServicioPage() {
     <>
       <PageHeader
         title="Cuentas de servicio"
-        description="Cada servidor y grupo evalúa con la cuenta que tiene asignada y ejecuta el mantenimiento con otra. No hay cuenta predeterminada: sin asignación no podrá conectarse."
+        description="Cada servidor y grupo evalúa con la cuenta que tiene asignada y ejecuta el mantenimiento con otra."
         actions={
           <Boton variante="primario" icono={Plus} onClick={() => setDialogo({ tipo: 'nueva' })}>
             Nueva cuenta
