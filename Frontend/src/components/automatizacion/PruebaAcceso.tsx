@@ -5,6 +5,7 @@ import { cuentasServicioApi } from '@/api/credenciales'
 import type { ConexionRespuesta } from '@/api/types'
 import { Boton } from '@/components/ui/Boton'
 import { Selector } from '@/components/ui/Campo'
+import { Info } from '@/components/ui/Info'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
@@ -88,18 +89,18 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
             ?.filter((c) => c.estado === 'VIGENTE')
             .map((c) => (
               <option key={c.id} value={c.id}>
-                Probar con {rotuloCuentaServicio(c)}
+                {rotuloCuentaServicio(c)}
               </option>
             ))}
         </Selector>
         <Boton icono={PlugZap} cargando={probando} onClick={probar}>
           {idGrupo ? 'Probar todos los integrantes' : 'Probar acceso'}
         </Boton>
+        <Info etiqueta="Qué comprueba la prueba de acceso">
+          Llega al servidor, inicia sesión, aplica la elevación configurada en la cuenta e informa con qué permisos se
+          ejecutarán los scripts. Prueba la cuenta de evaluación y la de mantenimiento, una sola vez si son la misma.
+        </Info>
       </div>
-      <p className="text-xs text-ink-faint">
-        Llega al servidor, inicia sesión, aplica la elevación configurada en la cuenta e informa con qué permisos se
-        ejecutarán los scripts. Prueba la cuenta de evaluación y la de mantenimiento, una sola vez si son la misma.
-      </p>
 
       <MensajeError error={error} />
 

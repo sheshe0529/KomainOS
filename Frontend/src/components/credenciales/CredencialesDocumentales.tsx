@@ -61,6 +61,7 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
   return (
     <Tarjeta
       titulo="Credenciales documentales"
+      info="Accesos al servidor registrados con fines informativos. Los secretos se guardan cifrados y solo se muestran unos segundos tras confirmar su contraseña. La principal es la que viaja al exportar e importar el inventario."
       acciones={
         editable && (
           <Boton icono={Plus} variante="fantasma" onClick={() => setDialogo({ tipo: 'nueva' })}>
@@ -69,10 +70,6 @@ export function CredencialesDocumentales({ idServidor, hostname, familia, editab
         )
       }
     >
-      <p className="mb-4 text-xs text-ink-faint">
-        Accesos al servidor registrados con fines informativos. Los secretos se guardan cifrados y solo se muestran unos
-        segundos tras confirmar su contraseña. La principal es la que viaja al exportar e importar el inventario.
-      </p>
       <MensajeError error={credenciales.error} onReintentar={credenciales.recargar} />
       {credenciales.cargando && !credenciales.datos ? (
         <Cargando />
