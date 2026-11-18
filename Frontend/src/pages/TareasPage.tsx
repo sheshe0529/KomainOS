@@ -10,12 +10,14 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { TareaFormulario } from '@/components/automatizacion/TareaFormulario'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton, BotonIcono } from '@/components/ui/Boton'
+import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacion } from '@/hooks/usePaginacion'
+import { useTextoDiferido } from '@/hooks/useTextoDiferido'
 import { AFECTACION } from '@/utils/automatizacion'
 import { formatearDuracion } from '@/utils/formato'
 
@@ -26,8 +28,10 @@ export function TareasPage() {
   const { avisar } = useAvisos()
 
   const { pagina, tamano, setPagina, setTamano } = usePaginacion('tareas')
+  const [busqueda, setBusqueda] = useState('')
+  const texto = useTextoDiferido(busqueda)
   const [editando, setEditando] = useState<TareaRespuesta | 'nueva'>()
-  const tareas = useConsulta(() => tareasApi.listar(pagina, tamano), [pagina, tamano])
+  const tareas = useConsulta(() => tareasApi.listar({ texto }, pagina, tamano), [texto, pagina, tamano])
   const scripts = useConsulta(() => scriptsApi.todos(), [])
   const umbrales = useConsulta(() => umbralesApi.umbrales(), [])
   const parametros = useConsulta(() => catalogosApi.parametros(), [])
@@ -65,13 +69,25 @@ export function TareasPage() {
         </p>
       )}
 
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <CampoBusqueda
+          valor={busqueda}
+          onCambiar={(t) => {
+            setBusqueda(t)
+            setPagina(0)
+          }}
+          placeholder="Buscar por tarea, descripción o script"
+          aria-label="Buscar tareas"
+        />
+      </div>
+
       <MensajeError error={tareas.error ?? scripts.error ?? umbrales.error} onReintentar={tareas.recargar} />
 
       {tareas.cargando && !tareas.datos ? (
         <Cargando />
       ) : filas.length === 0 ? (
         <p className="rounded-xl border border-line bg-panel px-5 py-10 text-center text-sm text-ink-soft">
-          Sin tareas registradas.
+          {texto.trim() ? 'Ninguna tarea coincide con la búsqueda.' : 'Sin tareas registradas.'}
         </p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-panel">

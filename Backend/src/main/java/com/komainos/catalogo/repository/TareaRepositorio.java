@@ -17,6 +17,16 @@ public interface TareaRepositorio extends JpaRepository<Tarea, Integer> {
     @EntityGraph(attributePaths = {"script"})
     Page<Tarea> findAll(Pageable pagina);
 
+    /** Buscador del listado: el patrón (en minúsculas, con sus comodines) en el nombre o la descripción de la tarea o en el nombre de su script */
+    @EntityGraph(attributePaths = {"script"})
+    @Query("""
+            select t from Tarea t
+            where lower(t.nombre) like :patron
+               or lower(coalesce(t.descripcion, '')) like :patron
+               or lower(t.script.nombre) like :patron
+            """)
+    Page<Tarea> buscar(@Param("patron") String patron, Pageable pagina);
+
     /** RF41: cada tarea una sola vez aunque la activen varios umbrales, ordenadas por prioridad */
     @EntityGraph(attributePaths = {"script"})
     @Query("""

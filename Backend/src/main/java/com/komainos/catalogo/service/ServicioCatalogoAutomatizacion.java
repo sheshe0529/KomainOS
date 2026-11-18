@@ -344,9 +344,12 @@ public class ServicioCatalogoAutomatizacion {
 
     // ---------------------------------------------------------------- Tareas (RF22, RF23)
 
+    /** Con texto, solo las tareas cuyo nombre, descripción o script lo contienen, sin distinguir mayúsculas */
     @Transactional(readOnly = true)
-    public Page<Tarea> tareas(Pageable pagina) {
-        Page<Tarea> resultado = tareas.findAll(pagina);
+    public Page<Tarea> tareas(String texto, Pageable pagina) {
+        Page<Tarea> resultado = texto == null || texto.isBlank()
+                ? tareas.findAll(pagina)
+                : tareas.buscar("%" + texto.trim().toLowerCase(Locale.ROOT) + "%", pagina);
         resultado.forEach(t -> {
             Hibernate.initialize(t.getIdsUmbrales());
             cargar(t.getScript());

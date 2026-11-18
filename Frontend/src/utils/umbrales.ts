@@ -6,7 +6,13 @@ import type {
   OrigenUmbral,
   TipoDato,
 } from '@/api/dominio'
-import type { ListaReferenciaRespuesta, MetricaRespuesta, UmbralServidorRespuesta, ValoresUmbralRespuesta } from '@/api/types'
+import type {
+  ListaReferenciaRespuesta,
+  MetricaRespuesta,
+  UmbralRespuesta,
+  UmbralServidorRespuesta,
+  ValoresUmbralRespuesta,
+} from '@/api/types'
 import type { StatusTone } from '@/components/ui/StatusPill'
 
 /** El backend ya resuelve la precedencia: enGrupos solo contiene excepciones de grupo que efectivamente ganan. */
@@ -136,6 +142,22 @@ export function filtrarMetricas<T extends MetricaRespuesta>(metricas: readonly T
       [m.nombre, m.codigo, m.descripcion, m.unidad, describirMetrica(m), sistemasDeMetrica(m), m.activo ? 'activa' : 'inactiva']
         .filter(Boolean)
         .join(' '),
+    )
+    return palabras.every((p) => contenido.includes(p))
+  })
+}
+
+/**
+ * Umbrales cuyo nombre, métrica (nombre o código), lista de referencia o estado contienen todas las palabras buscadas,
+ * en cualquier orden; sin texto, todos. Se aplica antes de paginar
+ */
+export function filtrarUmbrales<T extends UmbralRespuesta>(umbrales: readonly T[], texto: string): T[] {
+  const palabras = normalizarBusqueda(texto).split(/\s+/).filter(Boolean)
+  if (palabras.length === 0) return [...umbrales]
+  return umbrales.filter((u) => {
+    const estado = !u.metrica?.activo ? 'métrica inactiva' : u.activo ? 'activo' : 'inactivo'
+    const contenido = normalizarBusqueda(
+      [u.nombre, u.metrica?.nombre, u.metrica?.codigo, u.lista?.nombre, estado].filter(Boolean).join(' '),
     )
     return palabras.every((p) => contenido.includes(p))
   })

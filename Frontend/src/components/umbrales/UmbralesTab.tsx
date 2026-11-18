@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, Plus } from 'lucide-react'
 import { umbralesApi } from '@/api/umbrales'
@@ -6,13 +6,14 @@ import type { UmbralRespuesta } from '@/api/types'
 import { useAvisos } from '@/components/ui/avisos-context'
 import { Boton } from '@/components/ui/Boton'
 import { Selector } from '@/components/ui/Campo'
+import { CampoBusqueda } from '@/components/ui/CampoBusqueda'
 import { Cargando } from '@/components/ui/Cargando'
 import { MensajeError } from '@/components/ui/MensajeError'
 import { Paginacion } from '@/components/ui/Paginacion'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { useConsulta } from '@/hooks/useConsulta'
 import { usePaginacionLocal } from '@/hooks/usePaginacion'
-import { formatearLimite, simbolo } from '@/utils/umbrales'
+import { filtrarUmbrales, formatearLimite, simbolo } from '@/utils/umbrales'
 import { UmbralFormulario } from './UmbralFormulario'
 
 interface UmbralesTabProps {
@@ -34,29 +35,60 @@ export function UmbralesTab({ esAdmin, visita }: UmbralesTabProps) {
   const { avisar } = useAvisos()
   const navigate = useNavigate()
   const [idMetrica, setIdMetrica] = useState('')
+  const [busqueda, setBusqueda] = useState('')
   const [creando, setCreando] = useState(false)
   const metricas = useConsulta(() => umbralesApi.metricas(), [visita])
   const filtro = idMetrica ? Number(idMetrica) : undefined
   const umbrales = useConsulta(() => umbralesApi.umbrales(filtro), [idMetrica, visita])
-  const tabla = usePaginacionLocal(umbrales.datos ?? [], 'umbrales')
+  // La lista llega completa: el buscador filtra antes de paginar, como en Métricas y Listas
+  const filtrados = useMemo(() => filtrarUmbrales(umbrales.datos ?? [], busqueda), [umbrales.datos, busqueda])
+  const tabla = usePaginacionLocal(filtrados, 'umbrales')
   const hayMetricaActiva = metricas.datos?.some((m) => m.activo)
   const ruta = (u: UmbralRespuesta) => `/umbrales/${u.id}`
 
+  function buscar(texto: string) {
+    setBusqueda(texto)
+    tabla.controles.onCambiar(0)
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="w-full max-w-xs">
-          <Selector value={idMetrica} onChange={(e) => setIdMetrica(e.target.value)} aria-label="Filtrar por métrica">
-            <option value="">Todas las métricas</option>
-            {metricas.datos?.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nombre}
-              </option>
-            ))}
-          </Selector>
-        </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <CampoBusqueda
+          valor={busqueda}
+          onCambiar={buscar}
+          placeholder="Buscar por umbral, métrica, código o lista"
+          aria-label="Buscar umbrales"
+        />
+        <Selector
+          value={idMetrica}
+          onChange={(e) => {
+            setIdMetrica(e.target.value)
+            tabla.controles.onCambiar(0)
+          }}
+          aria-label="Filtrar por métrica"
+          className="!w-auto"
+        >
+          <option value="">Todas las métricas</option>
+          {metricas.datos?.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.nombre}
+            </option>
+          ))}
+        </Selector>
+        {busqueda.trim() && umbrales.datos && (
+          <span className="text-xs text-ink-soft" aria-live="polite">
+            {filtrados.length} de {umbrales.datos.length} umbrales
+          </span>
+        )}
         {esAdmin && (
-          <Boton variante="primario" icono={Plus} onClick={() => setCreando(true)} disabled={!hayMetricaActiva}>
+          <Boton
+            variante="primario"
+            icono={Plus}
+            onClick={() => setCreando(true)}
+            disabled={!hayMetricaActiva}
+            className="ml-auto"
+          >
             Nuevo umbral
           </Boton>
         )}
@@ -68,6 +100,10 @@ export function UmbralesTab({ esAdmin, visita }: UmbralesTabProps) {
       ) : umbrales.datos?.length === 0 ? (
         <p className="rounded-xl border border-line bg-panel px-5 py-8 text-center text-sm text-ink-soft">
           {esAdmin && !hayMetricaActiva ? 'Sin umbrales. Registre primero una métrica.' : 'Sin umbrales'}
+        </p>
+      ) : filtrados.length === 0 ? (
+        <p className="rounded-xl border border-line bg-panel px-5 py-8 text-center text-sm text-ink-soft">
+          Ningún umbral coincide con la búsqueda.
         </p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-panel">
