@@ -14,8 +14,8 @@ con Amazon RDS, con la imagen Docker, está en [DESPLIEGUE.md](../DESPLIEGUE.md)
 ## Puesta en marcha
 
 El backend se conecta a una base preparada con los scripts de `scripts/bd/`
-(DEC-34). Si la base ya existe, aplique las migraciones pendientes de
-`scripts/bd/cambios/` antes de arrancar.
+(DEC-34): el DDL final y los datos iniciales. El repositorio no guarda scripts de
+cambios; una base existente debe quedar igual a `01_esquema.sql` antes de arrancar.
 
 1. Crear las bases en el PostgreSQL local (puerto 5432):
    - `DBKomainOS` — desarrollo.
@@ -53,9 +53,8 @@ se cambia con `KOMAINOS_PUERTO`.
 
 | Script | Uso |
 |---|---|
-| `01_esquema.sql` | DDL vigente del esquema `KomainOS` para bases nuevas, con 53 tablas, 99 claves foráneas y 34 enumerados. Requiere PostgreSQL 15 o superior. |
+| `01_esquema.sql` | DDL de la versión final del esquema `KomainOS`: 52 tablas, 95 claves foráneas, 44 restricciones CHECK y 34 enumerados (DEC-61). Requiere PostgreSQL 15 o superior. |
 | `02_datos_sistema.sql` | Datos iniciales: parámetros globales y las 21 variables de salud del R3.1 (catálogo de métricas). Sin umbrales, datos de demostración ni administrador (lo crea el backend en su primer arranque). Idempotente. |
-| `cambios/` | Migraciones para bases existentes. El despliegue automático aplica las pendientes en RDS (ver `cambios/README.md`). |
 
 ## Ciclo de verificación
 

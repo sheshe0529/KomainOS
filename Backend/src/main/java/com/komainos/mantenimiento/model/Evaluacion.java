@@ -1,6 +1,6 @@
 package com.komainos.mantenimiento.model;
 
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptVersion;
 import com.komainos.inventario.model.NivelAlerta;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.shared.exception.ReglaNegocioException;
@@ -62,7 +62,7 @@ public class Evaluacion {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_script_version", nullable = false)
-    private VersionScript version;
+    private ScriptVersion version;
 
     @Column(name = "id_cuenta_servicio", nullable = false)
     private Integer idCuentaServicio;
@@ -95,7 +95,7 @@ public class Evaluacion {
     @OrderBy("id ASC")
     private List<MedicionMetrica> mediciones = new ArrayList<>();
 
-    public static Evaluacion iniciar(Servidor servidor, OrdenDetalle detalle, VersionScript version,
+    public static Evaluacion iniciar(Servidor servidor, OrdenDetalle detalle, ScriptVersion version,
                                      Integer idCuentaServicio, TipoEvaluacion tipo, Instant ahora) {
         if ((tipo == TipoEvaluacion.REVISION_PERIODICA) != (detalle == null)) {
             throw new IllegalArgumentException("La revisión periódica no pertenece a una orden; la previa y la posterior sí");
@@ -112,7 +112,7 @@ public class Evaluacion {
     }
 
     public static Evaluacion iniciarRevisionGrupal(Servidor servidor, RevisionPeriodicaGrupo revisionGrupo,
-                                                   VersionScript version, Integer idCuentaServicio, Instant ahora) {
+                                                   ScriptVersion version, Integer idCuentaServicio, Instant ahora) {
         Evaluacion evaluacion = iniciar(servidor, null, version, idCuentaServicio, TipoEvaluacion.REVISION_PERIODICA, ahora);
         evaluacion.revisionGrupo = Objects.requireNonNull(revisionGrupo);
         return evaluacion;

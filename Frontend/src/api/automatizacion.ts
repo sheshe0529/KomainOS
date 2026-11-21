@@ -100,8 +100,6 @@ export const cicloApi = {
   aceptarFecha: (idOrden: number) => http.post<void>(`/ordenes/${idOrden}/aceptar-fecha`),
   validar: (idOrden: number, conforme: boolean, observaciones: string) =>
     http.post<void>(`/ordenes/${idOrden}/validacion`, { conforme, observaciones }),
-  cerrarSinImplementacion: (idOrden: number, motivo: string) =>
-    http.post<void>(`/ordenes/${idOrden}/cierre-sin-implementacion`, { motivo }),
 }
 
 export interface FiltroSala {

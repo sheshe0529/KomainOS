@@ -36,9 +36,6 @@ public interface ServidorRepositorio extends JpaRepository<Servidor, Integer>, J
     List<Servidor> findConDetalleByIdIn(Collection<Integer> ids);
 
     @EntityGraph(attributePaths = {"versionSistemaOperativo.sistemaOperativo", "entorno", "nivelCriticidad", "responsable"})
-    List<Servidor> findByEstadoNotOrderByHostnameAsc(EstadoServidor estado);
-
-    @EntityGraph(attributePaths = {"versionSistemaOperativo.sistemaOperativo", "entorno", "nivelCriticidad", "responsable"})
     @Query("""
             select s from Servidor s
             where lower(s.hostname) in :hostnames
@@ -50,8 +47,6 @@ public interface ServidorRepositorio extends JpaRepository<Servidor, Integer>, J
 
     boolean existsByHostnameIgnoreCaseAndIdNot(String hostname, Integer id);
 
-
-    long countByEstado(EstadoServidor estado);
 
     long countByResponsableIdAndEstadoNot(Integer idResponsable, EstadoServidor estado);
 }

@@ -59,7 +59,7 @@ public record UmbralAplicado(Umbral umbral, UmbralExcepcion excepcion, OrigenUmb
     /**
      * Faltan los esperados que no se informaron y sobran los informados que no se esperaban. Cada diferencia cuenta solo
      * si su nivel está definido y el resultado es el peor de los dos. Compara con los elementos vigentes de la lista;
-     * para reconstruir una evaluación pasada se usa {@link ListaReferencia#elementosEn}.
+     * una evaluación pasada se reconstruye con las fechas de alta y baja de cada elemento.
      */
     public ResultadoLista evaluarLista(Collection<String> informados) {
         Set<String> reportados = new LinkedHashSet<>();

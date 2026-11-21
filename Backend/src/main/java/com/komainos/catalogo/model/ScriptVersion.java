@@ -29,7 +29,7 @@ import java.util.List;
 @Table(name = "script_version")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class VersionScript {
+public class ScriptVersion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,7 +38,7 @@ public class VersionScript {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_script_implementacion", nullable = false)
-    private ImplementacionScript implementacion;
+    private ScriptImplementacion implementacion;
 
     @Column(name = "numero_version", nullable = false, updatable = false)
     private Integer numeroVersion;
@@ -62,11 +62,11 @@ public class VersionScript {
     @OneToMany(mappedBy = "version", cascade = CascadeType.ALL)
     @BatchSize(size = 50)
     @OrderBy("orden ASC")
-    private List<ParametroScript> parametros = new ArrayList<>();
+    private List<ScriptParametro> parametros = new ArrayList<>();
 
-    public static VersionScript nueva(ImplementacionScript implementacion, int numero, String contenido, String notas,
+    public static ScriptVersion nueva(ScriptImplementacion implementacion, int numero, String contenido, String notas,
                                       Instant ahora) {
-        VersionScript version = new VersionScript();
+        ScriptVersion version = new ScriptVersion();
         version.implementacion = implementacion;
         version.numeroVersion = numero;
         version.contenido = contenido;
@@ -75,7 +75,7 @@ public class VersionScript {
         return version;
     }
 
-    public void agregarParametro(ParametroScript parametro) {
+    public void agregarParametro(ScriptParametro parametro) {
         parametros.add(parametro);
     }
 

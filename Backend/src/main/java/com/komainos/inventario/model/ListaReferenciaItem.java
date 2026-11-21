@@ -58,11 +58,6 @@ public class ListaReferenciaItem {
         return fechaBaja == null;
     }
 
-    /** Vigente en ese instante: el alta se incluye y la baja no */
-    public boolean vigenteEn(Instant momento) {
-        return !getFechaAlta().isAfter(momento) && (fechaBaja == null || fechaBaja.isAfter(momento));
-    }
-
     void retirar(Instant baja) {
         fechaBaja = baja;
     }

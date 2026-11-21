@@ -6,6 +6,7 @@ import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoIncidencia;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Incidencia;
 import com.komainos.mantenimiento.model.Mop;
 import com.komainos.mantenimiento.model.Orden;
@@ -116,7 +117,7 @@ public class ServicioIncidencias {
         if (abiertas || enCurso) {
             return false;
         }
-        cierre.cerrar(orden, recortar(motivo, 1000), actor);
+        cierre.cerrar(orden, MotivoCierre.CON_INCIDENCIA, recortar(motivo, 1000), actor);
         return true;
     }
 

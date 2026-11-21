@@ -101,11 +101,6 @@ public class ListaReferencia {
         return ordenados(ListaReferenciaItem::estaVigente);
     }
 
-    /** Contenido que tenía la lista en ese instante: con él se explica una evaluación pasada (evaluacion_umbral.fecha_evaluacion) */
-    public List<String> elementosEn(Instant momento) {
-        return ordenados(i -> i.vigenteEn(momento));
-    }
-
     /**
      * Deja vigentes exactamente esos elementos: retira los que sobran y da de alta los que faltan, sin tocar los que se
      * mantienen. Las marcas de un mismo valor son estrictamente crecientes, así la vigencia no se superpone aunque el
@@ -182,9 +177,5 @@ public class ListaReferencia {
     }
 
     public record CambioElementos(List<String> agregados, List<String> retirados) {
-
-        public boolean hayCambios() {
-            return !agregados.isEmpty() || !retirados.isEmpty();
-        }
     }
 }

@@ -21,7 +21,7 @@ interface TablaAnalisisProps {
 
 /** El fallo se diagnostica con la salida del script: así se reconoce un error de sintaxis o un código distinto */
 function diagnostico(a: AnalisisRespuesta) {
-  return diagnosticarFallo(a.error, a.salida)
+  return diagnosticarFallo(a.error, a.salida, a.tipoFallo)
 }
 
 /** Lo que el usuario necesita de un vistazo: cuántas métricas salieron de sus umbrales, o qué falló */

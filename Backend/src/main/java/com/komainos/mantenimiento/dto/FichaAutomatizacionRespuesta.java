@@ -1,5 +1,6 @@
 package com.komainos.mantenimiento.dto;
 
+import com.komainos.ejecucion.model.TipoFallo;
 import com.komainos.catalogo.model.NivelAfectacion;
 import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.model.NivelAlerta;
@@ -34,7 +35,7 @@ public record FichaAutomatizacionRespuesta(Integer idOrden, OrdenResumenRespuest
                                            List<OrdenDetalleRespuesta.CambioEstado> historial) {
 
     public record AccionesOrden(boolean evaluar, boolean decidir, boolean proponerFecha, boolean decidirPropuesta,
-                                boolean validar, boolean cerrarSinImplementacion, boolean procesarCola) {
+                                boolean validar, boolean procesarCola) {
     }
 
     /**
@@ -59,14 +60,14 @@ public record FichaAutomatizacionRespuesta(Integer idOrden, OrdenResumenRespuest
                                     Integer idVersion, Integer numeroVersion, int prioridad, int duracionMinutos,
                                     NivelAfectacion afectacion, Integer idCuentaServicio, String cuenta,
                                     EstadoTareaMop estado, Integer codigoRetorno, String salida, String error,
-                                    Instant fechaInicio, Instant fechaFin, Long duracionSegundos) {
+                                    TipoFallo tipoFallo, Instant fechaInicio, Instant fechaFin, Long duracionSegundos) {
     }
 
     public record AnalisisRespuesta(Integer id, Integer idDetalle, Integer idServidor, String servidor,
                                     TipoEvaluacion tipo, EstadoEvaluacion estado, NivelAlerta nivel, String script,
                                     Integer idVersion, Integer numeroVersion, Integer idCuentaServicio, String cuenta,
-                                    Instant fechaInicio, Instant fechaFin, String error, String salida,
-                                    List<MedicionRespuesta> mediciones) {
+                                    Instant fechaInicio, Instant fechaFin, String error, TipoFallo tipoFallo,
+                                    String salida, List<MedicionRespuesta> mediciones) {
     }
 
     public record MedicionRespuesta(String codigo, String nombre, String unidad, String instancia, BigDecimal valor,

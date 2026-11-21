@@ -46,8 +46,8 @@ public class ServicioIndicadoresMantenimiento {
                     count(*) as denominador
                 from orden_detalle d join orden o using(id_orden)
                 where o.fecha_inicio_programada >= ? and o.fecha_inicio_programada < ?
-                    and not exists (select 1 from historial_estado_orden h where h.id_orden = o.id_orden
-                        and h.estado_nuevo in ('CANCELADA', 'RECHAZADA'))
+                    and o.motivo_cierre is distinct from 'CANCELADA'
+                    and o.motivo_cierre is distinct from 'RECHAZADA'
                 """, a, z);
         var estabilidad = jdbc.queryForMap("""
                 select count(*) filter (where not exists (select 1 from incidencia i

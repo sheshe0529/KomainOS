@@ -33,8 +33,10 @@ en el servidor es `.env`.
 | `docker-compose.yml` | Alternativa a `iniciar.sh` | Opcional: Amazon Linux 2023 no trae el complemento `compose` |
 | `base-temporal.env` e `iniciar-base-temporal.sh` | Base PostgreSQL temporal mientras no exista RDS | Opcional: se crean en la sección 18 y se borran al pasar a RDS |
 
-No se usa en producción `Backend/.env.example` (desarrollo). En `Backend/scripts/bd/cambios/` van los
-cambios de esquema nuevos, que el despliegue automático aplica en RDS (sección 20).
+No se usa en producción `Backend/.env.example` (desarrollo). El repositorio solo guarda el DDL final
+(`Backend/scripts/bd/01_esquema.sql`) y los datos iniciales (`02_datos_sistema.sql`). Si una versión nueva cambia el
+esquema, el script que actualiza la base en servicio se deja en el EC2, en `~/komainos/Backend/scripts/bd/cambios/` y sin
+commit, antes del *merge*: el despliegue automático lo aplica en RDS después del respaldo (sección 20) y luego se borra.
 
 ---
 
@@ -366,9 +368,10 @@ docker build -t komainos:latest .
 docker image prune -f
 ```
 
-`.env` no se toca (git lo ignora). Si la versión nueva trae scripts en `Backend/scripts/bd/cambios/`, tome antes una
-instantánea de RDS (**RDS → Instantáneas → Tomar instantánea**) y aplíquelos en orden de fecha con `psql -f`. Con el
-despliegue automático (sección 20) todo esto ocurre solo.
+`.env` no se toca (git lo ignora). Si la versión nueva cambia el esquema, tome antes una instantánea de RDS
+(**RDS → Instantáneas → Tomar instantánea**) y aplique con `psql -f` el script que deja la base igual al nuevo
+`01_esquema.sql`. Con el despliegue automático (sección 20) basta con dejar ese script en
+`~/komainos/Backend/scripts/bd/cambios/` antes del *merge*.
 
 ## 15. HTTPS (recomendado en producción)
 
@@ -591,8 +594,9 @@ bash despliegue/instalar.sh --marcar-desplegado "$(git rev-parse HEAD)"
 
 - `--marcar-desplegado` indica que ese commit ya está en servicio. Sin él, el EC2 lo despliega en el próximo minuto si
   sus pruebas pasaron (un commit anterior a esta sección no tiene pruebas registradas y se omite pasada una hora).
-- Registra como aplicadas todas las migraciones de `Backend/scripts/bd/cambios/`: la base debe estar al día con ellas.
-  Desde entonces, cada script nuevo en esa carpeta se aplica automáticamente al desplegar, después del respaldo.
+- Registra como aplicados los scripts que haya en `Backend/scripts/bd/cambios/` (el repositorio no trae ninguno): la
+  base debe estar igual a `01_esquema.sql`. Desde entonces, un script que se deje en esa carpeta del EC2 se aplica al
+  desplegar, después del respaldo.
 
 Cuando hay migraciones pendientes, primero se detiene la aplicación para incluir las últimas escrituras en el
 respaldo. Antes de modificar el esquema se comprueba que `pg_restore` puede leer ese respaldo. Si la copia o su

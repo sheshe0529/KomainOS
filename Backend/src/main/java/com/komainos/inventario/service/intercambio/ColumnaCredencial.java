@@ -6,7 +6,6 @@ import com.komainos.shared.util.archivo.ColumnaArchivo;
 import com.komainos.shared.util.archivo.FilaArchivo;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -53,10 +52,6 @@ public enum ColumnaCredencial {
         return Arrays.stream(values())
                 .filter(c -> c.clave.equals(buscada) || buscada.equals(c.claveAnterior))
                 .findFirst().orElse(null);
-    }
-
-    public static boolean algunaEn(Collection<String> claves) {
-        return claves.stream().anyMatch(c -> deClave(c) != null);
     }
 
     /** Nula si todas las celdas están vacías, los secretos se leen sin recortar */

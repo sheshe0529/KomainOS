@@ -2,8 +2,8 @@ package com.komainos.mantenimiento.service;
 
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
-import com.komainos.catalogo.model.ImplementacionScript;
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptImplementacion;
+import com.komainos.catalogo.model.ScriptVersion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.RevisionSalida;
 import com.komainos.ejecucion.model.PropositoEjecucion;
@@ -55,8 +55,8 @@ public class ServicioPruebaAnalisis {
 
     public Prueba probar(Integer idVersion, Integer idServidor, Actor actor) {
         Preparada preparada = transaccion.execute(estado -> {
-            VersionScript version = catalogo.version(idVersion);
-            ImplementacionScript implementacion = version.getImplementacion();
+            ScriptVersion version = catalogo.version(idVersion);
+            ScriptImplementacion implementacion = version.getImplementacion();
             if (!implementacion.getScript().esAnalisis()) {
                 throw new ReglaNegocioException("Solo se prueban scripts de análisis: un script de mantenimiento cambia el "
                         + "servidor y se ejecuta únicamente desde una MOP autorizada");

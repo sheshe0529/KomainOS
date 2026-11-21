@@ -1,6 +1,6 @@
 package com.komainos.inventario.dto;
 
-import com.komainos.inventario.service.ServicioParametrosSistema.DatosParametros;
+import com.komainos.inventario.service.ServicioConfiguracionSistema.DatosParametros;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 

@@ -1,5 +1,6 @@
 package com.komainos.mantenimiento.mapper;
 
+import com.komainos.ejecucion.model.TipoFallo;
 import com.komainos.inventario.model.NivelAlerta;
 import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta;
 import com.komainos.mantenimiento.dto.FichaAutomatizacionRespuesta.AnalisisRespuesta;
@@ -49,14 +50,15 @@ public final class AutomatizacionMapeador {
 
     public static FichaAutomatizacionRespuesta ficha(FichaAutomatizacion f) {
         var a = f.acciones();
-        List<AnalisisRespuesta> analisis = f.evaluaciones().stream().map(e -> analisis(e, f.cuentas())).toList();
+        List<AnalisisRespuesta> analisis = f.evaluaciones().stream()
+                .map(e -> analisis(e, f.cuentas(), f.fallosAnalisis().get(e.getId()))).toList();
         return new FichaAutomatizacionRespuesta(
                 f.orden().getId(),
                 OrdenMapeador.resumen(f.orden()),
                 f.siguientePaso(),
                 new FichaAutomatizacionRespuesta.AccionesOrden(a.evaluar(), a.decidir(), a.proponerFecha(),
-                        a.decidirPropuesta(), a.validar(), a.cerrarSinImplementacion(), a.procesarCola()),
-                f.mops().stream().map(m -> plan(m, f.maxDuracionMop(), f.cuentas())).toList(),
+                        a.decidirPropuesta(), a.validar(), a.procesarCola()),
+                f.mops().stream().map(m -> plan(m, f.maxDuracionMop(), f.cuentas(), f.fallosTareas())).toList(),
                 resumenPlan(f),
                 analisis,
                 f.autorizaciones().stream().map(s -> ronda(s, responsables(f))).toList(),
@@ -79,12 +81,13 @@ public final class AutomatizacionMapeador {
                         .toList());
     }
 
-    public static AnalisisRespuesta analisis(Evaluacion e, Map<Integer, String> cuentas) {
+    /** @param fallo categoría del fallo según el registro de actividad (DEC-61); nula si terminó bien o no se registró */
+    public static AnalisisRespuesta analisis(Evaluacion e, Map<Integer, String> cuentas, TipoFallo fallo) {
         return new AnalisisRespuesta(e.getId(), e.getDetalle() == null ? null : e.getDetalle().getId(), e.getServidor().getId(),
                 e.getServidor().getHostname(), e.getTipo(), e.getEstado(), e.estaFinalizada() ? e.nivel() : null,
                 e.getVersion().getImplementacion().getScript().getNombre(), e.getVersion().getId(),
                 e.getVersion().getNumeroVersion(), e.getIdCuentaServicio(), cuentas.get(e.getIdCuentaServicio()),
-                e.getFechaInicio(), e.getFechaFin(), e.getError(), e.getSalida(),
+                e.getFechaInicio(), e.getFechaFin(), e.getError(), fallo, e.getSalida(),
                 e.getMediciones().stream().map(AutomatizacionMapeador::medicion).toList());
     }
 
@@ -117,7 +120,9 @@ public final class AutomatizacionMapeador {
                 t.getFechaFin());
     }
 
-    public static OperacionRespuestas.EjecucionRespuesta ejecucion(MopTarea t, Function<Integer, String> cuentas) {
+    /** @param fallo categoría del fallo según el registro de actividad (DEC-61); nula si terminó bien o no se registró */
+    public static OperacionRespuestas.EjecucionRespuesta ejecucion(MopTarea t, Function<Integer, String> cuentas,
+                                                                   TipoFallo fallo) {
         OrdenDetalle d = t.getMop().getDetalle();
         var v = t.getVersion();
         return new OperacionRespuestas.EjecucionRespuesta(t.getId(), d.getOrden().getId(), d.getOrden().getCodigo(),
@@ -128,7 +133,7 @@ public final class AutomatizacionMapeador {
                 v == null ? null : v.getImplementacion().getVersionSistemaOperativo().descripcionCompleta(),
                 t.getIdCuentaServicio() == null ? null : cuentas.apply(t.getIdCuentaServicio()),
                 t.getEstado(), t.getCodigoRetorno(), t.getFechaInicio(), t.getFechaFin(),
-                duracion(t.getFechaInicio(), t.getFechaFin()), t.getError());
+                duracion(t.getFechaInicio(), t.getFechaFin()), t.getError(), fallo);
     }
 
     private static ResumenPlan resumenPlan(FichaAutomatizacion f) {
@@ -139,21 +144,21 @@ public final class AutomatizacionMapeador {
                 orden.esGrupal() ? orden.getModoEjecucionAplicado() : null);
     }
 
-    private static PlanMop plan(Mop m, int maximo, Map<Integer, String> cuentas) {
+    private static PlanMop plan(Mop m, int maximo, Map<Integer, String> cuentas, Map<Integer, TipoFallo> fallos) {
         OrdenDetalle d = m.getDetalle();
         return new PlanMop(m.getId(), d.getId(), d.getServidor().getId(), d.getServidor().getHostname(), d.getEstado(),
                 d.isEsServidorPiloto(), m.duracionTotal(), maximo, m.duracionTotal() > maximo, m.afectacion(),
                 d.getFechaRealInicio(), d.getFechaRealFin(),
-                m.getTareas().stream().map(t -> tarea(t, cuentas)).toList());
+                m.getTareas().stream().map(t -> tarea(t, cuentas, fallos.get(t.getId()))).toList());
     }
 
-    private static TareaMopRespuesta tarea(MopTarea t, Map<Integer, String> cuentas) {
+    private static TareaMopRespuesta tarea(MopTarea t, Map<Integer, String> cuentas, TipoFallo fallo) {
         var v = t.getVersion();
         return new TareaMopRespuesta(t.getId(), t.getOrdenEjecucion(), t.getTarea().getId(), t.getTarea().getNombre(),
                 v == null ? null : v.getImplementacion().getScript().getNombre(), v == null ? null : v.getId(),
                 v == null ? null : v.getNumeroVersion(), t.getPrioridadAplicada(), t.getDuracionEstimadaMinutos(),
                 t.getNivelAfectacion(), t.getIdCuentaServicio(), cuentas.get(t.getIdCuentaServicio()), t.getEstado(),
-                t.getCodigoRetorno(), t.getSalida(), t.getError(), t.getFechaInicio(), t.getFechaFin(),
+                t.getCodigoRetorno(), t.getSalida(), t.getError(), fallo, t.getFechaInicio(), t.getFechaFin(),
                 duracion(t.getFechaInicio(), t.getFechaFin()));
     }
 

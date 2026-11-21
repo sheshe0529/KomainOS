@@ -49,9 +49,10 @@ class ListaReferenciaTest {
         assertThat(lista.getItems()).hasSize(4);
         ListaReferenciaItem retirado = lista.getItems().stream().filter(i -> i.getValor().equals("80")).findFirst().orElseThrow();
         assertThat(retirado.getFechaBaja()).isEqualTo(T1);
-        // R2.4: el contenido pasado se reconstruye con las fechas, para explicar una evaluación anterior
-        assertThat(lista.elementosEn(T0)).containsExactly("22", "80", "443");
-        assertThat(lista.elementosEn(T1)).containsExactly("22", "443", "8443");
+        // R2.4: el contenido pasado se reconstruye con las fechas de alta y baja, para explicar una evaluación anterior
+        assertThat(lista.getItems()).filteredOn(i -> !i.getFechaAlta().isAfter(T0)
+                        && (i.getFechaBaja() == null || i.getFechaBaja().isAfter(T0)))
+                .extracting(ListaReferenciaItem::getValor).containsExactlyInAnyOrder("22", "80", "443");
         assertThat(lista.getFechaActualizacion()).isEqualTo(T1);
     }
 
@@ -81,7 +82,8 @@ class ListaReferenciaTest {
 
         CambioElementos cambio = lista.reemplazarElementos(List.of("80", "022"), T2);
 
-        assertThat(cambio.hayCambios()).isFalse();
+        assertThat(cambio.agregados()).isEmpty();
+        assertThat(cambio.retirados()).isEmpty();
         assertThat(lista.getItems()).hasSize(2);
         // fecha_actualizacion es TIMESTAMP(0): se guarda en segundos
         assertThat(lista.getFechaActualizacion()).isEqualTo(T0.truncatedTo(ChronoUnit.SECONDS));

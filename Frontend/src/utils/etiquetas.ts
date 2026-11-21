@@ -86,32 +86,30 @@ export function textoVentana(v: { diaInicio?: DiaSemana; horaInicio?: string; di
   return `${ETIQUETA_DIA[v.diaInicio]} ${hi} – ${ETIQUETA_DIA[v.diaFin]} ${hf}`
 }
 
-/** Estados del ciclo de la orden (R2.1, tabla 6) */
+/** Estados del ciclo de la orden (R2.1, tabla 6; DEC-61) */
 export const ETIQUETA_ESTADO_ORDEN: Record<EstadoOrden, string> = {
   PROGRAMADA: 'Programada',
   EN_EVALUACION: 'En evaluación',
-  SIN_IMPLEMENTACION: 'Sin implementación',
   PENDIENTE_AUTORIZACION: 'Pendiente de autorización',
   AUTORIZADA: 'Autorizada',
   EN_COLA: 'En cola',
   EN_EJECUCION: 'En ejecución',
-  PENDIENTE_VALIDACION: 'Pendiente de validación',
+  EN_VALIDACION_TECNICA: 'En validación técnica',
+  PENDIENTE_VALIDACION_FUNCIONAL: 'Pendiente de validación funcional',
   INCIDENCIA: 'Incidencia',
-  REPROGRAMADA: 'Reprogramada',
-  RECHAZADA: 'Rechazada',
-  AUTORIZACION_VENCIDA: 'Autorización vencida',
-  VALIDACION_VENCIDA: 'Validación vencida',
-  CANCELADA: 'Cancelada',
   CERRADA: 'Cerrada',
 }
 
-/** Estados que pasan a Cerrada en la misma operación: el filtro por estado actual nunca los encuentra */
-export const ESTADOS_DE_CIERRE: EstadoOrden[] = ['RECHAZADA', 'AUTORIZACION_VENCIDA', 'VALIDACION_VENCIDA']
-
-/** Por qué se cerró la orden según su historial; no autorizado agrupa el rechazo y el vencimiento, como la bitácora */
+/** Cómo terminó una orden cerrada (DEC-61) */
 export const ETIQUETA_MOTIVO_CIERRE: Record<MotivoCierre, string> = {
-  NO_AUTORIZADO: 'No autorizado',
-  VALIDACION_VENCIDA: 'Validación funcional vencida',
+  EXITOSO: 'Exitoso',
+  SIN_INTERVENCION: 'Sin intervención',
+  SIN_IMPLEMENTACION: 'Sin implementación',
+  AUTORIZACION_VENCIDA: 'Autorización vencida',
+  VALIDACION_VENCIDA: 'Validación vencida',
+  CANCELADA: 'Cancelada',
+  RECHAZADA: 'Rechazada',
+  CON_INCIDENCIA: 'Con incidencia',
 }
 
 /** Estados del detalle de orden (R2.1, tabla 7) */

@@ -13,10 +13,9 @@ import { SelectorFecha } from '@/components/ui/SelectorFecha'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useConsulta } from '@/hooks/useConsulta'
 import { guardarTamano, leerTamanoGuardado } from '@/hooks/usePaginacion'
-import { ESTADOS_DE_CIERRE, ETIQUETA_ESTADO_ORDEN, ETIQUETA_MOTIVO_CIERRE } from '@/utils/etiquetas'
+import { ETIQUETA_ESTADO_ORDEN, ETIQUETA_MOTIVO_CIERRE } from '@/utils/etiquetas'
 
-/** Los estados que la orden conserva; los de cierre se buscan por el motivo, en el historial */
-const ESTADOS = (Object.keys(ETIQUETA_ESTADO_ORDEN) as EstadoOrden[]).filter((e) => !ESTADOS_DE_CIERRE.includes(e))
+const ESTADOS = Object.keys(ETIQUETA_ESTADO_ORDEN) as EstadoOrden[]
 
 export function OrdenesPage() {
   const { tieneRol } = useSesion()
@@ -86,7 +85,7 @@ export function OrdenesPage() {
             </option>
           ))}
         </Selector>
-        {/* Una orden con motivo de cierre figura como Cerrada: elegir un motivo deja el estado en todos */}
+        {/* El motivo de cierre solo existe en una orden cerrada: elegir un motivo deja el estado en todos */}
         <Selector
           aria-label="Motivo de cierre"
           className="!w-auto"

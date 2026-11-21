@@ -103,8 +103,12 @@ public class ServicioActividad {
         return a;
     }
 
-    /** Con el resultado ya registrado en la evaluación: el acceso, si llegó a ejecutarse, y cómo terminó */
-    public void finAnalisis(Analisis a) {
+    /**
+     * Con el resultado ya registrado en la evaluación: el acceso, si llegó a ejecutarse, y cómo terminó
+     *
+     * @param fallo categoría si la evaluación quedó fallida (RF71); se ignora si terminó bien
+     */
+    public void finAnalisis(Analisis a, TipoFallo fallo) {
         if (a == null) {
             return;
         }
@@ -135,7 +139,7 @@ public class ServicioActividad {
                 }
                 registrar(a.evento(ahora(), NivelActividad.ERROR, EstadoActividad.FALLIDO,
                         operacion(a.tipo(), "ha fallado"),
-                        "Duración: " + texto(f.duracion()), f.error()));
+                        "Duración: " + texto(f.duracion()), f.error(), fallo));
             }
             default -> {
                 // Sigue en curso: lo cierra la recuperación al arrancar
@@ -158,7 +162,7 @@ public class ServicioActividad {
     public void finComprobacion(Integer idDetalle, ResultadoEjecucion resultado) {
         if (!resultado.correcto()) {
             registrar(ActividadEjecucion.deDetalle(idDetalle, paso(NivelActividad.ERROR, EstadoActividad.FALLIDO,
-                    "Comprobación de acceso fallida", null, resultado.error(), null)));
+                    "Comprobación de acceso fallida", null, resultado.error(), null, resultado.fallo())));
             return;
         }
         ServicioConectividad.Permisos permisos = ServicioConectividad.permisos(resultado.salida());
@@ -183,7 +187,8 @@ public class ServicioActividad {
                     "Tarea «%s» completada".formatted(t.nombre()), detalle, null, t.script())));
         } else {
             registrar(ActividadEjecucion.deTarea(t.idTarea(), paso(NivelActividad.ERROR, EstadoActividad.FALLIDO,
-                    "Tarea «%s» ha fallado".formatted(t.nombre()), detalle, resultado.error(), t.script())));
+                    "Tarea «%s» ha fallado".formatted(t.nombre()), detalle, resultado.error(), t.script(),
+                    resultado.fallo())));
         }
     }
 
@@ -293,7 +298,12 @@ public class ServicioActividad {
 
     private ActividadEjecucion.Paso paso(NivelActividad nivel, EstadoActividad estado, String accion, String detalle,
                                          String error, String script) {
-        return new ActividadEjecucion.Paso(nivel, estado, accion, detalle, error, script, ahora());
+        return paso(nivel, estado, accion, detalle, error, script, null);
+    }
+
+    private ActividadEjecucion.Paso paso(NivelActividad nivel, EstadoActividad estado, String accion, String detalle,
+                                         String error, String script, TipoFallo fallo) {
+        return new ActividadEjecucion.Paso(nivel, estado, accion, detalle, error, script, ahora(), fallo);
     }
 
     private void registrar(ActividadEjecucion evento) {
@@ -319,8 +329,13 @@ public class ServicioActividad {
 
         ActividadEjecucion evento(Instant ahora, NivelActividad nivel, EstadoActividad estado, String accion,
                                   String detalle, String error) {
+            return evento(ahora, nivel, estado, accion, detalle, error, null);
+        }
+
+        ActividadEjecucion evento(Instant ahora, NivelActividad nivel, EstadoActividad estado, String accion,
+                                  String detalle, String error, TipoFallo fallo) {
             return ActividadEjecucion.deEvaluacion(idEvaluacion,
-                    new ActividadEjecucion.Paso(nivel, estado, accion, detalle, error, script, ahora));
+                    new ActividadEjecucion.Paso(nivel, estado, accion, detalle, error, script, ahora, fallo));
         }
     }
 

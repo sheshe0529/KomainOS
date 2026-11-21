@@ -17,15 +17,13 @@ interface EtapasOrdenProps {
 export function EtapasOrden({ etapa, estado, recorrido = [], seleccionada, onElegir }: EtapasOrdenProps) {
   const actual = PASOS.indexOf(pasoDe(etapa))
   const cerrada = estado === 'CERRADA'
-  // Una orden cancelada no recorrió las etapas: solo se marca el cierre
-  const cancelada = estado === 'CANCELADA'
   const detenida = DETENIDOS.includes(estado)
   const alcanzadas = etapasAlcanzadas(etapa, recorrido)
 
   return (
     <ol className="flex flex-wrap items-start gap-y-3" aria-label="Etapas del ciclo de mantenimiento">
       {PASOS.map((paso, i) => {
-        const hecho = cerrada ? alcanzadas.has(paso) || paso === 'CIERRE' : !cancelada && i < actual
+        const hecho = cerrada ? alcanzadas.has(paso) || paso === 'CIERRE' : i < actual
         const enCurso = !cerrada && i === actual
         const fallo = enCurso && detenida
         const etiqueta = etapa === 'INCIDENCIA' && i === actual ? 'Incidencia' : ETIQUETA_ETAPA[paso]
@@ -45,7 +43,7 @@ export function EtapasOrden({ etapa, estado, recorrido = [], seleccionada, onEle
                       : 'border-line bg-panel text-ink-faint'
               } ${elegida ? 'ring-2 ring-accent ring-offset-2 ring-offset-panel' : ''}`}
             >
-              {fallo || (enCurso && cancelada) ? (
+              {fallo ? (
                 <X className="h-4 w-4" aria-hidden="true" />
               ) : hecho ? (
                 <Check className="h-4 w-4" aria-hidden="true" />

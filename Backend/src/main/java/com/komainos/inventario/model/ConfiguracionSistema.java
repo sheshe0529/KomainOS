@@ -20,7 +20,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ParametrosSistema {
+public class ConfiguracionSistema {
 
     public static final int ID_UNICO = 1;
 

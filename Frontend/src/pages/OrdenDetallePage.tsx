@@ -105,7 +105,8 @@ export function OrdenDetallePage() {
 
   const grupal = r.tipoObjetivo === 'GRUPAL'
   const enlaceObjetivo = grupal ? `/grupos/${r.objetivo?.id}` : `/servidores/${r.objetivo?.id}`
-  const reprogramaciones = (o.historial ?? []).filter((h) => h.estadoNuevo === 'REPROGRAMADA').reverse()
+  // DEC-61: la reprogramación deja la orden en PROGRAMADA; se reconoce porque viene de otro estado
+  const reprogramaciones = (o.historial ?? []).filter((h) => h.estadoNuevo === 'PROGRAMADA' && h.estadoAnterior).reverse()
 
   return (
     <div className="flex flex-col gap-6">

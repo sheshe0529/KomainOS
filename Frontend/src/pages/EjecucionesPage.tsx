@@ -239,7 +239,7 @@ export function EjecucionesPage() {
                         {e.script} v{e.numeroVersion} · {e.sistemaOperativo}
                       </span>
                       {e.estado === 'FALLIDA' && (
-                        <span className="mt-1 block text-xs text-danger">{diagnosticarFallo(e.error).titulo}</span>
+                        <span className="mt-1 block text-xs text-danger">{diagnosticarFallo(e.error, undefined, e.tipoFallo).titulo}</span>
                       )}
                     </td>
                     <td className="px-3 py-3 text-ink-soft">{e.cuenta ?? '—'}</td>

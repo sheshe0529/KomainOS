@@ -1,12 +1,13 @@
 package com.komainos.mantenimiento.service;
 
+import com.komainos.ejecucion.model.TipoFallo;
 import com.komainos.mantenimiento.model.ActividadEjecucion;
 import com.komainos.mantenimiento.model.EstadoActividad;
 import com.komainos.mantenimiento.model.EstadoEvaluacion;
-import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.EstadoTareaMop;
 import com.komainos.mantenimiento.model.Evaluacion;
 import com.komainos.mantenimiento.model.HistorialEstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Incidencia;
 import com.komainos.mantenimiento.model.Mop;
 import com.komainos.mantenimiento.model.MopTarea;
@@ -44,28 +45,12 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ServicioConsultaActividad {
 
-    private static final Map<EstadoOrden, Hito> HITOS = new HashMap<>();
     private static final Map<OrigenIncidencia, String> ORIGEN = Map.of(
             OrigenIncidencia.PRUEBA_PILOTO, "Prueba piloto o condiciones de inicio",
             OrigenIncidencia.FALLO_EJECUCION, "Fallo de ejecución",
             OrigenIncidencia.TIEMPO_EXCEDIDO, "Tiempo excedido",
             OrigenIncidencia.VALIDACION_TECNICA_NO_CONFORME, "Validación técnica no conforme",
             OrigenIncidencia.RECHAZO_FUNCIONAL, "Rechazo funcional");
-
-    static {
-        HITOS.put(EstadoOrden.PROGRAMADA, new Hito("Orden programada", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.PENDIENTE_AUTORIZACION, new Hito("Autorización solicitada", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.AUTORIZADA, new Hito("Orden autorizada", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.EN_COLA, new Hito("Orden encolada", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.PENDIENTE_VALIDACION, new Hito("Validación funcional solicitada", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.SIN_IMPLEMENTACION, new Hito("Ejecución bloqueada", NivelActividad.ERROR));
-        HITOS.put(EstadoOrden.REPROGRAMADA, new Hito("Orden reprogramada", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.RECHAZADA, new Hito("Autorización rechazada", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.AUTORIZACION_VENCIDA, new Hito("Autorización vencida", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.VALIDACION_VENCIDA, new Hito("Validación funcional vencida", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.CANCELADA, new Hito("Orden cancelada", NivelActividad.INFO));
-        HITOS.put(EstadoOrden.CERRADA, new Hito("Orden cerrada", NivelActividad.INFO));
-    }
 
     private final ServicioConsultaAutomatizacion consulta;
 
@@ -93,11 +78,11 @@ public class ServicioConsultaActividad {
 
         List<Evento> eventos = new ArrayList<>();
         for (HistorialEstadoOrden h : ficha.orden().getHistorial()) {
-            Hito hito = HITOS.get(h.getEstadoNuevo());
+            Hito hito = hito(h, ficha.orden().getMotivoCierre());
             if (hito != null) {
                 eventos.add(new Evento("orden-" + h.getId(), h.getFechaHora(), hito.nivel(),
                         hito.nivel() == NivelActividad.ERROR ? EstadoActividad.FALLIDO : null,
-                        hito.accion(), h.getMotivo(), null, null, null, null, null, null));
+                        hito.accion(), h.getMotivo(), null, null, null, null, null, null, null));
             }
         }
 
@@ -139,7 +124,7 @@ public class ServicioConsultaActividad {
         for (Incidencia i : ficha.incidencias()) {
             eventos.add(new Evento("incidencia-" + i.getId(), i.getFechaApertura(), NivelActividad.ERROR,
                     EstadoActividad.FALLIDO, "Incidencia registrada", ORIGEN.get(i.getOrigen()), i.getError(),
-                    i.getDetalle().getServidor().getHostname(), null, null, null, null));
+                    i.getDetalle().getServidor().getHostname(), null, null, null, null, null));
         }
         eventos.sort(CRONOLOGICO.reversed());
         return eventos;
@@ -173,7 +158,8 @@ public class ServicioConsultaActividad {
 
     private static Evento evento(ActividadEjecucion a, String host) {
         return new Evento("actividad-" + a.getId(), a.getFechaHora(), a.getNivel(), a.getEstado(), a.getAccion(),
-                a.getDetalle(), a.getError(), host, a.getScript(), a.getIdTarea(), a.getIdEvaluacion(), a.getId());
+                a.getDetalle(), a.getError(), host, a.getScript(), a.getIdTarea(), a.getIdEvaluacion(), a.getId(),
+                a.getTipoFallo());
     }
 
     private static List<Evento> deAnalisis(Evaluacion e) {
@@ -185,16 +171,16 @@ public class ServicioConsultaActividad {
             eventos.add(new Evento("analisis-" + e.getId() + "-inicio", e.getFechaInicio(), NivelActividad.INFO,
                     e.getEstado() == EstadoEvaluacion.EN_CURSO ? EstadoActividad.EN_CURSO : null,
                     ServicioActividad.operacion(tipo, e.getEstado() == EstadoEvaluacion.EN_CURSO ? "en curso" : "iniciada"),
-                    null, null, host, script, null, e.getId(), null));
+                    null, null, host, script, null, e.getId(), null, null));
         }
         if (e.getEstado() == EstadoEvaluacion.FINALIZADA) {
             eventos.add(new Evento("analisis-" + e.getId() + "-fin", e.getFechaFin(), NivelActividad.INFO,
                     EstadoActividad.COMPLETADO, ServicioActividad.operacion(tipo, "completada"), null, null, host, script,
-                    null, e.getId(), null));
+                    null, e.getId(), null, null));
         } else if (e.getEstado() == EstadoEvaluacion.FALLIDA) {
             eventos.add(new Evento("analisis-" + e.getId() + "-fin", e.getFechaFin(), NivelActividad.ERROR,
                     EstadoActividad.FALLIDO, ServicioActividad.operacion(tipo, "ha fallado"), null, e.getError(), host,
-                    script, null, e.getId(), null));
+                    script, null, e.getId(), null, null));
         }
         return eventos;
     }
@@ -209,7 +195,7 @@ public class ServicioConsultaActividad {
             boolean enCurso = t.getEstado() == EstadoTareaMop.EN_EJECUCION;
             eventos.add(new Evento("tarea-" + t.getId() + "-inicio", t.getFechaInicio(), NivelActividad.INFO,
                     enCurso ? EstadoActividad.EN_CURSO : null, nombre + (enCurso ? " en curso" : " iniciada"), null,
-                    null, host, script, t.getId(), null, null));
+                    null, host, script, t.getId(), null, null, null));
         }
         if (t.getFechaFin() != null && (t.getEstado() == EstadoTareaMop.FINALIZADA
                 || t.getEstado() == EstadoTareaMop.FALLIDA)) {
@@ -219,9 +205,29 @@ public class ServicioConsultaActividad {
                     correcta ? EstadoActividad.COMPLETADO : EstadoActividad.FALLIDO,
                     nombre + (correcta ? " completada" : " ha fallado"),
                     t.getCodigoRetorno() == null ? null : "Código de salida " + t.getCodigoRetorno(),
-                    correcta ? null : t.getError(), host, script, t.getId(), null, null));
+                    correcta ? null : t.getError(), host, script, t.getId(), null, null, null));
         }
         return eventos;
+    }
+
+    /**
+     * El cambio de estado que el registro muestra como hito; nulo si no se muestra. El cierre lleva su motivo (DEC-61) y
+     * volver a PROGRAMADA desde otro estado es una reprogramación
+     */
+    private static Hito hito(HistorialEstadoOrden h, MotivoCierre motivo) {
+        return switch (h.getEstadoNuevo()) {
+            case PROGRAMADA -> new Hito(h.getEstadoAnterior() == null ? "Orden programada" : "Orden reprogramada",
+                    NivelActividad.INFO);
+            case PENDIENTE_AUTORIZACION -> new Hito("Autorización solicitada", NivelActividad.INFO);
+            case AUTORIZADA -> new Hito("Orden autorizada", NivelActividad.INFO);
+            case EN_COLA -> new Hito("Orden encolada", NivelActividad.INFO);
+            case EN_VALIDACION_TECNICA -> new Hito("Validación técnica iniciada", NivelActividad.INFO);
+            case PENDIENTE_VALIDACION_FUNCIONAL -> new Hito("Validación funcional solicitada", NivelActividad.INFO);
+            case CERRADA -> motivo == null ? new Hito("Orden cerrada", NivelActividad.INFO)
+                    : new Hito("Orden cerrada: " + motivo.etiqueta().toLowerCase(),
+                    motivo == MotivoCierre.SIN_IMPLEMENTACION ? NivelActividad.ERROR : NivelActividad.INFO);
+            case EN_EVALUACION, EN_EJECUCION, INCIDENCIA -> null;
+        };
     }
 
     private record Hito(String accion, NivelActividad nivel) {
@@ -234,6 +240,6 @@ public class ServicioConsultaActividad {
      */
     public record Evento(String clave, Instant fecha, NivelActividad nivel, EstadoActividad estado, String accion,
                          String detalle, String error, String servidor, String script, Integer idTarea,
-                         Integer idEvaluacion, Integer secuencia) {
+                         Integer idEvaluacion, Integer secuencia, TipoFallo tipoFallo) {
     }
 }

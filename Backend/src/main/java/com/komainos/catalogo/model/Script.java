@@ -55,7 +55,7 @@ public class Script {
     @OneToMany(mappedBy = "script", cascade = CascadeType.ALL)
     @BatchSize(size = 50)
     @OrderBy("id ASC")
-    private List<ImplementacionScript> implementaciones = new ArrayList<>();
+    private List<ScriptImplementacion> implementaciones = new ArrayList<>();
 
     public static Script nuevo(String nombre, TipoScript tipo, String descripcion, boolean activo) {
         Script script = new Script();
@@ -70,11 +70,11 @@ public class Script {
         this.activo = activo;
     }
 
-    public void agregarImplementacion(ImplementacionScript implementacion) {
+    public void agregarImplementacion(ScriptImplementacion implementacion) {
         implementaciones.add(implementacion);
     }
 
-    public Optional<ImplementacionScript> implementacionPara(Integer idVersionSistemaOperativo) {
+    public Optional<ScriptImplementacion> implementacionPara(Integer idVersionSistemaOperativo) {
         return implementaciones.stream()
                 .filter(i -> i.getVersionSistemaOperativo().getId().equals(idVersionSistemaOperativo))
                 .findFirst();

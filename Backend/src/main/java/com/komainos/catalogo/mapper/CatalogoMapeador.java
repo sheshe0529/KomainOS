@@ -6,10 +6,10 @@ import com.komainos.catalogo.dto.ScriptPreparadoRespuesta;
 import com.komainos.catalogo.dto.ScriptResumenRespuesta;
 import com.komainos.catalogo.dto.ScriptRespuesta;
 import com.komainos.catalogo.dto.TareaRespuesta;
-import com.komainos.catalogo.model.ImplementacionScript;
+import com.komainos.catalogo.model.ScriptImplementacion;
 import com.komainos.catalogo.model.Script;
 import com.komainos.catalogo.model.Tarea;
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptVersion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosParametro;
 import com.komainos.ejecucion.model.ScriptPreparado;
@@ -35,8 +35,8 @@ public final class CatalogoMapeador {
                 tareasActivas, s.getImplementaciones().stream().map(CatalogoMapeador::implementacion).toList());
     }
 
-    public static ScriptRespuesta.VersionRespuesta version(VersionScript v) {
-        Integer vigente = v.getImplementacion().ultimaHabilitada().map(VersionScript::getId).orElse(null);
+    public static ScriptRespuesta.VersionRespuesta version(ScriptVersion v) {
+        Integer vigente = v.getImplementacion().ultimaHabilitada().map(ScriptVersion::getId).orElse(null);
         return new ScriptRespuesta.VersionRespuesta(v.getId(), v.getNumeroVersion(), v.getContenido(), v.getNotasCambio(),
                 v.isHabilitada(), v.getId().equals(vigente), v.getFechaCreacion(),
                 v.getParametros().stream()
@@ -74,18 +74,18 @@ public final class CatalogoMapeador {
                 .toList();
     }
 
-    private static ScriptResumenRespuesta.ImplementacionResumen resumen(ImplementacionScript i) {
-        Instant ultima = i.getVersiones().stream().map(VersionScript::getFechaCreacion)
+    private static ScriptResumenRespuesta.ImplementacionResumen resumen(ScriptImplementacion i) {
+        Instant ultima = i.getVersiones().stream().map(ScriptVersion::getFechaCreacion)
                 .max(Instant::compareTo).orElse(null);
         return new ScriptResumenRespuesta.ImplementacionResumen(i.getId(), i.getVersionSistemaOperativo().getId(),
                 i.getVersionSistemaOperativo().descripcionCompleta(), i.familia(),
-                i.ultimaHabilitada().map(VersionScript::getNumeroVersion).orElse(null), i.getVersiones().size(), ultima);
+                i.ultimaHabilitada().map(ScriptVersion::getNumeroVersion).orElse(null), i.getVersiones().size(), ultima);
     }
 
-    private static ScriptRespuesta.ImplementacionRespuesta implementacion(ImplementacionScript i) {
+    private static ScriptRespuesta.ImplementacionRespuesta implementacion(ScriptImplementacion i) {
         return new ScriptRespuesta.ImplementacionRespuesta(i.getId(), i.getVersionSistemaOperativo().getId(),
                 i.getVersionSistemaOperativo().descripcionCompleta(), i.familia(), PreparadorScript.lenguaje(i.familia()),
-                i.ultimaHabilitada().map(VersionScript::getNumeroVersion).orElse(null),
+                i.ultimaHabilitada().map(ScriptVersion::getNumeroVersion).orElse(null),
                 i.getVersiones().stream().map(CatalogoMapeador::version).toList());
     }
 }

@@ -129,8 +129,8 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
                     .andExpect(jsonPath("$.revisadas").value(1))
                     .andExpect(jsonPath("$.mensajes.length()").value(4));
             // La cola corre en segundo plano: se espera antes de limpiar la base
-            esperarEstado(id, EstadoOrden.PENDIENTE_VALIDACION);
-            assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
+            esperarEstado(id, EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
+            assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
         }
     }
 
@@ -503,7 +503,7 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
                     .andExpect(jsonPath("$.ejecuciones[-1].exito").value(2))
                     .andExpect(jsonPath("$.ejecuciones[-1].error").value(1))
                     // Periodo de los indicadores: órdenes creadas por estado actual e incidencias por origen
-                    .andExpect(jsonPath("$.ordenesPorEstado[?(@.clave == 'PENDIENTE_VALIDACION')].cantidad").value(1))
+                    .andExpect(jsonPath("$.ordenesPorEstado[?(@.clave == 'PENDIENTE_VALIDACION_FUNCIONAL')].cantidad").value(1))
                     .andExpect(jsonPath("$.ordenesPorEstado[?(@.clave == 'INCIDENCIA')].cantidad").value(1))
                     .andExpect(jsonPath("$.incidenciasPorOrigen[0].origen").value("FALLO_EJECUCION"))
                     .andExpect(jsonPath("$.incidenciasPorOrigen[0].abiertas").value(1))

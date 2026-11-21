@@ -24,6 +24,7 @@ public final class OrdenMapeador {
                 new CriticidadResumen(o.getNivelCriticidad().getId(), o.getNivelCriticidad().getNombre(),
                         o.getNivelCriticidad().getPrioridad()),
                 o.getOrigen(), o.prioridad(), o.getEstado(), o.getEstado().etapa(),
+                o.getMotivoCierre(), o.getFechaCierre(), o.getObservacionesCierre(),
                 o.getFechaObjetivo(),
                 o.getFechaInicioProgramada(),
                 o.getFechaFinProgramada(),

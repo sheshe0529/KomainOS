@@ -10,15 +10,15 @@ import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.model.NivelCriticidad.DatosNivelCriticidad;
 import com.komainos.inventario.service.ServicioCatalogos;
 import com.komainos.inventario.service.ServicioGrupo;
-import com.komainos.inventario.service.ServicioParametrosSistema.DatosParametros;
-import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.ServicioConfiguracionSistema.DatosParametros;
+import com.komainos.inventario.service.ServicioConfiguracionSistema;
 import com.komainos.inventario.service.ServicioServidor.DatosConfiguracion;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrigenOrden;
-import com.komainos.mantenimiento.service.ServicioCierreMantenimiento;
 import com.komainos.mantenimiento.service.ServicioConsultaOrdenes;
 import com.komainos.planificacion.service.ServicioCronograma;
 import com.komainos.planificacion.service.ServicioPlanificacion;
@@ -71,9 +71,8 @@ class PlanificacionIT extends PruebaIntegracion {
     @Autowired ServicioCatalogos catalogos;
     @Autowired ServicioServidor servidores;
     @Autowired ServicioGrupo grupos;
-    @Autowired ServicioParametrosSistema parametros;
+    @Autowired ServicioConfiguracionSistema parametros;
     @Autowired ServicioPlanificacion planificacion;
-    @Autowired ServicioCierreMantenimiento cierres;
     @Autowired ServicioConsultaOrdenes consulta;
     @Autowired ServicioCronograma cronograma;
     @Autowired MockMvc mockMvc;
@@ -213,10 +212,11 @@ class PlanificacionIT extends PruebaIntegracion {
         assertThat(inicial.getFechaObjetivo()).isEqualTo(AHORA.plus(Duration.ofDays(12)));
         assertThat(inicial.getFechaInicioProgramada()).isAfterOrEqualTo(inicial.getFechaObjetivo());
 
+        // DEC-61: cancelar cierra la orden con su motivo y el cierre genera el siguiente ciclo, que la apunta como anterior
         planificacion.cancelar(primera, "Reiniciar el ciclo del grupo", actorAdmin);
-        assertThat(cierres.cerrarCanceladas()).isEqualTo(1);
+        assertThat(consulta.obtener(primera, alcanceAdmin).getMotivoCierre()).isEqualTo(MotivoCierre.CANCELADA);
 
-        Integer siguiente = jdbc.queryForObject("select id_orden_siguiente from cierre_orden where id_orden = ?",
+        Integer siguiente = jdbc.queryForObject("select id_orden from orden where id_orden_anterior = ?",
                 Integer.class, primera);
         Orden nueva = consulta.obtener(siguiente, alcanceAdmin);
         assertThat(nueva.getFechaObjetivo()).isEqualTo(AHORA.plus(Duration.ofDays(17)));
@@ -255,13 +255,18 @@ class PlanificacionIT extends PruebaIntegracion {
         assertThat(jdbc.queryForObject("select valor_anterior from auditoria where operacion = 'REPROGRAMAR_ORDEN'",
                 String.class)).contains(lima("2026-10-03T01:00").toString());
         assertThat(reprogramada.getDetalles().getFirst().getFechaPrevistaInicio()).isEqualTo(lima("2026-10-10T02:00"));
+        // DEC-61: la reprogramación queda en PROGRAMADA y deja su paso en el historial
         assertThat(reprogramada.getHistorial()).extracting("estadoNuevo")
-                .containsExactly(EstadoOrden.PROGRAMADA, EstadoOrden.REPROGRAMADA, EstadoOrden.PROGRAMADA);
+                .containsExactly(EstadoOrden.PROGRAMADA, EstadoOrden.PROGRAMADA);
+        assertThat(reprogramada.getHistorial()).extracting("estadoAnterior")
+                .containsExactly(null, EstadoOrden.PROGRAMADA);
         assertThat(reprogramada.getEstado()).isEqualTo(EstadoOrden.PROGRAMADA);
 
         planificacion.cancelar(orden.getId(), "Servicio migrado", actorAdmin);
         Orden cancelada = consulta.obtener(orden.getId(), alcanceAdmin);
-        assertThat(cancelada.getEstado()).isEqualTo(EstadoOrden.CANCELADA);
+        assertThat(cancelada.getEstado()).isEqualTo(EstadoOrden.CERRADA);
+        assertThat(cancelada.getMotivoCierre()).isEqualTo(MotivoCierre.CANCELADA);
+        assertThat(cancelada.getObservacionesCierre()).isEqualTo("Servicio migrado");
         assertThat(cancelada.getDetalles().getFirst().getEstado()).isEqualTo(EstadoDetalleOrden.NO_INICIADO);
         // La reserva queda libre: el mismo horario puede programarse otra vez
         assertThat(planificacion.programar(id, null, lima("2026-10-10T02:00"), null, actorAdmin)).isNotNull();
@@ -348,7 +353,9 @@ class PlanificacionIT extends PruebaIntegracion {
 
         servidores.solicitarBaja(a, "Retirado", actorAdmin);
 
-        assertThat(consulta.obtener(individual.getId(), alcanceAdmin).getEstado()).isEqualTo(EstadoOrden.CANCELADA);
+        Orden individualTrasBaja = consulta.obtener(individual.getId(), alcanceAdmin);
+        assertThat(individualTrasBaja.getEstado()).isEqualTo(EstadoOrden.CERRADA);
+        assertThat(individualTrasBaja.getMotivoCierre()).isEqualTo(MotivoCierre.CANCELADA);
         Orden grupalTrasBaja = consulta.obtener(grupal.getId(), alcanceAdmin);
         assertThat(grupalTrasBaja.getEstado()).isEqualTo(EstadoOrden.PROGRAMADA);
         assertThat(grupalTrasBaja.detalleDe(a).orElseThrow().getEstado()).isEqualTo(EstadoDetalleOrden.NO_INICIADO);

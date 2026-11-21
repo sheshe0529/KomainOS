@@ -1,6 +1,6 @@
 package com.komainos.mantenimiento.service;
 
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptVersion;
 import com.komainos.catalogo.service.CodigosMetrica;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.ejecucion.model.ListaEjecucion;
@@ -18,7 +18,7 @@ import com.komainos.inventario.model.UmbralAplicado;
 import com.komainos.inventario.repository.MetricaRepositorio;
 import com.komainos.inventario.repository.UmbralRepositorio;
 import com.komainos.inventario.service.PuertoCuentasServicio;
-import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.ServicioConfiguracionSistema;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.mantenimiento.model.EstadoEvaluacion;
 import com.komainos.mantenimiento.model.Evaluacion;
@@ -61,7 +61,7 @@ public class ServicioEvaluaciones {
 
     private final ServicioCatalogoAutomatizacion catalogo;
     private final PuertoCuentasServicio cuentas;
-    private final ServicioParametrosSistema parametros;
+    private final ServicioConfiguracionSistema parametros;
     private final ServicioServidor servidores;
     private final UmbralRepositorio umbrales;
     private final MetricaRepositorio metricas;
@@ -97,7 +97,7 @@ public class ServicioEvaluaciones {
                     .formatted(servidor.getHostname()));
         }
         cuentas.exigirAsignable(cuenta, servidor.familia());
-        VersionScript version = catalogo.buscarAnalisis(servidor.getVersionSistemaOperativo().getId())
+        ScriptVersion version = catalogo.buscarAnalisis(servidor.getVersionSistemaOperativo().getId())
                 .orElseThrow(() -> new ReglaNegocioException(
                         "No hay un script de análisis activo y habilitado para %s (servidor %s)".formatted(
                                 servidor.getVersionSistemaOperativo().descripcionCompleta(), servidor.getHostname())));
@@ -113,7 +113,7 @@ public class ServicioEvaluaciones {
     public SolicitudEjecucion solicitud(Integer idEvaluacion) {
         Evaluacion e = buscar(idEvaluacion);
         Servidor s = e.getServidor();
-        VersionScript version = catalogo.version(e.getVersion().getId());
+        ScriptVersion version = catalogo.version(e.getVersion().getId());
         PropositoEjecucion proposito = switch (e.getTipo()) {
             case REVISION_PERIODICA -> PropositoEjecucion.ANALISIS_REVISION;
             case PREVIA -> PropositoEjecucion.ANALISIS_PREVIO;

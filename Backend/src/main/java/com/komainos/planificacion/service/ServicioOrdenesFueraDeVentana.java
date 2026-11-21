@@ -28,7 +28,7 @@ import java.util.Set;
 public class ServicioOrdenesFueraDeVentana implements PuertoOrdenesProgramadas {
 
     /** Programadas y aún sin ejecutar: las que ocupan el cronograma, salvo la que ya está en ejecución */
-    private static final Set<EstadoOrden> PENDIENTES = EnumSet.of(EstadoOrden.PROGRAMADA, EstadoOrden.REPROGRAMADA,
+    private static final Set<EstadoOrden> PENDIENTES = EnumSet.of(EstadoOrden.PROGRAMADA,
             EstadoOrden.EN_EVALUACION, EstadoOrden.PENDIENTE_AUTORIZACION, EstadoOrden.AUTORIZADA, EstadoOrden.EN_COLA);
 
     private final OrdenRepositorio ordenes;

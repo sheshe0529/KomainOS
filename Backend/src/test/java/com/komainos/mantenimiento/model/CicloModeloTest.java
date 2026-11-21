@@ -29,6 +29,77 @@ class CicloModeloTest {
     }
 
     @Nested
+    @DisplayName("Cierre de la orden con su motivo (RF63, DEC-61)")
+    class Cierre {
+
+        private Orden orden(OrigenOrden origen) {
+            Programacion p = new Programacion(AHORA.plusSeconds(86_400), AHORA.plusSeconds(90_000),
+                    AHORA.plusSeconds(93_600), AHORA.plusSeconds(86_400), AHORA.plusSeconds(86_400), AHORA.plusSeconds(100_000));
+            Orden o = Orden.nueva(1, DatosPrueba.servidor(10, "srv-01", RESPONSABLE), null,
+                    DatosPrueba.criticidad(1, "Alta", 1), 5, null, origen, null, p, AHORA, "Prueba");
+            o.agregarDetalle(DatosPrueba.servidor(10, "srv-01", RESPONSABLE), 1, p.inicio(), p.fin());
+            return o;
+        }
+
+        @Test
+        @DisplayName("Cancelar cierra con fecha, motivo y observaciones, y deja no iniciado lo pendiente")
+        void cancelar() {
+            Orden o = orden(OrigenOrden.SOLICITUD_BAJO_DEMANDA);
+
+            o.cerrar(MotivoCierre.CANCELADA, "Servicio migrado", RESPONSABLE, AHORA);
+
+            assertThat(o.getEstado()).isEqualTo(EstadoOrden.CERRADA);
+            assertThat(o.getMotivoCierre()).isEqualTo(MotivoCierre.CANCELADA);
+            assertThat(o.getFechaCierre()).isEqualTo(AHORA);
+            assertThat(o.getObservacionesCierre()).isEqualTo("Servicio migrado");
+            assertThat(o.getDetalles().getFirst().getEstado()).isEqualTo(EstadoDetalleOrden.NO_INICIADO);
+            assertThat(o.getHistorial()).extracting(HistorialEstadoOrden::getEstadoNuevo)
+                    .containsExactly(EstadoOrden.PROGRAMADA, EstadoOrden.CERRADA);
+        }
+
+        @Test
+        @DisplayName("CERRADA no se alcanza sin motivo, ni con un motivo que no corresponde al estado")
+        void sinMotivoOIncoherente() {
+            Orden o = orden(OrigenOrden.SOLICITUD_BAJO_DEMANDA);
+
+            assertThatThrownBy(() -> o.cambiarEstado(EstadoOrden.CERRADA, null, "Sin motivo", AHORA))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> o.cerrar(MotivoCierre.EXITOSO, "Conforme", null, AHORA))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("exitoso");
+            assertThat(o.getEstado()).isEqualTo(EstadoOrden.PROGRAMADA);
+            assertThat(o.getMotivoCierre()).isNull();
+        }
+
+        @Test
+        @DisplayName("La reprogramación deja la orden en PROGRAMADA; ya en evaluación no se reprograma")
+        void reprogramar() {
+            Orden o = orden(OrigenOrden.SOLICITUD_BAJO_DEMANDA);
+            Programacion nueva = new Programacion(o.getFechaObjetivo(), AHORA.plusSeconds(200_000),
+                    AHORA.plusSeconds(203_600), AHORA.plusSeconds(190_000), AHORA.plusSeconds(190_000),
+                    AHORA.plusSeconds(210_000));
+
+            o.reprogramar(nueva, List.of(), RESPONSABLE, "Congelamiento", AHORA);
+            assertThat(o.getEstado()).isEqualTo(EstadoOrden.PROGRAMADA);
+            assertThat(o.getFechaInicioProgramada()).isEqualTo(AHORA.plusSeconds(200_000));
+
+            o.cambiarEstado(EstadoOrden.EN_EVALUACION, null, "Evaluación previa", AHORA);
+            assertThatThrownBy(() -> o.reprogramar(nueva, List.of(), RESPONSABLE, "Tarde", AHORA))
+                    .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("no puede reprogramarse");
+        }
+
+        @Test
+        @DisplayName("Solo un ciclo automático continúa una orden cerrada (RF29)")
+        void ordenAnterior() {
+            Orden automatica = orden(OrigenOrden.PLANIFICACION_AUTOMATICA);
+            automatica.definirOrdenAnterior(7);
+            assertThat(automatica.getIdOrdenAnterior()).isEqualTo(7);
+
+            Orden manual = orden(OrigenOrden.SOLICITUD_BAJO_DEMANDA);
+            assertThatThrownBy(() -> manual.definirOrdenAnterior(7)).isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Nested
     @DisplayName("Ronda de autorización (RF44, RF48, RF75)")
     class Autorizacion {
 

@@ -59,18 +59,13 @@ export const ESTADO_TAREA_MOP: Record<EstadoTareaMop, Presentacion> = {
 export const TONO_ESTADO_ORDEN: Record<EstadoOrden, StatusTone> = {
   PROGRAMADA: 'neutral',
   EN_EVALUACION: 'warning',
-  SIN_IMPLEMENTACION: 'danger',
   PENDIENTE_AUTORIZACION: 'warning',
   AUTORIZADA: 'success',
   EN_COLA: 'neutral',
   EN_EJECUCION: 'warning',
-  PENDIENTE_VALIDACION: 'warning',
+  EN_VALIDACION_TECNICA: 'warning',
+  PENDIENTE_VALIDACION_FUNCIONAL: 'warning',
   INCIDENCIA: 'danger',
-  REPROGRAMADA: 'neutral',
-  RECHAZADA: 'danger',
-  AUTORIZACION_VENCIDA: 'danger',
-  VALIDACION_VENCIDA: 'danger',
-  CANCELADA: 'neutral',
   CERRADA: 'success',
 }
 
@@ -297,21 +292,28 @@ function diagnosticoDeConexion(base: Omit<DiagnosticoFallo, 'titulo'>): Diagnost
 
 /** Diagnóstico de un resultado que ya trae su tipo de fallo aparte del mensaje, como la prueba de acceso */
 export function diagnosticarResultado(fallo: TipoFallo | undefined, mensaje?: string | null): DiagnosticoFallo {
-  if (!fallo) return diagnosticarFallo(mensaje)
-  if (!mensaje) return { tipo: fallo, titulo: FALLO[fallo].etiqueta, sugerencia: FALLO[fallo].sugerencia, causas: CAUSAS[fallo] }
-  const prefijo = `${ETIQUETA_BACKEND[fallo]}: `
-  return diagnosticarFallo(mensaje.startsWith(prefijo) ? mensaje : prefijo + mensaje)
+  if (fallo && !mensaje) return { tipo: fallo, titulo: FALLO[fallo].etiqueta, sugerencia: FALLO[fallo].sugerencia, causas: CAUSAS[fallo] }
+  return diagnosticarFallo(mensaje, undefined, fallo)
 }
 
-/** Los resultados históricos conservan el mensaje, con la categoría al principio o dentro de una incidencia. */
-export function diagnosticarFallo(error?: string | null, salida?: string | null): DiagnosticoFallo {
+/**
+ * Diagnóstico de un fallo. La categoría llega tipificada desde el registro de actividad (DEC-61); sin ella, como en un
+ * mensaje de incidencia o un resultado anterior a ese registro, se reconoce por la etiqueta al principio del mensaje.
+ */
+export function diagnosticarFallo(error?: string | null, salida?: string | null, tipoFallo?: TipoFallo): DiagnosticoFallo {
   const mensajeOriginal = error?.trim() || undefined
   const mensaje = mensajeOriginal ?? ''
   const categorias = Object.keys(ETIQUETA_BACKEND) as TipoFallo[]
   const prefijo = (categoria: TipoFallo) => `${ETIQUETA_BACKEND[categoria]}: `
-  const tipo = categorias.find((categoria) => mensaje.startsWith(prefijo(categoria)))
+  const tipo = tipoFallo
+    ?? categorias.find((categoria) => mensaje.startsWith(prefijo(categoria)))
     ?? categorias.find((categoria) => mensaje.includes(`. ${prefijo(categoria)}`))
-  const detalle = tipo ? detalleFallo(tipo, mensaje.slice(mensaje.indexOf(ETIQUETA_BACKEND[tipo]))) : mensajeOriginal
+  // El mensaje puede traer la etiqueta al principio o dentro (una incidencia): el detalle empieza después de ella. Con la
+  // categoría aparte, el mensaje entero es el detalle
+  const inicio = tipo ? mensaje.indexOf(ETIQUETA_BACKEND[tipo]) : -1
+  const detalle = tipo && inicio >= 0
+    ? detalleFallo(tipo, mensaje.slice(inicio))
+    : tipo && mensajeOriginal ? mensajeOriginal.charAt(0).toUpperCase() + mensajeOriginal.slice(1) : mensajeOriginal
   const base = { tipo, detalle, mensajeOriginal, causas: tipo ? CAUSAS[tipo] : undefined }
 
   if (tipo === 'CONTRATO') {

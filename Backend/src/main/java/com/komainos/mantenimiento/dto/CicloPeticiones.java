@@ -38,12 +38,6 @@ public final class CicloPeticiones {
             String observaciones) {
     }
 
-    public record MotivoPeticion(
-            @NotBlank(message = "Registre el motivo")
-            @Size(max = 1000, message = "El motivo no puede superar los 1000 caracteres")
-            String motivo) {
-    }
-
     /** RF31: servidor o grupo, motivo y, si el inicio queda fuera de la ventana, la confirmación expresa */
     public record LanzamientoInmediatoPeticion(
             Integer idServidor,

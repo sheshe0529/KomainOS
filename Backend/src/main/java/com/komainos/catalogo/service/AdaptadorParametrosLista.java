@@ -1,6 +1,6 @@
 package com.komainos.catalogo.service;
 
-import com.komainos.catalogo.repository.ParametroScriptRepositorio;
+import com.komainos.catalogo.repository.ScriptParametroRepositorio;
 import com.komainos.inventario.repository.ConteoPorId;
 import com.komainos.inventario.service.PuertoParametrosLista;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AdaptadorParametrosLista implements PuertoParametrosLista {
-    private final ParametroScriptRepositorio parametros;
+    private final ScriptParametroRepositorio parametros;
 
     @Override
     public Map<Integer, Long> contarPorLista() {

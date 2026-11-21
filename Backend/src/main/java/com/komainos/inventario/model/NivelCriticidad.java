@@ -55,10 +55,6 @@ public class NivelCriticidad {
         plazoValidacionHoras = datos.plazoValidacionHoras();
     }
 
-    public boolean esMasCriticoQue(NivelCriticidad otro) {
-        return otro == null || prioridad < otro.prioridad;
-    }
-
     public void activar() {
         if (activo) {
             throw new ReglaNegocioException("El nivel de criticidad %s ya se encuentra activo".formatted(nombre));

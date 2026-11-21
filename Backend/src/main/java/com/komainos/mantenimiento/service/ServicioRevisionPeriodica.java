@@ -44,9 +44,9 @@ import java.util.Set;
 public class ServicioRevisionPeriodica {
 
     /** Con alguna de estas el servidor ya tiene un ciclo en marcha: la condición crítica no crea otra orden */
-    private static final Set<EstadoOrden> EN_MARCHA = EnumSet.of(EstadoOrden.EN_EVALUACION, EstadoOrden.SIN_IMPLEMENTACION,
+    private static final Set<EstadoOrden> EN_MARCHA = EnumSet.of(EstadoOrden.EN_EVALUACION,
             EstadoOrden.PENDIENTE_AUTORIZACION, EstadoOrden.AUTORIZADA, EstadoOrden.EN_COLA, EstadoOrden.EN_EJECUCION,
-            EstadoOrden.PENDIENTE_VALIDACION, EstadoOrden.INCIDENCIA);
+            EstadoOrden.EN_VALIDACION_TECNICA, EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL, EstadoOrden.INCIDENCIA);
 
     private final ServicioServidor servidores;
     private final ConfiguracionServidorRepositorio configuraciones;
