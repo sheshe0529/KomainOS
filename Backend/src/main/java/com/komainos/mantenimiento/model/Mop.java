@@ -2,7 +2,7 @@ package com.komainos.mantenimiento.model;
 
 import com.komainos.catalogo.model.NivelAfectacion;
 import com.komainos.catalogo.model.Tarea;
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptVersion;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -54,7 +54,7 @@ public class Mop {
      *
      * @param version de cada tarea, en el mismo orden; nula si no hay implementación compatible (RF42)
      */
-    public static Mop generar(OrdenDetalle detalle, List<Tarea> tareas, List<VersionScript> versiones,
+    public static Mop generar(OrdenDetalle detalle, List<Tarea> tareas, List<ScriptVersion> versiones,
                               Integer idCuentaServicio, Instant ahora) {
         Mop mop = new Mop();
         mop.detalle = detalle;
@@ -73,10 +73,6 @@ public class Mop {
     public NivelAfectacion afectacion() {
         return tareas.stream().map(MopTarea::getNivelAfectacion)
                 .reduce(NivelAfectacion.SIN_AFECTACION, NivelAfectacion::mayor);
-    }
-
-    public boolean tieneTareasSinImplementacion() {
-        return tareas.stream().anyMatch(t -> t.getVersion() == null);
     }
 
     public Optional<MopTarea> siguientePendiente() {

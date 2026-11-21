@@ -7,7 +7,7 @@ import java.util.Optional;
  * Variables para evaluar el estado de salud del servidor virtual (R3.1): las 21 métricas que informan los scripts de
  * análisis. Las de umbral se comparan con un límite; las binarias valen 1 cuando se incumple la configuración esperada;
  * las de lista informan los elementos encontrados y el sistema los contrasta con una lista de referencia. El mismo
- * catálogo se carga en la base con 02_datos_sistema.sql.
+ * catálogo se carga en la base con 02_datos_sistema.sql; esta copia solo la usan los datos de demostración de las pruebas.
  */
 public final class VariablesSalud {
 

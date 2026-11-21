@@ -151,7 +151,7 @@ function DetalleRegistro({ evento, registro, analisis }: {
   // Con la salida del script, el diagnóstico reconoce también un error de sintaxis
   const salidaAnalisis = evento?.nivel === 'ERROR' ? analisis?.salida : undefined
   const diagnostico = evento?.error && evento.nivel === 'ERROR'
-    ? diagnosticarFallo(evento.error, tarea?.salida ?? salidaAnalisis)
+    ? diagnosticarFallo(evento.error, tarea?.salida ?? salidaAnalisis, evento.tipoFallo)
     : undefined
   const servidor = evento?.servidor ?? registro?.servidor
   const version = evento?.script ?? (tarea?.script && (tarea.numeroVersion == null ? tarea.script : `${tarea.script} v${tarea.numeroVersion}`))

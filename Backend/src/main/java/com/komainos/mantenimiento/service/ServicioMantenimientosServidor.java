@@ -4,6 +4,7 @@ import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.inventario.service.PuertoMantenimientos;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.repository.OrdenRepositorio;
 import com.komainos.seguridad.model.Usuario;
@@ -53,7 +54,9 @@ public class ServicioMantenimientosServidor implements PuertoMantenimientos {
                 auditoria.registrar(actor, Operacion.de("RETIRAR_SERVIDOR_DE_ORDEN", "orden", orden.getId())
                         .sobreOrden(orden.getId()).sobreServidor(idServidor).motivo(motivo));
             } else {
-                orden.cancelar(autor, motivo, ahora);
+                // Se cierra aquí y no con ServicioCierreMantenimiento: la baja ya está en curso y el servidor no tendrá
+                // otro ciclo (RF72)
+                orden.cerrar(MotivoCierre.CANCELADA, motivo, autor, ahora);
                 auditoria.registrar(actor, Operacion.de("CANCELAR_ORDEN", "orden", orden.getId())
                         .sobreOrden(orden.getId()).sobreServidor(idServidor).motivo(motivo));
             }

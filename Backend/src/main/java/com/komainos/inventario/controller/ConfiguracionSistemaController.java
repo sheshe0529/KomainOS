@@ -2,7 +2,7 @@ package com.komainos.inventario.controller;
 
 import com.komainos.inventario.dto.ParametrosSistemaPeticion;
 import com.komainos.inventario.dto.ParametrosSistemaRespuesta;
-import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.ServicioConfiguracionSistema;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.UsuarioAutenticado;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,9 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/parametros-sistema")
 @RequiredArgsConstructor
 @Tag(name = "Parámetros del sistema")
-public class ParametrosSistemaController {
+public class ConfiguracionSistemaController {
 
-    private final ServicioParametrosSistema servicio;
+    private final ServicioConfiguracionSistema servicio;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'OPERADOR')")

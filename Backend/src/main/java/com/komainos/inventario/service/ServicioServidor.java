@@ -2,7 +2,7 @@ package com.komainos.inventario.service;
 
 import com.komainos.inventario.model.FinalidadCuenta;
 
-import com.komainos.auditoria.model.RegistroAuditoria;
+import com.komainos.auditoria.model.Auditoria;
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.inventario.event.ConfiguracionMantenimientoActualizada;
@@ -125,9 +125,9 @@ public class ServicioServidor implements PuertoServidoresACargo {
 
     /** Las reactivaciones no tienen tabla propia: se leen de la auditoría (RF73) */
     private List<Reactivacion> reactivaciones(Integer idServidor) {
-        List<RegistroAuditoria> registros = auditoria.consultarSobreServidor(idServidor, "REACTIVAR_SERVIDOR");
+        List<Auditoria> registros = auditoria.consultarSobreServidor(idServidor, "REACTIVAR_SERVIDOR");
         Map<Integer, Usuario> autores = new HashMap<>();
-        usuarios.findAllById(registros.stream().map(RegistroAuditoria::getIdUsuario).filter(Objects::nonNull).toList())
+        usuarios.findAllById(registros.stream().map(Auditoria::getIdUsuario).filter(Objects::nonNull).toList())
                 .forEach(u -> autores.put(u.getId(), u));
         return registros.stream()
                 .map(r -> new Reactivacion(r.getFechaHora(), r.getIdUsuario() == null ? null : autores.get(r.getIdUsuario())))

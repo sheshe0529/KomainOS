@@ -2,8 +2,8 @@ package com.komainos.inventario.service;
 
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.auditoria.service.ServicioAuditoria;
-import com.komainos.inventario.model.ParametrosSistema;
-import com.komainos.inventario.repository.ParametrosSistemaRepositorio;
+import com.komainos.inventario.model.ConfiguracionSistema;
+import com.komainos.inventario.repository.ConfiguracionSistemaRepositorio;
 import com.komainos.seguridad.service.PuertoParametrosSesion;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.model.Actor;
@@ -17,14 +17,14 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class ServicioParametrosSistema implements PuertoParametrosSesion {
+public class ServicioConfiguracionSistema implements PuertoParametrosSesion {
 
-    private final ParametrosSistemaRepositorio repositorio;
+    private final ConfiguracionSistemaRepositorio repositorio;
     private final ServicioAuditoria auditoria;
 
     @Transactional(readOnly = true)
-    public ParametrosSistema obtener() {
-        return repositorio.findById(ParametrosSistema.ID_UNICO)
+    public ConfiguracionSistema obtener() {
+        return repositorio.findById(ConfiguracionSistema.ID_UNICO)
                 .orElseThrow(() -> new ReglaNegocioException(
                         "No se encontraron los parámetros del sistema; verifique las migraciones de la base"));
     }
@@ -37,17 +37,17 @@ public class ServicioParametrosSistema implements PuertoParametrosSesion {
 
     /** Una MOP tiene al menos una tarea: la máxima por MOP no puede ser menor que la de tarea (RF22) */
     @Transactional
-    public ParametrosSistema actualizar(DatosParametros datos, Actor actor) {
+    public ConfiguracionSistema actualizar(DatosParametros datos, Actor actor) {
         return actualizar(datos, null, actor);
     }
 
     @Transactional
-    public ParametrosSistema actualizar(DatosParametros datos, Instant versionEsperada, Actor actor) {
+    public ConfiguracionSistema actualizar(DatosParametros datos, Instant versionEsperada, Actor actor) {
         if (datos.maxDuracionMopMinutos() < datos.maxDuracionTareaMinutos()) {
             throw new ReglaNegocioException(
                     "La duración máxima por MOP no puede ser menor que la duración máxima por tarea");
         }
-        ParametrosSistema parametros = obtener();
+        ConfiguracionSistema parametros = obtener();
         Concurrencia.exigirVersion(versionEsperada, parametros.getFechaActualizacion(), "los parámetros del sistema");
         Map<String, Object> anterior = instantanea(parametros);
 
@@ -61,7 +61,7 @@ public class ServicioParametrosSistema implements PuertoParametrosSesion {
         return parametros;
     }
 
-    private static Map<String, Object> instantanea(ParametrosSistema p) {
+    private static Map<String, Object> instantanea(ConfiguracionSistema p) {
         return Map.of(
                 "maxEjecucionesConcurrentes", p.getMaxEjecucionesConcurrentes(),
                 "maxDuracionTareaMinutos", p.getMaxDuracionTareaMinutos(),

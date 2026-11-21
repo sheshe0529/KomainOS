@@ -13,24 +13,24 @@ import com.komainos.inventario.model.GrupoMantenimiento;
 import com.komainos.inventario.model.ModalidadPlanificacion;
 import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.model.NivelCriticidad;
-import com.komainos.inventario.model.ParametrosSistema;
+import com.komainos.inventario.model.ConfiguracionSistema;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionGrupoRepositorio;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
 import com.komainos.inventario.repository.ServidorRepositorio;
 import com.komainos.inventario.service.ServicioGrupo;
-import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.ServicioConfiguracionSistema;
 import com.komainos.mantenimiento.event.CicloMantenimientoCerrado;
-import com.komainos.mantenimiento.model.CierreOrden;
 import com.komainos.mantenimiento.model.ConfirmacionFueraVentana;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
+import com.komainos.mantenimiento.service.ServicioCierreMantenimiento;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrdenDetalle;
 import com.komainos.mantenimiento.model.OrigenOrden;
 import com.komainos.mantenimiento.model.Programacion;
-import com.komainos.mantenimiento.repository.CierreOrdenRepositorio;
 import com.komainos.mantenimiento.repository.ConfirmacionFueraVentanaRepositorio;
 import com.komainos.mantenimiento.repository.OrdenDetalleRepositorio;
 import com.komainos.mantenimiento.repository.OrdenRepositorio;
@@ -47,6 +47,7 @@ import com.komainos.shared.model.Actor;
 import com.komainos.shared.model.Intervalo;
 import com.komainos.shared.util.Tiempo;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -80,12 +81,12 @@ public class ServicioPlanificacion {
 
     private final OrdenRepositorio ordenes;
     private final OrdenDetalleRepositorio detalles;
-    private final CierreOrdenRepositorio cierres;
+    private final ServicioCierreMantenimiento cierre;
     private final ServidorRepositorio servidores;
     private final GrupoMantenimientoRepositorio grupos;
     private final ConfiguracionServidorRepositorio configuracionesServidor;
     private final ConfiguracionGrupoRepositorio configuracionesGrupo;
-    private final ServicioParametrosSistema parametros;
+    private final ServicioConfiguracionSistema parametros;
     private final UsuarioRepositorio usuarios;
     private final ServicioAuditoria auditoria;
     private final PropiedadesPlanificacion propiedades;
@@ -95,17 +96,17 @@ public class ServicioPlanificacion {
     private final PlanificadorVoraz planificador = new PlanificadorVoraz();
 
     public ServicioPlanificacion(OrdenRepositorio ordenes, OrdenDetalleRepositorio detalles,
-                                 CierreOrdenRepositorio cierres,
+                                 ServicioCierreMantenimiento cierre,
                                  ServidorRepositorio servidores, GrupoMantenimientoRepositorio grupos,
                                  ConfiguracionServidorRepositorio configuracionesServidor,
                                  ConfiguracionGrupoRepositorio configuracionesGrupo,
-                                 ServicioParametrosSistema parametros, UsuarioRepositorio usuarios,
+                                 ServicioConfiguracionSistema parametros, UsuarioRepositorio usuarios,
                                  ServicioAuditoria auditoria, PropiedadesPlanificacion propiedades, Clock reloj,
                                  PlatformTransactionManager transacciones,
                                  ConfirmacionFueraVentanaRepositorio confirmaciones) {
         this.ordenes = ordenes;
         this.detalles = detalles;
-        this.cierres = cierres;
+        this.cierre = cierre;
         this.servidores = servidores;
         this.grupos = grupos;
         this.configuracionesServidor = configuracionesServidor;
@@ -171,7 +172,7 @@ public class ServicioPlanificacion {
         Usuario solicitante = usuarioDe(actor);
         Orden orden = crearOrden(objetivo, resultado,
                 critica ? OrigenOrden.CONDICION_CRITICA : OrigenOrden.LANZAMIENTO_INMEDIATO, solicitante, texto, ahora,
-                idEvaluacionOrigen);
+                idEvaluacionOrigen, null);
         boolean excepcion = ventana.isEmpty() && !critica;
         if (excepcion) {
             confirmaciones.save(ConfirmacionFueraVentana.de(orden, solicitante, texto, ahora));
@@ -265,8 +266,13 @@ public class ServicioPlanificacion {
     @Transactional
     public Orden cancelar(Integer idOrden, String motivo, Actor actor) {
         Orden orden = buscarOrden(idOrden);
-        orden.cancelar(usuarioDe(actor), motivo, Tiempo.ahora(reloj));
+        if (!MotivoCierre.CANCELADA.admiteCierreDesde(orden.getEstado())) {
+            throw new ReglaNegocioException("La orden %s está en estado %s y no puede cancelarse"
+                    .formatted(orden.getCodigo(), orden.getEstado()));
+        }
         auditoria.registrar(actor, Operacion.de("CANCELAR_ORDEN", "orden", idOrden).sobreOrden(idOrden).motivo(motivo));
+        // DEC-19, EA04: la cancelación termina el ciclo con su motivo (DEC-61)
+        cierre.cerrar(orden, MotivoCierre.CANCELADA, motivo, actor);
         return orden;
     }
 
@@ -328,9 +334,9 @@ public class ServicioPlanificacion {
                     continue;
                 }
                 siguienteFechaObjetivo(config, !ordenes.existsByServidorId(s.getId()),
-                        cierres.findPendienteDeServidor(s.getId()))
+                        ordenes.findCierrePendienteDeServidor(s.getId(), PageRequest.of(0, 1)).stream().findFirst())
                         .ifPresent(par -> candidatos.add(new Candidato(s.getId(), null, s.getNivelCriticidad().getPrioridad(),
-                                par.fechaObjetivo(), par.idCierre(), "servidor " + s.getHostname())));
+                                par.fechaObjetivo(), par.idOrdenAnterior(), "servidor " + s.getHostname())));
             }
         }
         if (soloServidor == null) {
@@ -346,26 +352,24 @@ public class ServicioPlanificacion {
                 }
                 int prioridad = g.criticidadEfectiva().map(NivelCriticidad::getPrioridad).orElse(Integer.MAX_VALUE);
                 siguienteFechaObjetivo(config, !ordenes.existsByGrupoId(idGrupo),
-                        cierres.findPendienteDeGrupo(idGrupo))
+                        ordenes.findCierrePendienteDeGrupo(idGrupo, PageRequest.of(0, 1)).stream().findFirst())
                         .ifPresent(par -> candidatos.add(new Candidato(null, idGrupo, prioridad, par.fechaObjetivo(),
-                                par.idCierre(), "grupo " + g.getNombre())));
+                                par.idOrdenAnterior(), "grupo " + g.getNombre())));
             }
         }
         return candidatos;
     }
 
     /**
-     * El primer ciclo usa la fecha de configuración (DEC-09). Los siguientes usan el cierre anterior con su periodicidad o,
-     * si se cerró sin configuración (DEC-60), con la de la configuración actual
+     * El primer ciclo usa la fecha de configuración (DEC-09). Los siguientes parten del cierre de la orden anterior con la
+     * periodicidad vigente de la configuración (RF46, DEC-61)
      */
     private Optional<FechaYCierre> siguienteFechaObjetivo(ConfiguracionMantenimiento config, boolean sinOrdenes,
-                                                          Optional<CierreOrden> cierre) {
-        if (cierre.isPresent()) {
-            CierreOrden c = cierre.get();
-            int periodicidad = c.getPeriodicidadBaseDias() != null ? c.getPeriodicidadBaseDias()
-                    : config.getFrecuenciaMantenimientoDias();
-            Instant objetivo = c.getFechaCierre().plus(periodicidad, ChronoUnit.DAYS);
-            return Optional.of(new FechaYCierre(objetivo, c.getId()));
+                                                          Optional<Orden> cerrada) {
+        if (cerrada.isPresent()) {
+            Orden anterior = cerrada.get();
+            Instant objetivo = anterior.getFechaCierre().plus(config.getFrecuenciaMantenimientoDias(), ChronoUnit.DAYS);
+            return Optional.of(new FechaYCierre(objetivo, anterior.getId()));
         }
         if (sinOrdenes) {
             Instant objetivo = config.getFechaCreacion().plus(config.getFrecuenciaMantenimientoDias(), ChronoUnit.DAYS);
@@ -388,10 +392,7 @@ public class ServicioPlanificacion {
         ResultadoPlanificacion resultado = planificador.planificar(
                 solicitud(objetivo, candidato.fechaObjetivo(), ahora), reservas(ahora, candidato.fechaObjetivo(), null));
         Orden orden = crearOrden(objetivo, resultado, OrigenOrden.PLANIFICACION_AUTOMATICA, null,
-                "Ciclo automático generado por el Sistema", ahora);
-        if (candidato.idCierre() != null) {
-            cierres.findById(candidato.idCierre()).ifPresent(c -> c.enlazarSiguiente(orden));
-        }
+                "Ciclo automático generado por el Sistema", ahora, null, candidato.idOrdenAnterior());
         auditoria.registrar(Actor.sistema(PROCESO_AUTOMATICO), Operacion.de("GENERAR_ORDEN_AUTOMATICA", "orden", orden.getId())
                 .sobreOrden(orden.getId())
                 .sobreServidor(candidato.idServidor()).sobreGrupo(candidato.idGrupo())
@@ -402,7 +403,7 @@ public class ServicioPlanificacion {
     /** Sin inicio planifica desde la fecha objetivo y, si se indica, no antes de noAntesDe */
     private void reprogramarInterno(Orden orden, Instant inicio, Instant noAntesDe, String motivo, Usuario autor) {
         bloquear();
-        if (!orden.getEstado().puedePasarA(EstadoOrden.REPROGRAMADA)) {
+        if (!orden.puedeReprogramarse()) {
             throw new ReglaNegocioException("La orden %s está en estado %s y no puede reprogramarse"
                     .formatted(orden.getCodigo(), orden.getEstado()));
         }
@@ -485,7 +486,7 @@ public class ServicioPlanificacion {
     }
 
     private SolicitudPlanificacion solicitud(Objetivo o, Instant fechaObjetivo, Instant ahora) {
-        ParametrosSistema p = parametros.obtener();
+        ConfiguracionSistema p = parametros.obtener();
         return new SolicitudPlanificacion(
                 o.integrantes().stream().map(Servidor::getId).toList(),
                 o.grupo() != null ? (o.modo() == null ? ModoEjecucion.SECUENCIAL : o.modo()) : null,
@@ -512,7 +513,7 @@ public class ServicioPlanificacion {
 
     private Orden crearOrden(Objetivo o, ResultadoPlanificacion r, OrigenOrden origen, Usuario solicitante,
                              String motivo, Instant ahora) {
-        return crearOrden(o, r, origen, solicitante, motivo, ahora, null);
+        return crearOrden(o, r, origen, solicitante, motivo, ahora, null, null);
     }
 
     /**
@@ -520,13 +521,16 @@ public class ServicioPlanificacion {
      * tiene asignadas el objetivo; no hay cuenta predeterminada (DEC-60)
      */
     private Orden crearOrden(Objetivo o, ResultadoPlanificacion r, OrigenOrden origen, Usuario solicitante,
-                             String motivo, Instant ahora, Integer idEvaluacionOrigen) {
+                             String motivo, Instant ahora, Integer idEvaluacionOrigen, Integer idOrdenAnterior) {
         Integer evaluacion = o.configuracion().getIdCuentaServicioEvaluacion();
         Integer mantenimiento = o.configuracion().getIdCuentaServicioMantenimiento();
         Orden orden = Orden.nueva(ordenes.siguienteId(), o.servidor(), o.grupo(), o.criticidad(), evaluacion, mantenimiento,
                 solicitante, origen, o.modo(), programacion(r), ahora, motivo);
         if (idEvaluacionOrigen != null) {
             orden.definirEvaluacionOrigen(idEvaluacionOrigen);
+        }
+        if (idOrdenAnterior != null) {
+            orden.definirOrdenAnterior(idOrdenAnterior);
         }
         Map<Integer, Servidor> porId = new HashMap<>();
         o.integrantes().forEach(s -> porId.put(s.getId(), s));
@@ -598,10 +602,10 @@ public class ServicioPlanificacion {
     }
 
     private record Candidato(Integer idServidor, Integer idGrupo, int prioridad, Instant fechaObjetivo,
-                             Integer idCierre, String descripcion) {
+                             Integer idOrdenAnterior, String descripcion) {
     }
 
-    private record FechaYCierre(Instant fechaObjetivo, Integer idCierre) {
+    private record FechaYCierre(Instant fechaObjetivo, Integer idOrdenAnterior) {
     }
 
     public record ResumenPlanificacion(int evaluados, List<String> ordenesGeneradas, List<String> sinIntervalo) {

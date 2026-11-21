@@ -24,12 +24,12 @@ import com.komainos.inventario.service.ServicioUmbrales.DatosExcepcion;
 import com.komainos.inventario.service.ServicioUmbrales.DatosUmbral;
 import com.komainos.mantenimiento.model.EstadoAutorizacion;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.service.ProcesoAutomatizacion;
 import com.komainos.mantenimiento.service.ServicioEvaluaciones;
 import com.komainos.mantenimiento.service.ServicioIncidencias;
 import com.komainos.mantenimiento.service.ServicioIncidencias.DatosAtencion;
 import com.komainos.mantenimiento.service.ServicioRevisionPeriodica;
-import com.komainos.mantenimiento.service.ServicioAutorizaciones;
 import com.komainos.mantenimiento.service.ServicioValidaciones;
 import com.komainos.seguridad.model.AlcanceUsuario;
 import com.komainos.seguridad.model.Rol;
@@ -93,7 +93,7 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
         assertThat(estado(id)).isEqualTo(EstadoOrden.AUTORIZADA);
 
         assertThat(orquestador.drenar()).isEqualTo(1);
-        assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
+        assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
 
         mvc.perform(get("/api/ordenes/{id}/automatizacion", id).with(como(responsable)))
                 .andExpect(status().isOk())
@@ -124,7 +124,9 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
                         .contentType("application/json").content("{\"conforme\":true,\"observaciones\":\"Servicio operativo\"}"))
                 .andExpect(status().isNoContent());
         assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
-        assertThat(contar("select count(*) from cierre_orden where id_orden = ?", id)).isEqualTo(1);
+        assertThat(motivo(id)).isEqualTo(MotivoCierre.EXITOSO);
+        assertThat(contar("select count(*) from orden where id_orden = ? and fecha_cierre is not null "
+                + "and observaciones_cierre like '%Servicio operativo%'", id)).isEqualTo(1);
 
         // RF53: la bitácora del servidor resume el ciclo y se exporta con cada evento
         mvc.perform(get("/api/servidores/{id}/bitacora", servidor.getId()).with(como(responsable)))
@@ -161,7 +163,7 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
 
         assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
         assertThat(contar("select count(*) from mop m join orden_detalle d using (id_orden_detalle) where d.id_orden = ?", id)).isZero();
-        assertThat(contar("select count(*) from cierre_orden where id_orden = ?", id)).isEqualTo(1);
+        assertThat(motivo(id)).isEqualTo(MotivoCierre.SIN_INTERVENCION);
     }
 
     @Nested
@@ -182,25 +184,22 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
         }
 
         @Test
-        @DisplayName("CP112: sin implementación compatible se bloquea, se conservan las tareas y se alerta al administrador")
-        void sinImplementacion() throws Exception {
-            Script limpieza = catalogo.scripts(FiltroScripts.todos(), PageRequest.of(0, 100)).stream()
+        @DisplayName("CP112: sin implementación compatible se cierra SIN_IMPLEMENTACION, se conservan las tareas y se "
+                + "alerta al administrador (DEC-61)")
+        void sinImplementacion() {
+            Script limpieza = catalogo.scripts(new FiltroScripts(null, null, null), PageRequest.of(0, 100)).stream()
                     .filter(s -> s.getNombre().equals("Liberar archivos temporales")).findFirst().orElseThrow();
             catalogo.habilitar(limpieza.getImplementaciones().getFirst().getVersiones().getFirst().getId(), false, actor);
 
             Integer id = lanzar(servidor);
 
-            assertThat(estado(id)).isEqualTo(EstadoOrden.SIN_IMPLEMENTACION);
+            assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
+            assertThat(motivo(id)).isEqualTo(MotivoCierre.SIN_IMPLEMENTACION);
             assertThat(contar("select count(*) from mop_tarea t join mop m using (id_mop) join orden_detalle d "
                     + "using (id_orden_detalle) where d.id_orden = ?", id)).isEqualTo(2);
             assertThat(contar("select count(*) from alerta a join alerta_destinatario ad using (id_alerta) "
                     + "where a.id_orden = ? and a.tipo = 'SIN_IMPLEMENTACION' and ad.id_usuario = ?", id, admin.getId())).isEqualTo(1);
             assertThat(orquestador.drenar()).isZero();
-
-            mvc.perform(post("/api/ordenes/{id}/cierre-sin-implementacion", id).with(como(admin))
-                            .contentType("application/json").content("{\"motivo\":\"Se publicará la implementación\"}"))
-                    .andExpect(status().isNoContent());
-            assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
         }
 
         @Test
@@ -213,9 +212,8 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
 
             Integer id = lanzar(antiguo);
 
-            assertThat(estado(id)).isEqualTo(EstadoOrden.SIN_IMPLEMENTACION);
-            assertThat(jdbc.queryForObject("select motivo from historial_estado_orden where id_orden = ? "
-                    + "and estado_nuevo = 'SIN_IMPLEMENTACION'", String.class, id))
+            assertThat(motivo(id)).isEqualTo(MotivoCierre.SIN_IMPLEMENTACION);
+            assertThat(jdbc.queryForObject("select observaciones_cierre from orden where id_orden = ?", String.class, id))
                     .contains("srv-antiguo").contains("Ubuntu 22.04");
         }
 
@@ -224,9 +222,8 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
         void analisisPrevioFallido() {
             Integer id = lanzar(crear("srv-sin-conexion", "10.90.0.3"));
 
-            assertThat(estado(id)).isEqualTo(EstadoOrden.SIN_IMPLEMENTACION);
-            assertThat(jdbc.queryForObject("select motivo from historial_estado_orden where id_orden = ? "
-                    + "and estado_nuevo = 'SIN_IMPLEMENTACION'", String.class, id))
+            assertThat(motivo(id)).isEqualTo(MotivoCierre.SIN_IMPLEMENTACION);
+            assertThat(jdbc.queryForObject("select observaciones_cierre from orden where id_orden = ?", String.class, id))
                     .contains("srv-sin-conexion").contains("Error de comunicación");
         }
 
@@ -307,17 +304,19 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
                     .andExpect(status().isNoContent());
 
             assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
-            assertThat(contar("select count(*) from historial_estado_orden where id_orden = ? and estado_nuevo = 'RECHAZADA'", id))
-                    .isEqualTo(1);
+            assertThat(motivo(id)).isEqualTo(MotivoCierre.RECHAZADA);
+            assertThat(contar("select count(*) from historial_estado_orden where id_orden = ? "
+                    + "and estado_anterior = 'PENDIENTE_AUTORIZACION' and estado_nuevo = 'CERRADA'", id)).isEqualTo(1);
             assertThat(contar("select count(*) from incidencia i join orden_detalle d using (id_orden_detalle) where d.id_orden = ?", id))
                     .isZero();
-            // El estado RECHAZADA dura hasta el cierre: la orden se encuentra por su motivo de cierre
-            mvc.perform(get("/api/ordenes").param("estado", "RECHAZADA").with(como(admin)))
-                    .andExpect(jsonPath("$.totalElementos").value(0));
-            mvc.perform(get("/api/ordenes").param("motivoCierre", "NO_AUTORIZADO").with(como(admin)))
+            // DEC-61: la orden cerrada se encuentra por su motivo de cierre, que viaja con la orden
+            mvc.perform(get("/api/ordenes").param("motivoCierre", "RECHAZADA").with(como(admin)))
                     .andExpect(jsonPath("$.totalElementos").value(1))
                     .andExpect(jsonPath("$.contenido[0].id").value(id))
-                    .andExpect(jsonPath("$.contenido[0].estado").value("CERRADA"));
+                    .andExpect(jsonPath("$.contenido[0].estado").value("CERRADA"))
+                    .andExpect(jsonPath("$.contenido[0].motivoCierre").value("RECHAZADA"))
+                    .andExpect(jsonPath("$.contenido[0].observacionesCierre").value(
+                            org.hamcrest.Matchers.containsString("Cierre contable en curso")));
             mvc.perform(get("/api/ordenes").param("motivoCierre", "VALIDACION_VENCIDA").with(como(admin)))
                     .andExpect(jsonPath("$.totalElementos").value(0));
         }
@@ -462,13 +461,12 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
 
             assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
             assertThat(jdbc.queryForObject("select estado::text from validacion_funcional", String.class)).isEqualTo("VENCIDA");
-            assertThat(contar("select count(*) from historial_estado_orden where id_orden = ? and estado_nuevo = 'VALIDACION_VENCIDA'", id))
-                    .isEqualTo(1);
+            assertThat(motivo(id)).isEqualTo(MotivoCierre.VALIDACION_VENCIDA);
             // Se ejecutó sin conformidad: es un motivo aparte de la falta de autorización
             mvc.perform(get("/api/ordenes").param("motivoCierre", "VALIDACION_VENCIDA").with(como(admin)))
                     .andExpect(jsonPath("$.totalElementos").value(1))
                     .andExpect(jsonPath("$.contenido[0].id").value(id));
-            mvc.perform(get("/api/ordenes").param("motivoCierre", "NO_AUTORIZADO").with(como(admin)))
+            mvc.perform(get("/api/ordenes").param("motivoCierre", "RECHAZADA").with(como(admin)))
                     .andExpect(jsonPath("$.totalElementos").value(0));
         }
 
@@ -694,11 +692,10 @@ class CicloMantenimientoIT extends BaseAutomatizacionIT {
         incidencias.atender(incidencia, new DatosAtencion("Carpeta inexistente", "Se creó la carpeta", "Resuelto", true), actor);
 
         assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
-        assertThat(jdbc.queryForObject("""
-                select siguiente.fecha_objetivo
-                from cierre_orden c join orden siguiente on siguiente.id_orden = c.id_orden_siguiente
-                where c.id_orden = ?
-                """, Timestamp.class, id).toInstant()).isEqualTo(AHORA.plus(30, ChronoUnit.DAYS));
+        assertThat(motivo(id)).isEqualTo(MotivoCierre.CON_INCIDENCIA);
+        // DEC-61: el ciclo siguiente apunta a la orden cerrada y toma la periodicidad vigente de la configuración
+        assertThat(jdbc.queryForObject("select fecha_objetivo from orden where id_orden_anterior = ?",
+                Timestamp.class, id).toInstant()).isEqualTo(AHORA.plus(30, ChronoUnit.DAYS));
         assertThat(contar("select count(*) from orden where id_servidor = ? and origen = 'PLANIFICACION_AUTOMATICA'",
                 objetivo.getId())).isEqualTo(1);
     }

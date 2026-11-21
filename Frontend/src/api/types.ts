@@ -13,7 +13,6 @@ export interface AccionesOrden {
   proponerFecha?: boolean
   decidirPropuesta?: boolean
   validar?: boolean
-  cerrarSinImplementacion?: boolean
   procesarCola?: boolean
 }
 
@@ -96,6 +95,7 @@ export interface AnalisisRespuesta {
   fechaInicio?: string
   fechaFin?: string
   error?: string
+  tipoFallo?: 'COMUNICACION' | 'AUTENTICACION' | 'PERMISOS' | 'TIEMPO_EXCEDIDO' | 'EJECUCION' | 'CONTRATO' | 'CONFIGURACION'
   salida?: string
   mediciones?: MedicionRespuesta[]
 }
@@ -152,8 +152,8 @@ export interface Bitacora {
 }
 
 export interface CambioEstado {
-  estadoAnterior?: 'PROGRAMADA' | 'EN_EVALUACION' | 'SIN_IMPLEMENTACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'PENDIENTE_VALIDACION' | 'INCIDENCIA' | 'REPROGRAMADA' | 'RECHAZADA' | 'AUTORIZACION_VENCIDA' | 'VALIDACION_VENCIDA' | 'CANCELADA' | 'CERRADA'
-  estadoNuevo?: 'PROGRAMADA' | 'EN_EVALUACION' | 'SIN_IMPLEMENTACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'PENDIENTE_VALIDACION' | 'INCIDENCIA' | 'REPROGRAMADA' | 'RECHAZADA' | 'AUTORIZACION_VENCIDA' | 'VALIDACION_VENCIDA' | 'CANCELADA' | 'CERRADA'
+  estadoAnterior?: 'PROGRAMADA' | 'EN_EVALUACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'EN_VALIDACION_TECNICA' | 'PENDIENTE_VALIDACION_FUNCIONAL' | 'INCIDENCIA' | 'CERRADA'
+  estadoNuevo?: 'PROGRAMADA' | 'EN_EVALUACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'EN_VALIDACION_TECNICA' | 'PENDIENTE_VALIDACION_FUNCIONAL' | 'INCIDENCIA' | 'CERRADA'
   motivo?: string
   usuario?: ReferenciaSimple
   fechaHora?: string
@@ -397,6 +397,7 @@ export interface EjecucionRespuesta {
   fin?: string
   duracionSegundos?: number
   error?: string
+  tipoFallo?: 'COMUNICACION' | 'AUTENTICACION' | 'PERMISOS' | 'TIEMPO_EXCEDIDO' | 'EJECUCION' | 'CONTRATO' | 'CONFIGURACION'
 }
 
 export interface EntornoPeticion {
@@ -446,6 +447,7 @@ export interface EventoActividadRespuesta {
   script?: string
   idTarea?: number
   idEvaluacion?: number
+  tipoFallo?: 'COMUNICACION' | 'AUTENTICACION' | 'PERMISOS' | 'TIEMPO_EXCEDIDO' | 'EJECUCION' | 'CONTRATO' | 'CONFIGURACION'
 }
 
 export interface ExcepcionAplicadaRespuesta {
@@ -716,8 +718,9 @@ export interface MantenimientoBitacora {
   grupo?: string
   origen?: 'PLANIFICACION_AUTOMATICA' | 'SOLICITUD_BAJO_DEMANDA' | 'LANZAMIENTO_INMEDIATO' | 'CONDICION_CRITICA'
   prioridad?: 'NORMAL' | 'ALTA'
-  estado?: 'PROGRAMADA' | 'EN_EVALUACION' | 'SIN_IMPLEMENTACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'PENDIENTE_VALIDACION' | 'INCIDENCIA' | 'REPROGRAMADA' | 'RECHAZADA' | 'AUTORIZACION_VENCIDA' | 'VALIDACION_VENCIDA' | 'CANCELADA' | 'CERRADA'
+  estado?: 'PROGRAMADA' | 'EN_EVALUACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'EN_VALIDACION_TECNICA' | 'PENDIENTE_VALIDACION_FUNCIONAL' | 'INCIDENCIA' | 'CERRADA'
   etapa?: 'PLANIFICACION' | 'EVALUACION' | 'AUTORIZACION' | 'EJECUCION' | 'VALIDACION' | 'INCIDENCIA' | 'CIERRE'
+  motivoCierre?: 'EXITOSO' | 'SIN_INTERVENCION' | 'SIN_IMPLEMENTACION' | 'AUTORIZACION_VENCIDA' | 'VALIDACION_VENCIDA' | 'CANCELADA' | 'RECHAZADA' | 'CON_INCIDENCIA'
   resultado?: 'PROGRAMADO' | 'EN_CURSO' | 'EXITOSO' | 'SIN_INTERVENCION' | 'CON_INCIDENCIA' | 'REQUIERE_ATENCION' | 'NO_AUTORIZADO' | 'CANCELADO'
   inicioProgramado?: string
   finProgramado?: string
@@ -782,10 +785,6 @@ export interface MetricaRevisada {
   unidad?: string
 }
 
-export interface MotivoPeticion {
-  motivo: string
-}
-
 export interface NivelCriticidadPeticion {
   nombre: string
   prioridad: number
@@ -837,8 +836,11 @@ export interface OrdenResumenRespuesta {
   criticidad?: CriticidadResumen
   origen?: 'PLANIFICACION_AUTOMATICA' | 'SOLICITUD_BAJO_DEMANDA' | 'LANZAMIENTO_INMEDIATO' | 'CONDICION_CRITICA'
   prioridad?: 'NORMAL' | 'ALTA'
-  estado?: 'PROGRAMADA' | 'EN_EVALUACION' | 'SIN_IMPLEMENTACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'PENDIENTE_VALIDACION' | 'INCIDENCIA' | 'REPROGRAMADA' | 'RECHAZADA' | 'AUTORIZACION_VENCIDA' | 'VALIDACION_VENCIDA' | 'CANCELADA' | 'CERRADA'
+  estado?: 'PROGRAMADA' | 'EN_EVALUACION' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZADA' | 'EN_COLA' | 'EN_EJECUCION' | 'EN_VALIDACION_TECNICA' | 'PENDIENTE_VALIDACION_FUNCIONAL' | 'INCIDENCIA' | 'CERRADA'
   etapa?: 'PLANIFICACION' | 'EVALUACION' | 'AUTORIZACION' | 'EJECUCION' | 'VALIDACION' | 'INCIDENCIA' | 'CIERRE'
+  motivoCierre?: 'EXITOSO' | 'SIN_INTERVENCION' | 'SIN_IMPLEMENTACION' | 'AUTORIZACION_VENCIDA' | 'VALIDACION_VENCIDA' | 'CANCELADA' | 'RECHAZADA' | 'CON_INCIDENCIA'
+  fechaCierre?: string
+  observacionesCierre?: string
   fechaObjetivo?: string
   inicioProgramado?: string
   finProgramado?: string
@@ -1418,6 +1420,7 @@ export interface TareaMopRespuesta {
   codigoRetorno?: number
   salida?: string
   error?: string
+  tipoFallo?: 'COMUNICACION' | 'AUTENTICACION' | 'PERMISOS' | 'TIEMPO_EXCEDIDO' | 'EJECUCION' | 'CONTRATO' | 'CONFIGURACION'
   fechaInicio?: string
   fechaFin?: string
   duracionSegundos?: number

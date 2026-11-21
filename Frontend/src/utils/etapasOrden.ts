@@ -6,24 +6,19 @@ export const PASOS: EtapaOrden[] = ['PLANIFICACION', 'EVALUACION', 'AUTORIZACION
 /** Misma correspondencia que EstadoOrden.etapa() del backend */
 export const ETAPA_DE: Record<EstadoOrden, EtapaOrden> = {
   PROGRAMADA: 'PLANIFICACION',
-  REPROGRAMADA: 'PLANIFICACION',
   EN_EVALUACION: 'EVALUACION',
-  SIN_IMPLEMENTACION: 'EVALUACION',
   PENDIENTE_AUTORIZACION: 'AUTORIZACION',
   AUTORIZADA: 'AUTORIZACION',
-  RECHAZADA: 'AUTORIZACION',
-  AUTORIZACION_VENCIDA: 'AUTORIZACION',
   EN_COLA: 'EJECUCION',
   EN_EJECUCION: 'EJECUCION',
-  PENDIENTE_VALIDACION: 'VALIDACION',
-  VALIDACION_VENCIDA: 'VALIDACION',
+  EN_VALIDACION_TECNICA: 'VALIDACION',
+  PENDIENTE_VALIDACION_FUNCIONAL: 'VALIDACION',
   INCIDENCIA: 'INCIDENCIA',
-  CANCELADA: 'CIERRE',
   CERRADA: 'CIERRE',
 }
 
-/** Estados que detienen el ciclo en su etapa sin completarla */
-export const DETENIDOS: EstadoOrden[] = ['SIN_IMPLEMENTACION', 'RECHAZADA', 'AUTORIZACION_VENCIDA', 'VALIDACION_VENCIDA', 'INCIDENCIA']
+/** Estados que detienen el ciclo en su etapa sin completarla; los demás finales son motivos de cierre (DEC-61) */
+export const DETENIDOS: EstadoOrden[] = ['INCIDENCIA']
 
 /** La incidencia ocurre al ejecutar o al validar: en el recorrido ocupa el lugar de la validación */
 export function pasoDe(etapa: EtapaOrden): EtapaOrden {

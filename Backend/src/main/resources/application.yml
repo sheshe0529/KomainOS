@@ -13,7 +13,7 @@ spring:
       max-request-size: 6MB
 
   datasource:
-    url: ${KOMAINOS_DB_URL:jdbc:postgresql://localhost:5432/DBKomainOS}
+    url: ${KOMAINOS_DB_URL:jdbc:postgresql://localhost:5432/DBKomainOSFinal}
     username: ${KOMAINOS_DB_USUARIO:postgres}
     password: ${KOMAINOS_DB_CLAVE}
     hikari:

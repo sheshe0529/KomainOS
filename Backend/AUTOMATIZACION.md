@@ -3,7 +3,7 @@
 El componente implementa el ciclo de R2.1/R2.3/R2.4: revisión periódica, evaluación
 previa, MOP, autorización, cola, ejecución, validaciones, incidencias y cierre.
 Reutiliza las tablas del esquema relacional. Una base nueva se crea con `scripts/bd/01_esquema.sql` y
-`02_datos_sistema.sql` (DEC-34); la base en servicio recibe los cambios de esquema nuevos por `scripts/bd/cambios/`.
+`02_datos_sistema.sql` (DEC-34), que son el DDL final y los datos iniciales: el repositorio no guarda scripts de cambios.
 
 Cada script se ejecuta con `ansible-playbook` desde un controlador Linux: SSH para Linux y WinRM para Windows, sin
 agentes. No hay un modo simulado (DEC-56): la imagen Docker del despliegue ([DESPLIEGUE.md](../DESPLIEGUE.md)) trae
@@ -81,7 +81,7 @@ komainos:
 
 El catálogo de métricas son las 21 variables del documento R3.1
 (`Documentos/R3_1_Lista_de_variables_corregido`). Se cargan con
-`02_datos_sistema.sql` y están en `VariablesSalud.java`; el código es la clave
+`02_datos_sistema.sql` (las pruebas usan la misma lista en `src/test/.../VariablesSalud.java`); el código es la clave
 técnica que informa el script de análisis. Cada métrica indica en qué sistemas
 operativos se mide: en los demás no se exige, no se evalúa ni admite excepciones.
 

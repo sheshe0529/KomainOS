@@ -52,14 +52,10 @@ const FAMILIAS: { etiqueta: string; color: string; estados: EstadoOrden[] }[] = 
   {
     etiqueta: 'En curso',
     color: COLOR.informativo,
-    estados: ['PROGRAMADA', 'REPROGRAMADA', 'EN_EVALUACION', 'AUTORIZADA', 'EN_COLA', 'EN_EJECUCION'],
+    estados: ['PROGRAMADA', 'EN_EVALUACION', 'AUTORIZADA', 'EN_COLA', 'EN_EJECUCION', 'EN_VALIDACION_TECNICA'],
   },
-  { etiqueta: 'Esperan una decisión', color: COLOR.advertencia, estados: ['PENDIENTE_AUTORIZACION', 'PENDIENTE_VALIDACION', 'SIN_IMPLEMENTACION'] },
-  {
-    etiqueta: 'Con incidencia o sin realizar',
-    color: COLOR.error,
-    estados: ['INCIDENCIA', 'RECHAZADA', 'AUTORIZACION_VENCIDA', 'VALIDACION_VENCIDA', 'CANCELADA'],
-  },
+  { etiqueta: 'Esperan una decisión', color: COLOR.advertencia, estados: ['PENDIENTE_AUTORIZACION', 'PENDIENTE_VALIDACION_FUNCIONAL'] },
+  { etiqueta: 'Con incidencia', color: COLOR.error, estados: ['INCIDENCIA'] },
   { etiqueta: 'Cerradas', color: COLOR.neutro, estados: ['CERRADA'] },
 ]
 

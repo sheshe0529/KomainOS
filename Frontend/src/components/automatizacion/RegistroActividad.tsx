@@ -101,7 +101,7 @@ export function ActividadTarea({ idEjecucion, tarea, nombreSalida, refrescoMs }:
   useRefrescoConsulta(actividad, refrescoMs != null, refrescoMs)
   // El fallo de esta tarea se diagnostica con su salida: así se reconoce un error de sintaxis del script
   const eventos = deRespuestas(actividad.datos).map((e) =>
-    e.idTarea === idEjecucion && e.error && e.nivel === 'ERROR' ? { ...e, diagnostico: diagnosticarFallo(e.error, tarea.salida) } : e,
+    e.idTarea === idEjecucion && e.error && e.nivel === 'ERROR' ? { ...e, diagnostico: diagnosticarFallo(e.error, tarea.salida, e.tipoFallo) } : e,
   )
 
   return (

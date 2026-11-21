@@ -1,6 +1,7 @@
 package com.komainos.mantenimiento.service;
 
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.service.ServicioBitacora.ResultadoMantenimiento;
 import com.komainos.shared.exception.ReglaNegocioException;
 import com.komainos.shared.util.Tiempo;
@@ -91,20 +92,19 @@ public class ServicioGraficosAutomatizacion {
             meses.put(primero.plusMonths(i).toString(), new long[4]);
         }
         jdbc.query("""
-                select to_char(h.fecha_hora, 'YYYY-MM'), h.estado_anterior::text,
+                select to_char(o.fecha_cierre, 'YYYY-MM'), o.motivo_cierre::text,
                     exists(select 1 from incidencia i where i.id_orden_detalle = d.id_orden_detalle),
                     exists(select 1 from mop_tarea t join mop m using(id_mop)
                         where m.id_orden_detalle = d.id_orden_detalle and t.estado in ('FINALIZADA','FALLIDA'))
-                from historial_estado_orden h join orden_detalle d using(id_orden)
-                where h.estado_nuevo = 'CERRADA' and h.fecha_hora >= ?
+                from orden o join orden_detalle d using(id_orden)
+                where o.fecha_cierre >= ?
                 """, rs -> {
             long[] cuentas = meses.get(rs.getString(1));
             if (cuentas == null) {
                 return;
             }
-            String anterior = rs.getString(2);
             ResultadoMantenimiento r = ServicioBitacora.resultado(EstadoOrden.CERRADA,
-                    anterior == null ? null : EstadoOrden.valueOf(anterior), rs.getBoolean(4), rs.getBoolean(3));
+                    MotivoCierre.valueOf(rs.getString(2)), rs.getBoolean(4), rs.getBoolean(3));
             switch (r) {
                 case EXITOSO -> cuentas[0]++;
                 case SIN_INTERVENCION -> cuentas[1]++;

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Download, ListOrdered, Play, ScanSearch, X } from 'lucide-react'
 import { bitacoraApi, cicloApi, operacionApi } from '@/api/automatizacion'
-import type { EstadoOrden, EtapaOrden } from '@/api/dominio'
+import type { EstadoOrden, EtapaOrden, MotivoCierre } from '@/api/dominio'
 import type { FichaAutomatizacionRespuesta, IncidenciaRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
 import { useAvisos } from '@/components/ui/avisos-context'
@@ -36,7 +36,7 @@ interface SeguimientoOrdenProps {
 }
 
 /** Etapas que pueden avanzar sin una acción del usuario en la ficha. */
-const CON_REFRESCO: EstadoOrden[] = ['PROGRAMADA', 'REPROGRAMADA', 'EN_EVALUACION', 'AUTORIZADA', 'EN_COLA', 'EN_EJECUCION']
+const CON_REFRESCO: EstadoOrden[] = ['PROGRAMADA', 'EN_EVALUACION', 'AUTORIZADA', 'EN_COLA', 'EN_EJECUCION', 'EN_VALIDACION_TECNICA']
 
 /** Cada etapa responde una pregunta, en lenguaje del usuario y no del modelo */
 const ETAPA: Record<Exclude<EtapaOrden, 'INCIDENCIA'>, { titulo: string; explicacion: string }> = {
@@ -98,11 +98,11 @@ function Dato({ etiqueta, children, ancho }: { etiqueta: string; children: React
   )
 }
 
-/** Cómo terminó el ciclo según el estado previo al cierre */
-const RESULTADO_CIERRE: Partial<Record<EstadoOrden, string>> = {
-  PENDIENTE_VALIDACION: 'Mantenimiento completado y validado',
-  EN_EVALUACION: 'Cerrado sin intervenir: ninguna métrica activó tareas',
-  INCIDENCIA: 'Cerrado tras atender la incidencia',
+/** Cómo terminó el ciclo, según su motivo de cierre (DEC-61) */
+const RESULTADO_CIERRE: Record<MotivoCierre, string> = {
+  EXITOSO: 'Mantenimiento completado y validado',
+  SIN_INTERVENCION: 'Cerrado sin intervenir: ninguna métrica activó tareas',
+  CON_INCIDENCIA: 'Cerrado tras atender la incidencia',
   SIN_IMPLEMENTACION: 'Cerrado sin intervenir porque la ejecución quedó bloqueada',
   RECHAZADA: 'Rechazado en la autorización',
   AUTORIZACION_VENCIDA: 'No se ejecutó: venció el plazo de autorización',
@@ -257,19 +257,20 @@ function DetalleEtapa({
     case 'CIERRE': {
       const historial = f.historial ?? []
       const ultimo = historial.at(-1)
-      const previo = ultimo?.estadoAnterior
       const reporte = f.reporte ?? []
       return (
         <div className="flex flex-col gap-5">
           <dl className="grid gap-4 sm:grid-cols-3">
             <Dato etiqueta="Resultado">
-              <span className="font-medium">{(previo && RESULTADO_CIERRE[previo]) ?? (o.estado ? ETIQUETA_ESTADO_ORDEN[o.estado] : '—')}</span>
+              <span className="font-medium">
+                {o.motivoCierre ? RESULTADO_CIERRE[o.motivoCierre] : o.estado ? ETIQUETA_ESTADO_ORDEN[o.estado] : '—'}
+              </span>
             </Dato>
-            <Dato etiqueta="Cerrada">{formatearFechaHora(ultimo?.fechaHora)}</Dato>
+            <Dato etiqueta="Cerrada">{formatearFechaHora(o.fechaCierre ?? ultimo?.fechaHora)}</Dato>
             <Dato etiqueta="Por">{ultimo?.usuario?.nombre ?? 'Sistema'}</Dato>
-            {ultimo?.motivo && (
-              <Dato etiqueta="Motivo" ancho>
-                {ultimo.motivo}
+            {(o.observacionesCierre ?? ultimo?.motivo) && (
+              <Dato etiqueta="Observaciones" ancho>
+                {o.observacionesCierre ?? ultimo?.motivo}
               </Dato>
             )}
           </dl>
@@ -394,7 +395,7 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
     })
 
   const hayAcciones =
-    a.evaluar || a.decidir || a.proponerFecha || a.decidirPropuesta || a.validar || a.cerrarSinImplementacion || a.procesarCola
+    a.evaluar || a.decidir || a.proponerFecha || a.decidirPropuesta || a.validar || a.procesarCola
 
   return (
     <section className="flex flex-col gap-5 rounded-xl border border-line bg-panel p-5" aria-label="Ciclo de mantenimiento">
@@ -454,11 +455,6 @@ export function SeguimientoOrden({ idOrden, onCambioEstado }: SeguimientoOrdenPr
                   No conforme
                 </Boton>
               </>
-            )}
-            {a.cerrarSinImplementacion && (
-              <Boton variante="peligro" onClick={() => setAccion('cerrar-sin-implementacion')}>
-                Cerrar sin intervenir
-              </Boton>
             )}
             {a.procesarCola && (
               <Boton icono={Play} cargando={trabajando} onClick={despachar}>

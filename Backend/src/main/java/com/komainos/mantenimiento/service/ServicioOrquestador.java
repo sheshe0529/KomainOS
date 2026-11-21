@@ -1,15 +1,15 @@
 package com.komainos.mantenimiento.service;
 
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptVersion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.ejecucion.model.ResultadoEjecucion;
 import com.komainos.ejecucion.model.SolicitudEjecucion;
 import com.komainos.ejecucion.service.EjecutorRemoto;
 import com.komainos.inventario.model.EstadoServidor;
 import com.komainos.inventario.model.ModoEjecucion;
-import com.komainos.inventario.model.ParametrosSistema;
+import com.komainos.inventario.model.ConfiguracionSistema;
 import com.komainos.inventario.model.Servidor;
-import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.ServicioConfiguracionSistema;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.Mop;
@@ -67,7 +67,7 @@ public class ServicioOrquestador {
     private final MopRepositorio mops;
     private final MopTareaRepositorio tareas;
     private final ConfirmacionFueraVentanaRepositorio excepciones;
-    private final ServicioParametrosSistema parametros;
+    private final ServicioConfiguracionSistema parametros;
     private final ServicioIncidencias incidencias;
     private final ServicioValidaciones validaciones;
     private final EjecutorRemoto remoto;
@@ -79,7 +79,7 @@ public class ServicioOrquestador {
 
     public ServicioOrquestador(OrdenRepositorio ordenes, OrdenDetalleRepositorio detalles, MopRepositorio mops,
                                MopTareaRepositorio tareas, ConfirmacionFueraVentanaRepositorio excepciones,
-                               ServicioParametrosSistema parametros, ServicioIncidencias incidencias,
+                               ServicioConfiguracionSistema parametros, ServicioIncidencias incidencias,
                                ServicioValidaciones validaciones, EjecutorRemoto remoto, BloqueoAutomatizacion bloqueo,
                                ServicioActividad actividad, Clock reloj, PlatformTransactionManager transacciones) {
         this.ordenes = ordenes;
@@ -185,7 +185,7 @@ public class ServicioOrquestador {
     private Integer reservar() {
         bloqueo.tomar();
         Instant ahora = Tiempo.ahora(reloj);
-        ParametrosSistema p = parametros.obtener();
+        ConfiguracionSistema p = parametros.obtener();
         List<OrdenDetalle> activos = detalles.findByEstado(EstadoDetalleOrden.EN_EJECUCION);
         Set<Integer> ocupados = new HashSet<>();
         activos.forEach(d -> ocupados.add(d.getServidor().getId()));
@@ -378,7 +378,7 @@ public class ServicioOrquestador {
         }
         MopTarea tarea = siguiente.get();
         tarea.iniciar(ahora);
-        VersionScript version = tarea.getVersion();
+        ScriptVersion version = tarea.getVersion();
         if (version == null) {
             throw new ReglaNegocioException("La tarea «%s» no tiene una versión fijada".formatted(tarea.getTarea().getNombre()));
         }

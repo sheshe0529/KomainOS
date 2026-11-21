@@ -1,6 +1,6 @@
 package com.komainos.planificacion.service;
 
-import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.repository.OrdenRepositorio;
 import com.komainos.seguridad.model.AlcanceUsuario;
@@ -30,7 +30,7 @@ public class ServicioCronograma {
         if (Duration.between(desde, hasta).compareTo(RANGO_MAXIMO) > 0) {
             throw new ReglaNegocioException("El rango del cronograma no puede superar los 100 días");
         }
-        List<Orden> resultado = ordenes.findCronograma(desde, hasta, EstadoOrden.CANCELADA,
+        List<Orden> resultado = ordenes.findCronograma(desde, hasta, MotivoCierre.CANCELADA,
                 alcance.veTodoElInventario(), alcance.usuarioId());
         // Los detalles se cargan en lotes (@BatchSize) antes de cerrar la sesión
         resultado.forEach(o -> Hibernate.initialize(o.getDetalles()));

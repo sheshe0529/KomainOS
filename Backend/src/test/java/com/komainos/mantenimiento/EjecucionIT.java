@@ -70,7 +70,7 @@ class EjecucionIT extends BaseAutomatizacionIT {
 
             assertThat(orquestador.drenar()).isEqualTo(2);
 
-            assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
+            assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
             assertThat(contar("select count(*) from orden_detalle where id_orden = ? and es_servidor_piloto", id)).isEqualTo(1);
         }
 
@@ -162,9 +162,9 @@ class EjecucionIT extends BaseAutomatizacionIT {
             } finally {
                 liberar.countDown();
             }
-            esperarEstado(primera, EstadoOrden.PENDIENTE_VALIDACION);
+            esperarEstado(primera, EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
             orquestador.drenar();
-            assertThat(estado(segunda)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
+            assertThat(estado(segunda)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
         }
 
         @Test
@@ -189,9 +189,9 @@ class EjecucionIT extends BaseAutomatizacionIT {
             } finally {
                 liberar.countDown();
             }
-            esperarEstado(individual, EstadoOrden.PENDIENTE_VALIDACION);
+            esperarEstado(individual, EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
             orquestador.drenar();
-            assertThat(estado(grupal)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
+            assertThat(estado(grupal)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
         }
 
         @Test
@@ -218,8 +218,8 @@ class EjecucionIT extends BaseAutomatizacionIT {
                 Thread.sleep(20);
             }
             orquestador.drenar();
-            assertThat(estado(primera)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
-            assertThat(estado(segunda)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
+            assertThat(estado(primera)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
+            assertThat(estado(segunda)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
         }
     }
 
@@ -312,7 +312,7 @@ class EjecucionIT extends BaseAutomatizacionIT {
             orquestador.drenar();
 
             assertThat(contar("select count(*) from confirmacion_fuera_ventana where id_orden = ?", id)).isEqualTo(1);
-            assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
+            assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
         }
     }
 

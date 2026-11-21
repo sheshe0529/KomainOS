@@ -2,6 +2,7 @@ package com.komainos.mantenimiento.repository;
 
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Orden;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -49,7 +50,7 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
               join fetch o.nivelCriticidad
             where o.fechaInicioProgramada < :hasta
               and o.fechaFinProgramada > :desde
-              and o.estado <> :excluido
+              and (o.motivoCierre is null or o.motivoCierre <> :excluido)
               and (:todos = true or exists (
                     select d.id from OrdenDetalle d
                     where d.orden = o and d.servidor.responsable.id = :idUsuario))
@@ -57,7 +58,7 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
             """)
     List<Orden> findCronograma(@Param("desde") Instant desde,
                                @Param("hasta") Instant hasta,
-                               @Param("excluido") EstadoOrden excluido,
+                               @Param("excluido") MotivoCierre excluido,
                                @Param("todos") boolean todos,
                                @Param("idUsuario") Integer idUsuario);
 
@@ -108,6 +109,26 @@ public interface OrdenRepositorio extends JpaRepository<Orden, Integer>, JpaSpec
             """)
     List<Integer> findIdsDelGrupo(@Param("idGrupo") Integer idGrupo, @Param("todos") boolean todos,
                                   @Param("idUsuario") Integer idUsuario, Pageable limite);
+
+    /**
+     * RF29, DEC-61: la última orden cerrada del servidor que todavía no originó un ciclo automático. Ninguna otra orden
+     * la tiene como anterior (uq_orden_anterior)
+     */
+    @Query("""
+            select o from Orden o
+            where o.servidor.id = :idServidor and o.fechaCierre is not null
+              and not exists (select s.id from Orden s where s.idOrdenAnterior = o.id)
+            order by o.fechaCierre desc
+            """)
+    List<Orden> findCierrePendienteDeServidor(@Param("idServidor") Integer idServidor, Pageable limite);
+
+    @Query("""
+            select o from Orden o
+            where o.grupo.id = :idGrupo and o.fechaCierre is not null
+              and not exists (select s.id from Orden s where s.idOrdenAnterior = o.id)
+            order by o.fechaCierre desc
+            """)
+    List<Orden> findCierrePendienteDeGrupo(@Param("idGrupo") Integer idGrupo, Pageable limite);
 
     /** Evita duplicar el ciclo automático (RF27) */
     boolean existsByServidorIdAndEstadoIn(Integer idServidor, Collection<EstadoOrden> estados);

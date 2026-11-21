@@ -7,6 +7,7 @@ import com.komainos.catalogo.model.NivelAfectacion;
 import com.komainos.mantenimiento.model.AutorizacionDetalle;
 import com.komainos.mantenimiento.model.EstadoAutorizacion;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Mop;
 import com.komainos.mantenimiento.model.NotificacionRegla;
 import com.komainos.mantenimiento.model.Orden;
@@ -154,7 +155,7 @@ public class ServicioAutorizaciones {
 
         switch (decision) {
             case RECHAZADA -> rechazar(orden, "Rechazado por el %s: %s".formatted(nombre(pendiente.getTipo()), motivo),
-                    alcance.actor(), ahora);
+                    alcance.actor());
             case FECHA_PROPUESTA -> notificaciones.aOrden(orden, TipoAlerta.SOLICITUD_AUTORIZACION,
                     "Fecha propuesta para " + orden.getCodigo(),
                     "El responsable propone iniciar el %s%s: %s".formatted(FECHA.format(propuesta),
@@ -205,11 +206,12 @@ public class ServicioAutorizaciones {
                 continue;
             }
             solicitud.vencer(ahora);
-            orden.cambiarEstado(EstadoOrden.AUTORIZACION_VENCIDA, null, "Plazo compartido de autorización vencido", ahora);
             notificaciones.aOrden(orden, TipoAlerta.AUTORIZACION_VENCIDA, "Autorización vencida: " + orden.getCodigo(),
                     "Venció el plazo sin las aprobaciones requeridas; el mantenimiento se cierra sin ejecutarse.",
                     notificaciones.involucrados(orden));
-            cierre.cerrar(orden, "Autorización vencida sin las aprobaciones requeridas", Actor.sistema("VENCIMIENTO_AUTORIZACION"));
+            cierre.cerrar(orden, MotivoCierre.AUTORIZACION_VENCIDA,
+                    "Plazo compartido de autorización vencido sin las aprobaciones requeridas",
+                    Actor.sistema("VENCIMIENTO_AUTORIZACION"));
             vencidas++;
         }
         return vencidas;
@@ -231,14 +233,13 @@ public class ServicioAutorizaciones {
                         recortar("No aceptó la fecha propuesta: " + motivo), null, ahora));
         auditoria.registrar(alcance.actor(), Operacion.de("RECHAZAR_FECHA_PROPUESTA", "orden", orden.getId())
                 .sobreOrden(orden.getId()).motivo(motivo));
-        rechazar(orden, "Fecha propuesta no aceptada por el administrador: " + motivo, alcance.actor(), ahora);
+        rechazar(orden, "Fecha propuesta no aceptada por el administrador: " + motivo, alcance.actor());
     }
 
-    private void rechazar(Orden orden, String motivo, Actor actor, Instant ahora) {
-        orden.cambiarEstado(EstadoOrden.RECHAZADA, usuario(actor), recortar(motivo), ahora);
+    private void rechazar(Orden orden, String motivo, Actor actor) {
         notificaciones.aOrden(orden, TipoAlerta.SOLICITUD_AUTORIZACION, orden.getCodigo() + " rechazada", motivo,
                 notificaciones.involucrados(orden));
-        cierre.cerrar(orden, recortar(motivo), actor);
+        cierre.cerrar(orden, MotivoCierre.RECHAZADA, recortar(motivo), actor);
     }
 
     /** CP114: el administrador no puede aprobar antes que el responsable, ni un responsable ajeno a los servidores */

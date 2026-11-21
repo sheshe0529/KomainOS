@@ -3,6 +3,7 @@ package com.komainos.mantenimiento;
 import com.jayway.jsonpath.JsonPath;
 import com.komainos.inventario.model.Servidor;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.seguridad.model.Rol;
 import com.komainos.seguridad.model.Usuario;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +33,7 @@ class ActividadIT extends BaseAutomatizacionIT {
     void ejecucionCorrecta() throws Exception {
         Integer id = lanzarAutorizada(servidor);
         orquestador.drenar();
-        assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
+        assertThat(estado(id)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
 
         String cuerpo = cuerpo(get("/api/ordenes/{id}/actividad", id), admin);
         List<Map<String, Object>> eventos = JsonPath.read(cuerpo, "$");
@@ -56,7 +57,7 @@ class ActividadIT extends BaseAutomatizacionIT {
                 "Análisis posterior completado");
         // Los cambios de estado de la orden se intercalan con la actividad
         assertThat(acciones(eventos)).contains("Autorización solicitada", "Orden autorizada",
-                "Validación funcional solicitada");
+                "Validación técnica iniciada", "Validación funcional solicitada");
 
         // Sin fase (DEC-60): los eventos de un análisis se reconocen por su evaluación
         Map<String, Object> conexion = ultimo(eventos, "Conexión iniciada", e -> e.get("idEvaluacion") != null);
@@ -192,10 +193,11 @@ class ActividadIT extends BaseAutomatizacionIT {
     }
 
     @Test
-    @DisplayName("Un análisis previo sin acceso bloquea la orden y la actividad dice por qué")
+    @DisplayName("Un análisis previo sin acceso cierra la orden sin implementación y la actividad dice por qué (DEC-61)")
     void analisisFallido() throws Exception {
         Integer id = lanzar(crear("srv-elevacion-fallida", "10.90.0.6"));
-        assertThat(estado(id)).isEqualTo(EstadoOrden.SIN_IMPLEMENTACION);
+        assertThat(estado(id)).isEqualTo(EstadoOrden.CERRADA);
+        assertThat(motivo(id)).isEqualTo(MotivoCierre.SIN_IMPLEMENTACION);
 
         List<Map<String, Object>> eventos = actividad(id, admin);
 
@@ -206,13 +208,18 @@ class ActividadIT extends BaseAutomatizacionIT {
         Map<String, Object> fallo = evento(eventos, "Evaluación previa ha fallado");
         assertThat(fallo.get("nivel")).isEqualTo("ERROR");
         assertThat(fallo.get("error")).isEqualTo("Permisos insuficientes: Incorrect sudo password (simulado)");
-        Map<String, Object> bloqueo = evento(eventos, "Ejecución bloqueada");
+        // DEC-61: la categoría llega tipificada; el panel no la deduce del texto
+        assertThat(fallo.get("tipoFallo")).isEqualTo("PERMISOS");
+        assertThat(contar("select count(*) from actividad_ejecucion a join evaluacion e using (id_evaluacion) "
+                + "join orden_detalle d on d.id_orden_detalle = e.id_orden_detalle "
+                + "where d.id_orden = ? and a.tipo_fallo = 'PERMISOS'", id)).isEqualTo(1);
+        Map<String, Object> bloqueo = evento(eventos, "Orden cerrada: sin implementación");
         assertThat(bloqueo.get("nivel")).isEqualTo("ERROR");
         assertThat((String) bloqueo.get("detalle")).contains("srv-elevacion-fallida");
         // El siguiente paso no repite el error: lo explica la etapa de evaluación con su diagnóstico
         String ficha = cuerpo(get("/api/ordenes/{id}/automatizacion", id), admin);
         assertThat((String) JsonPath.read(ficha, "$.siguientePaso"))
-                .startsWith("La evaluación previa no se completó")
+                .startsWith("Ciclo cerrado sin implementación: la evaluación previa no se completó")
                 .doesNotContain("Incorrect sudo password");
         assertThat((String) JsonPath.read(ficha, "$.evaluaciones[0].error"))
                 .isEqualTo("Permisos insuficientes: Incorrect sudo password (simulado)");

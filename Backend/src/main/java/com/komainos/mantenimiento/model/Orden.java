@@ -117,6 +117,25 @@ public class Orden implements Persistable<Integer> {
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private Instant fechaCreacion;
 
+    /** Datos del cierre (RF63, DEC-61): presentes solo en una orden CERRADA (ck_orden_cierre) */
+    @Column(name = "fecha_cierre")
+    private Instant fechaCierre;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(name = "motivo_cierre", columnDefinition = "enum_motivo_cierre")
+    private MotivoCierre motivoCierre;
+
+    @Column(name = "observaciones_cierre", length = 1000)
+    private String observacionesCierre;
+
+    /**
+     * Orden cerrada cuyo cierre originó este ciclo automático (RF29). Única: un cierre genera a lo sumo una orden, y la
+     * planificación reconoce un cierre pendiente porque ninguna orden lo tiene como anterior
+     */
+    @Column(name = "id_orden_anterior")
+    private Integer idOrdenAnterior;
+
     // BatchSize: las colecciones se cargan en lotes al listar órdenes
     @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("posicionEjecucion ASC")
@@ -186,8 +205,48 @@ public class Orden implements Persistable<Integer> {
         return detalles.stream().filter(d -> d.getServidor().getId().equals(idServidor)).findFirst();
     }
 
-    /** Único punto por el que cambia el estado: valida la transición y la registra en el historial */
+    /**
+     * Único punto por el que cambia el estado: valida la transición y la registra en el historial. CERRADA exige un
+     * motivo: se llega solo por {@link #cerrar}
+     */
     public void cambiarEstado(EstadoOrden destino, Usuario autor, String motivo, Instant ahora) {
+        if (destino == EstadoOrden.CERRADA) {
+            throw new IllegalStateException("La orden se cierra con su motivo de cierre");
+        }
+        transitar(destino, autor, motivo, ahora);
+    }
+
+    /**
+     * Cierra el ciclo con su motivo (RF63, DEC-61). El motivo debe corresponder al estado desde el que se cierra; los
+     * servidores que aún no empezaron quedan como no iniciados (RF59).
+     */
+    public void cerrar(MotivoCierre motivo, String observaciones, Usuario autor, Instant ahora) {
+        if (!motivo.admiteCierreDesde(estado)) {
+            throw new ReglaNegocioException("La orden %s no puede cerrarse como %s desde %s"
+                    .formatted(codigo, motivo.etiqueta().toLowerCase(), estado));
+        }
+        String texto = observaciones == null || observaciones.length() <= 1000
+                ? observaciones : observaciones.substring(0, 999) + "…";
+        detalles.forEach(OrdenDetalle::marcarNoIniciadoSiPendiente);
+        transitar(EstadoOrden.CERRADA, autor, texto, ahora);
+        motivoCierre = motivo;
+        fechaCierre = ahora;
+        observacionesCierre = texto;
+    }
+
+    /** Ciclo automático generado al cerrar la orden indicada (RF29) */
+    public void definirOrdenAnterior(Integer idOrden) {
+        if (origen != OrigenOrden.PLANIFICACION_AUTOMATICA) {
+            throw new IllegalStateException("Solo un ciclo automático continúa una orden cerrada");
+        }
+        idOrdenAnterior = idOrden;
+    }
+
+    public boolean puedeReprogramarse() {
+        return estado == EstadoOrden.PROGRAMADA || estado == EstadoOrden.EN_COLA;
+    }
+
+    private void transitar(EstadoOrden destino, Usuario autor, String motivo, Instant ahora) {
         if (!estado.puedePasarA(destino)) {
             throw new ReglaNegocioException("La orden %s no puede pasar de %s a %s"
                     .formatted(codigo, estado, destino));
@@ -196,9 +255,12 @@ public class Orden implements Persistable<Integer> {
         estado = destino;
     }
 
-    /** Pasa por REPROGRAMADA y vuelve a PROGRAMADA (R2.1, tabla 6); el historial y la auditoría conservan el cambio */
+    /** Queda en PROGRAMADA con la nueva programación (DEC-61); el historial y la auditoría conservan el cambio */
     public void reprogramar(Programacion nueva, List<TramoDetalle> tramos, Usuario autor, String motivo, Instant ahora) {
-        cambiarEstado(EstadoOrden.REPROGRAMADA, autor, motivo, ahora);
+        if (!puedeReprogramarse()) {
+            throw new ReglaNegocioException("La orden %s está en estado %s y no puede reprogramarse"
+                    .formatted(codigo, estado));
+        }
         aplicarProgramacion(nueva);
         for (TramoDetalle tramo : tramos) {
             detalleDe(tramo.idServidor()).ifPresent(d -> d.replanificar(tramo.posicion(), tramo.inicio(), tramo.fin()));
@@ -218,11 +280,6 @@ public class Orden implements Persistable<Integer> {
         for (TramoDetalle tramo : tramos) {
             detalleDe(tramo.idServidor()).ifPresent(d -> d.replanificar(tramo.posicion(), tramo.inicio(), tramo.fin()));
         }
-    }
-
-    public void cancelar(Usuario autor, String motivo, Instant ahora) {
-        cambiarEstado(EstadoOrden.CANCELADA, autor, motivo, ahora);
-        detalles.forEach(OrdenDetalle::marcarNoIniciadoSiPendiente);
     }
 
     /** El detalle se conserva como historial en NO_INICIADO y deja de ocupar el servidor (RF20) */
@@ -252,10 +309,6 @@ public class Orden implements Persistable<Integer> {
     /** RF31, RF40: el plazo de autorización corre desde la primera solicitud y no hasta el inicio programado */
     public boolean esInmediata() {
         return origen == OrigenOrden.LANZAMIENTO_INMEDIATO || origen == OrigenOrden.CONDICION_CRITICA;
-    }
-
-    public boolean puedeCancelarse() {
-        return estado.puedePasarA(EstadoOrden.CANCELADA);
     }
 
     /** Sin las colecciones: es lo que queda en la auditoría al programar o reprogramar */

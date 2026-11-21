@@ -2,7 +2,7 @@ package com.komainos.mantenimiento.model;
 
 import com.komainos.catalogo.model.NivelAfectacion;
 import com.komainos.catalogo.model.Tarea;
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptVersion;
 import com.komainos.shared.exception.ReglaNegocioException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -50,7 +50,7 @@ public class MopTarea {
     /** Nula si no hay implementación compatible: la orden queda sin implementación (RF42) */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_script_version")
-    private VersionScript version;
+    private ScriptVersion version;
 
     @Column(name = "id_cuenta_servicio")
     private Integer idCuentaServicio;
@@ -89,7 +89,7 @@ public class MopTarea {
     @Column(name = "fecha_fin")
     private Instant fechaFin;
 
-    static MopTarea fijar(Mop mop, Tarea tarea, VersionScript version, Integer idCuentaServicio, int ordenEjecucion) {
+    static MopTarea fijar(Mop mop, Tarea tarea, ScriptVersion version, Integer idCuentaServicio, int ordenEjecucion) {
         MopTarea t = new MopTarea();
         t.mop = mop;
         t.tarea = tarea;

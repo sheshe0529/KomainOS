@@ -1,7 +1,6 @@
 package com.komainos.inventario;
 
 import com.komainos.PruebaIntegracion;
-import com.komainos.auditoria.repository.AuditoriaRepositorio;
 import com.komainos.inventario.model.CalendarioSemanal.IntervaloSemanal;
 import com.komainos.inventario.model.DatosServidor;
 import com.komainos.inventario.model.EstadoServidor;
@@ -56,7 +55,6 @@ class InventarioIT extends PruebaIntegracion {
     @Autowired ServicioServidor servidores;
     @Autowired ServicioGrupo grupos;
     @Autowired ConfiguracionServidorRepositorio configuraciones;
-    @Autowired AuditoriaRepositorio auditorias;
     @Autowired EntityManager em;
     @Autowired MockMvc mockMvc;
 
@@ -252,8 +250,8 @@ class InventarioIT extends PruebaIntegracion {
         assertThat(jdbc.queryForObject("select count(*) from configuracion_mantenimiento", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("select estado::text from solicitud_baja where id_servidor = ?", String.class,
                 s.getId())).isEqualTo(EstadoSolicitudBaja.APLICADA.name());
-        assertThat(auditorias.findByEntidadAndIdEntidadOrderByIdAsc("servidor", s.getId()))
-                .extracting("operacion").contains("CREAR_SERVIDOR", "APLICAR_BAJA");
+        assertThat(jdbc.queryForList("select operacion from auditoria where entidad = 'servidor' and id_entidad = ? "
+                + "order by id_auditoria", String.class, s.getId())).contains("CREAR_SERVIDOR", "APLICAR_BAJA");
         assertThat(jdbc.queryForObject(
                 "select count(*) from auditoria where operacion = 'ELIMINAR_CONFIGURACION' and valor_anterior like '%\"frecuenciaMantenimientoDias\":20%'",
                 Integer.class)).isEqualTo(1);

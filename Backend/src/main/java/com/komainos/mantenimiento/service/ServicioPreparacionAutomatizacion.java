@@ -1,7 +1,7 @@
 package com.komainos.mantenimiento.service;
 
 import com.komainos.catalogo.model.Tarea;
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptVersion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.ejecucion.service.DiagnosticoAutomatizacion;
 import com.komainos.inventario.model.ConfiguracionServidor;
@@ -106,7 +106,7 @@ public class ServicioPreparacionAutomatizacion {
 
     private Comprobacion analisis(Servidor servidor) {
         String so = servidor.getVersionSistemaOperativo().descripcionCompleta();
-        Optional<VersionScript> version = catalogo.buscarAnalisis(servidor.getVersionSistemaOperativo().getId());
+        Optional<ScriptVersion> version = catalogo.buscarAnalisis(servidor.getVersionSistemaOperativo().getId());
         return version
                 .map(v -> Comprobacion.ok("ANALISIS", "Script de análisis", "«%s» versión %d para %s".formatted(
                         v.getImplementacion().getScript().getNombre(), v.getNumeroVersion(), so)))

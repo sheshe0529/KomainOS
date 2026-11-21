@@ -1,5 +1,6 @@
 package com.komainos.mantenimiento.controller;
 
+import com.komainos.ejecucion.model.TipoFallo;
 import com.komainos.ejecucion.service.DiagnosticoAutomatizacion;
 import com.komainos.mantenimiento.dto.CicloPeticiones;
 import com.komainos.mantenimiento.dto.OperacionRespuestas;
@@ -128,8 +129,11 @@ public class SalaOperacionesController {
             @RequestParam(required = false) Instant hasta,
             @RequestParam(required = false) String texto,
             @PageableDefault(size = 20) Pageable pagina) {
-        return PaginaRespuesta.de(consulta.ejecuciones(new FiltroEjecuciones(idServidor, idScript, estado, desde, hasta,
-                texto), pagina), t -> AutomatizacionMapeador.ejecucion(t, this::cuenta));
+        Page<MopTarea> ejecuciones = consulta.ejecuciones(new FiltroEjecuciones(idServidor, idScript, estado, desde, hasta,
+                texto), pagina);
+        Map<Integer, TipoFallo> fallos = consulta.fallosDeTareas(
+                ejecuciones.getContent().stream().map(MopTarea::getId).toList());
+        return PaginaRespuesta.de(ejecuciones, t -> AutomatizacionMapeador.ejecucion(t, this::cuenta, fallos.get(t.getId())));
     }
 
     @GetMapping("/ejecuciones/{id}/actividad")
@@ -145,7 +149,8 @@ public class SalaOperacionesController {
     @Operation(summary = "Detalle de una ejecución con su salida completa, ya saneada")
     public OperacionRespuestas.EjecucionDetalleRespuesta ejecucion(@PathVariable Integer id) {
         MopTarea t = consulta.ejecucion(id);
-        return new OperacionRespuestas.EjecucionDetalleRespuesta(AutomatizacionMapeador.ejecucion(t, this::cuenta), t.getSalida(),
+        TipoFallo fallo = consulta.fallosDeTareas(List.of(id)).get(id);
+        return new OperacionRespuestas.EjecucionDetalleRespuesta(AutomatizacionMapeador.ejecucion(t, this::cuenta, fallo), t.getSalida(),
                 t.getPrioridadAplicada(), t.getDuracionEstimadaMinutos());
     }
 

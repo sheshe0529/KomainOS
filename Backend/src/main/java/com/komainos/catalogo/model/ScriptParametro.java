@@ -27,7 +27,7 @@ import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 @Table(name = "script_parametro")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ParametroScript {
+public class ScriptParametro {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,7 +36,7 @@ public class ParametroScript {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_script_version", nullable = false)
-    private VersionScript version;
+    private ScriptVersion version;
 
     @Column(name = "nombre", nullable = false, length = 255)
     private String nombre;
@@ -57,9 +57,9 @@ public class ParametroScript {
     @Column(name = "orden", nullable = false)
     private Integer orden;
 
-    public static ParametroScript nuevo(VersionScript version, String nombre, TipoParametro tipo,
+    public static ScriptParametro nuevo(ScriptVersion version, String nombre, TipoParametro tipo,
                                         String valorPorDefecto, ListaReferencia lista, int orden) {
-        ParametroScript parametro = new ParametroScript();
+        ScriptParametro parametro = new ScriptParametro();
         parametro.version = version;
         parametro.nombre = nombre;
         parametro.tipoDato = tipo == TipoParametro.LISTA ? null : tipo.tipoEscalar();

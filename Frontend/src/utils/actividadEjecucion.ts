@@ -20,8 +20,10 @@ export interface EventoActividad {
   idTarea?: number
   idEvaluacion?: number
   detalle?: string
-  /** Mensaje del fallo con su categoría al principio («Error de autenticación: …») */
+  /** Mensaje del fallo para quien lee la actividad */
   error?: string
+  /** Categoría del fallo remoto tal como la registró el backend (DEC-61) */
+  tipoFallo?: EventoActividadRespuesta['tipoFallo']
   diagnostico?: DiagnosticoFallo
 }
 
@@ -39,8 +41,9 @@ export function deRespuesta(e: EventoActividadRespuesta, indice = 0): EventoActi
     idEvaluacion: e.idEvaluacion,
     detalle: e.detalle,
     error,
+    tipoFallo: e.tipoFallo,
     // Una advertencia (por ejemplo, acceso sin privilegios) se explica con su detalle, no como fallo
-    diagnostico: error && e.nivel === 'ERROR' ? diagnosticarFallo(error) : undefined,
+    diagnostico: error && e.nivel === 'ERROR' ? diagnosticarFallo(error, undefined, e.tipoFallo) : undefined,
   }
 }
 

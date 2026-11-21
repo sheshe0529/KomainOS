@@ -4,7 +4,7 @@ import com.komainos.alerta.model.TipoAlerta;
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
 import com.komainos.catalogo.model.Tarea;
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptVersion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.inventario.model.EstadoServidor;
 import com.komainos.inventario.model.ConfiguracionMantenimiento;
@@ -13,11 +13,12 @@ import com.komainos.inventario.model.Servidor;
 import com.komainos.inventario.repository.ConfiguracionGrupoRepositorio;
 import com.komainos.inventario.repository.ConfiguracionServidorRepositorio;
 import com.komainos.inventario.repository.GrupoMantenimientoRepositorio;
-import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.ServicioConfiguracionSistema;
 import com.komainos.inventario.service.PuertoCuentasServicio;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Evaluacion;
 import com.komainos.mantenimiento.model.Mop;
 import com.komainos.mantenimiento.model.MopTarea;
@@ -57,8 +58,9 @@ import java.util.concurrent.Executors;
  * Evaluación previa de una orden (RF38-RF42, EA02) en tres fases. Preparar: comprueba la política del entorno y la
  * cuenta, pasa la orden a EN_EVALUACION y deja un análisis en curso por servidor. Analizar: ejecuta los scripts sin
  * transacción. Concluir: genera una MOP por servidor con las tareas activadas y su versión fijada, elige el piloto y
- * aplica la política de cambio. Si falta un análisis o una implementación compatible, la orden queda SIN_IMPLEMENTACION
- * y se alerta al administrador; si ningún servidor necesita intervención, el ciclo se cierra.
+ * aplica la política de cambio. Si falta un análisis o una implementación compatible, la orden se cierra con el motivo
+ * SIN_IMPLEMENTACION y se alerta al administrador; si ningún servidor necesita intervención, se cierra SIN_INTERVENCION
+ * (DEC-61).
  */
 @Service
 @Slf4j
@@ -76,7 +78,7 @@ public class ServicioEvaluacionPrevia {
     private final ServicioAutorizaciones autorizaciones;
     private final ServicioCierreMantenimiento cierre;
     private final ServicioNotificaciones notificaciones;
-    private final ServicioParametrosSistema parametros;
+    private final ServicioConfiguracionSistema parametros;
     private final ServicioServidor servidores;
     private final GrupoMantenimientoRepositorio grupos;
     private final ConfiguracionServidorRepositorio configuracionesServidor;
@@ -94,7 +96,7 @@ public class ServicioEvaluacionPrevia {
                                     EjecutorAnalisis analisis, ServicioCatalogoAutomatizacion catalogo,
                                     ServicioPoliticasCambio politicas, ServicioAutorizaciones autorizaciones,
                                     ServicioCierreMantenimiento cierre, ServicioNotificaciones notificaciones,
-                                    ServicioParametrosSistema parametros, ServicioServidor servidores,
+                                    ServicioConfiguracionSistema parametros, ServicioServidor servidores,
                                     GrupoMantenimientoRepositorio grupos,
                                     ConfiguracionServidorRepositorio configuracionesServidor,
                                     ConfiguracionGrupoRepositorio configuracionesGrupo, PuertoCuentasServicio cuentas,
@@ -179,18 +181,6 @@ public class ServicioEvaluacionPrevia {
                             .formatted(s.getVersionSistemaOperativo().descripcionCompleta(), s.getHostname()));
                 }
             }
-        });
-    }
-
-    /** RF42: con la ejecución bloqueada, el administrador cierra el ciclo registrando el motivo */
-    public void cerrarSinImplementacion(Integer idOrden, String motivo, Actor actor) {
-        transaccion.executeWithoutResult(estado -> {
-            bloqueo.tomar();
-            Orden orden = consulta.obtener(idOrden, new AlcanceUsuario(actor.usuarioId(), Rol.ADMINISTRADOR));
-            if (orden.getEstado() != EstadoOrden.SIN_IMPLEMENTACION) {
-                throw new ReglaNegocioException("Solo se cierran sin intervención las órdenes sin implementación");
-            }
-            cierre.cerrar(orden, "Cerrada sin intervención: " + motivo, actor);
         });
     }
 
@@ -317,7 +307,7 @@ public class ServicioEvaluacionPrevia {
                 continue;
             }
             Integer idVersionSo = detalle.getServidor().getVersionSistemaOperativo().getId();
-            List<VersionScript> versiones = tareas.stream()
+            List<ScriptVersion> versiones = tareas.stream()
                     .map(t -> catalogo.compatible(t.getScript().getId(), idVersionSo).orElse(null))
                     .toList();
             Mop mop = mops.save(Mop.generar(detalle, tareas, versiones, orden.getIdCuentaServicioMantenimiento(), ahora));
@@ -338,8 +328,8 @@ public class ServicioEvaluacionPrevia {
             return;
         }
         if (generadas.isEmpty()) {
-            cierre.cerrar(orden, "La evaluación previa no requiere intervención: las métricas están dentro de los umbrales",
-                    actor);
+            cierre.cerrar(orden, MotivoCierre.SIN_INTERVENCION,
+                    "La evaluación previa no requiere intervención: las métricas están dentro de los umbrales", actor);
             notificaciones.aOrden(orden, TipoAlerta.CIERRE_MANTENIMIENTO, orden.getCodigo() + " sin intervención",
                     "La evaluación previa no activó tareas de mantenimiento; el ciclo se cerró.",
                     notificaciones.involucrados(orden));
@@ -355,7 +345,10 @@ public class ServicioEvaluacionPrevia {
         autorizaciones.solicitar(orden, actor);
     }
 
-    /** RF42: la orden no puede ejecutarse; el administrador revisa y cierra o corrige y relanza */
+    /**
+     * RF42: la orden no puede ejecutarse; se bloquea cerrándola SIN_IMPLEMENTACION y se alerta al administrador para que
+     * corrija el catálogo antes del siguiente ciclo (DEC-61)
+     */
     private void bloquear(Integer idOrden, List<String> problemas, Actor actor) {
         bloqueo.tomar();
         Orden orden = ordenes.findConDetalleById(idOrden).orElseThrow();
@@ -363,12 +356,11 @@ public class ServicioEvaluacionPrevia {
             return;
         }
         String detalle = String.join("; ", problemas);
-        orden.cambiarEstado(EstadoOrden.SIN_IMPLEMENTACION, null, recortar("Ejecución bloqueada: " + detalle, 1000),
-                Tiempo.ahora(reloj));
-        notificaciones.aOrden(orden, TipoAlerta.SIN_IMPLEMENTACION, "Mantenimiento bloqueado: " + orden.getCodigo(),
-                recortar(detalle, 2000), notificaciones.administradores());
         auditoria.registrar(actor, Operacion.de("BLOQUEAR_ORDEN", "orden", idOrden).sobreOrden(idOrden)
                 .motivo(recortar(detalle, 1000)));
+        notificaciones.aOrden(orden, TipoAlerta.SIN_IMPLEMENTACION, "Mantenimiento bloqueado: " + orden.getCodigo(),
+                recortar(detalle, 2000), notificaciones.administradores());
+        cierre.cerrar(orden, MotivoCierre.SIN_IMPLEMENTACION, recortar("Ejecución bloqueada: " + detalle, 1000), actor);
     }
 
     private Usuario usuario(Actor actor) {

@@ -22,7 +22,7 @@ import java.time.Instant;
 @Builder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RegistroAuditoria {
+public class Auditoria {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

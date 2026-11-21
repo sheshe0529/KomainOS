@@ -3,17 +3,17 @@ package com.komainos.catalogo.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.komainos.auditoria.service.ServicioAuditoria;
 import com.komainos.auditoria.service.ServicioAuditoria.Operacion;
-import com.komainos.catalogo.model.ImplementacionScript;
-import com.komainos.catalogo.model.ParametroScript;
+import com.komainos.catalogo.model.ScriptImplementacion;
+import com.komainos.catalogo.model.ScriptParametro;
 import com.komainos.catalogo.model.Script;
 import com.komainos.catalogo.model.Tarea;
 import com.komainos.catalogo.model.TipoScript;
 import com.komainos.catalogo.model.TipoParametro;
-import com.komainos.catalogo.model.VersionScript;
-import com.komainos.catalogo.repository.ImplementacionScriptRepositorio;
+import com.komainos.catalogo.model.ScriptVersion;
+import com.komainos.catalogo.repository.ScriptImplementacionRepositorio;
 import com.komainos.catalogo.repository.ScriptRepositorio;
 import com.komainos.catalogo.repository.TareaRepositorio;
-import com.komainos.catalogo.repository.VersionScriptRepositorio;
+import com.komainos.catalogo.repository.ScriptVersionRepositorio;
 import com.komainos.ejecucion.model.MedicionInformada;
 import com.komainos.ejecucion.model.ParametroEjecucion;
 import com.komainos.ejecucion.model.ScriptPreparado;
@@ -28,7 +28,7 @@ import com.komainos.inventario.repository.MetricaRepositorio;
 import com.komainos.inventario.repository.ListaReferenciaRepositorio;
 import com.komainos.inventario.repository.UmbralRepositorio;
 import com.komainos.inventario.service.ServicioCatalogos;
-import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.ServicioConfiguracionSistema;
 import com.komainos.seguridad.model.Usuario;
 import com.komainos.seguridad.repository.UsuarioRepositorio;
 import com.komainos.shared.exception.ConflictoException;
@@ -71,11 +71,11 @@ import java.util.stream.Collectors;
 public class ServicioCatalogoAutomatizacion {
 
     private final ScriptRepositorio scripts;
-    private final ImplementacionScriptRepositorio implementaciones;
-    private final VersionScriptRepositorio versiones;
+    private final ScriptImplementacionRepositorio implementaciones;
+    private final ScriptVersionRepositorio versiones;
     private final TareaRepositorio tareas;
     private final ServicioCatalogos catalogos;
-    private final ServicioParametrosSistema parametros;
+    private final ServicioConfiguracionSistema parametros;
     private final MetricaRepositorio metricas;
     private final ListaReferenciaRepositorio listas;
     private final UmbralRepositorio umbrales;
@@ -144,7 +144,7 @@ public class ServicioCatalogoAutomatizacion {
             throw new ConflictoException("Ya existe un script llamado «%s»".formatted(datos.nombre().trim()));
         }
         if (datos.activo() && !script.isActivo() && script.esAnalisis()) {
-            for (ImplementacionScript i : script.getImplementaciones()) {
+            for (ScriptImplementacion i : script.getImplementaciones()) {
                 exigirAnalisisUnico(i.getVersionSistemaOperativo(), id);
             }
         }
@@ -157,7 +157,7 @@ public class ServicioCatalogoAutomatizacion {
 
     /** CP080: la implementación nace con su primera versión, nunca vacía */
     @Transactional
-    public ImplementacionScript implementar(Integer idScript, Integer idVersionSistemaOperativo, DatosVersion primera,
+    public ScriptImplementacion implementar(Integer idScript, Integer idVersionSistemaOperativo, DatosVersion primera,
                                             Actor actor) {
         scripts.bloquearCatalogo();
         Script script = script(idScript);
@@ -173,8 +173,8 @@ public class ServicioCatalogoAutomatizacion {
         if (script.esAnalisis() && script.isActivo()) {
             exigirAnalisisUnico(version, idScript);
         }
-        ImplementacionScript implementacion = implementaciones.save(
-                ImplementacionScript.nueva(script, version, Tiempo.ahora(reloj)));
+        ScriptImplementacion implementacion = implementaciones.save(
+                ScriptImplementacion.nueva(script, version, Tiempo.ahora(reloj)));
         script.agregarImplementacion(implementacion);
         auditoria.registrar(actor, Operacion.de("REGISTRAR_IMPLEMENTACION_SCRIPT", "script_implementacion",
                 implementacion.getId()).motivo(script.getNombre() + " · " + version.descripcionCompleta()));
@@ -184,9 +184,9 @@ public class ServicioCatalogoAutomatizacion {
 
     /** RF26: cada cambio de código es una versión nueva; las versiones fijadas en MOP no cambian */
     @Transactional
-    public VersionScript publicar(Integer idImplementacion, DatosVersion datos, Actor actor) {
+    public ScriptVersion publicar(Integer idImplementacion, DatosVersion datos, Actor actor) {
         scripts.bloquearCatalogo();
-        ImplementacionScript implementacion = implementaciones.findConDetalleById(idImplementacion)
+        ScriptImplementacion implementacion = implementaciones.findConDetalleById(idImplementacion)
                 .orElseThrow(() -> RecursoNoEncontradoException.de("la implementación", idImplementacion));
         if (implementacion.getScript().esAnalisis() && implementacion.getScript().isActivo()) {
             exigirAnalisisUnico(implementacion.getVersionSistemaOperativo(), implementacion.getScript().getId());
@@ -195,10 +195,10 @@ public class ServicioCatalogoAutomatizacion {
     }
 
     @Transactional
-    public VersionScript habilitar(Integer idVersion, boolean habilitada, Actor actor) {
+    public ScriptVersion habilitar(Integer idVersion, boolean habilitada, Actor actor) {
         scripts.bloquearCatalogo();
-        VersionScript version = version(idVersion);
-        ImplementacionScript implementacion = version.getImplementacion();
+        ScriptVersion version = version(idVersion);
+        ScriptImplementacion implementacion = version.getImplementacion();
         if (habilitada && implementacion.getScript().esAnalisis() && implementacion.getScript().isActivo()) {
             exigirAnalisisUnico(implementacion.getVersionSistemaOperativo(), implementacion.getScript().getId());
         }
@@ -210,8 +210,8 @@ public class ServicioCatalogoAutomatizacion {
     }
 
     @Transactional(readOnly = true)
-    public VersionScript version(Integer id) {
-        VersionScript version = versiones.findConDetalleById(id)
+    public ScriptVersion version(Integer id) {
+        ScriptVersion version = versiones.findConDetalleById(id)
                 .orElseThrow(() -> RecursoNoEncontradoException.de("la versión de script", id));
         Hibernate.initialize(version.getImplementacion().getVersiones());
         cargarParametros(version);
@@ -220,19 +220,19 @@ public class ServicioCatalogoAutomatizacion {
 
     /** RF42: la última versión habilitada de la implementación para la versión de sistema operativo del servidor */
     @Transactional(readOnly = true)
-    public Optional<VersionScript> compatible(Integer idScript, Integer idVersionSistemaOperativo) {
+    public Optional<ScriptVersion> compatible(Integer idScript, Integer idVersionSistemaOperativo) {
         Script script = script(idScript);
         if (!script.isActivo()) {
             return Optional.empty();
         }
         return script.implementacionPara(idVersionSistemaOperativo)
-                .flatMap(ImplementacionScript::ultimaHabilitada)
+                .flatMap(ScriptImplementacion::ultimaHabilitada)
                 .map(v -> version(v.getId()));
     }
 
     /** RF24: el script de análisis activo con versión habilitada para la versión de sistema operativo */
     @Transactional(readOnly = true)
-    public Optional<VersionScript> buscarAnalisis(Integer idVersionSistemaOperativo) {
+    public Optional<ScriptVersion> buscarAnalisis(Integer idVersionSistemaOperativo) {
         return implementaciones.findByVersionSistemaOperativoId(idVersionSistemaOperativo).stream()
                 .filter(i -> i.getScript().isActivo() && i.getScript().esAnalisis())
                 .flatMap(i -> i.ultimaHabilitada().stream())
@@ -267,7 +267,7 @@ public class ServicioCatalogoAutomatizacion {
 
     @Transactional(readOnly = true)
     public ScriptPreparado vistaPrevia(Integer idVersion) {
-        VersionScript version = version(idVersion);
+        ScriptVersion version = version(idVersion);
         return PreparadorScript.preparar(version.getImplementacion().familia(), version.getContenido(),
                 valoresDeEjecucion(version));
     }
@@ -278,10 +278,10 @@ public class ServicioCatalogoAutomatizacion {
      * compatibilidad con versiones históricas: la publicación de versiones nuevas los rechaza.
      * Se arma dentro de la transacción de preparación; el adaptador remoto recibe solo valores ya materializados.
      */
-    public static List<ParametroEjecucion> valoresDeEjecucion(VersionScript version) {
+    public static List<ParametroEjecucion> valoresDeEjecucion(ScriptVersion version) {
         cargarParametros(version);
         List<ParametroEjecucion> valores = new ArrayList<>();
-        for (ParametroScript p : version.getParametros()) {
+        for (ScriptParametro p : version.getParametros()) {
             if (p.getTipo() == TipoParametro.LISTA) {
                 ListaReferencia lista = p.getListaReferencia();
                 if (lista == null) {
@@ -419,7 +419,7 @@ public class ServicioCatalogoAutomatizacion {
 
     // ---------------------------------------------------------------- Reglas internas
 
-    private VersionScript crearVersion(ImplementacionScript implementacion, DatosVersion datos, Actor actor) {
+    private ScriptVersion crearVersion(ScriptImplementacion implementacion, DatosVersion datos, Actor actor) {
         List<String> problemas = new ArrayList<>(problemasParametros(datos.parametros()));
         PreparadorScript.problemaContenido(implementacion.familia(), datos.contenido(), !datos.parametros().isEmpty())
                 .ifPresent(problemas::add);
@@ -427,12 +427,12 @@ public class ServicioCatalogoAutomatizacion {
             throw new ReglaNegocioException(String.join(". ", problemas));
         }
         Integer ultimo = versiones.ultimoNumero(implementacion.getId());
-        VersionScript version = VersionScript.nueva(implementacion, ultimo == null ? 1 : ultimo + 1,
+        ScriptVersion version = ScriptVersion.nueva(implementacion, ultimo == null ? 1 : ultimo + 1,
                 datos.contenido(), datos.notasCambio(), Tiempo.ahora(reloj));
         int orden = 0;
         for (DatosParametro p : datos.parametros()) {
             ListaReferencia lista = p.tipo() == TipoParametro.LISTA ? listaParaParametro(p.idListaReferencia()) : null;
-            version.agregarParametro(ParametroScript.nuevo(version, p.nombre(), p.tipo(),
+            version.agregarParametro(ScriptParametro.nuevo(version, p.nombre(), p.tipo(),
                     lista == null ? normalizarValor(p.tipo().tipoEscalar(), p.valorPorDefecto()) : null, lista, ++orden));
         }
         versiones.save(version);
@@ -516,7 +516,7 @@ public class ServicioCatalogoAutomatizacion {
         });
     }
 
-    private static void cargarParametros(VersionScript version) {
+    private static void cargarParametros(ScriptVersion version) {
         version.getParametros().forEach(p -> {
             if (p.getListaReferencia() != null) {
                 Hibernate.initialize(p.getListaReferencia());
@@ -572,10 +572,6 @@ public class ServicioCatalogoAutomatizacion {
     }
 
     public record FiltroScripts(String texto, TipoScript tipo, Boolean activo) {
-
-        public static FiltroScripts todos() {
-            return new FiltroScripts(null, null, null);
-        }
     }
 
     public record DatosScript(String nombre, TipoScript tipo, String descripcion, boolean activo) {

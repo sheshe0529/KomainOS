@@ -42,6 +42,4 @@ public interface TareaRepositorio extends JpaRepository<Tarea, Integer> {
     boolean existsByNombreIgnoreCase(String nombre);
 
     boolean existsByNombreIgnoreCaseAndIdNot(String nombre, Integer id);
-
-    long countByScriptId(Integer idScript);
 }

@@ -1,5 +1,7 @@
 package com.komainos.mantenimiento.controller;
 
+import org.springframework.data.domain.Page;
+import com.komainos.ejecucion.model.TipoFallo;
 import com.komainos.inventario.model.FinalidadCuenta;
 
 import com.komainos.catalogo.mapper.CatalogoMapeador;
@@ -106,7 +108,8 @@ public class AnalisisServidorController {
     @Operation(summary = "Ejecuta ahora la revisión periódica del servidor (RF37)")
     public FichaAutomatizacionRespuesta.AnalisisRespuesta revisar(@PathVariable Integer id,
                                                                   @AuthenticationPrincipal UsuarioAutenticado u) {
-        return analisis(revision.revisar(id, AlcanceUsuario.de(u).actor()));
+        Evaluacion e = revision.revisar(id, AlcanceUsuario.de(u).actor());
+        return analisis(e, consulta.fallosDeEvaluaciones(List.of(e.getId())).get(e.getId()));
     }
 
     @GetMapping("/servidores/{id}/evaluaciones")
@@ -115,7 +118,10 @@ public class AnalisisServidorController {
             @PathVariable Integer id,
             @PageableDefault(size = 20) Pageable pagina,
             @AuthenticationPrincipal UsuarioAutenticado u) {
-        return PaginaRespuesta.de(evaluaciones.historial(id, AlcanceUsuario.de(u), pagina), this::analisis);
+        Page<Evaluacion> analisis = evaluaciones.historial(id, AlcanceUsuario.de(u), pagina);
+        Map<Integer, TipoFallo> fallos = consulta.fallosDeEvaluaciones(
+                analisis.getContent().stream().map(Evaluacion::getId).toList());
+        return PaginaRespuesta.de(analisis, e -> analisis(e, fallos.get(e.getId())));
     }
 
     @GetMapping("/grupos/{id}/evaluaciones")
@@ -129,9 +135,12 @@ public class AnalisisServidorController {
             Map<Integer, String> cuentas = new HashMap<>();
             a.evaluaciones().stream().map(Evaluacion::getIdCuentaServicio).distinct()
                     .forEach(c -> consulta.nombreCuenta(c).ifPresent(n -> cuentas.put(c, n)));
+            Map<Integer, TipoFallo> fallos = consulta.fallosDeEvaluaciones(
+                    a.evaluaciones().stream().map(Evaluacion::getId).toList());
             return new AnalisisGrupoRespuesta(a.tipo(), a.orden() == null ? null : a.orden().getId(),
                     a.orden() == null ? null : a.orden().getCodigo(), a.fecha(),
-                    a.evaluaciones().stream().map(e -> AutomatizacionMapeador.analisis(e, cuentas)).toList());
+                    a.evaluaciones().stream().map(e -> AutomatizacionMapeador.analisis(e, cuentas, fallos.get(e.getId())))
+                            .toList());
         });
     }
 
@@ -163,10 +172,10 @@ public class AnalisisServidorController {
         return PaginaRespuesta.de(consulta.usosVersion(id, pagina), AutomatizacionMapeador::uso);
     }
 
-    private FichaAutomatizacionRespuesta.AnalisisRespuesta analisis(Evaluacion e) {
+    private FichaAutomatizacionRespuesta.AnalisisRespuesta analisis(Evaluacion e, TipoFallo fallo) {
         Map<Integer, String> cuentas = new HashMap<>();
         consulta.nombreCuenta(e.getIdCuentaServicio()).ifPresent(n -> cuentas.put(e.getIdCuentaServicio(), n));
-        return AutomatizacionMapeador.analisis(e, cuentas);
+        return AutomatizacionMapeador.analisis(e, cuentas, fallo);
     }
 
     private static OperacionRespuestas.ConexionRespuesta conexion(ResultadoConexion r) {

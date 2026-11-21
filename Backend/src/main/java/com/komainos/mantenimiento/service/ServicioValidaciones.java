@@ -7,6 +7,7 @@ import com.komainos.inventario.model.NivelAlerta;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
 import com.komainos.mantenimiento.model.EstadoEvaluacion;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Evaluacion;
 import com.komainos.mantenimiento.model.EvaluacionUmbral;
 import com.komainos.mantenimiento.model.Orden;
@@ -114,7 +115,7 @@ public class ServicioValidaciones {
     public void validar(Integer idOrden, boolean conforme, String observaciones, AlcanceUsuario alcance) {
         bloqueo.tomar();
         Orden orden = consulta.obtener(idOrden, alcance);
-        if (orden.getEstado() != EstadoOrden.PENDIENTE_VALIDACION) {
+        if (orden.getEstado() != EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL) {
             throw new ReglaNegocioException("La orden %s no espera validación funcional".formatted(orden.getCodigo()));
         }
         ValidacionFuncional validacion = funcionales.findByOrdenId(idOrden)
@@ -126,7 +127,8 @@ public class ServicioValidaciones {
         if (conforme) {
             notificaciones.aOrden(orden, TipoAlerta.CIERRE_MANTENIMIENTO, orden.getCodigo() + " validado",
                     "El responsable confirmó la conformidad: " + observaciones, notificaciones.administradores());
-            cierre.cerrar(orden, "Validaciones técnica y funcional conformes", alcance.actor());
+            cierre.cerrar(orden, MotivoCierre.EXITOSO, "Validaciones técnica y funcional conformes: " + observaciones,
+                    alcance.actor());
             return;
         }
         // CP147: el rechazo deriva una incidencia por cada servidor intervenido
@@ -144,19 +146,19 @@ public class ServicioValidaciones {
         bloqueo.tomar();
         Instant ahora = Tiempo.ahora(reloj);
         int vencidas = 0;
-        for (Orden orden : ordenes.findByEstadoInOrderByFechaInicioProgramadaAsc(EnumSet.of(EstadoOrden.PENDIENTE_VALIDACION))) {
+        for (Orden orden : ordenes.findByEstadoInOrderByFechaInicioProgramadaAsc(EnumSet.of(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL))) {
             Optional<ValidacionFuncional> validacion = funcionales.findByOrdenId(orden.getId());
             if (validacion.isEmpty() || !validacion.get().estaPendiente() || !validacion.get().vencida(ahora)) {
                 continue;
             }
             validacion.get().vencer(ahora);
-            orden.cambiarEstado(EstadoOrden.VALIDACION_VENCIDA, null,
-                    "Plazo de validación funcional vencido; no se presume conformidad", ahora);
             notificaciones.aOrden(orden, TipoAlerta.VALIDACION_VENCIDA, "Validación vencida: " + orden.getCodigo(),
                     "El responsable no respondió antes del %s; el ciclo se cierra sin conformidad."
                             .formatted(FECHA.format(validacion.get().getFechaLimite())),
                     notificaciones.involucrados(orden));
-            cierre.cerrar(orden, "Validación funcional vencida sin respuesta", Actor.sistema("VENCIMIENTO_VALIDACION"));
+            cierre.cerrar(orden, MotivoCierre.VALIDACION_VENCIDA,
+                    "Plazo de validación funcional vencido sin respuesta; no se presume conformidad",
+                    Actor.sistema("VENCIMIENTO_VALIDACION"));
             vencidas++;
         }
         return vencidas;
@@ -173,8 +175,12 @@ public class ServicioValidaciones {
             incidencias.cerrarOrdenSiCorresponde(orden, "Incidencias atendidas y ejecución terminada", SISTEMA);
             return Paso.nada();
         }
-        if (orden.getEstado() != EstadoOrden.EN_EJECUCION) {
+        if (orden.getEstado() != EstadoOrden.EN_EJECUCION && orden.getEstado() != EstadoOrden.EN_VALIDACION_TECNICA) {
             return Paso.nada();
+        }
+        if (orden.getEstado() == EstadoOrden.EN_EJECUCION) {
+            orden.cambiarEstado(EstadoOrden.EN_VALIDACION_TECNICA, null,
+                    "Ejecución terminada: análisis posterior de los servidores intervenidos (RF54)", Tiempo.ahora(reloj));
         }
         List<Evaluacion> posteriores = evaluacionesRepositorio.deOrden(idOrden, TipoEvaluacion.POSTERIOR);
         if (!posteriores.isEmpty()) {
@@ -201,7 +207,7 @@ public class ServicioValidaciones {
     private void validarTecnicamente(Integer idOrden, Map<Integer, String> problemas) {
         bloqueo.tomar();
         Orden orden = ordenes.findConDetalleById(idOrden).orElseThrow();
-        if (orden.getEstado() != EstadoOrden.EN_EJECUCION) {
+        if (orden.getEstado() != EstadoOrden.EN_VALIDACION_TECNICA) {
             return;
         }
         Instant ahora = Tiempo.ahora(reloj);
@@ -229,10 +235,10 @@ public class ServicioValidaciones {
                                 observaciones));
             }
         }
-        if (orden.getEstado() != EstadoOrden.EN_EJECUCION) {
+        if (orden.getEstado() != EstadoOrden.EN_VALIDACION_TECNICA) {
             return;
         }
-        orden.cambiarEstado(EstadoOrden.PENDIENTE_VALIDACION, null,
+        orden.cambiarEstado(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL, null,
                 "Validación técnica conforme; pendiente de la conformidad del responsable", ahora);
         // RF56: un grupo tiene un único responsable (RF20), así la orden tiene una sola validación funcional
         Usuario responsable = finalizados.getFirst().getServidor().getResponsable();

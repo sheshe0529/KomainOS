@@ -21,7 +21,6 @@ import com.komainos.inventario.model.ModalidadPlanificacion;
 import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.model.NivelCriticidad;
 import com.komainos.inventario.model.Servidor;
-import com.komainos.inventario.model.TipoDato;
 import com.komainos.inventario.model.Umbral;
 import com.komainos.inventario.repository.MetricaRepositorio;
 import com.komainos.inventario.repository.UmbralRepositorio;
@@ -30,6 +29,7 @@ import com.komainos.inventario.service.ServicioGrupo;
 import com.komainos.inventario.service.ServicioServidor;
 import com.komainos.mantenimiento.model.EstadoAutorizacion;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.ReglaPoliticaCambio;
 import com.komainos.mantenimiento.service.PuertoProgramacionCambio;
 import com.komainos.mantenimiento.service.ServicioAutorizaciones;
@@ -237,6 +237,11 @@ abstract class BaseAutomatizacionIT extends PruebaIntegracion {
 
     protected EstadoOrden estado(Integer idOrden) {
         return consulta.obtener(idOrden, new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR)).getEstado();
+    }
+
+    /** DEC-61: cómo terminó la orden; nulo si sigue abierta */
+    protected MotivoCierre motivo(Integer idOrden) {
+        return consulta.obtener(idOrden, new AlcanceUsuario(admin.getId(), Rol.ADMINISTRADOR)).getMotivoCierre();
     }
 
     protected Integer contar(String sql, Object... argumentos) {

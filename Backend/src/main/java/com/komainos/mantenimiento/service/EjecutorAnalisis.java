@@ -42,7 +42,8 @@ public class EjecutorAnalisis {
             resultado = ResultadoEjecucion.fallo(TipoFallo.CONFIGURACION, ex.getMessage());
         }
         Evaluacion evaluacion = evaluaciones.registrar(idEvaluacion, resultado);
-        actividad.finAnalisis(registro);
+        // Una salida correcta que no cumple el contrato deja la evaluación fallida por CONTRATO (CP103)
+        actividad.finAnalisis(registro, resultado.correcto() ? TipoFallo.CONTRATO : resultado.fallo());
         return evaluacion;
     }
 

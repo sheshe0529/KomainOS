@@ -20,9 +20,17 @@ describe('Etapas del ciclo de una orden', () => {
       'AUTORIZADA',
       'EN_COLA',
       'EN_EJECUCION',
-      'PENDIENTE_VALIDACION',
+      'EN_VALIDACION_TECNICA',
+      'PENDIENTE_VALIDACION_FUNCIONAL',
       'CERRADA',
     ])
     expect(alcanzadas.size).toBe(6)
+  })
+
+  it('la validación técnica y la funcional son la etapa de validación (DEC-61)', () => {
+    const alcanzadas = etapasAlcanzadas('VALIDACION', ['PROGRAMADA', 'EN_EVALUACION', 'AUTORIZADA', 'EN_COLA',
+      'EN_EJECUCION', 'EN_VALIDACION_TECNICA'])
+    expect(alcanzadas.has('VALIDACION')).toBe(true)
+    expect(alcanzadas.has('CIERRE')).toBe(false)
   })
 })

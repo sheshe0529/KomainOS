@@ -20,18 +20,19 @@ public final class OperacionRespuestas {
     }
 
     /**
-     * Un evento de «Ver actividad» (DEC-59), sin fase: el registro se lee en el orden en que ocurrió (DEC-60). El error
-     * conserva su categoría al principio («Error de autenticación: …») para que el panel ofrezca el diagnóstico.
+     * Un evento de «Ver actividad» (DEC-59), sin fase: el registro se lee en el orden en que ocurrió (DEC-60).
      *
-     * @param idTarea ejecución de la MOP a la que pertenece (su salida se consulta en el historial de ejecución)
+     * @param idTarea   ejecución de la MOP a la que pertenece (su salida se consulta en el historial de ejecución)
+     * @param tipoFallo categoría de un fallo remoto, con la que el panel ofrece el diagnóstico (DEC-61); nula si el
+     *                  evento no es un fallo remoto o no viene del registro
      */
     public record EventoActividadRespuesta(String clave, Instant fecha, NivelActividad nivel, EstadoActividad estado,
                                            String accion, String detalle, String error, String servidor, String script,
-                                           Integer idTarea, Integer idEvaluacion) {
+                                           Integer idTarea, Integer idEvaluacion, TipoFallo tipoFallo) {
 
         public static EventoActividadRespuesta de(Evento e) {
             return new EventoActividadRespuesta(e.clave(), e.fecha(), e.nivel(), e.estado(), e.accion(), e.detalle(),
-                    e.error(), e.servidor(), e.script(), e.idTarea(), e.idEvaluacion());
+                    e.error(), e.servidor(), e.script(), e.idTarea(), e.idEvaluacion(), e.tipoFallo());
         }
     }
 
@@ -54,7 +55,7 @@ public final class OperacionRespuestas {
                                      String tarea, Integer idScript, String script, Integer idVersion,
                                      Integer numeroVersion, String sistemaOperativo, String cuenta,
                                      EstadoTareaMop estado, Integer codigoRetorno, Instant inicio, Instant fin,
-                                     Long duracionSegundos, String error) {
+                                     Long duracionSegundos, String error, TipoFallo tipoFallo) {
     }
 
     public record EjecucionDetalleRespuesta(EjecucionRespuesta ejecucion, String salida, int prioridad,

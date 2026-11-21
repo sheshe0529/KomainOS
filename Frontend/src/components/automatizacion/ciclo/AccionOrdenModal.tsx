@@ -17,7 +17,6 @@ export type AccionOrden =
   | 'rechazar-propuesta'
   | 'conforme'
   | 'no-conforme'
-  | 'cerrar-sin-implementacion'
 
 interface Presentacion {
   titulo: string
@@ -82,14 +81,6 @@ const PRESENTACION: Record<AccionOrden, Presentacion> = {
     hecho: 'No conformidad registrada: se abrió una incidencia.',
     peligro: true,
   },
-  'cerrar-sin-implementacion': {
-    titulo: 'Cerrar sin intervenir',
-    explicacion: 'Alguna tarea no tiene implementación para el sistema operativo del servidor. La orden se cierra sin ejecutar nada.',
-    campo: 'Motivo',
-    boton: 'Cerrar orden',
-    hecho: 'Orden cerrada sin intervención.',
-    peligro: true,
-  },
 }
 
 interface AccionOrdenModalProps {
@@ -141,9 +132,6 @@ export function AccionOrdenModal({ idOrden, accion, fechaPropuesta, onCerrar, on
         case 'conforme':
         case 'no-conforme':
           await cicloApi.validar(idOrden, accion === 'conforme', motivo)
-          break
-        case 'cerrar-sin-implementacion':
-          await cicloApi.cerrarSinImplementacion(idOrden, motivo)
           break
       }
       onHecho(p.hecho)

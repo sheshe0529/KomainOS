@@ -30,7 +30,7 @@ import java.util.Optional;
 @Table(name = "script_implementacion")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ImplementacionScript {
+public class ScriptImplementacion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,10 +51,10 @@ public class ImplementacionScript {
     @OneToMany(mappedBy = "implementacion", cascade = CascadeType.ALL)
     @BatchSize(size = 50)
     @OrderBy("numeroVersion DESC")
-    private List<VersionScript> versiones = new ArrayList<>();
+    private List<ScriptVersion> versiones = new ArrayList<>();
 
-    public static ImplementacionScript nueva(Script script, VersionSistemaOperativo version, Instant ahora) {
-        ImplementacionScript implementacion = new ImplementacionScript();
+    public static ScriptImplementacion nueva(Script script, VersionSistemaOperativo version, Instant ahora) {
+        ScriptImplementacion implementacion = new ScriptImplementacion();
         implementacion.script = script;
         implementacion.versionSistemaOperativo = version;
         implementacion.fechaCreacion = ahora;
@@ -62,13 +62,13 @@ public class ImplementacionScript {
     }
 
     /** RF42: es la versión que se fija en una MOP nueva; deshabilitar la última vuelve a la anterior habilitada */
-    public Optional<VersionScript> ultimaHabilitada() {
+    public Optional<ScriptVersion> ultimaHabilitada() {
         return versiones.stream()
-                .filter(VersionScript::isHabilitada)
-                .max(Comparator.comparing(VersionScript::getNumeroVersion));
+                .filter(ScriptVersion::isHabilitada)
+                .max(Comparator.comparing(ScriptVersion::getNumeroVersion));
     }
 
-    public void agregarVersion(VersionScript version) {
+    public void agregarVersion(ScriptVersion version) {
         versiones.add(version);
     }
 

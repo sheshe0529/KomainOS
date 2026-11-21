@@ -72,7 +72,7 @@ class CuentasPorEtapaIT extends BaseAutomatizacionIT {
 
         aprobarComoResponsable(idOrden);
         assertThat(orquestador.drenar()).isEqualTo(1);
-        assertThat(estado(idOrden)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION);
+        assertThat(estado(idOrden)).isEqualTo(EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL);
         assertThat(evaluaciones.deOrden(idOrden, TipoEvaluacion.POSTERIOR))
                 .extracting(Evaluacion::getIdCuentaServicio).containsExactly(cuentaEvaluacion);
         comprobarCuentasDeOrden(idOrden, cuentaEvaluacion, cuentaMantenimiento);

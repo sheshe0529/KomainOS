@@ -1,26 +1,15 @@
 package com.komainos.inventario.model;
 
-import java.time.DayOfWeek;
-
+/** En el orden de la semana ISO: diasHasta usa el ordinal */
 public enum DiaSemana {
 
-    LUNES(DayOfWeek.MONDAY),
-    MARTES(DayOfWeek.TUESDAY),
-    MIERCOLES(DayOfWeek.WEDNESDAY),
-    JUEVES(DayOfWeek.THURSDAY),
-    VIERNES(DayOfWeek.FRIDAY),
-    SABADO(DayOfWeek.SATURDAY),
-    DOMINGO(DayOfWeek.SUNDAY);
-
-    private final DayOfWeek diaIso;
-
-    DiaSemana(DayOfWeek diaIso) {
-        this.diaIso = diaIso;
-    }
-
-    public DayOfWeek aDayOfWeek() {
-        return diaIso;
-    }
+    LUNES,
+    MARTES,
+    MIERCOLES,
+    JUEVES,
+    VIERNES,
+    SABADO,
+    DOMINGO;
 
     /** Días que hay que avanzar desde este día hasta el otro (0 a 6) */
     public int diasHasta(DiaSemana otro) {

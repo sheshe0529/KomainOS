@@ -28,6 +28,16 @@ describe('actividad registrada por el backend (DEC-59)', () => {
     expect(advertencia.diagnostico).toBeUndefined()
   })
 
+  it('usa la categoría tipificada del registro aunque el texto no la diga (DEC-61)', () => {
+    const [fallo] = deRespuestas([
+      { clave: 'a-3', nivel: 'ERROR', estado: 'FALLIDO', accion: 'Tarea «Reiniciar servicio» ha fallado',
+        error: 'sudo: a password is required', tipoFallo: 'PERMISOS' },
+    ])
+    expect(fallo.tipoFallo).toBe('PERMISOS')
+    expect(fallo.diagnostico).toMatchObject({ tipo: 'PERMISOS', titulo: 'Permisos insuficientes',
+      detalle: 'Sudo: a password is required' })
+  })
+
   it('completa lo que falta con valores seguros', () => {
     expect(deRespuestas(undefined)).toEqual([])
     expect(deRespuesta({}, 3)).toMatchObject({ clave: 'evento-3', nivel: 'INFO' })

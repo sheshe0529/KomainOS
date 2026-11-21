@@ -34,33 +34,27 @@ public class ProcesoAutomatizacion {
     private final PropiedadesAutomatizacion propiedades;
     private final ServicioAutorizaciones autorizaciones;
     private final ServicioValidaciones validaciones;
-    private final ServicioCierreMantenimiento cierre;
     private final ServicioOrquestador orquestador;
     private final ServicioEvaluacionPrevia evaluacionPrevia;
     private final ServicioRevisionPeriodica revision;
     private final ServicioNotificaciones notificaciones;
     private final OrdenRepositorio ordenes;
-    private final BloqueoAutomatizacion bloqueo;
     private final TransactionTemplate transaccion;
     private final AtomicBoolean ocupado = new AtomicBoolean();
     private final Map<String, String> ultimosAvisos = new ConcurrentHashMap<>();
 
     public ProcesoAutomatizacion(PropiedadesAutomatizacion propiedades, ServicioAutorizaciones autorizaciones,
-                                 ServicioValidaciones validaciones, ServicioCierreMantenimiento cierre,
-                                 ServicioOrquestador orquestador, ServicioEvaluacionPrevia evaluacionPrevia,
+                                 ServicioValidaciones validaciones, ServicioOrquestador orquestador, ServicioEvaluacionPrevia evaluacionPrevia,
                                  ServicioRevisionPeriodica revision, ServicioNotificaciones notificaciones,
-                                 OrdenRepositorio ordenes, BloqueoAutomatizacion bloqueo,
-                                 PlatformTransactionManager transacciones) {
+                                 OrdenRepositorio ordenes, PlatformTransactionManager transacciones) {
         this.propiedades = propiedades;
         this.autorizaciones = autorizaciones;
         this.validaciones = validaciones;
-        this.cierre = cierre;
         this.orquestador = orquestador;
         this.evaluacionPrevia = evaluacionPrevia;
         this.revision = revision;
         this.notificaciones = notificaciones;
         this.ordenes = ordenes;
-        this.bloqueo = bloqueo;
         this.transaccion = new TransactionTemplate(transacciones);
     }
 
@@ -78,10 +72,7 @@ public class ProcesoAutomatizacion {
             return new Resumen(false, 0, 0, 0, 0, 0);
         }
         try {
-            int vencidas = autorizaciones.vencer() + validaciones.vencer() + transaccion.execute(estado -> {
-                bloqueo.tomar();
-                return cierre.cerrarCanceladas();
-            });
+            int vencidas = autorizaciones.vencer() + validaciones.vencer();
             int despachadas = orquestador.despachar();
 
             AtomicInteger evaluadas = new AtomicInteger();

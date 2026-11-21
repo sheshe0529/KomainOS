@@ -1,8 +1,9 @@
 package com.komainos.mantenimiento.service;
 
+import com.komainos.ejecucion.model.TipoFallo;
 import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.inventario.service.PuertoCuentasServicio;
-import com.komainos.inventario.service.ServicioParametrosSistema;
+import com.komainos.inventario.service.ServicioConfiguracionSistema;
 import com.komainos.mantenimiento.model.AutorizacionDetalle;
 import com.komainos.mantenimiento.model.DuracionPlan;
 import com.komainos.mantenimiento.model.EstadoDetalleOrden;
@@ -11,7 +12,8 @@ import com.komainos.mantenimiento.model.EstadoOrden;
 import com.komainos.mantenimiento.model.EstadoTareaMop;
 import com.komainos.mantenimiento.model.EtapaOrden;
 import com.komainos.mantenimiento.model.Evaluacion;
-import com.komainos.mantenimiento.model.HistorialEstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
+import com.komainos.mantenimiento.repository.ActividadEjecucionRepositorio;
 import com.komainos.mantenimiento.model.Incidencia;
 import com.komainos.mantenimiento.model.Mop;
 import com.komainos.mantenimiento.model.MopTarea;
@@ -54,6 +56,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -77,6 +80,7 @@ public class ServicioConsultaAutomatizacion {
             .withZone(ZoneId.of("America/Lima"));
 
     private final ServicioConsultaOrdenes consulta;
+    private final ActividadEjecucionRepositorio actividades;
     private final OrdenRepositorio ordenes;
     private final OrdenDetalleRepositorio detalles;
     private final MopRepositorio mops;
@@ -87,7 +91,7 @@ public class ServicioConsultaAutomatizacion {
     private final ValidacionTecnicaRepositorio tecnicas;
     private final IncidenciaRepositorio incidencias;
     private final PuertoCuentasServicio cuentas;
-    private final ServicioParametrosSistema parametros;
+    private final ServicioConfiguracionSistema parametros;
     private final Clock reloj;
 
     @Transactional(readOnly = true)
@@ -127,11 +131,16 @@ public class ServicioConsultaAutomatizacion {
         analisis.stream().map(Evaluacion::getIdCuentaServicio).distinct()
                 .forEach(id -> cuentas.nombre(id).ifPresent(nombre -> nombresCuenta.put(id, nombre)));
 
+        Map<Integer, TipoFallo> fallosAnalisis = actividades.fallosPorEvaluacion(
+                analisis.stream().map(Evaluacion::getId).toList());
+        Map<Integer, TipoFallo> fallosTareas = actividades.fallosPorTarea(
+                planes.stream().flatMap(m -> m.getTareas().stream()).map(MopTarea::getId).toList());
+
         SolicitudAutorizacion vigente = rondas.isEmpty() ? null : rondas.getLast();
         var parametrosSistema = parametros.obtener();
         boolean paralelo = orden.esGrupal() && orden.getModoEjecucionAplicado() == ModoEjecucion.PARALELO;
         return new FichaAutomatizacion(orden, planes, analisis, rondas, validacion, validacionesTecnicas, problemas,
-                nombresCuenta, responsables(orden), parametrosSistema.getMaxDuracionMopMinutos(),
+                nombresCuenta, fallosAnalisis, fallosTareas, responsables(orden), parametrosSistema.getMaxDuracionMopMinutos(),
                 visibles.size(), DuracionPlan.estimar(planes, paralelo, parametrosSistema.getMaxEjecucionesConcurrentes()),
                 acciones(orden, vigente, validacion, alcance), siguientePaso(orden, planes, analisis, vigente, validacion));
     }
@@ -174,6 +183,18 @@ public class ServicioConsultaAutomatizacion {
     public Page<OrdenDetalle> cola(Pageable pagina) {
         return detalles.cola(EnumSet.of(EstadoDetalleOrden.EN_COLA, EstadoDetalleOrden.EN_EJECUCION),
                 EnumSet.of(OrigenOrden.LANZAMIENTO_INMEDIATO, OrigenOrden.CONDICION_CRITICA), pagina);
+    }
+
+    /** DEC-61: categoría del fallo de cada análisis, según su evento FALLIDO del registro de actividad */
+    @Transactional(readOnly = true)
+    public Map<Integer, TipoFallo> fallosDeEvaluaciones(Collection<Integer> ids) {
+        return actividades.fallosPorEvaluacion(ids);
+    }
+
+    /** DEC-61: categoría del fallo de cada tarea de la MOP, según su evento FALLIDO del registro de actividad */
+    @Transactional(readOnly = true)
+    public Map<Integer, TipoFallo> fallosDeTareas(Collection<Integer> ids) {
+        return actividades.fallosPorTarea(ids);
     }
 
     /** RF34: órdenes por etapa del ciclo */
@@ -250,7 +271,7 @@ public class ServicioConsultaAutomatizacion {
         boolean hayPropuesta = enAutorizacion && ronda.propuesta().isPresent();
         boolean turnoResponsable = pendiente.map(d -> d.getTipo() == TipoAprobador.RESPONSABLE).orElse(false) && responsable;
         boolean turnoAdministrador = pendiente.map(d -> d.getTipo() == TipoAprobador.ADMINISTRADOR).orElse(false) && admin;
-        boolean validar = estado == EstadoOrden.PENDIENTE_VALIDACION && validacion
+        boolean validar = estado == EstadoOrden.PENDIENTE_VALIDACION_FUNCIONAL && validacion
                 .filter(v -> v.estaPendiente() && v.getResponsable().getId().equals(alcance.usuarioId())).isPresent();
         return new Acciones(
                 admin && estado == EstadoOrden.PROGRAMADA,
@@ -258,7 +279,6 @@ public class ServicioConsultaAutomatizacion {
                 turnoResponsable,
                 admin && hayPropuesta,
                 validar,
-                admin && estado == EstadoOrden.SIN_IMPLEMENTACION,
                 // Despachar solo sirve cuando la orden ya alcanzó su inicio programado (CP105)
                 admin && EnumSet.of(EstadoOrden.AUTORIZADA, EstadoOrden.EN_COLA, EstadoOrden.EN_EJECUCION).contains(estado)
                         && !Tiempo.ahora(reloj).isBefore(orden.getFechaInicioProgramada()));
@@ -278,17 +298,9 @@ public class ServicioConsultaAutomatizacion {
     private String siguientePaso(Orden orden, List<Mop> planes, List<Evaluacion> analisis, SolicitudAutorizacion ronda,
                                  Optional<ValidacionFuncional> validacion) {
         return switch (orden.getEstado()) {
-            case PROGRAMADA, REPROGRAMADA -> "La evaluación previa inicia el %s y la ejecución el %s."
+            case PROGRAMADA -> "La evaluación previa inicia el %s y la ejecución el %s."
                     .formatted(FECHA.format(orden.getFechaEvaluacionProgramada()), FECHA.format(orden.getFechaInicioProgramada()));
             case EN_EVALUACION -> "Analizando el estado de los servidores con el script de análisis…";
-            // Un análisis fallido se explica en su etapa, con su diagnóstico y la salida del script: aquí no se repite
-            case SIN_IMPLEMENTACION -> analisis.stream().anyMatch(e -> e.getTipo() == TipoEvaluacion.PREVIA
-                    && e.getEstado() == EstadoEvaluacion.FALLIDA)
-                    ? "La evaluación previa no se completó: revise el error en «Qué se encontró en el servidor», "
-                    + "corrija la causa y cierre la orden sin intervención."
-                    // El motivo registrado ya empieza con «Ejecución bloqueada»
-                    : "Ejecución bloqueada: " + ultimoMotivo(orden).replaceFirst("^Ejecución bloqueada: ", "")
-                    + ". Corrija el catálogo o la configuración y cierre la orden sin intervención.";
             case PENDIENTE_AUTORIZACION -> {
                 if (ronda == null) {
                     yield "Esperando la solicitud de autorización.";
@@ -316,22 +328,35 @@ public class ServicioConsultaAutomatizacion {
                         .filter(t -> t.getEstado() == EstadoTareaMop.FINALIZADA).count();
                 yield "Ejecutando: %d de %d tareas completadas.".formatted(hechas, total);
             }
-            case PENDIENTE_VALIDACION -> validacion
+            case EN_VALIDACION_TECNICA -> "Validación técnica: analizando los servidores intervenidos contra los "
+                    + "umbrales…";
+            case PENDIENTE_VALIDACION_FUNCIONAL -> validacion
                     .map(v -> "Esperando la conformidad de %s hasta el %s.".formatted(v.getResponsable().getNombreCompleto(),
                             FECHA.format(v.getFechaLimite())))
                     .orElse("Esperando la validación funcional.");
             case INCIDENCIA -> "Incidencia abierta: atiéndala y ciérrela para terminar el ciclo.";
-            case RECHAZADA, AUTORIZACION_VENCIDA, VALIDACION_VENCIDA, CANCELADA -> "Cerrando el ciclo…";
-            case CERRADA -> "Ciclo cerrado: " + ultimoMotivo(orden) + ".";
+            case CERRADA -> cierre(orden, analisis);
         };
     }
 
-    private static String ultimoMotivo(Orden orden) {
-        return orden.getHistorial().stream()
-                .reduce((a, b) -> b)
-                .map(HistorialEstadoOrden::getMotivo)
-                .filter(m -> m != null && !m.isBlank())
-                .orElse("sin motivo registrado");
+    /** DEC-61: el motivo dice cómo terminó; uno sin implementación indica qué corregir antes del siguiente ciclo */
+    private static String cierre(Orden orden, List<Evaluacion> analisis) {
+        MotivoCierre motivo = orden.getMotivoCierre();
+        String observaciones = orden.getObservacionesCierre() == null || orden.getObservacionesCierre().isBlank()
+                ? "sin observaciones" : orden.getObservacionesCierre();
+        if (motivo != MotivoCierre.SIN_IMPLEMENTACION) {
+            return "Ciclo cerrado (%s): %s.".formatted(motivo == null ? "sin motivo" : motivo.etiqueta().toLowerCase(),
+                    observaciones);
+        }
+        // Un análisis fallido se explica en su etapa, con su diagnóstico y la salida del script: aquí no se repite
+        boolean analisisFallido = analisis.stream().anyMatch(e -> e.getTipo() == TipoEvaluacion.PREVIA
+                && e.getEstado() == EstadoEvaluacion.FALLIDA);
+        return analisisFallido
+                ? "Ciclo cerrado sin implementación: la evaluación previa no se completó. Revise el error en «Qué se "
+                + "encontró en el servidor» y corrija la causa antes del siguiente ciclo."
+                // Las observaciones ya empiezan con «Ejecución bloqueada»
+                : "Ciclo cerrado sin implementación. " + observaciones
+                + ". Corrija el catálogo o la configuración antes del siguiente ciclo.";
     }
 
     public record FiltroEjecuciones(Integer idServidor, Integer idScript, EstadoTareaMop estado, Instant desde,
@@ -346,7 +371,7 @@ public class ServicioConsultaAutomatizacion {
      * @param validar          el responsable registra su conformidad o rechazo (RF57)
      */
     public record Acciones(boolean evaluar, boolean decidir, boolean proponerFecha, boolean decidirPropuesta,
-                           boolean validar, boolean cerrarSinImplementacion, boolean procesarCola) {
+                           boolean validar, boolean procesarCola) {
     }
 
     /**
@@ -357,7 +382,8 @@ public class ServicioConsultaAutomatizacion {
     public record FichaAutomatizacion(Orden orden, List<Mop> mops, List<Evaluacion> evaluaciones,
                                       List<SolicitudAutorizacion> autorizaciones, Optional<ValidacionFuncional> validacion,
                                       List<ValidacionTecnica> validacionesTecnicas, List<Incidencia> incidencias,
-                                      Map<Integer, String> cuentas, Map<String, String> responsables,
+                                      Map<Integer, String> cuentas, Map<Integer, TipoFallo> fallosAnalisis,
+                                      Map<Integer, TipoFallo> fallosTareas, Map<String, String> responsables,
                                       int maxDuracionMop, int servidores, int duracionPlan,
                                       Acciones acciones, String siguientePaso) {
     }

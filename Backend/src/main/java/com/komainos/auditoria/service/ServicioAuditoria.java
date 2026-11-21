@@ -2,7 +2,7 @@ package com.komainos.auditoria.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.komainos.auditoria.model.RegistroAuditoria;
+import com.komainos.auditoria.model.Auditoria;
 import com.komainos.auditoria.repository.AuditoriaRepositorio;
 import com.komainos.shared.model.Actor;
 import com.komainos.shared.util.Tiempo;
@@ -28,7 +28,7 @@ public class ServicioAuditoria {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void registrar(Actor actor, Operacion operacion) {
-        repositorio.save(RegistroAuditoria.builder()
+        repositorio.save(Auditoria.builder()
                 .idUsuario(actor.usuarioId())
                 .proceso(actor.proceso())
                 .idServidor(operacion.idServidor())
@@ -45,7 +45,7 @@ public class ServicioAuditoria {
     }
 
     @Transactional(readOnly = true)
-    public List<RegistroAuditoria> consultarSobreServidor(Integer idServidor, String operacion) {
+    public List<Auditoria> consultarSobreServidor(Integer idServidor, String operacion) {
         return repositorio.findByIdServidorAndOperacionOrderByFechaHoraDescIdDesc(idServidor, operacion);
     }
 

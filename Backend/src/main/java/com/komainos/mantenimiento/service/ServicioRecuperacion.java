@@ -117,7 +117,8 @@ public class ServicioRecuperacion {
                 .map(Orden::getId).toList());
         enEvaluacion.forEach(id -> evaluacionPrevia.concluir(id, Map.of(), SISTEMA));
         List<Integer> enEjecucion = transaccion.execute(estado -> ordenes
-                .findByEstadoInOrderByFechaInicioProgramadaAsc(EnumSet.of(EstadoOrden.EN_EJECUCION, EstadoOrden.INCIDENCIA))
+                .findByEstadoInOrderByFechaInicioProgramadaAsc(EnumSet.of(EstadoOrden.EN_EJECUCION, EstadoOrden.EN_VALIDACION_TECNICA,
+                        EstadoOrden.INCIDENCIA))
                 .stream().map(Orden::getId).toList());
         enEjecucion.forEach(validaciones::completarEjecucion);
         if (analisis + servidores + enEvaluacion.size() > 0) {

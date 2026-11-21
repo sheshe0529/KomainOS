@@ -1,5 +1,6 @@
 package com.komainos.mantenimiento.model;
 
+import com.komainos.ejecucion.model.TipoFallo;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -63,7 +64,7 @@ public class ActividadEjecucion {
     @Column(name = "detalle")
     private String detalle;
 
-    /** Con la categoría al principio («Error de autenticación: …»), sin secretos */
+    /** Mensaje para quien lee la actividad, con la categoría al principio («Error de autenticación: …»), sin secretos */
     @Column(name = "error")
     private String error;
 
@@ -73,6 +74,15 @@ public class ActividadEjecucion {
 
     @Column(name = "fecha_hora", nullable = false)
     private Instant fechaHora;
+
+    /**
+     * Categoría de un fallo remoto (RF71, DEC-61): solo en un evento FALLIDO (ck_actividad_ejecucion_tipo_fallo). El
+     * panel la lee de aquí en lugar de interpretar el texto del error; un evento interrumpido por un reinicio no la tiene
+     */
+    @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(name = "tipo_fallo", columnDefinition = "enum_tipo_fallo")
+    private TipoFallo tipoFallo;
 
     public static ActividadEjecucion deEvaluacion(Integer idEvaluacion, Paso paso) {
         return nuevo(null, idEvaluacion, null, paso);
@@ -98,6 +108,7 @@ public class ActividadEjecucion {
         a.error = paso.error();
         a.script = recortar(paso.script(), 300);
         a.fechaHora = paso.fechaHora();
+        a.tipoFallo = paso.estado() == EstadoActividad.FALLIDO ? paso.tipoFallo() : null;
         return a;
     }
 
@@ -105,8 +116,13 @@ public class ActividadEjecucion {
         return texto == null || texto.length() <= largo ? texto : texto.substring(0, largo - 1) + "…";
     }
 
-    /** Lo que se registra de un paso, sea cual sea su origen */
+    /** Lo que se registra de un paso, sea cual sea su origen; tipoFallo solo se conserva si el paso falló */
     public record Paso(NivelActividad nivel, EstadoActividad estado, String accion, String detalle, String error,
-                       String script, Instant fechaHora) {
+                       String script, Instant fechaHora, TipoFallo tipoFallo) {
+
+        public Paso(NivelActividad nivel, EstadoActividad estado, String accion, String detalle, String error,
+                    String script, Instant fechaHora) {
+            this(nivel, estado, accion, detalle, error, script, fechaHora, null);
+        }
     }
 }

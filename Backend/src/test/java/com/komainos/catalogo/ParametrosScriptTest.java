@@ -1,8 +1,8 @@
 package com.komainos.catalogo;
 
-import com.komainos.catalogo.model.ParametroScript;
+import com.komainos.catalogo.model.ScriptParametro;
 import com.komainos.catalogo.model.TipoParametro;
-import com.komainos.catalogo.model.VersionScript;
+import com.komainos.catalogo.model.ScriptVersion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion;
 import com.komainos.catalogo.service.ServicioCatalogoAutomatizacion.DatosParametro;
 import com.komainos.inventario.model.FamiliaSistemaOperativo;
@@ -71,8 +71,8 @@ class ParametrosScriptTest {
 
     @Test
     void unEscalarHistoricoVacioConservaSuSemanticaDeEjecucion() {
-        VersionScript version = VersionScript.nueva(null, 1, "echo", null, AHORA);
-        version.agregarParametro(ParametroScript.nuevo(version, "VACIO", TipoParametro.STRING, null, null, 1));
+        ScriptVersion version = ScriptVersion.nueva(null, 1, "echo", null, AHORA);
+        version.agregarParametro(ScriptParametro.nuevo(version, "VACIO", TipoParametro.STRING, null, null, 1));
         assertThat(ServicioCatalogoAutomatizacion.valoresDeEjecucion(version).getFirst().valor()).isNull();
         assertThat(version.usaListasImplicitas()).isFalse();
     }

@@ -18,6 +18,7 @@ import com.komainos.mantenimiento.model.Incidencia;
 import com.komainos.mantenimiento.model.MedicionMetrica;
 import com.komainos.mantenimiento.model.Mop;
 import com.komainos.mantenimiento.model.MopTarea;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.Orden;
 import com.komainos.mantenimiento.model.OrdenDetalle;
 import com.komainos.mantenimiento.model.OrigenOrden;
@@ -43,12 +44,10 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -68,11 +67,6 @@ public class ServicioBitacora {
     private static final int PARTICIPACIONES_POR_LOTE = 10_000;
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.of("America/Lima"));
-    private static final Set<EstadoOrden> SIN_AUTORIZAR = EnumSet.of(EstadoOrden.RECHAZADA,
-            EstadoOrden.AUTORIZACION_VENCIDA);
-    private static final Set<EstadoOrden> A_ATENDER = EnumSet.of(EstadoOrden.SIN_IMPLEMENTACION,
-            EstadoOrden.INCIDENCIA, EstadoOrden.VALIDACION_VENCIDA);
-    private static final Set<EstadoOrden> PROGRAMADAS = EnumSet.of(EstadoOrden.PROGRAMADA, EstadoOrden.REPROGRAMADA);
 
     private final ServicioConsultaAutomatizacion consulta;
     private final ServicioServidor servidores;
@@ -319,30 +313,27 @@ public class ServicioBitacora {
 
     private static MantenimientoBitacora mantenimiento(Orden orden, List<OrdenDetalle> detalles, DatosParticipacion datos,
                                                        EstadoValidacionFuncional validacionFuncional) {
-        EstadoOrden alCerrar = estadoAlCerrar(orden);
+        MotivoCierre motivo = orden.getMotivoCierre();
         List<ParticipacionServidor> participaciones = detalles.stream()
-                .map(d -> participacion(d, orden.getEstado(), alCerrar, datos)).toList();
+                .map(d -> participacion(d, orden.getEstado(), motivo, datos)).toList();
 
         Instant inicioReal = participaciones.stream().map(ParticipacionServidor::inicioReal).filter(Objects::nonNull)
                 .min(Comparator.naturalOrder()).orElse(null);
         Instant finReal = participaciones.stream().map(ParticipacionServidor::finReal).filter(Objects::nonNull)
                 .max(Comparator.naturalOrder()).orElse(null);
-        Instant cierre = orden.getEstado() == EstadoOrden.CERRADA || orden.getEstado() == EstadoOrden.CANCELADA
-                ? orden.getHistorial().stream().map(HistorialEstadoOrden::getFechaHora).max(Comparator.naturalOrder())
-                .orElse(null)
-                : null;
         boolean conIncidencias = participaciones.stream().anyMatch(p -> p.incidencias() > 0);
         boolean intervino = participaciones.stream().anyMatch(p -> intervino(p.tareas()));
 
         return new MantenimientoBitacora(orden.getId(), orden.getCodigo(), orden.esGrupal(),
                 orden.esGrupal() ? orden.getGrupo().getNombre() : null, orden.getOrigen(), orden.prioridad(),
-                orden.getEstado(), orden.getEstado().etapa(),
-                resultado(orden.getEstado(), alCerrar, intervino, conIncidencias),
-                orden.getFechaInicioProgramada(), orden.getFechaFinProgramada(), inicioReal, finReal, cierre,
+                orden.getEstado(), orden.getEstado().etapa(), motivo,
+                resultado(orden.getEstado(), motivo, intervino, conIncidencias),
+                orden.getFechaInicioProgramada(), orden.getFechaFinProgramada(), inicioReal, finReal,
+                orden.getFechaCierre(),
                 validacionFuncional, participaciones);
     }
 
-    private static ParticipacionServidor participacion(OrdenDetalle d, EstadoOrden estado, EstadoOrden alCerrar,
+    private static ParticipacionServidor participacion(OrdenDetalle d, EstadoOrden estado, MotivoCierre motivo,
                                                        DatosParticipacion datos) {
         Integer idDetalle = d.getId();
         List<TareaBitacora> tareas = datos.tareas().getOrDefault(idDetalle, List.of());
@@ -351,7 +342,7 @@ public class ServicioBitacora {
         return new ParticipacionServidor(d.getServidor().getId(), d.getServidor().getHostname(), d.getEstado(),
                 d.isEsServidorPiloto(), niveles.get(TipoEvaluacion.PREVIA), niveles.get(TipoEvaluacion.POSTERIOR),
                 datos.validaciones().get(idDetalle), incidencias,
-                resultado(estado, alCerrar, intervino(tareas), incidencias > 0), d.getFechaRealInicio(),
+                resultado(estado, motivo, intervino(tareas), incidencias > 0), d.getFechaRealInicio(),
                 d.getFechaRealFin(), tareas);
     }
 
@@ -366,46 +357,30 @@ public class ServicioBitacora {
     }
 
     /**
-     * Estado desde el que se cerró la orden. Todas terminan en CERRADA (tabla 6): si se canceló, se rechazó o se cerró
-     * sin implementación, eso queda en el paso anterior al cierre. Nulo si la orden sigue abierta.
-     */
-    static EstadoOrden estadoAlCerrar(Orden orden) {
-        if (orden.getEstado() != EstadoOrden.CERRADA) {
-            return null;
-        }
-        return orden.getHistorial().stream()
-                .filter(h -> h.getEstadoNuevo() == EstadoOrden.CERRADA)
-                .map(HistorialEstadoOrden::getEstadoAnterior)
-                .reduce((a, b) -> b)
-                .orElse(null);
-    }
-
-    /**
-     * Resultado de un vistazo. Abierta, el estado dice qué espera; cerrada, el estado desde el que se cerró dice si
-     * se hizo, y las tareas y las incidencias, cómo
+     * Resultado de un vistazo. Abierta, el estado dice qué espera; cerrada, su motivo (DEC-61) dice si se hizo, y las
+     * tareas y las incidencias de cada servidor, cómo
      *
-     * @param alCerrar estado anterior al cierre; nulo si la orden sigue abierta
+     * @param motivo motivo de cierre; nulo si la orden sigue abierta
      */
-    public static ResultadoMantenimiento resultado(EstadoOrden estado, EstadoOrden alCerrar, boolean intervino,
+    public static ResultadoMantenimiento resultado(EstadoOrden estado, MotivoCierre motivo, boolean intervino,
                                                    boolean conIncidencias) {
-        boolean cerrada = estado == EstadoOrden.CERRADA;
-        EstadoOrden decisivo = cerrada && alCerrar != null ? alCerrar : estado;
-        if (decisivo == EstadoOrden.CANCELADA || cerrada && decisivo == EstadoOrden.SIN_IMPLEMENTACION) {
+        if (estado != EstadoOrden.CERRADA) {
+            return switch (estado) {
+                case INCIDENCIA -> ResultadoMantenimiento.REQUIERE_ATENCION;
+                case PROGRAMADA -> ResultadoMantenimiento.PROGRAMADO;
+                default -> ResultadoMantenimiento.EN_CURSO;
+            };
+        }
+        if (motivo == MotivoCierre.CANCELADA || motivo == MotivoCierre.SIN_IMPLEMENTACION) {
             return ResultadoMantenimiento.CANCELADO;
         }
-        if (SIN_AUTORIZAR.contains(decisivo)) {
+        if (motivo == MotivoCierre.RECHAZADA || motivo == MotivoCierre.AUTORIZACION_VENCIDA) {
             return ResultadoMantenimiento.NO_AUTORIZADO;
         }
-        if (cerrada) {
-            if (conIncidencias) {
-                return ResultadoMantenimiento.CON_INCIDENCIA;
-            }
-            return intervino ? ResultadoMantenimiento.EXITOSO : ResultadoMantenimiento.SIN_INTERVENCION;
+        if (conIncidencias) {
+            return ResultadoMantenimiento.CON_INCIDENCIA;
         }
-        if (A_ATENDER.contains(estado)) {
-            return ResultadoMantenimiento.REQUIERE_ATENCION;
-        }
-        return PROGRAMADAS.contains(estado) ? ResultadoMantenimiento.PROGRAMADO : ResultadoMantenimiento.EN_CURSO;
+        return intervino ? ResultadoMantenimiento.EXITOSO : ResultadoMantenimiento.SIN_INTERVENCION;
     }
 
     // ---------------------------------------------------------------- Etiquetas
@@ -414,18 +389,13 @@ public class ServicioBitacora {
         return switch (e) {
             case PROGRAMADA -> "Programada";
             case EN_EVALUACION -> "En evaluación";
-            case SIN_IMPLEMENTACION -> "Sin implementación";
             case PENDIENTE_AUTORIZACION -> "Pendiente de autorización";
             case AUTORIZADA -> "Autorizada";
             case EN_COLA -> "En cola";
             case EN_EJECUCION -> "En ejecución";
-            case PENDIENTE_VALIDACION -> "Pendiente de validación";
+            case EN_VALIDACION_TECNICA -> "En validación técnica";
+            case PENDIENTE_VALIDACION_FUNCIONAL -> "Pendiente de validación funcional";
             case INCIDENCIA -> "Incidencia";
-            case REPROGRAMADA -> "Reprogramada";
-            case RECHAZADA -> "Rechazada";
-            case AUTORIZACION_VENCIDA -> "Autorización vencida";
-            case VALIDACION_VENCIDA -> "Validación vencida";
-            case CANCELADA -> "Cancelada";
             case CERRADA -> "Cerrada";
         };
     }
@@ -505,11 +475,12 @@ public class ServicioBitacora {
      * Un ciclo de mantenimiento resumido
      *
      * @param inicioReal el primer servidor que inició; nulo si ninguno se ejecutó
-     * @param fechaCierre cuándo se cerró o canceló la orden
+     * @param motivoCierre cómo terminó el ciclo (DEC-61); nulo si la orden sigue abierta
+     * @param fechaCierre  cuándo se cerró la orden
      */
     public record MantenimientoBitacora(Integer idOrden, String codigo, boolean grupal, String grupo, OrigenOrden origen,
                                         PrioridadOrden prioridad, EstadoOrden estado, EtapaOrden etapa,
-                                        ResultadoMantenimiento resultado, Instant inicioProgramado,
+                                        MotivoCierre motivoCierre, ResultadoMantenimiento resultado, Instant inicioProgramado,
                                         Instant finProgramado, Instant inicioReal, Instant finReal,
                                         Instant fechaCierre, EstadoValidacionFuncional validacionFuncional,
                                         List<ParticipacionServidor> servidores) {

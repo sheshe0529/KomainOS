@@ -92,12 +92,4 @@ public class CicloOrdenController {
         validaciones.validar(id, p.conforme(), p.observaciones(), AlcanceUsuario.de(u));
     }
 
-    @PostMapping("/cierre-sin-implementacion")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
-    @Operation(summary = "Cierra sin intervención una orden bloqueada por falta de implementación (RF42)")
-    public void cerrar(@PathVariable Integer id, @Valid @RequestBody CicloPeticiones.MotivoPeticion p,
-                       @AuthenticationPrincipal UsuarioAutenticado u) {
-        evaluacion.cerrarSinImplementacion(id, p.motivo(), AlcanceUsuario.de(u).actor());
-    }
 }
