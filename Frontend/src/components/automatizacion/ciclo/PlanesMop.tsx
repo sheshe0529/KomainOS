@@ -2,20 +2,15 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, ChevronRight, TriangleAlert } from 'lucide-react'
-import { scriptsApi } from '@/api/automatizacion'
 import type { PlanMop, ResumenPlan, TareaMopRespuesta } from '@/api/types'
 import { useSesion } from '@/auth/sesion-context'
-import { Cargando } from '@/components/ui/Cargando'
 import { BotonDetalle, FilaDetalle } from '@/components/ui/FilaDetalle'
-import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { StatusPill } from '@/components/ui/StatusPill'
-import { useConsulta } from '@/hooks/useConsulta'
 import { AFECTACION, ESTADO_TAREA_MOP, formatearSegundos, TONO_ESTADO_DETALLE } from '@/utils/automatizacion'
 import { ETIQUETA_ESTADO_DETALLE } from '@/utils/etiquetas'
 import { formatearDuracion, formatearFechaHora, formatearHora } from '@/utils/formato'
 import { SalidaTerminal } from '../SalidaTerminal'
-import { VistaPreviaScript } from '../VistaPreviaScript'
 import { CELDA, ENCABEZADO } from './estilosTabla'
 
 const SIN_PLAN = 'El plan se arma en la evaluación previa con las tareas que activen los umbrales.'
@@ -36,13 +31,13 @@ function Script({ t }: { t: TareaMopRespuesta }) {
   )
 }
 
-/** El catálogo de scripts es del administrador y el operador: solo ellos ven el código de cada tarea */
-function usePuedeVerScripts() {
+/** Solo el administrador va desde la tarea a su script en el catálogo */
+function useEsAdministrador() {
   const { tieneRol } = useSesion()
-  return tieneRol('ADMINISTRADOR', 'OPERADOR')
+  return tieneRol('ADMINISTRADOR')
 }
 
-/** Enlace que despliega u oculta un bloque bajo la tarea: la salida o el script */
+/** Enlace que despliega u oculta la salida de la tarea */
 function BotonDesplegar({ abierto, onClick, children }: { abierto: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
@@ -57,43 +52,16 @@ function BotonDesplegar({ abierto, onClick, children }: { abierto: boolean; onCl
   )
 }
 
-/** El archivo exacto que recibe el servidor en la tarea y el enlace a esa versión en el catálogo de scripts */
-function ArchivoScript({ t }: { t: TareaMopRespuesta }) {
-  const preparado = useConsulta(() => scriptsApi.vistaPreviaVersion(t.idVersion!), [t.idVersion])
-  if (preparado.cargando && !preparado.datos) return <Cargando texto="Cargando el script…" />
-  if (!preparado.datos) return <MensajeError error={preparado.error} onReintentar={preparado.recargar} />
-  const enlace = t.idScript == null ? undefined
-    : `/automatizacion/scripts/${t.idScript}?implementacion=${t.idImplementacion ?? ''}&version=${t.idVersion}`
+/** Lleva a la versión del script que ejecuta la tarea, en el catálogo de scripts */
+function IrAScript({ t }: { t: TareaMopRespuesta }) {
   return (
-    <div className="flex flex-col gap-2">
-      <VistaPreviaScript
-        preparado={preparado.datos}
-        nombreDescarga={`${t.script ?? 'script'}_v${t.numeroVersion ?? ''}`.replace(/\W+/g, '_')}
-      />
-      {enlace && (
-        <Link to={enlace} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-accent hover:underline">
-          Abrir esta versión en el catálogo de scripts
-          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </Link>
-      )}
-    </div>
-  )
-}
-
-/** Despliega bajo la tarea el script que ejecuta, sin salir del plan ni abrir otra ventana */
-function ScriptDeTarea({ t }: { t: TareaMopRespuesta }) {
-  const [abierto, setAbierto] = useState(false)
-  return (
-    <>
-      <BotonDesplegar abierto={abierto} onClick={() => setAbierto(!abierto)}>
-        {abierto ? 'Ocultar el script' : 'Ver el script'}
-      </BotonDesplegar>
-      {abierto && (
-        <div className="order-last mt-2 basis-full">
-          <ArchivoScript t={t} />
-        </div>
-      )}
-    </>
+    <Link
+      to={`/automatizacion/scripts/${t.idScript}?implementacion=${t.idImplementacion ?? ''}&version=${t.idVersion}`}
+      className="inline-flex w-fit items-center gap-1 text-xs font-medium text-accent hover:underline"
+    >
+      Ir a script
+      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+    </Link>
   )
 }
 
@@ -102,7 +70,7 @@ function Piloto({ m }: { m: PlanMop }) {
 }
 
 /** Las tareas de un servidor en el orden en que se ejecutan, con su script y lo que duran */
-function TareasPlan({ m, verScripts }: { m: PlanMop; verScripts: boolean }) {
+function TareasPlan({ m, conEnlace }: { m: PlanMop; conEnlace: boolean }) {
   return (
     <ol className="flex flex-col divide-y divide-line">
       {m.tareas?.map((t) => (
@@ -120,9 +88,9 @@ function TareasPlan({ m, verScripts }: { m: PlanMop; verScripts: boolean }) {
             </div>
             <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-ink-soft">{formatearDuracion(t.duracionMinutos)}</span>
           </div>
-          {verScripts && t.idVersion != null && (
-            <div className="flex flex-wrap items-center pl-8">
-              <ScriptDeTarea t={t} />
+          {conEnlace && t.idScript != null && t.idVersion != null && (
+            <div className="pl-8">
+              <IrAScript t={t} />
             </div>
           )}
         </li>
@@ -132,7 +100,7 @@ function TareasPlan({ m, verScripts }: { m: PlanMop; verScripts: boolean }) {
 }
 
 /** Un servidor del plan: al desplegarlo, sus tareas */
-function ServidorPlan({ m, abierto, verScripts }: { m: PlanMop; abierto: boolean; verScripts: boolean }) {
+function ServidorPlan({ m, abierto, conEnlace }: { m: PlanMop; abierto: boolean; conEnlace: boolean }) {
   const tareas = m.tareas ?? []
   return (
     <details open={abierto} className="group rounded-lg border border-line">
@@ -149,7 +117,7 @@ function ServidorPlan({ m, abierto, verScripts }: { m: PlanMop; abierto: boolean
         )}
       </summary>
       <div className="border-t border-line px-4">
-        <TareasPlan m={m} verScripts={verScripts} />
+        <TareasPlan m={m} conEnlace={conEnlace} />
       </div>
     </details>
   )
@@ -173,7 +141,7 @@ function DuracionTotal({ resumen }: { resumen: ResumenPlan }) {
  */
 export function PlanTrabajo({ mops, resumen }: { mops: PlanMop[]; resumen?: ResumenPlan }) {
   const [abierto, setAbierto] = useState(false)
-  const verScripts = usePuedeVerScripts()
+  const conEnlace = useEsAdministrador()
   if (mops.length === 0 || !resumen) return <p className="text-sm text-ink-soft">{SIN_PLAN}</p>
 
   const conTareas = resumen.servidoresConTareas ?? 0
@@ -226,7 +194,7 @@ export function PlanTrabajo({ mops, resumen }: { mops: PlanMop[]; resumen?: Resu
             <ul className="flex flex-col gap-2">
               {mops.map((m) => (
                 <li key={m.id}>
-                  <ServidorPlan m={m} abierto={mops.length === 1} verScripts={verScripts} />
+                  <ServidorPlan m={m} abierto={mops.length === 1} conEnlace={conEnlace} />
                 </li>
               ))}
             </ul>
@@ -251,10 +219,10 @@ function duracionServidor(m: PlanMop): string {
   return formatearDuracion(m.duracionMinutos)
 }
 
-/** Una tarea ejecutada: su resultado y, a pedido, la salida y el código del script */
-function TareaEjecutada({ t, verScripts }: { t: TareaMopRespuesta; verScripts: boolean }) {
+/** Una tarea ejecutada: su resultado, a pedido la salida del script y, para el administrador, el enlace al script */
+function TareaEjecutada({ t, conEnlace }: { t: TareaMopRespuesta; conEnlace: boolean }) {
   const [abierta, setAbierta] = useState(false)
-  const conScript = verScripts && t.idVersion != null
+  const conScript = conEnlace && t.idScript != null && t.idVersion != null
   const conSalida = !!(t.salida || t.error)
   const estado = t.estado ? ESTADO_TAREA_MOP[t.estado] : undefined
 
@@ -288,7 +256,7 @@ function TareaEjecutada({ t, verScripts }: { t: TareaMopRespuesta; verScripts: b
               {abierta ? 'Ocultar la salida' : 'Ver la salida'}
             </BotonDesplegar>
           )}
-          {conScript && <ScriptDeTarea t={t} />}
+          {conScript && <IrAScript t={t} />}
           {abierta && (
             <div className="order-last mt-2 basis-full">
               <p className="mb-2 text-xs text-ink-soft">
@@ -311,7 +279,7 @@ function TareaEjecutada({ t, verScripts }: { t: TareaMopRespuesta; verScripts: b
 export function EjecucionMop({ mops }: { mops: PlanMop[] }) {
   // Se guarda el servidor y no la fila: mientras la orden avanza, la ficha se refresca y el detalle abierto también
   const [idAbierto, setIdAbierto] = useState<number>()
-  const verScripts = usePuedeVerScripts()
+  const conEnlace = useEsAdministrador()
   const abierto = idAbierto == null ? undefined : mops.find((m) => m.id === idAbierto)
   if (mops.length === 0) return <p className="text-sm text-ink-soft">{SIN_PLAN}</p>
 
@@ -374,7 +342,7 @@ export function EjecucionMop({ mops }: { mops: PlanMop[] }) {
         >
           <ol className="flex flex-col divide-y divide-line">
             {abierto.tareas?.map((t) => (
-              <TareaEjecutada key={t.id} t={t} verScripts={verScripts} />
+              <TareaEjecutada key={t.id} t={t} conEnlace={conEnlace} />
             ))}
           </ol>
         </Modal>
