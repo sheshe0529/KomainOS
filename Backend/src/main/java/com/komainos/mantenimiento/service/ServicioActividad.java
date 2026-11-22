@@ -129,7 +129,7 @@ public class ServicioActividad {
                                 + "respondió.", null));
                 registrar(a.evento(ahora(), NivelActividad.INFO, EstadoActividad.COMPLETADO,
                         operacion(a.tipo(), "completada"),
-                        "Resultado del análisis: %s · %d %s · %s".formatted(NIVEL.get(f.nivel()), f.mediciones(),
+                        "Resultado del análisis: %s | %d %s | %s".formatted(NIVEL.get(f.nivel()), f.mediciones(),
                                 f.mediciones() == 1 ? "métrica" : "métricas", texto(f.duracion())), null));
             }
             case "FALLIDA" -> {
@@ -176,12 +176,12 @@ public class ServicioActividad {
     public void inicioTarea(Tarea t) {
         registrar(ActividadEjecucion.deTarea(t.idTarea(), paso(NivelActividad.INFO, null,
                 "Tarea «%s» iniciada".formatted(t.nombre()),
-                "Paso %d de %d · %s".formatted(t.paso(), t.total(), conexion(t.solicitud())), null, t.script())));
+                "Paso %d de %d | %s".formatted(t.paso(), t.total(), conexion(t.solicitud())), null, t.script())));
     }
 
     public void finTarea(Tarea t, ResultadoEjecucion resultado, Duration duracion) {
         String detalle = resultado.codigoRetorno() == null ? "Duración: " + texto(duracion)
-                : "Código de salida %d · %s".formatted(resultado.codigoRetorno(), texto(duracion));
+                : "Código de salida: %d | Duración: %s".formatted(resultado.codigoRetorno(), texto(duracion));
         if (resultado.correcto()) {
             registrar(ActividadEjecucion.deTarea(t.idTarea(), paso(NivelActividad.INFO, EstadoActividad.COMPLETADO,
                     "Tarea «%s» completada".formatted(t.nombre()), detalle, null, t.script())));
@@ -210,7 +210,7 @@ public class ServicioActividad {
         }
         String detalle = "%d de %d %s completadas".formatted(r.completadas(), r.total(),
                 r.total() == 1 ? "tarea" : "tareas")
-                + (r.sinIniciar() == 0 ? "" : " · %d sin iniciar".formatted(r.sinIniciar()));
+                + (r.sinIniciar() == 0 ? "" : " | %d sin iniciar".formatted(r.sinIniciar()));
         if (r.estado() == EstadoDetalleOrden.FINALIZADO) {
             registrar(ActividadEjecucion.deDetalle(idDetalle, paso(NivelActividad.INFO, EstadoActividad.COMPLETADO,
                     "Ejecución completada", detalle, null, null)));
@@ -245,7 +245,7 @@ public class ServicioActividad {
 
     // ---------------------------------------------------------------------------------------------------------------
 
-    /** «SERVLNXV01 (172.31.37.104) por SSH (puerto 22) · cuenta «X»: usuario u con llave SSH, elevación sudo» */
+    /** «SERVLNXV01 (172.31.37.104) por SSH (puerto 22) | cuenta «X»: usuario u con llave SSH, elevación sudo» */
     String conexion(SolicitudEjecucion s) {
         PropiedadesAutomatizacion.Ansible config = propiedades.ansible();
         String transporte = s.familia() == FamiliaSistemaOperativo.WINDOWS
@@ -253,7 +253,7 @@ public class ServicioActividad {
                 : "SSH (puerto %d)".formatted(config.ssh().puerto());
         String base = "%s (%s) por %s".formatted(s.hostname(), s.direccionIp(), transporte);
         if (s.idCuentaServicio() == null) {
-            return base + " · sin cuenta de servicio";
+            return base + " | sin cuenta de servicio";
         }
         Optional<ResumenCuenta> cuenta = seguro(() -> cuentas.resumen(s.idCuentaServicio()));
         if (cuenta == null || cuenta.isEmpty()) {
@@ -266,7 +266,7 @@ public class ServicioActividad {
         String elevacion = "Ninguno".equals(c.elevacion()) ? "sin elevación"
                 : "elevación " + c.elevacion() + ("sudo".equals(c.elevacion())
                 ? (c.conContrasenaElevacion() ? " con contraseña" : " sin contraseña") : "");
-        return "%s · cuenta «%s»: usuario %s%s, %s".formatted(base, c.nombre(), c.usuario(), acceso, elevacion);
+        return "%s | cuenta «%s»: usuario %s%s, %s".formatted(base, c.nombre(), c.usuario(), acceso, elevacion);
     }
 
     /** La salida no válida, un código de error o el tiempo excedido ocurren después de conectarse */

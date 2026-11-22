@@ -155,7 +155,9 @@ public final class AutomatizacionMapeador {
     private static TareaMopRespuesta tarea(MopTarea t, Map<Integer, String> cuentas, TipoFallo fallo) {
         var v = t.getVersion();
         return new TareaMopRespuesta(t.getId(), t.getOrdenEjecucion(), t.getTarea().getId(), t.getTarea().getNombre(),
-                v == null ? null : v.getImplementacion().getScript().getNombre(), v == null ? null : v.getId(),
+                v == null ? null : v.getImplementacion().getScript().getNombre(),
+                v == null ? null : v.getImplementacion().getScript().getId(),
+                v == null ? null : v.getImplementacion().getId(), v == null ? null : v.getId(),
                 v == null ? null : v.getNumeroVersion(), t.getPrioridadAplicada(), t.getDuracionEstimadaMinutos(),
                 t.getNivelAfectacion(), t.getIdCuentaServicio(), cuentas.get(t.getIdCuentaServicio()), t.getEstado(),
                 t.getCodigoRetorno(), t.getSalida(), t.getError(), fallo, t.getFechaInicio(), t.getFechaFin(),

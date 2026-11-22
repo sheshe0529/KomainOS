@@ -71,7 +71,7 @@ const COLUMNAS: ColumnaGrupo[] = [
     celda: (g) => (
       <span className="text-ink-soft">
         {g.modalidadPlanificacion
-          ? `${ETIQUETA_MODALIDAD[g.modalidadPlanificacion]} · ${g.modoEjecucion ? ETIQUETA_MODO[g.modoEjecucion] : ''}`
+          ? `${ETIQUETA_MODALIDAD[g.modalidadPlanificacion]} | ${g.modoEjecucion ? ETIQUETA_MODO[g.modoEjecucion] : ''}`
           : 'Sin configurar'}
       </span>
     ),

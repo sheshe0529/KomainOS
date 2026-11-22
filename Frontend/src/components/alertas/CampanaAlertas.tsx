@@ -101,7 +101,7 @@ export function CampanaAlertas() {
                     {a.titulo}
                   </span>
                   <span title={formatearFechaHora(a.fecha)} className="mt-1 block font-mono text-[10px] text-ink-faint">
-                    {a.idServidor ? `Servidor #${a.idServidor} · ` : a.idOrden ? `Orden #${a.idOrden} · ` : ''}
+                    {a.idServidor ? `Servidor #${a.idServidor} | ` : a.idOrden ? `Orden #${a.idOrden} | ` : ''}
                     {tiempoRelativo(a.fecha)}
                   </span>
                 </span>

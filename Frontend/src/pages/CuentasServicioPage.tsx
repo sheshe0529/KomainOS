@@ -28,7 +28,7 @@ function textoUso(c: CuentaServicioRespuesta): string {
   const partes = []
   if (c.servidores) partes.push(`${c.servidores} servidor${c.servidores === 1 ? '' : 'es'}`)
   if (c.grupos) partes.push(`${c.grupos} grupo${c.grupos === 1 ? '' : 's'}`)
-  return partes.length > 0 ? partes.join(' · ') : 'Sin asignar'
+  return partes.length > 0 ? partes.join(' | ') : 'Sin asignar'
 }
 
 /** Cuentas con las que Ansible se conecta a los servidores (RF04-RF08, HU04) */

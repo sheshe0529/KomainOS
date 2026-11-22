@@ -135,7 +135,7 @@ export function AsignarServidoresModal({ abierto, cuenta, cuentas, onCerrar, onA
                       <span className="font-mono text-ink">{s.hostname}</span>
                       <span className="ml-2 font-mono text-xs text-ink-faint">{s.direccionIp}</span>
                       <span className="block text-xs text-ink-soft">
-                        {s.familia ? ETIQUETA_FAMILIA[s.familia] : ''} · {campos.etiqueta}: {cuentaActual(s)}
+                        {s.familia ? ETIQUETA_FAMILIA[s.familia] : ''} | {campos.etiqueta}: {cuentaActual(s)}
                       </span>
                     </span>
                     {motivo && <span className="text-xs text-ink-faint">{motivo}</span>}

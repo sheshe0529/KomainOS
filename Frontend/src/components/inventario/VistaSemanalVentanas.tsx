@@ -110,7 +110,7 @@ export function VistaSemanalVentanas({
       <div className="flex flex-wrap items-center justify-between gap-2 pl-12 text-xs text-ink-soft">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-serie-1" aria-hidden="true" />
-          {ventanas.length ? 'Mantenimiento permitido · pase el cursor por una franja para ver el detalle' : vacio}
+          {ventanas.length ? 'Mantenimiento permitido. Pase el cursor por una franja para ver el detalle' : vacio}
         </span>
         {ventanas.length > 0 && <span className="tabular-nums">{formatearDuracion(totalSemana)} por semana</span>}
       </div>
@@ -142,7 +142,7 @@ function DetalleFranja({ dia, fila, total, largoFila, dentro, ventanas }: Detall
       className={`pointer-events-none absolute z-20 w-max max-w-64 rounded-lg border border-line bg-panel px-3 py-2 text-xs text-ink shadow-lg ${vertical} ${horizontal}`}
     >
       <p className="font-medium">
-        {ETIQUETA_DIA[DIAS_SEMANA[dia]]} · {hhmm(desde)} – {hhmm(hasta)}
+        {ETIQUETA_DIA[DIAS_SEMANA[dia]]} | {hhmm(desde)} – {hhmm(hasta)}
       </p>
       <p className="mt-0.5 text-ink-soft">
         {permitidos === 0
@@ -153,7 +153,7 @@ function DetalleFranja({ dia, fila, total, largoFila, dentro, ventanas }: Detall
       </p>
       {intervalos.map((v, i) => (
         <p key={i} className="mt-1 text-ink-soft">
-          Intervalo: <span className="text-ink">{textoVentana(v)}</span> · {formatearDuracion(duracion(v))}
+          Intervalo: <span className="text-ink">{textoVentana(v)}</span> | Duración: {formatearDuracion(duracion(v))}
         </p>
       ))}
     </div>

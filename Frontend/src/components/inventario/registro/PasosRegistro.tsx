@@ -12,7 +12,7 @@ export function PasosRegistro({ paso, archivo = false }: { paso: number; archivo
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-sm font-medium sm:hidden">Paso {paso + 1} de 5 · {paso === 0 && archivo ? 'Archivo' : ETAPAS[paso]}</p>
+      <p className="mt-3 text-sm font-medium sm:hidden">Paso {paso + 1} de 5: {paso === 0 && archivo ? 'Archivo' : ETAPAS[paso]}</p>
     </nav>
   )
 }

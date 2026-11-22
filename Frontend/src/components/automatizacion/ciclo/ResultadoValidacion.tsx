@@ -41,7 +41,7 @@ function cambios(r: ReporteServidor): string {
     siguen > 0 && `${siguen} ${siguen === 1 ? 'sigue' : 'siguen'} fuera de umbral`,
     empeoraron > 0 && `${empeoraron} ${empeoraron === 1 ? 'empeoró' : 'empeoraron'}`,
   ].filter(Boolean)
-  return partes.length > 0 ? partes.join(' · ') : 'Todas las métricas dentro de sus umbrales'
+  return partes.length > 0 ? partes.join(' | ') : 'Todas las métricas dentro de sus umbrales'
 }
 
 function Resultado({ tecnica }: { tecnica?: ValidacionTecnicaRespuesta }) {
@@ -65,7 +65,7 @@ function DetalleServidor({ r, tecnica, cuenta, onCerrar }: {
   return (
     <Modal
       abierto
-      titulo={`Validación técnica · ${r.servidor}`}
+      titulo={`Validación técnica de ${r.servidor}`}
       descripcion={tecnica?.fecha ? formatearFechaHora(tecnica.fecha) : 'El análisis posterior todavía no termina.'}
       onCerrar={onCerrar}
       ancho="2xl"
@@ -82,7 +82,7 @@ function DetalleServidor({ r, tecnica, cuenta, onCerrar }: {
             <dt className="text-xs text-ink-faint">Tareas</dt>
             <dd className="mt-0.5 text-sm text-ink">
               {r.tareasFinalizadas} de {total} finalizadas
-              {(r.tareasFallidas ?? 0) > 0 && <span className="text-danger"> · {r.tareasFallidas} fallida(s)</span>}
+              {(r.tareasFallidas ?? 0) > 0 && <span className="text-danger"> | {r.tareasFallidas} fallida(s)</span>}
             </dd>
           </div>
           <div>
@@ -223,7 +223,7 @@ export function ValidacionFuncional({ funcional }: { funcional?: ValidacionFunci
   const respondida = funcional.estado === 'CONFORME' || funcional.estado === 'RECHAZADA'
   const etiquetaFecha = respondida ? 'Fecha de respuesta' : funcional.estado === 'VENCIDA' ? 'Venció' : 'Plazo'
   return (
-    <dl className="grid gap-4 rounded-lg border border-line px-4 py-3 sm:grid-cols-4">
+    <dl className="grid gap-4 sm:grid-cols-4">
       <div>
         <dt className="text-xs text-ink-faint">Responsable</dt>
         <dd className="mt-0.5 text-sm font-medium text-ink">{funcional.responsable}</dd>

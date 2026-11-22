@@ -8,11 +8,11 @@ describe('actividad registrada por el backend (DEC-59)', () => {
   it('conserva la hora exacta, el servidor y la tarea de cada evento', () => {
     expect(deRespuesta({
       clave: 'actividad-7', fecha, nivel: 'INFO', estado: 'COMPLETADO',
-      accion: 'Tarea «Liberar temporales» completada', detalle: 'Código de salida 0 · 2 s',
+      accion: 'Tarea «Liberar temporales» completada', detalle: 'Código de salida: 0 | Duración: 2 s',
       servidor: 'SERVLNXV01', script: 'Liberar temporales v3', idTarea: 12,
     })).toMatchObject({
       clave: 'actividad-7', fecha, nivel: 'INFO', estado: 'COMPLETADO', servidor: 'SERVLNXV01',
-      script: 'Liberar temporales v3', idTarea: 12, detalle: 'Código de salida 0 · 2 s', diagnostico: undefined,
+      script: 'Liberar temporales v3', idTarea: 12, detalle: 'Código de salida: 0 | Duración: 2 s', diagnostico: undefined,
     })
   })
 

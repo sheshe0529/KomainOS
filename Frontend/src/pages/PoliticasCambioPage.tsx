@@ -97,7 +97,7 @@ function CeldaEdicion({ celda, nombre, existe, onCambiar }: CeldaEdicionProps) {
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <Selector
-          aria-label={`Autorización · ${nombre}`}
+          aria-label={`Autorización: ${nombre}`}
           className="min-w-0 flex-1"
           value={celda.modalidad}
           onChange={(e) => onCambiar({ ...celda, modalidad: e.target.value as Modalidad })}
@@ -111,7 +111,7 @@ function CeldaEdicion({ celda, nombre, existe, onCambiar }: CeldaEdicionProps) {
             </option>
           ))}
         </Selector>
-        <Info etiqueta={`Ayuda de autorización · ${nombre}`}>
+        <Info etiqueta={`Ayuda de autorización: ${nombre}`}>
           <p>{elegida?.detalle ?? 'Seleccione una modalidad para consultar quién debe aprobar el mantenimiento.'}</p>
           <p className="mt-2 text-xs">
             La afectación de la MOP es la mayor de sus tareas. Los límites de duración y concurrencia se consultan en Configuración › Parámetros.
@@ -298,7 +298,7 @@ export function PoliticasCambioPage() {
                         {enEdicion ? (
                           <CeldaEdicion
                             celda={enEdicion}
-                            nombre={`${e.nombre} · ${c.nombre}`}
+                            nombre={`${e.nombre} | ${c.nombre}`}
                             existe={!!regla(e.id!, c.id)}
                             onCambiar={(nueva) => setBorrador((b) => new Map(b).set(k, nueva))}
                           />

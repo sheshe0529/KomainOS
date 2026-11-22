@@ -71,12 +71,12 @@ export function DiagnosticoAutomatizacion({ diagnostico: d }: DiagnosticoAutomat
             />
             <Dato etiqueta="Ejecutable" valor={d.ejecutable} mono />
             <Dato etiqueta="Tiempo de conexión" valor={t?.timeoutConexionSegundos ? `${t.timeoutConexionSegundos} s` : undefined} />
-            <Dato etiqueta="SSH" valor={t ? `Puerto ${t.puertoSsh} · verifica la clave del host: ${si(t.verificarClaveHost)}` : undefined} />
+            <Dato etiqueta="SSH" valor={t ? `Puerto ${t.puertoSsh} | verifica la clave del host: ${si(t.verificarClaveHost)}` : undefined} />
             <Dato
               etiqueta="WinRM"
               valor={
                 t
-                  ? `${t.esquemaWinrm?.toUpperCase()} ${t.puertoWinrm} · ${t.transporteWinrm} · valida certificado: ${si(t.validarCertificadoWinrm)}`
+                  ? `${t.esquemaWinrm?.toUpperCase()} ${t.puertoWinrm} | ${t.transporteWinrm} | valida certificado: ${si(t.validarCertificadoWinrm)}`
                   : undefined
               }
             />

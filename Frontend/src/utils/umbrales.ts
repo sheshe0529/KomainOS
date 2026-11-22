@@ -103,12 +103,12 @@ export const ETIQUETA_TIPO_DATO: Record<TipoDato, string> = {
 export const TIPOS_ESCALAR: TipoDato[] = ['DECIMAL', 'INTEGER', 'BOOLEAN']
 export const TIPOS_LISTA: TipoDato[] = ['STRING', 'INTEGER', 'DECIMAL']
 
-/** "Numérica · %", "Lista de texto" */
+/** "Numérica | %", "Lista de texto" */
 export function describirMetrica(m?: Pick<MetricaRespuesta, 'esLista' | 'tipoDato' | 'unidad'>): string {
   if (!m?.tipoDato) return ''
   if (m.esLista) return `Lista de ${ETIQUETA_TIPO_DATO[m.tipoDato].toLowerCase()}`
   const base = m.tipoDato === 'BOOLEAN' ? 'Booleana' : 'Numérica'
-  return m.unidad ? `${base} · ${m.unidad}` : base
+  return m.unidad ? `${base} | ${m.unidad}` : base
 }
 
 type Sistemas = Pick<MetricaRespuesta, 'soAplica'>
@@ -217,10 +217,10 @@ export function formatearLimite(valor?: number | null, unidad?: string | null): 
   return unidad ? `${texto} ${unidad}` : texto
 }
 
-/** "> 80 / 90 %" en uno numérico; "Puertos web · 3" en uno de lista */
+/** "> 80 / 90 %" en uno numérico; "Puertos web | 3" en uno de lista */
 export function describirValores(v?: ValoresUmbralRespuesta, unidad?: string | null): string {
   if (!v) return '—'
-  if (v.lista) return `${v.lista.nombre} · ${v.lista.elementos?.length ?? 0}`
+  if (v.lista) return `${v.lista.nombre} | ${v.lista.elementos?.length ?? 0}`
   return `${simbolo(v.operador)} ${formatearLimite(v.valorAdvertencia)} / ${formatearLimite(v.valorCritico, unidad)}`
 }
 

@@ -74,12 +74,12 @@ class ActividadIT extends BaseAutomatizacionIT {
                 .doesNotContain("KOMAINOS_ADMINISTRADOR");
 
         Map<String, Object> tarea = evento(eventos, "Tarea «Liberar archivos temporales» completada");
-        assertThat(tarea.get("detalle")).isEqualTo("Código de salida 0 · 0 s");
+        assertThat(tarea.get("detalle")).isEqualTo("Código de salida: 0 | Duración: 0 s");
         assertThat(tarea.get("script")).isEqualTo(LIMPIEZA + " v1");
         assertThat(tarea.get("servidor")).isEqualTo("srv-prueba");
         assertThat(tarea.get("idTarea")).isNotNull();
         assertThat((String) evento(eventos, "Tarea «Liberar archivos temporales» iniciada").get("detalle"))
-                .startsWith("Paso 1 de 2 · srv-prueba (10.90.0.1)");
+                .startsWith("Paso 1 de 2 | srv-prueba (10.90.0.1)");
         assertThat(evento(eventos, "Ejecución completada").get("detalle"))
                 .isEqualTo("2 de 2 tareas completadas");
         assertThat(evento(eventos, "Análisis posterior completado").get("idEvaluacion")).isNotNull();
@@ -96,7 +96,7 @@ class ActividadIT extends BaseAutomatizacionIT {
                         "evaluacion", "evaluacion", "evaluacion", "evaluacion", "evaluacion", "tarea", "tarea", "tarea",
                         "tarea");
         assertThat((String) evento(eventos, "Evaluación previa completada").get("detalle"))
-                .startsWith("Resultado del análisis: Advertencia · ");
+                .startsWith("Resultado del análisis: Advertencia | ");
         // RNF11: ni la contraseña de la cuenta ni las variables de conexión salen en la actividad
         assertThat(cuerpo).doesNotContain("secreto-solo-para-pruebas").doesNotContain("ansible_");
     }
@@ -119,11 +119,11 @@ class ActividadIT extends BaseAutomatizacionIT {
         Map<String, Object> fallo = evento(eventos, "Tarea «Liberar archivos temporales» ha fallado");
         assertThat(fallo.get("nivel")).isEqualTo("ERROR");
         assertThat(fallo.get("estado")).isEqualTo("FALLIDO");
-        assertThat(fallo.get("detalle")).isEqualTo("Código de salida 1 · 0 s");
+        assertThat(fallo.get("detalle")).isEqualTo("Código de salida: 1 | Duración: 0 s");
         // La categoría al principio permite al panel ofrecer el diagnóstico
         assertThat((String) fallo.get("error")).startsWith("Error de ejecución: ");
         assertThat(evento(eventos, "Ejecución fallida").get("detalle"))
-                .isEqualTo("0 de 2 tareas completadas · 1 sin iniciar");
+                .isEqualTo("0 de 2 tareas completadas | 1 sin iniciar");
         Map<String, Object> incidencia = evento(eventos, "Incidencia registrada");
         assertThat(incidencia.get("detalle")).isEqualTo("Fallo de ejecución");
         assertThat(incidencia.get("servidor")).isEqualTo("srv-fallo");
@@ -189,7 +189,7 @@ class ActividadIT extends BaseAutomatizacionIT {
         assertThat(fallo.get("nivel")).isEqualTo("ERROR");
         assertThat(fallo.get("error")).isEqualTo("Permisos insuficientes: Incorrect sudo password (simulado)");
         assertThat(evento(eventos, "Ejecución fallida").get("detalle"))
-                .isEqualTo("0 de 2 tareas completadas · 2 sin iniciar");
+                .isEqualTo("0 de 2 tareas completadas | 2 sin iniciar");
     }
 
     @Test
@@ -242,7 +242,7 @@ class ActividadIT extends BaseAutomatizacionIT {
                 "Tarea «Liberar archivos temporales» ha fallado",
                 "Incidencia registrada");
         Map<String, Object> fallo = evento(eventos, "Tarea «Liberar archivos temporales» ha fallado");
-        assertThat(fallo.get("detalle")).isEqualTo("Código de salida 1");
+        assertThat(fallo.get("detalle")).isEqualTo("Código de salida: 1");
         assertThat((String) fallo.get("error")).startsWith("Error de ejecución: ");
         assertThat((String) fallo.get("clave")).startsWith("tarea-");
     }

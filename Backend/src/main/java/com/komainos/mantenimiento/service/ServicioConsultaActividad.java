@@ -204,7 +204,7 @@ public class ServicioConsultaActividad {
                     correcta ? NivelActividad.INFO : NivelActividad.ERROR,
                     correcta ? EstadoActividad.COMPLETADO : EstadoActividad.FALLIDO,
                     nombre + (correcta ? " completada" : " ha fallado"),
-                    t.getCodigoRetorno() == null ? null : "Código de salida " + t.getCodigoRetorno(),
+                    t.getCodigoRetorno() == null ? null : "Código de salida: " + t.getCodigoRetorno(),
                     correcta ? null : t.getError(), host, script, t.getId(), null, null, null));
         }
         return eventos;

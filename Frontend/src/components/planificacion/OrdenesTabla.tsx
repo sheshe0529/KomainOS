@@ -42,7 +42,7 @@ export function OrdenesTabla({ ordenes, sinObjetivo, vacio = 'No hay órdenes pa
                 <td className="px-3 py-3">
                   <span className={o.tipoObjetivo === 'GRUPAL' ? 'text-ink' : 'font-mono text-ink'}>{o.objetivo?.nombre}</span>
                   {o.tipoObjetivo === 'GRUPAL' && (
-                    <span className="block text-xs text-ink-faint">Grupo · {o.cantidadServidores} servidores</span>
+                    <span className="block text-xs text-ink-faint">Grupo de {o.cantidadServidores} servidores</span>
                   )}
                 </td>
               )}

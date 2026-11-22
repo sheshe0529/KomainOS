@@ -215,7 +215,7 @@ export function OrdenDetallePage() {
           <span className="text-sm text-ink-soft">
             {o.historial?.length ?? 0} cambios de estado
             {reprogramaciones.length > 0 &&
-              ` · ${reprogramaciones.length} ${reprogramaciones.length === 1 ? 'cambio de fecha' : 'cambios de fecha'}`}
+              ` | ${reprogramaciones.length} ${reprogramaciones.length === 1 ? 'cambio de fecha' : 'cambios de fecha'}`}
           </span>
         </summary>
         <div className="grid gap-6 border-t border-line px-5 py-4 lg:grid-cols-2">
@@ -248,7 +248,7 @@ export function OrdenDetallePage() {
                     <span className="font-medium">{h.estadoNuevo ? ETIQUETA_ESTADO_ORDEN[h.estadoNuevo] : ''}</span>
                   </span>
                   <span className="text-xs text-ink-faint">
-                    {formatearFechaHora(h.fechaHora)} · {h.usuario?.nombre ?? 'Sistema'}
+                    {formatearFechaHora(h.fechaHora)} | {h.usuario?.nombre ?? 'Sistema'}
                   </span>
                   {h.motivo && <span className="text-xs text-ink-soft">{h.motivo}</span>}
                 </li>

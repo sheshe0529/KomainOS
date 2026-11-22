@@ -105,8 +105,8 @@ export function RevelarSecretoModal({ abierto, credencial, onCerrar, onRevelar }
           <MensajeError error={error} />
           <p className="text-sm text-ink-soft">
             <span className="font-mono text-ink">{revelado.usuarioAcceso}</span>
-            {revelado.tipoAutenticacion && ` · ${ETIQUETA_AUTENTICACION[revelado.tipoAutenticacion]}`}
-            {revelado.metodoElevacion && ` · Elevación: ${ETIQUETA_METODO_ELEVACION[revelado.metodoElevacion]}`}
+            {revelado.tipoAutenticacion && ` | ${ETIQUETA_AUTENTICACION[revelado.tipoAutenticacion]}`}
+            {revelado.metodoElevacion && ` | Elevación: ${ETIQUETA_METODO_ELEVACION[revelado.metodoElevacion]}`}
           </p>
           <BloqueSecreto
             titulo={revelado.tipoAutenticacion === 'LLAVE_SSH' ? 'Llave privada' : 'Contraseña'}

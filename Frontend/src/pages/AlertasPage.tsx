@@ -102,7 +102,7 @@ export function AlertasPage() {
                 <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${colorAlerta(a.tipo)}`} aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-ink-soft">
-                    {nombreAlerta(a.tipo)} · {formatearFechaHora(a.fecha)}
+                    {nombreAlerta(a.tipo)} | {formatearFechaHora(a.fecha)}
                     {!a.leida && <span className="ml-2 font-medium text-ink">Nueva</span>}
                   </p>
                   <button

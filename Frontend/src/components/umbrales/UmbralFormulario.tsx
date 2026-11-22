@@ -121,7 +121,7 @@ export function UmbralFormulario({ umbral, metricas, idMetricaInicial, onCerrar,
           <Campo
             etiqueta="Métrica"
             obligatorio
-            ayuda={metrica ? `${describirMetrica(metrica)} · ${sistemasDeMetrica(metrica)}` : undefined}
+            ayuda={metrica ? `${describirMetrica(metrica)} | ${sistemasDeMetrica(metrica)}` : undefined}
           >
             <Selector
               value={idMetrica ?? ''}

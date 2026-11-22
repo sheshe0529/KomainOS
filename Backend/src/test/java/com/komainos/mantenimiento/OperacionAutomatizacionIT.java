@@ -13,6 +13,7 @@ import com.komainos.inventario.model.FamiliaSistemaOperativo;
 import com.komainos.inventario.model.GrupoMantenimiento;
 import com.komainos.inventario.model.ModoEjecucion;
 import com.komainos.mantenimiento.model.EstadoOrden;
+import com.komainos.mantenimiento.model.MotivoCierre;
 import com.komainos.mantenimiento.model.ReglaPoliticaCambio;
 import com.komainos.mantenimiento.service.ServicioIncidencias;
 import com.komainos.mantenimiento.service.ServicioIncidencias.DatosAtencion;
@@ -471,6 +472,9 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
             jdbc.update("update incidencia set fecha_apertura = ? where id_incidencia = ?",
                     Timestamp.from(AHORA.minusSeconds(14400)), incidencia);
             incidencias.atender(incidencia, new DatosAtencion("Fallo simulado", "Control revisado", "Resuelto", true), actor);
+            // KPI-02: una orden cerrada sin intervención no cuenta en el cumplimiento del cronograma
+            Integer sinIntervencion = lanzar(crear("srv-saludable", "10.90.0.3"));
+            assertThat(motivo(sinIntervencion)).isEqualTo(MotivoCierre.SIN_INTERVENCION);
             // fecha_alta la asigna PostgreSQL; se sitúa en el periodo del reloj fijo de esta prueba
             jdbc.update("update servidor set fecha_alta = ?", Timestamp.from(AHORA));
 
@@ -479,11 +483,12 @@ class OperacionAutomatizacionIT extends BaseAutomatizacionIT {
                     .andExpect(jsonPath("$.fechaActualizacion").value(AHORA.toString()))
                     .andExpect(jsonPath("$.indicadores[0].valor").value(100.0))
                     .andExpect(jsonPath("$.indicadores[1].valor").value(50.0))
+                    .andExpect(jsonPath("$.indicadores[1].denominador").value(2))
                     .andExpect(jsonPath("$.indicadores[2].valor").value(50.0))
                     .andExpect(jsonPath("$.indicadores[3].valor").value(100.0))
                     .andExpect(jsonPath("$.indicadores[4].valor").value(4.0))
                     .andExpect(jsonPath("$.actividadDiaria[-1].mantenimientos").value(2))
-                    .andExpect(jsonPath("$.inventario[0].cantidad").value(2));
+                    .andExpect(jsonPath("$.inventario[0].cantidad").value(3));
             mvc.perform(get("/api/automatizacion/kpis").param("desde", AHORA.toString())
                             .param("hasta", AHORA.minusSeconds(1).toString()).with(como(admin)))
                     .andExpect(status().isUnprocessableEntity());

@@ -57,6 +57,7 @@ public record FichaAutomatizacionRespuesta(Integer idOrden, OrdenResumenRespuest
 
     /** Lo fijado al generar la MOP (RF42) y el resultado de su ejecución (RF53) */
     public record TareaMopRespuesta(Integer id, Integer orden, Integer idTarea, String tarea, String script,
+                                    Integer idScript, Integer idImplementacion,
                                     Integer idVersion, Integer numeroVersion, int prioridad, int duracionMinutos,
                                     NivelAfectacion afectacion, Integer idCuentaServicio, String cuenta,
                                     EstadoTareaMop estado, Integer codigoRetorno, String salida, String error,

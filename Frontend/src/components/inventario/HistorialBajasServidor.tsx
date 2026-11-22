@@ -22,7 +22,7 @@ export function HistorialBajasServidor({ servidor: s }: { servidor: FichaServido
                 {e.baja.fechaAplicacion && ` el ${formatearFechaHora(e.baja.fechaAplicacion)}`}
               </span>
               <span className="text-xs text-ink-faint">
-                Solicitada el {formatearFechaHora(e.baja.fechaSolicitud)} · {e.baja.solicitante?.nombre ?? 'Sistema'}
+                Solicitada el {formatearFechaHora(e.baja.fechaSolicitud)} | {e.baja.solicitante?.nombre ?? 'Sistema'}
               </span>
               <span className="text-ink-soft">Motivo: {e.baja.motivo}</span>
             </li>
@@ -30,7 +30,7 @@ export function HistorialBajasServidor({ servidor: s }: { servidor: FichaServido
             <li key={i} className="flex flex-col gap-0.5 border-l-2 border-success/60 pl-3 text-sm">
               <span className="font-medium text-ink">Reactivado</span>
               <span className="text-xs text-ink-faint">
-                {formatearFechaHora(e.fecha)} · {e.usuario ?? 'Sistema'}
+                {formatearFechaHora(e.fecha)} | {e.usuario ?? 'Sistema'}
               </span>
             </li>
           ),

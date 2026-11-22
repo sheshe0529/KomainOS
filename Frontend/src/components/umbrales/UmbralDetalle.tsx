@@ -116,7 +116,7 @@ export function UmbralDetalle({ umbral, esAdmin, onActualizado, onRecargar, onEd
             </div>
             <p className="mt-0.5 text-sm text-ink-soft">
               {umbral.metrica?.nombre} <span className="font-mono text-xs text-ink-faint">{umbral.metrica?.codigo}</span>
-              <span className="text-ink-faint"> · {sistemasDeMetrica(umbral.metrica)}</span>
+              <span className="text-ink-faint"> | {sistemasDeMetrica(umbral.metrica)}</span>
             </p>
             {umbral.metrica?.descripcion && (
               <p className="mt-1 max-w-3xl text-xs text-ink-faint">{umbral.metrica.descripcion}</p>

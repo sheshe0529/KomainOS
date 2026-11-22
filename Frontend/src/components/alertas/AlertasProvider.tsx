@@ -108,7 +108,7 @@ export function AlertasProvider({ children }: { children: ReactNode }) {
               </p>
               <h4 className="text-lg font-semibold">{detalle.titulo}</h4>
               <p className="mt-2 text-xs text-ink-faint">
-                {formatearFechaHora(detalle.fecha)} · {detalle.leida ? 'Leída' : 'Sin leer'}
+                {formatearFechaHora(detalle.fecha)} | {detalle.leida ? 'Leída' : 'Sin leer'}
               </p>
             </div>
             <p className="whitespace-pre-wrap break-words rounded-xl bg-panel-muted p-4 text-sm leading-relaxed">

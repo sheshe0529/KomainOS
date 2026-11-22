@@ -69,7 +69,7 @@ function TooltipFamilia({ active, payload }: TooltipContentProps) {
         {familia.etiqueta}
       </p>
       <p className="mt-1 text-ink-soft">
-        <span className="font-mono font-medium text-ink">{familia.cantidad}</span> órdenes ·{' '}
+        <span className="font-mono font-medium text-ink">{familia.cantidad}</span> órdenes |{' '}
         {Math.round((familia.cantidad / familia.total) * 100)} %
       </p>
     </div>
@@ -165,7 +165,7 @@ export function GraficosAutomatizacion({ informe }: { informe: Consulta<ResumenG
       <div className="grid gap-5 xl:grid-cols-2">
         <ChartCard
           title="Mantenimientos por resultado"
-          description="Últimos 6 meses · cada servidor de una orden cerrada cuenta una vez, en el mes del cierre"
+          description="Últimos 6 meses. Cada servidor de una orden cerrada cuenta una vez, en el mes del cierre"
           legend={
             <ChartLegend
               items={[
@@ -231,7 +231,7 @@ export function GraficosAutomatizacion({ informe }: { informe: Consulta<ResumenG
 
         <ChartCard
           title="Ejecuciones de scripts"
-          description="Últimos 7 días, por resultado · UTC"
+          description="Últimos 7 días, por resultado | UTC"
           legend={
             <ChartLegend
               items={[

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.komainos.ejecucion.model.PropositoEjecucion;
 import com.komainos.ejecucion.model.ResultadoEjecucion;
 import com.komainos.ejecucion.model.TipoFallo;
+import com.komainos.ejecucion.service.ContratoAnalisis;
 import com.komainos.ejecucion.service.InterpreteAnsible;
 import com.komainos.ejecucion.service.SanitizadorSalida;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -172,6 +174,130 @@ class InterpreteAnsibleTest {
                 clave: valor-secreto""", "valor-secreto");
 
         assertThat(limpio).doesNotContain("abc", "def", "privada", "valor-secreto");
+    }
+
+    @Test
+    @DisplayName("Los estados de bloqueo de root y los permisos de archivos llegan completos desde una tarea")
+    void conservaIndicadoresDeMantenimiento() throws Exception {
+        String salida = """
+                [2026-11-18 17:59:15] OBSERVADO=root_contrasena:no_bloqueada
+                [2026-11-18 17:59:15] CAMBIO=root_contrasena:bloqueada
+                [2026-11-18 17:59:15] OBSERVADO=/etc/passwd:644
+                [2026-11-18 17:59:15] ESTADO=APLICADO
+                """;
+
+        ResultadoEjecucion resultado = interpretar(json.writeValueAsString(
+                Map.of("estado", "ok", "rc", 0, "stdout", salida)), PropositoEjecucion.TAREA);
+
+        assertThat(resultado.correcto()).isTrue();
+        assertThat(resultado.salida()).isEqualTo(salida);
+    }
+
+    @Test
+    @DisplayName("El saneamiento conserva el JSON y los permisos que necesita el contrato del análisis")
+    void conservaPermisosEnAnalisis() throws Exception {
+        List<String> permisos = List.of("/etc/passwd:644", "/etc/group:644");
+        String salida = json.writeValueAsString(Map.of("metricas", List.of(
+                Map.of("codigo", "arch_crit_permisos", "elementos", permisos))));
+        ResultadoEjecucion interpretado = interpretar(json.writeValueAsString(
+                Map.of("estado", "ok", "rc", 0, "stdout", salida)), PropositoEjecucion.ANALISIS_PREVIO);
+
+        ResultadoEjecucion resultado = ContratoAnalisis.aplicar(interpretado, json);
+
+        assertThat(resultado.correcto()).isTrue();
+        assertThat(resultado.metricas()).hasSize(1);
+        assertThat(resultado.metricas().getFirst().elementos()).containsExactlyElementsOf(permisos);
+    }
+
+    @Test
+    @DisplayName("Ocultar secretos JSON conserva comillas, caracteres escapados y valores contiguos")
+    void secretosSinRomperJson() throws Exception {
+        String salida = json.writeValueAsString(Map.of(
+                "password", "una clave con espacios y \"comillas\"",
+                "datos", List.of(Map.of("token", 12345, "archivo", "/etc/passwd:644")),
+                "estado", "APLICADO"));
+
+        String limpio = SanitizadorSalida.limpiar(salida);
+
+        var protegido = json.readTree(limpio);
+        assertThat(protegido.path("password").asText()).isEqualTo("[PROTEGIDO]");
+        assertThat(protegido.path("datos").get(0).path("token").asText()).isEqualTo("[PROTEGIDO]");
+        assertThat(protegido.path("datos").get(0).path("archivo").asText()).isEqualTo("/etc/passwd:644");
+        assertThat(protegido.path("estado").asText()).isEqualTo("APLICADO");
+        assertThat(limpio).doesNotContain("12345", "una clave", "comillas");
+    }
+
+    @Test
+    @DisplayName("Las asignaciones sensibles completas y los secretos conocidos continúan protegidos")
+    void conservaProteccionDeSecretos() {
+        String salida = "PASSWORD=abc passwd: def contraseña='clave con espacios' "
+                + "ansible_become_pass=ghi OBSERVADO=root_contrasena:clave-super-secreta";
+
+        String limpio = SanitizadorSalida.limpiar(salida, "clave-super-secreta");
+
+        assertThat(limpio).isEqualTo("PASSWORD=[PROTEGIDO] passwd: [PROTEGIDO] "
+                + "contraseña='[PROTEGIDO]' ansible_become_pass=[PROTEGIDO] "
+                + "OBSERVADO=root_contrasena:[PROTEGIDO]");
+    }
+
+    @Test
+    @DisplayName("Una asignación con el secreto conocido conserva un único marcador al sanearse de nuevo")
+    void marcadorProtegidoEstable() {
+        String limpio = SanitizadorSalida.limpiar("password=clave-super-secreta", "clave-super-secreta");
+
+        assertThat(limpio).isEqualTo("password=[PROTEGIDO]");
+        assertThat(SanitizadorSalida.limpiar(limpio)).isEqualTo(limpio);
+    }
+
+    @Test
+    @DisplayName("Una contraseña entre comillas del tamaño máximo se protege completa")
+    void secretoEntreComillasLargo() {
+        String salida = "{\"password\":\"" + "x".repeat(SanitizadorSalida.LARGO_MAXIMO) + "\"}";
+
+        assertThat(SanitizadorSalida.limpiar(salida)).isEqualTo("{\"password\":\"[PROTEGIDO]\"}");
+    }
+
+    @ParameterizedTest
+    @DisplayName("RNF11: las claves compuestas que terminan en un nombre sensible siguen protegidas")
+    @CsvSource(delimiter = '|', textBlock = """
+            DB_PASSWORD=hunter2                     | DB_PASSWORD=[PROTEGIDO]
+            export MYSQL_ROOT_PASSWORD=hunter2      | export MYSQL_ROOT_PASSWORD=[PROTEGIDO]
+            spring.datasource.password: hunter2     | spring.datasource.password: [PROTEGIDO]
+            mysql --password=hunter2 -u root        | mysql --password=[PROTEGIDO] -u root
+            X-Auth-Token: abc123                    | X-Auth-Token: [PROTEGIDO]
+            GET /api?token=abc123                   | GET /api?token=[PROTEGIDO]
+            + $password = Secreto123                | + $password = [PROTEGIDO]
+            """)
+    void protegeClavesCompuestas(String salida, String esperado) {
+        assertThat(SanitizadorSalida.limpiar(salida)).isEqualTo(esperado);
+    }
+
+    @ParameterizedTest
+    @DisplayName("Las rutas, los valores de otra asignación y los nombres que solo contienen la palabra no se ocultan")
+    @CsvSource(delimiter = '|', textBlock = """
+            OBSERVADO=/etc/security/opasswd:600
+            OBSERVADO=/etc/passwd=644
+            CAMBIO=root_contrasena:bloqueada
+            HKLM LocalAccountTokenFilterPolicy=1
+            Contraseña de root: bloqueada
+            PasswordComplexity = 1
+            """)
+    void conservaFalsosPositivos(String salida) {
+        assertThat(SanitizadorSalida.limpiar(salida)).isEqualTo(salida);
+    }
+
+    @Test
+    @DisplayName("En JSON se ocultan las claves sensibles y se conservan los elementos de lista que solo las mencionan")
+    void jsonConClavesYElementos() throws Exception {
+        String salida = json.writeValueAsString(Map.of(
+                "accessToken", "abc123",
+                "elementos", List.of("root_contrasena:bloqueada", "/etc/passwd:644")));
+
+        var limpio = json.readTree(SanitizadorSalida.limpiar(salida));
+
+        assertThat(limpio.path("accessToken").asText()).isEqualTo("[PROTEGIDO]");
+        assertThat(limpio.path("elementos").get(0).asText()).isEqualTo("root_contrasena:bloqueada");
+        assertThat(limpio.path("elementos").get(1).asText()).isEqualTo("/etc/passwd:644");
     }
 
     private ResultadoEjecucion fallido(int codigo, String stdout, String stderr) throws Exception {

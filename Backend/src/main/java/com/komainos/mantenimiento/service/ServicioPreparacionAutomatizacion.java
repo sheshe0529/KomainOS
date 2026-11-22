@@ -156,10 +156,10 @@ public class ServicioPreparacionAutomatizacion {
         return evaluaciones.findFirstByServidorIdAndTipoAndRevisionGrupoIsNullOrderByFechaInicioDesc(
                         idServidor, TipoEvaluacion.REVISION_PERIODICA)
                 .map(e -> e.estaFinalizada()
-                        ? Comprobacion.ok("REVISION", "Última revisión", "%s · nivel %s".formatted(
+                        ? Comprobacion.ok("REVISION", "Última revisión", "%s | nivel %s".formatted(
                         FECHA.format(e.getFechaInicio()), e.nivel()))
                         : Comprobacion.advertencia("REVISION", "Última revisión no concluyente",
-                        "%s · %s".formatted(FECHA.format(e.getFechaInicio()), e.getError())))
+                        "%s | %s".formatted(FECHA.format(e.getFechaInicio()), e.getError())))
                 .orElse(Comprobacion.info("REVISION", "Sin revisiones", "Use «Revisar ahora» para la primera"));
     }
 

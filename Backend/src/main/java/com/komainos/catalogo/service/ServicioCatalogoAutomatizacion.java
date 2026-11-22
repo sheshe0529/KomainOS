@@ -177,7 +177,7 @@ public class ServicioCatalogoAutomatizacion {
                 ScriptImplementacion.nueva(script, version, Tiempo.ahora(reloj)));
         script.agregarImplementacion(implementacion);
         auditoria.registrar(actor, Operacion.de("REGISTRAR_IMPLEMENTACION_SCRIPT", "script_implementacion",
-                implementacion.getId()).motivo(script.getNombre() + " · " + version.descripcionCompleta()));
+                implementacion.getId()).motivo(script.getNombre() + " | " + version.descripcionCompleta()));
         crearVersion(implementacion, primera, actor);
         return implementacion;
     }
@@ -204,7 +204,7 @@ public class ServicioCatalogoAutomatizacion {
         }
         version.habilitar(habilitada);
         auditoria.registrar(actor, Operacion.de(habilitada ? "HABILITAR_VERSION_SCRIPT" : "DESHABILITAR_VERSION_SCRIPT",
-                "script_version", idVersion).motivo("%s · v%d".formatted(implementacion.getScript().getNombre(),
+                "script_version", idVersion).motivo("%s | v%d".formatted(implementacion.getScript().getNombre(),
                 version.getNumeroVersion())));
         return version;
     }
@@ -438,7 +438,7 @@ public class ServicioCatalogoAutomatizacion {
         versiones.save(version);
         implementacion.agregarVersion(version);
         auditoria.registrar(actor, Operacion.de("PUBLICAR_VERSION_SCRIPT", "script_version", version.getId())
-                .motivo("%s · %s · v%d".formatted(implementacion.getScript().getNombre(),
+                .motivo("%s | %s | v%d".formatted(implementacion.getScript().getNombre(),
                         implementacion.getVersionSistemaOperativo().descripcionCompleta(), version.getNumeroVersion())));
         return version;
     }

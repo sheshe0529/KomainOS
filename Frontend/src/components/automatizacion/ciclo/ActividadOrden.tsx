@@ -82,17 +82,17 @@ function FilaRegistro({ fecha, registro, onAbrir }: {
 
   return (
     <FilaDetalle onAbrir={abrir} className="align-middle">
-      <td className="px-2 py-1 text-[10px] whitespace-nowrap tabular-nums text-ink-soft">
+      <td className="px-2 py-1.5 text-sm whitespace-nowrap tabular-nums text-ink-soft">
         {marca ? <time dateTime={fecha}>{marca}</time> : <span aria-label="Fecha y hora no registradas">—</span>}
       </td>
-      <td className="px-2 py-1 text-[10px]"><EtiquetaNivel nivel={registro.nivel} /></td>
+      <td className="px-2 py-1.5 text-sm"><EtiquetaNivel nivel={registro.nivel} /></td>
       <td className="p-0">
         <button
           ref={boton}
           type="button"
           onClick={abrir}
           title={mensaje}
-          className="block min-h-8 w-full truncate px-2 py-1 text-left text-[11px] leading-4 text-ink focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ink"
+          className="block min-h-9 w-full px-2 py-1.5 text-left text-sm break-words text-ink focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ink"
         >
           {mensaje}
         </button>
@@ -107,8 +107,8 @@ function TablaRegistros({ etiqueta, children }: { etiqueta: string; children: Re
       <table aria-label={etiqueta} className="w-full table-fixed text-left">
         <thead className="border-b border-line bg-panel-muted text-xs text-ink-soft">
           <tr>
-            <th scope="col" className="w-32 px-2 py-1.5 font-medium">Fecha y hora</th>
-            <th scope="col" className="w-[4.5rem] px-2 py-1.5 font-medium">Nivel</th>
+            <th scope="col" className="w-44 px-2 py-1.5 font-medium">Fecha y hora</th>
+            <th scope="col" className="w-24 px-2 py-1.5 font-medium">Nivel</th>
             <th scope="col" className="px-2 py-1.5 font-medium">Acción</th>
           </tr>
         </thead>
@@ -163,7 +163,7 @@ function DetalleRegistro({ evento, registro, analisis }: {
       <h4 className="text-base font-semibold text-ink [overflow-wrap:anywhere]">{mensajeDelRegistro(encabezado)}</h4>
       <dl className="grid grid-cols-2 gap-3 rounded-lg border border-line p-3 sm:grid-cols-3">
         <Dato etiqueta="Fecha y hora" valor={fechaVisible(fecha) ?? 'Sin registro'} />
-        <Dato etiqueta="Nivel" valor={<span className="text-[11px]"><EtiquetaNivel nivel={encabezado.nivel} /></span>} />
+        <Dato etiqueta="Nivel" valor={<EtiquetaNivel nivel={encabezado.nivel} />} />
         {servidor && <Dato etiqueta="Servidor" valor={<span className="break-words">{servidor}</span>} mono />}
         {tarea?.orden != null && <Dato etiqueta="Paso" valor={tarea.orden} mono />}
         {version && <Dato etiqueta="Script" valor={<span className="break-words">{version}</span>} />}
@@ -237,6 +237,7 @@ export function ActividadOrden({ idOrden, ficha, refrescoMs, onCerrar }: Activid
     <Modal
       abierto
       posicion="derecha"
+      cerrarAlPulsarFuera
       titulo="Actividad de la orden"
       descripcion={(codigo || objetivo) && (
         <dl className="flex flex-wrap gap-x-5 gap-y-2 [overflow-wrap:anywhere]">
