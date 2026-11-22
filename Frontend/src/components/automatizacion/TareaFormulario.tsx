@@ -167,7 +167,7 @@ export function TareaFormulario({ tarea, scripts, umbrales, maxDuracionMinutos, 
                         i.versionVigente ? 'border-line bg-panel-muted text-ink' : 'border-warning/40 bg-warning-soft text-warning'
                       }`}
                     >
-                      {i.sistemaOperativo} {i.versionVigente ? `· v${i.versionVigente}` : '· sin versión'}
+                      {i.sistemaOperativo} {i.versionVigente ? `| v${i.versionVigente}` : '| sin versión'}
                     </span>
                   ))
                 )}

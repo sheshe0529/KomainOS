@@ -40,6 +40,8 @@ public class ServicioIndicadoresMantenimiento {
                 select count(*) filter (where estado = 'ACTIVO') as numerador, count(*) as denominador
                 from servidor where estado <> 'DADO_DE_BAJA'
                 """);
+        // KPI-02 solo mide los mantenimientos que había que hacer: se descartan las órdenes cerradas sin intervención y,
+        // en un grupo, los servidores cuya evaluación previa terminó sin activar tareas (quedan sin MOP y no iniciados)
         var cumplimiento = jdbc.queryForMap("""
                 select count(*) filter (where d.fecha_real_inicio >= o.inicio_ventana_aplicada
                     and d.fecha_real_fin <= o.fin_ventana_aplicada and d.estado = 'FINALIZADO') as numerador,
@@ -48,6 +50,11 @@ public class ServicioIndicadoresMantenimiento {
                 where o.fecha_inicio_programada >= ? and o.fecha_inicio_programada < ?
                     and o.motivo_cierre is distinct from 'CANCELADA'
                     and o.motivo_cierre is distinct from 'RECHAZADA'
+                    and o.motivo_cierre is distinct from 'SIN_INTERVENCION'
+                    and not (d.estado = 'NO_INICIADO'
+                        and not exists (select 1 from mop m where m.id_orden_detalle = d.id_orden_detalle)
+                        and exists (select 1 from evaluacion e where e.id_orden_detalle = d.id_orden_detalle
+                            and e.tipo = 'PREVIA' and e.estado = 'FINALIZADA'))
                 """, a, z);
         var estabilidad = jdbc.queryForMap("""
                 select count(*) filter (where not exists (select 1 from incidencia i

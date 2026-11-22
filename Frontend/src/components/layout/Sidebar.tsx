@@ -16,48 +16,35 @@ function coincide(pathname: string, path: string): boolean {
   return pathname === path || pathname.startsWith(`${path}/`)
 }
 
-function groupsContainingPath(items: NavItem[], pathname: string): string[] {
-  return items
-    .filter(
-      (item): item is NavGroup => isNavGroup(item) && item.children.some((child) => coincide(pathname, child.path)),
-    )
-    .map((item) => item.id)
+/** El grupo del menú que contiene la ruta, si la ruta está dentro de uno */
+function groupContainingPath(items: NavItem[], pathname: string): string | null {
+  const group = items.find(
+    (item): item is NavGroup => isNavGroup(item) && item.children.some((child) => coincide(pathname, child.path)),
+  )
+  return group?.id ?? null
 }
 
 export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }: SidebarProps) {
   const location = useLocation()
   const { usuario } = useSesion()
   const navigation = navegacionPara(usuario?.rol)
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    // Todos los grupos inician desplegados, como en las pantallas preliminares
-    () => new Set(navigation.filter(isNavGroup).map((g) => g.id)),
-  )
+  // Un solo grupo desplegado a la vez: al abrir otro, o al ir a una opción de otro grupo, el anterior se cierra
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(() => groupContainingPath(navigation, location.pathname))
   const [trackedPathname, setTrackedPathname] = useState(location.pathname)
 
   // Despliega el grupo de la ruta activa durante el render y no en un efecto, para no mostrar un frame colapsado
   if (location.pathname !== trackedPathname) {
     setTrackedPathname(location.pathname)
-    const containing = groupsContainingPath(navigation, location.pathname)
-    if (containing.length > 0) {
-      setExpandedGroups((prev) => new Set([...prev, ...containing]))
-    }
+    setExpandedGroup(groupContainingPath(navigation, location.pathname))
   }
 
   function handleGroupClick(group: NavGroup) {
     if (collapsed) {
       onToggleCollapsed()
-      setExpandedGroups((prev) => new Set(prev).add(group.id))
+      setExpandedGroup(group.id)
       return
     }
-    setExpandedGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(group.id)) {
-        next.delete(group.id)
-      } else {
-        next.add(group.id)
-      }
-      return next
-    })
+    setExpandedGroup((prev) => (prev === group.id ? null : group.id))
   }
 
   function leafClasses({ isActive }: { isActive: boolean }) {
@@ -88,7 +75,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
 
   function renderGroup(item: NavGroup) {
     const Icon = item.icon
-    const expanded = expandedGroups.has(item.id) && !collapsed
+    const expanded = expandedGroup === item.id && !collapsed
     const hasActiveChild = item.children.some((child) => coincide(location.pathname, child.path))
 
     return (

@@ -8,13 +8,13 @@ export function ResumenRegistro({ servidores, omitidos = 0 }: { servidores: Serv
   const cuentas = useConsulta(() => cuentasServicioApi.listar(), [])
   const nuevos = servidores.filter((s) => !s.idServidorExistente).length
   return <div className="flex flex-col gap-4">
-    <div><h4 className="font-semibold">Todo listo para confirmar</h4><p className="mt-1 text-sm text-ink-soft">{nuevos} {nuevos === 1 ? 'nuevo' : 'nuevos'} · {servidores.length - nuevos} por actualizar · {omitidos} omitidos. Revise el mantenimiento de cada servidor antes de guardar.</p></div>
+    <div><h4 className="font-semibold">Todo listo para confirmar</h4><p className="mt-1 text-sm text-ink-soft">{nuevos} {nuevos === 1 ? 'nuevo' : 'nuevos'} | {servidores.length - nuevos} por actualizar | {omitidos} omitidos. Revise el mantenimiento de cada servidor antes de guardar.</p></div>
     <div className="overflow-x-auto rounded-lg border border-line"><table className="w-full min-w-[780px] text-left text-sm">
       <thead className="bg-panel-muted text-xs text-ink-soft"><tr>{['Servidor', 'Frecuencias', 'Cuentas de servicio', 'Ventana permisiva', 'Planificación'].map((t) => <th key={t} className="px-3 py-3 font-medium">{t}</th>)}</tr></thead>
       <tbody className="divide-y divide-line">{servidores.map((s) => {
         const c = s.mantenimiento.configuracion
         return <tr key={s.clave}>
-          <td className="px-3 py-3 align-top"><span className="block font-mono font-medium">{s.hostname}</span><span className="block text-xs text-ink-soft">{s.direccionIp} · {s.idServidorExistente ? 'Actualizar' : 'Nuevo'}</span><span className="block text-xs text-ink-soft">{s.criticidad} · {s.sistemaOperativo}</span></td>
+          <td className="px-3 py-3 align-top"><span className="block font-mono font-medium">{s.hostname}</span><span className="block text-xs text-ink-soft">{s.direccionIp} | {s.idServidorExistente ? 'Actualizar' : 'Nuevo'}</span><span className="block text-xs text-ink-soft">{s.criticidad} | {s.sistemaOperativo}</span></td>
           <td className="px-3 py-3 align-top text-xs">
             Revisión: {c.revisionPeriodicaHabilitada === false ? 'inactiva' : `cada ${c.frecuenciaRevisionDias} días`}
             <br />Mantenimiento: cada {c.frecuenciaMantenimientoDias} días

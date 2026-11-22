@@ -1409,6 +1409,8 @@ export interface TareaMopRespuesta {
   idTarea?: number
   tarea?: string
   script?: string
+  idScript?: number
+  idImplementacion?: number
   idVersion?: number
   numeroVersion?: number
   prioridad?: number

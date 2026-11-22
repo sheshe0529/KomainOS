@@ -189,7 +189,7 @@ public class ServicioBitacora {
                 var v = t.getVersion();
                 eventos.add(new EventoBitacora(t.getFechaInicio(), codigo, "Tarea", servidor.getHostname(),
                         "%d. %s%s".formatted(t.getOrdenEjecucion(), t.getTarea().getNombre(), v == null ? ""
-                                : " · %s v%d".formatted(v.getImplementacion().getScript().getNombre(), v.getNumeroVersion())),
+                                : " | %s v%d".formatted(v.getImplementacion().getScript().getNombre(), v.getNumeroVersion())),
                         etiqueta(t.getEstado()) + (t.getCodigoRetorno() == null ? ""
                                 : " (código %d)".formatted(t.getCodigoRetorno())),
                         f.cuentas().get(t.getIdCuentaServicio()),
@@ -253,7 +253,7 @@ public class ServicioBitacora {
     }
 
     private static String unir(String... partes) {
-        String texto = Stream.of(partes).filter(p -> p != null && !p.isBlank()).collect(Collectors.joining(" · "));
+        String texto = Stream.of(partes).filter(p -> p != null && !p.isBlank()).collect(Collectors.joining(" | "));
         return texto.isEmpty() ? null : texto;
     }
 

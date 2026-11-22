@@ -1,5 +1,8 @@
 package com.komainos.ejecucion.service;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * Limpia la salida remota antes de persistirla o mostrarla (RNF11): los secretos conocidos de la cuenta, las llaves
  * privadas y cualquier asignación con aspecto de contraseña o token. También acota el tamaño guardado.
@@ -8,6 +11,19 @@ public final class SanitizadorSalida {
 
     public static final int LARGO_MAXIMO = 64_000;
     private static final String PROTEGIDO = "[PROTEGIDO]";
+    /**
+     * Una asignación sensible: password=…, "token": …, DB_PASSWORD=…, db.password: …, --password=…, X-Auth-Token: … La
+     * clave empieza donde puede empezar una clave (al inicio de la línea o tras un espacio o { [ ( , ; & ? | $) y termina
+     * en el nombre sensible. Así no se toma por clave una ruta (/etc/passwd:644, /etc/security/opasswd:600), el valor de
+     * otra asignación (OBSERVADO=root_contrasena:no_bloqueada), un elemento de una lista JSON
+     * ("root_contrasena:bloqueada") ni un nombre que solo contiene la palabra (LocalAccountTokenFilterPolicy=1)
+     */
+    private static final Pattern ASIGNACION_SENSIBLE = Pattern.compile(
+            "(?imu)(?:^|(?<=[\\s{\\[(,;&?|$]))"
+                    + "(?<asignacion>(?<comilla>[\"']?)(?:[\\p{L}\\p{N}_.\\-]*(?:password|passwd|contrasena|contraseña|"
+                    + "secreto|secret|token)|ansible_[a-z_]*pass[a-z_]*)\\k<comilla>\\h*[:=]\\h*)"
+                    + "(?<valor>\"[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*\"|'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'"
+                    + "|\\[PROTEGIDO\\]|[^\\s,}\\]\"']+)");
 
     private SanitizadorSalida() {
     }
@@ -20,8 +36,16 @@ public final class SanitizadorSalida {
             }
         }
         s = s.replaceAll("(?s)-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----", "[LLAVE PROTEGIDA]");
-        s = s.replaceAll("(?im)(password|passwd|contrasena|contraseña|secreto|secret|token|ansible_[a-z_]*pass[a-z_]*)"
-                + "(\"?\\s*[:=]\\s*)[^\\s,}\\r\\n]+", "$1$2" + PROTEGIDO);
+        s = ASIGNACION_SENSIBLE.matcher(s).replaceAll(coincidencia -> {
+            String valor = coincidencia.group("valor");
+            String comilla = switch (valor.charAt(0)) {
+                case '"' -> "\"";
+                case '\'' -> "'";
+                default -> coincidencia.group("comilla");
+            };
+            // En JSON, un secreto numérico o booleano se convierte en una cadena protegida válida.
+            return Matcher.quoteReplacement(coincidencia.group("asignacion") + comilla + PROTEGIDO + comilla);
+        });
         return acotar(s, LARGO_MAXIMO);
     }
 

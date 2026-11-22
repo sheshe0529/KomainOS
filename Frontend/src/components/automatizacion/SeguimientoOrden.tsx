@@ -190,7 +190,7 @@ function DetalleEtapa({
       return (
         <div className="flex flex-col gap-5">
           {/* Lo que el aprobador necesita saber antes de decidir */}
-          <dl className="grid gap-4 rounded-lg bg-panel-muted px-4 py-3 sm:grid-cols-4">
+          <dl className="grid gap-4 sm:grid-cols-4">
             <Dato etiqueta="Ejecución programada">
               <span className="font-medium">
                 {formatearFechaHora(o.inicioProgramado)} – {formatearHora(o.finProgramado)}

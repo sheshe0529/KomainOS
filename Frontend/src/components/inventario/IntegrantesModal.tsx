@@ -114,7 +114,7 @@ export function IntegrantesModal({ abierto, nombreGrupo, actuales, onCerrar, onG
         {referencia && (
           <p className="text-xs text-ink-soft">
             Se muestran solo los compatibles con <span className="font-mono">{referencia.hostname}</span>:{' '}
-            {referencia.responsable?.nombre} · {referencia.entorno?.nombre} · {referencia.sistemaOperativo?.nombre}.
+            {referencia.responsable?.nombre} | {referencia.entorno?.nombre} | {referencia.sistemaOperativo?.nombre}.
           </p>
         )}
         {encontrados.cargando && !encontrados.datos ? (
@@ -134,7 +134,7 @@ export function IntegrantesModal({ abierto, nombreGrupo, actuales, onCerrar, onG
                     <span className="font-mono text-ink">{s.hostname}</span>
                     <span className="ml-2 font-mono text-xs text-ink-faint">{s.direccionIp}</span>
                     <span className="block text-xs text-ink-soft">
-                      {s.responsable?.nombre} · {s.entorno?.nombre} · {s.versionSistemaOperativo?.nombre}
+                      {s.responsable?.nombre} | {s.entorno?.nombre} | {s.versionSistemaOperativo?.nombre}
                     </span>
                   </span>
                 </label>

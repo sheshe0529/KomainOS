@@ -181,13 +181,13 @@ export function Autorizaciones({ rondas }: AutorizacionesProps) {
             <span className="font-medium text-ink">
               {anteriores.length === 1 ? 'Ronda anterior' : `${anteriores.length} rondas anteriores`}
             </span>
-            <span>· {anteriores.map((r) => (r.automatica ? 'autorizada automáticamente' : cierreDe(r))).join(' · ')}</span>
+            <span>{anteriores.map((r) => (r.automatica ? 'autorizada automáticamente' : cierreDe(r))).join(' | ')}</span>
           </summary>
           <div className="flex flex-col divide-y divide-line border-t border-line">
             {anteriores.map((r) => (
               <div key={r.id}>
                 <p className="px-4 py-2 text-xs font-medium uppercase tracking-wide text-ink-faint">
-                  Ronda {r.ronda} · {r.automatica ? 'autorizada automáticamente' : cierreDe(r)}
+                  Ronda {r.ronda}: {r.automatica ? 'autorizada automáticamente' : cierreDe(r)}
                 </p>
                 {!r.automatica && <TablaDecisiones ronda={r} />}
               </div>

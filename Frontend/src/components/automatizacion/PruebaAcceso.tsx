@@ -141,7 +141,7 @@ export function PruebaAcceso({ idServidor, idGrupo, descripcion }: PruebaAccesoP
                     />
                     <span className="text-xs text-ink-faint">
                       {r.cuenta}
-                      {uso(r) && ` · ${uso(r)}`}
+                      {uso(r) && ` | ${uso(r)}`}
                     </span>
                     {r.correcto && r.mensaje && <span className="w-full text-xs text-ink-soft">{r.mensaje}</span>}
                     {d && (

@@ -88,7 +88,7 @@ export function PublicarVersionPage() {
         .flatMap((i) =>
           (i.versiones ?? []).map((v) => ({
             id: v.id!,
-            etiqueta: `${i.sistemaOperativo} · v${v.numero}${v.vigente ? ' (vigente)' : ''}`,
+            etiqueta: `${i.sistemaOperativo} | v${v.numero}${v.vigente ? ' (vigente)' : ''}`,
             contenido: v.contenido ?? '',
             parametros: editables(v.parametros?.map((p) => ({ ...p, nombre: p.nombre ?? '', tipo: p.tipo ?? 'STRING' }))),
           })),
@@ -238,8 +238,8 @@ export function PublicarVersionPage() {
           },
         }}
         title={implementacion ? `Nueva versión ${siguienteNumero}` : 'Nueva implementación'}
-        description={`${s.nombre} · ${ETIQUETA_TIPO_SCRIPT[tipo]}${
-          implementacion ? ` · ${implementacion.sistemaOperativo}` : ''
+        description={`${s.nombre} | ${ETIQUETA_TIPO_SCRIPT[tipo]}${
+          implementacion ? ` | ${implementacion.sistemaOperativo}` : ''
         }`}
       />
 
@@ -254,7 +254,7 @@ export function PublicarVersionPage() {
                   <option value="">Seleccione…</option>
                   {disponibles.map(({ so, v }) => (
                     <option key={v.id} value={v.id}>
-                      {so.nombre} {v.version} · {ETIQUETA_FAMILIA[so.familia ?? 'LINUX']}
+                      {so.nombre} {v.version} | {ETIQUETA_FAMILIA[so.familia ?? 'LINUX']}
                     </option>
                   ))}
                 </Selector>
@@ -331,7 +331,7 @@ export function PublicarVersionPage() {
                   }
                 />
                 <p className="mt-2 text-xs text-ink-faint">
-                  {contenido.split('\n').length} líneas · Ctrl+F busca · Tab sangra la selección
+                  {contenido.split('\n').length} líneas | Ctrl+F busca | Tab sangra la selección
                 </p>
               </Tarjeta>
               <AyudaContrato tipo={tipo} lenguaje={lenguaje} />

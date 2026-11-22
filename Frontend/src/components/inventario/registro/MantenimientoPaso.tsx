@@ -42,10 +42,10 @@ export function MantenimientoPaso({ servidores, onCambiar }: Props) {
       </div>
       {servidores.length > 1 && <Campo etiqueta={`Servidor a configurar (${servidores.length})`}>
         <Selector value={s.clave} onChange={(e) => setClave(Number(e.target.value))}>
-          {servidores.map((item) => <option key={item.clave} value={item.clave}>{item.hostname} · {problemaMantenimiento(item) ? 'Por completar' : 'Configurado'}</option>)}
+          {servidores.map((item) => <option key={item.clave} value={item.clave}>{item.hostname} | {problemaMantenimiento(item) ? 'Por completar' : 'Configurado'}</option>)}
         </Selector>
       </Campo>}
-      <div className="rounded-lg bg-panel-muted p-3 text-sm"><span className="font-mono font-medium">{s.hostname}</span><span className="ml-3 text-ink-soft">{s.criticidad} · {s.sistemaOperativo}</span></div>
+      <div className="rounded-lg bg-panel-muted p-3 text-sm"><span className="font-mono font-medium">{s.hostname}</span><span className="ml-3 text-ink-soft">{s.criticidad} | {s.sistemaOperativo}</span></div>
       <RevisionPeriodicaCampo
         habilitada={c.revisionPeriodicaHabilitada ?? true}
         onCambiar={(revisionPeriodicaHabilitada) => configurar({ revisionPeriodicaHabilitada })}

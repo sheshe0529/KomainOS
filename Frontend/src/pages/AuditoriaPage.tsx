@@ -89,7 +89,7 @@ export function AuditoriaPage() {
           <Selector value={actor} onChange={(e) => cambiar(setActor)(e.target.value)}>
             <option value="">Todos los actores</option>
             <option value="sistema">Sistema (procesos automáticos)</option>
-            {opciones.datos?.usuarios?.map((u) => <option key={u.id} value={u.id}>{u.nombre} · {u.codigo}</option>)}
+            {opciones.datos?.usuarios?.map((u) => <option key={u.id} value={u.id}>{u.nombre} | {u.codigo}</option>)}
           </Selector>
         </Campo>
         <Campo etiqueta="Operación" className="w-60">
@@ -140,10 +140,10 @@ export function AuditoriaPage() {
         </div>
       )}
       <p className="mt-4 text-xs text-ink-faint">Los eventos se conservan como historial. Los procesos automáticos aparecen como Sistema; esta vista no permite modificar ni eliminar registros.</p>
-      {abierto && <Modal abierto titulo={etiqueta(abierto.operacion)} descripcion={`Evento #${abierto.id} · ${formatearFechaHora(abierto.fechaHora)}`}
+      {abierto && <Modal abierto titulo={etiqueta(abierto.operacion)} descripcion={`Evento #${abierto.id} | ${formatearFechaHora(abierto.fechaHora)}`}
         ancho="xl" onCerrar={() => setAbierto(undefined)}>
         <dl className="mb-5 grid gap-3 text-sm sm:grid-cols-2">
-          <div><dt className="text-ink-faint">Actor</dt><dd>{abierto.actor} · {abierto.codigoUsuario ?? abierto.proceso}</dd></div>
+          <div><dt className="text-ink-faint">Actor</dt><dd>{abierto.actor} | {abierto.codigoUsuario ?? abierto.proceso}</dd></div>
           <div><dt className="text-ink-faint">Registro</dt><dd>{etiqueta(abierto.entidad)} {abierto.idEntidad != null ? `#${abierto.idEntidad}` : ''}</dd></div>
           <div className="sm:col-span-2"><dt className="text-ink-faint">Motivo</dt><dd className="whitespace-pre-wrap">{abierto.motivo ?? 'Sin motivo adicional'}</dd></div>
         </dl>

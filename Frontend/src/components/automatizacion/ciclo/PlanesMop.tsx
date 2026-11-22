@@ -1,13 +1,21 @@
 import { useState } from 'react'
-import { ChevronRight, TriangleAlert } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowUpRight, ChevronRight, TriangleAlert } from 'lucide-react'
+import { scriptsApi } from '@/api/automatizacion'
 import type { PlanMop, ResumenPlan, TareaMopRespuesta } from '@/api/types'
+import { useSesion } from '@/auth/sesion-context'
+import { Cargando } from '@/components/ui/Cargando'
 import { BotonDetalle, FilaDetalle } from '@/components/ui/FilaDetalle'
+import { MensajeError } from '@/components/ui/MensajeError'
 import { Modal } from '@/components/ui/Modal'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { useConsulta } from '@/hooks/useConsulta'
 import { AFECTACION, ESTADO_TAREA_MOP, formatearSegundos, TONO_ESTADO_DETALLE } from '@/utils/automatizacion'
 import { ETIQUETA_ESTADO_DETALLE } from '@/utils/etiquetas'
 import { formatearDuracion, formatearFechaHora, formatearHora } from '@/utils/formato'
 import { SalidaTerminal } from '../SalidaTerminal'
+import { VistaPreviaScript } from '../VistaPreviaScript'
 import { CELDA, ENCABEZADO } from './estilosTabla'
 
 const SIN_PLAN = 'El plan se arma en la evaluación previa con las tareas que activen los umbrales.'
@@ -28,27 +36,95 @@ function Script({ t }: { t: TareaMopRespuesta }) {
   )
 }
 
+/** El catálogo de scripts es del administrador y el operador: solo ellos ven el código de cada tarea */
+function usePuedeVerScripts() {
+  const { tieneRol } = useSesion()
+  return tieneRol('ADMINISTRADOR', 'OPERADOR')
+}
+
+/** Enlace que despliega u oculta un bloque bajo la tarea: la salida o el script */
+function BotonDesplegar({ abierto, onClick, children }: { abierto: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={abierto}
+      onClick={onClick}
+      className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+    >
+      <ChevronRight className={`h-3.5 w-3.5 transition-transform ${abierto ? 'rotate-90' : ''}`} aria-hidden="true" />
+      {children}
+    </button>
+  )
+}
+
+/** El archivo exacto que recibe el servidor en la tarea y el enlace a esa versión en el catálogo de scripts */
+function ArchivoScript({ t }: { t: TareaMopRespuesta }) {
+  const preparado = useConsulta(() => scriptsApi.vistaPreviaVersion(t.idVersion!), [t.idVersion])
+  if (preparado.cargando && !preparado.datos) return <Cargando texto="Cargando el script…" />
+  if (!preparado.datos) return <MensajeError error={preparado.error} onReintentar={preparado.recargar} />
+  const enlace = t.idScript == null ? undefined
+    : `/automatizacion/scripts/${t.idScript}?implementacion=${t.idImplementacion ?? ''}&version=${t.idVersion}`
+  return (
+    <div className="flex flex-col gap-2">
+      <VistaPreviaScript
+        preparado={preparado.datos}
+        nombreDescarga={`${t.script ?? 'script'}_v${t.numeroVersion ?? ''}`.replace(/\W+/g, '_')}
+      />
+      {enlace && (
+        <Link to={enlace} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-accent hover:underline">
+          Abrir esta versión en el catálogo de scripts
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
+      )}
+    </div>
+  )
+}
+
+/** Despliega bajo la tarea el script que ejecuta, sin salir del plan ni abrir otra ventana */
+function ScriptDeTarea({ t }: { t: TareaMopRespuesta }) {
+  const [abierto, setAbierto] = useState(false)
+  return (
+    <>
+      <BotonDesplegar abierto={abierto} onClick={() => setAbierto(!abierto)}>
+        {abierto ? 'Ocultar el script' : 'Ver el script'}
+      </BotonDesplegar>
+      {abierto && (
+        <div className="order-last mt-2 basis-full">
+          <ArchivoScript t={t} />
+        </div>
+      )}
+    </>
+  )
+}
+
 function Piloto({ m }: { m: PlanMop }) {
   return m.piloto ? <span className="rounded bg-accent-soft px-1.5 py-0.5 font-sans text-xs text-ink">Piloto</span> : null
 }
 
 /** Las tareas de un servidor en el orden en que se ejecutan, con su script y lo que duran */
-function TareasPlan({ m }: { m: PlanMop }) {
+function TareasPlan({ m, verScripts }: { m: PlanMop; verScripts: boolean }) {
   return (
     <ol className="flex flex-col divide-y divide-line">
       {m.tareas?.map((t) => (
-        <li key={t.id} className="flex items-start gap-3 py-2.5">
-          <span className="w-5 shrink-0 pt-0.5 text-right font-mono text-xs tabular-nums text-ink-faint">{t.orden}</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-ink">{t.tarea}</p>
-            <p className="mt-0.5 text-xs text-ink-soft">
-              <Script t={t} />
-              {t.afectacion && (
-                <> · {t.afectacion === 'SIN_AFECTACION' ? 'Sin afectación' : `Afectación ${AFECTACION[t.afectacion].etiqueta.toLowerCase()}`}</>
-              )}
-            </p>
+        <li key={t.id} className="flex flex-col gap-2 py-2.5">
+          <div className="flex items-start gap-3">
+            <span className="w-5 shrink-0 pt-0.5 text-right font-mono text-xs tabular-nums text-ink-faint">{t.orden}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-ink">{t.tarea}</p>
+              <p className="mt-0.5 text-xs text-ink-soft">
+                <Script t={t} />
+                {t.afectacion && (
+                  <> | {t.afectacion === 'SIN_AFECTACION' ? 'Sin afectación' : `Afectación ${AFECTACION[t.afectacion].etiqueta.toLowerCase()}`}</>
+                )}
+              </p>
+            </div>
+            <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-ink-soft">{formatearDuracion(t.duracionMinutos)}</span>
           </div>
-          <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-ink-soft">{formatearDuracion(t.duracionMinutos)}</span>
+          {verScripts && t.idVersion != null && (
+            <div className="flex flex-wrap items-center pl-8">
+              <ScriptDeTarea t={t} />
+            </div>
+          )}
         </li>
       ))}
     </ol>
@@ -56,7 +132,7 @@ function TareasPlan({ m }: { m: PlanMop }) {
 }
 
 /** Un servidor del plan: al desplegarlo, sus tareas */
-function ServidorPlan({ m, abierto }: { m: PlanMop; abierto: boolean }) {
+function ServidorPlan({ m, abierto, verScripts }: { m: PlanMop; abierto: boolean; verScripts: boolean }) {
   const tareas = m.tareas ?? []
   return (
     <details open={abierto} className="group rounded-lg border border-line">
@@ -66,14 +142,14 @@ function ServidorPlan({ m, abierto }: { m: PlanMop; abierto: boolean }) {
         <Piloto m={m} />
         <span className={`ml-auto text-sm tabular-nums ${m.superaDuracionMaxima ? 'font-medium text-warning' : 'text-ink-soft'}`}>
           {m.superaDuracionMaxima && <TriangleAlert className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />}
-          {plural(tareas.length, 'tarea', 'tareas')} · {formatearDuracion(m.duracionMinutos)}
+          {plural(tareas.length, 'tarea', 'tareas')} | {formatearDuracion(m.duracionMinutos)}
         </span>
         {m.superaDuracionMaxima && (
           <span className="basis-full pl-7 text-xs text-warning">Supera los {formatearDuracion(m.maximoMinutos)} permitidos por MOP</span>
         )}
       </summary>
       <div className="border-t border-line px-4">
-        <TareasPlan m={m} />
+        <TareasPlan m={m} verScripts={verScripts} />
       </div>
     </details>
   )
@@ -97,6 +173,7 @@ function DuracionTotal({ resumen }: { resumen: ResumenPlan }) {
  */
 export function PlanTrabajo({ mops, resumen }: { mops: PlanMop[]; resumen?: ResumenPlan }) {
   const [abierto, setAbierto] = useState(false)
+  const verScripts = usePuedeVerScripts()
   if (mops.length === 0 || !resumen) return <p className="text-sm text-ink-soft">{SIN_PLAN}</p>
 
   const conTareas = resumen.servidoresConTareas ?? 0
@@ -143,20 +220,20 @@ export function PlanTrabajo({ mops, resumen }: { mops: PlanMop[]; resumen?: Resu
           titulo="Plan de trabajo (MOP)"
           descripcion="Las tareas de cada servidor, en el orden en que se ejecutarán."
           onCerrar={() => setAbierto(false)}
-          ancho="lg"
+          ancho="xl"
         >
           <div className="flex flex-col gap-4">
             <ul className="flex flex-col gap-2">
               {mops.map((m) => (
                 <li key={m.id}>
-                  <ServidorPlan m={m} abierto={mops.length === 1} />
+                  <ServidorPlan m={m} abierto={mops.length === 1} verScripts={verScripts} />
                 </li>
               ))}
             </ul>
             <p className="rounded-lg bg-panel-muted px-4 py-3 text-sm text-ink-soft">
               <span className="font-medium text-ink">{plural(resumen.tareas ?? 0, 'tarea', 'tareas')}</span>
               {(resumen.servidores ?? 0) > 1 && ` en ${conTareas} de ${resumen.servidores} servidores`}
-              {' · duración total estimada '}
+              {' | duración total estimada '}
               <DuracionTotal resumen={resumen} />
             </p>
           </div>
@@ -174,9 +251,10 @@ function duracionServidor(m: PlanMop): string {
   return formatearDuracion(m.duracionMinutos)
 }
 
-/** Una tarea ejecutada: su resultado y, a pedido, la salida del script */
-function TareaEjecutada({ t }: { t: TareaMopRespuesta }) {
+/** Una tarea ejecutada: su resultado y, a pedido, la salida y el código del script */
+function TareaEjecutada({ t, verScripts }: { t: TareaMopRespuesta; verScripts: boolean }) {
   const [abierta, setAbierta] = useState(false)
+  const conScript = verScripts && t.idVersion != null
   const conSalida = !!(t.salida || t.error)
   const estado = t.estado ? ESTADO_TAREA_MOP[t.estado] : undefined
 
@@ -203,22 +281,19 @@ function TareaEjecutada({ t }: { t: TareaMopRespuesta }) {
         </span>
         {estado && <StatusPill tone={estado.tono} label={estado.etiqueta} />}
       </div>
-      {conSalida && (
-        <div className="sm:pl-8">
-          <button
-            type="button"
-            aria-expanded={abierta}
-            onClick={() => setAbierta(!abierta)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
-          >
-            <ChevronRight className={`h-3.5 w-3.5 transition-transform ${abierta ? 'rotate-90' : ''}`} aria-hidden="true" />
-            {abierta ? 'Ocultar la salida' : 'Ver la salida'}
-          </button>
+      {(conSalida || conScript) && (
+        <div className="flex flex-wrap items-center gap-x-4 sm:pl-8">
+          {conSalida && (
+            <BotonDesplegar abierto={abierta} onClick={() => setAbierta(!abierta)}>
+              {abierta ? 'Ocultar la salida' : 'Ver la salida'}
+            </BotonDesplegar>
+          )}
+          {conScript && <ScriptDeTarea t={t} />}
           {abierta && (
-            <div className="mt-2">
+            <div className="order-last mt-2 basis-full">
               <p className="mb-2 text-xs text-ink-soft">
                 {formatearFechaHora(t.fechaInicio)} – {formatearHora(t.fechaFin)}
-                {t.codigoRetorno != null && <> · código de salida {t.codigoRetorno}</>}
+                {t.codigoRetorno != null && <> | código de salida: {t.codigoRetorno}</>}
               </p>
               <SalidaTerminal salida={t.salida} error={t.error} nombre={`tarea_${t.id}_${t.tarea}`} />
             </div>
@@ -236,6 +311,7 @@ function TareaEjecutada({ t }: { t: TareaMopRespuesta }) {
 export function EjecucionMop({ mops }: { mops: PlanMop[] }) {
   // Se guarda el servidor y no la fila: mientras la orden avanza, la ficha se refresca y el detalle abierto también
   const [idAbierto, setIdAbierto] = useState<number>()
+  const verScripts = usePuedeVerScripts()
   const abierto = idAbierto == null ? undefined : mops.find((m) => m.id === idAbierto)
   if (mops.length === 0) return <p className="text-sm text-ink-soft">{SIN_PLAN}</p>
 
@@ -294,11 +370,11 @@ export function EjecucionMop({ mops }: { mops: PlanMop[] }) {
                 : `Inicio registrado el ${formatearFechaHora(abierto.inicioReal)}`
           }
           onCerrar={() => setIdAbierto(undefined)}
-          ancho="lg"
+          ancho="xl"
         >
           <ol className="flex flex-col divide-y divide-line">
             {abierto.tareas?.map((t) => (
-              <TareaEjecutada key={t.id} t={t} />
+              <TareaEjecutada key={t.id} t={t} verScripts={verScripts} />
             ))}
           </ol>
         </Modal>

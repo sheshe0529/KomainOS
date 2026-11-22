@@ -53,7 +53,7 @@ export function CronogramaDiaPage() {
         <h2 className="text-2xl font-semibold text-ink">{formatearFechaLarga(dia)}</h2>
         <p className="mt-1 text-sm text-ink-soft">
           {inicianHoy.length} {inicianHoy.length === 1 ? 'orden programada' : 'órdenes programadas'} este día
-          {delDia.length > inicianHoy.length && ` · ${delDia.length - inicianHoy.length} en curso desde el día anterior`}
+          {delDia.length > inicianHoy.length && ` | ${delDia.length - inicianHoy.length} en curso desde el día anterior`}
         </p>
       </div>
 

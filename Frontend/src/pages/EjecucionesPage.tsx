@@ -218,7 +218,7 @@ export function EjecucionesPage() {
                 <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
                   <th className="px-5 py-3 font-medium">Inicio</th>
                   <th className="px-3 py-3 font-medium">Servidor</th>
-                  <th className="px-3 py-3 font-medium">Tarea · script</th>
+                  <th className="px-3 py-3 font-medium">Tarea y script</th>
                   <th className="px-3 py-3 font-medium">Cuenta</th>
                   <th className="px-3 py-3 font-medium">Estado</th>
                   <th className="px-3 py-3 text-right font-medium">Código</th>
@@ -236,7 +236,7 @@ export function EjecucionesPage() {
                         {e.tarea}
                       </BotonDetalle>
                       <span className="block text-xs text-ink-faint">
-                        {e.script} v{e.numeroVersion} · {e.sistemaOperativo}
+                        {e.script} v{e.numeroVersion} | {e.sistemaOperativo}
                       </span>
                       {e.estado === 'FALLIDA' && (
                         <span className="mt-1 block text-xs text-danger">{diagnosticarFallo(e.error, undefined, e.tipoFallo).titulo}</span>

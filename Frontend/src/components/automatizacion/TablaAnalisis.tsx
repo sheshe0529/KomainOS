@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CircleX } from 'lucide-react'
 import type { AnalisisRespuesta } from '@/api/types'
+import { Dato } from '@/components/common/Tarjeta'
 import { BotonDetalle, FilaDetalle } from '@/components/ui/FilaDetalle'
 import { Modal } from '@/components/ui/Modal'
 import { StatusPill } from '@/components/ui/StatusPill'
@@ -25,7 +26,7 @@ function diagnostico(a: AnalisisRespuesta) {
 }
 
 /** Lo que el usuario necesita de un vistazo: cuántas métricas salieron de sus umbrales, o qué falló */
-function hallazgos(a: AnalisisRespuesta): string {
+export function hallazgosAnalisis(a: AnalisisRespuesta): string {
   if (a.estado === 'FALLIDA') return diagnostico(a).titulo
   if (a.estado === 'EN_CURSO') return 'Analizando…'
   const mediciones = a.mediciones ?? []
@@ -34,60 +35,65 @@ function hallazgos(a: AnalisisRespuesta): string {
   if (criticas + advertencias === 0) return `${mediciones.length} métricas dentro de sus umbrales`
   return [criticas > 0 && `${criticas} en crítico`, advertencias > 0 && `${advertencias} en advertencia`]
     .filter(Boolean)
-    .join(' · ')
+    .join(' | ')
 }
 
 /** El nivel resume el análisis; si falló o sigue en curso, lo dice su estado */
-function Estado({ a }: { a: AnalisisRespuesta }) {
+export function EstadoAnalisis({ a }: { a: AnalisisRespuesta }) {
   if (a.estado === 'FINALIZADA' && a.nivel) return <StatusPill tone={NIVEL[a.nivel].tono} label={NIVEL[a.nivel].etiqueta} />
   const estado = a.estado ? ESTADO_EVALUACION[a.estado] : undefined
   return estado ? <StatusPill tone={estado.tono} label={estado.etiqueta} /> : null
 }
 
 /**
- * Detalle de un análisis: con qué se ejecutó y el valor y nivel de cada métrica. Si falló, el diagnóstico, dónde buscar
- * la causa y la salida del script cuando llegó a ejecutarse
+ * Detalle de un análisis: arriba sus datos (con qué se ejecutó y qué encontró) y debajo el valor y nivel de cada métrica.
+ * Si falló, el diagnóstico, dónde buscar la causa y la salida del script cuando llegó a ejecutarse. Con encabezado
+ * repite qué análisis es y cuándo corrió, que en el recuadro ya dicen el título y la descripción
  */
-function DetalleAnalisis({ a, onCerrar }: { a: AnalisisRespuesta; onCerrar: () => void }) {
-  const titulo = `${a.tipo ? TIPO_EVALUACION[a.tipo] : 'Análisis'}${a.servidor ? ` · ${a.servidor}` : ''}`
+export function ContenidoAnalisis({ a, encabezado = false }: { a: AnalisisRespuesta; encabezado?: boolean }) {
   const fallido = a.estado === 'FALLIDA'
   return (
-    <Modal abierto titulo={titulo} descripcion={formatearFechaHora(a.fechaInicio)} onCerrar={onCerrar} ancho="2xl">
-      <div className="flex flex-col gap-4">
-        <dl className="grid gap-4 rounded-lg bg-panel-muted px-4 py-3 sm:grid-cols-3">
-          <div>
-            <dt className="text-xs text-ink-faint">Resultado</dt>
-            <dd className="mt-1">
-              <Estado a={a} />
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-faint">Script</dt>
-            <dd className="mt-0.5 text-sm text-ink">
+    <div className="flex flex-col gap-4">
+      <dl className="grid gap-4 sm:grid-cols-3">
+        {encabezado && <Dato etiqueta="Análisis" valor={a.tipo ? TIPO_EVALUACION[a.tipo] : 'Análisis'} />}
+        {encabezado && a.servidor && <Dato etiqueta="Servidor" valor={a.servidor} mono />}
+        {encabezado && <Dato etiqueta="Fecha" valor={formatearFechaHora(a.fechaInicio)} />}
+        <Dato etiqueta="Resultado" valor={<EstadoAnalisis a={a} />} />
+        {!fallido && <Dato etiqueta="Hallazgos" valor={hallazgosAnalisis(a)} />}
+        <Dato
+          etiqueta="Script"
+          valor={
+            <>
               {a.script} <span className="font-mono text-xs text-ink-faint">v{a.numeroVersion}</span>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-faint">Cuenta de servicio</dt>
-            <dd className="mt-0.5 break-words text-sm text-ink">{a.cuenta ?? '—'}</dd>
-          </div>
-        </dl>
-        {fallido && <DiagnosticoActividad fallo={diagnostico(a)} conCausas />}
-        {fallido && (
-          <section className="flex flex-col gap-2">
-            <h4 className="text-sm font-semibold text-ink">Salida del script</h4>
-            {a.salida ? (
-              <SalidaTerminal salida={a.salida} nombre={`analisis_${a.id}_${a.servidor ?? 'salida'}`} altoMaximo="22rem" />
-            ) : (
-              <p className="text-sm text-ink-soft">
-                El script no dejó salida: no llegó a ejecutarse (por ejemplo, por la conexión, el inicio de sesión o la
-                elevación) o el análisis es anterior a que KomainOS la guardara.
-              </p>
-            )}
-          </section>
-        )}
-        {!fallido && <MedicionesAnalisis mediciones={a.mediciones ?? []} />}
-      </div>
+            </>
+          }
+        />
+        <Dato etiqueta="Cuenta de servicio" valor={<span className="break-words">{a.cuenta ?? '—'}</span>} />
+      </dl>
+      {fallido && <DiagnosticoActividad fallo={diagnostico(a)} conCausas />}
+      {fallido && (
+        <section className="flex flex-col gap-2">
+          <h4 className="text-sm font-semibold text-ink">Salida del script</h4>
+          {a.salida ? (
+            <SalidaTerminal salida={a.salida} nombre={`analisis_${a.id}_${a.servidor ?? 'salida'}`} altoMaximo="22rem" />
+          ) : (
+            <p className="text-sm text-ink-soft">
+              El script no dejó salida: no llegó a ejecutarse (por ejemplo, por la conexión, el inicio de sesión o la
+              elevación) o el análisis es anterior a que KomainOS la guardara.
+            </p>
+          )}
+        </section>
+      )}
+      {!fallido && <MedicionesAnalisis mediciones={a.mediciones ?? []} />}
+    </div>
+  )
+}
+
+function DetalleAnalisis({ a, onCerrar }: { a: AnalisisRespuesta; onCerrar: () => void }) {
+  const titulo = `${a.tipo ? TIPO_EVALUACION[a.tipo] : 'Análisis'}${a.servidor ? ` de ${a.servidor}` : ''}`
+  return (
+    <Modal abierto titulo={titulo} descripcion={formatearFechaHora(a.fechaInicio)} onCerrar={onCerrar} ancho="2xl">
+      <ContenidoAnalisis a={a} />
     </Modal>
   )
 }
@@ -104,7 +110,7 @@ function ResumenFallos({ fallidos, onAbrir }: { fallidos: AnalisisRespuesta[]; o
             <div className="min-w-0 flex-1 basis-60">
               <p className="text-sm font-medium text-danger">
                 {d.titulo}
-                {a.servidor && <span className="font-mono font-normal text-ink-soft"> · {a.servidor}</span>}
+                {a.servidor && <span className="font-mono font-normal text-ink-soft"> | {a.servidor}</span>}
               </p>
               {d.detalle && <p className="mt-0.5 line-clamp-2 break-words font-mono text-xs text-ink">{d.detalle}</p>}
             </div>
@@ -157,9 +163,9 @@ export function TablaAnalisis({ analisis, conServidor = true, resumirFallos = fa
                     </BotonDetalle>
                   </td>
                   <td className={CELDA}>
-                    <Estado a={a} />
+                    <EstadoAnalisis a={a} />
                   </td>
-                  <td className={`${CELDA} ${a.estado === 'FALLIDA' ? 'text-danger' : 'text-ink-soft'}`}>{hallazgos(a)}</td>
+                  <td className={`${CELDA} ${a.estado === 'FALLIDA' ? 'text-danger' : 'text-ink-soft'}`}>{hallazgosAnalisis(a)}</td>
                   <td className={`${CELDA} break-words text-ink-soft`}>{a.cuenta ?? '—'}</td>
                   <td className={`${CELDA} whitespace-nowrap text-ink-soft`}>{formatearFechaHora(a.fechaInicio)}</td>
                 </FilaDetalle>

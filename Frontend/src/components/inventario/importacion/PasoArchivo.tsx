@@ -51,12 +51,12 @@ export function PasoArchivo({ archivo, onElegir, columnas, formatoPlantilla, onF
         {archivo ? (
           <>
             <span className="font-mono text-sm font-medium text-ink">{archivo.name}</span>
-            <span className="text-xs text-ink-soft">{tamanoLegible(archivo.size)} · haga clic para elegir otro</span>
+            <span className="text-xs text-ink-soft">{tamanoLegible(archivo.size)}. Haga clic para elegir otro</span>
           </>
         ) : (
           <>
             <span className="text-sm font-medium text-ink">Arrastre un archivo o haga clic para elegirlo</span>
-            <span className="text-xs text-ink-soft">XLSX, CSV, YAML o JSON · hasta 5 MB y 5000 registros</span>
+            <span className="text-xs text-ink-soft">XLSX, CSV, YAML o JSON | hasta 5 MB y 5000 registros</span>
           </>
         )}
         <input

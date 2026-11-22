@@ -152,7 +152,7 @@ function MapaDelGrupo({ mantenimientos }: { mantenimientos: MantenimientoBitacor
             <th className="sticky left-0 bg-panel px-3 py-2 text-left font-medium text-ink-faint">Integrante</th>
             {columnas.map((m) => (
               <th key={m.idOrden} className="px-1 py-2 font-normal text-ink-faint">
-                <Link to={`/ordenes/${m.idOrden}`} title={`${m.codigo} · ${formatearFecha(fechaDe(m))}`} className="block w-10 hover:text-accent">
+                <Link to={`/ordenes/${m.idOrden}`} title={`${m.codigo} | ${formatearFecha(fechaDe(m))}`} className="block w-10 hover:text-accent">
                   {diaMes(fechaDe(m))}
                 </Link>
               </th>
@@ -174,7 +174,7 @@ function MapaDelGrupo({ mantenimientos }: { mantenimientos: MantenimientoBitacor
                   <td key={m.idOrden} className="px-1 py-1.5 text-center">
                     {r ? (
                       <span
-                        title={`${m.codigo} · ${hostname}: ${r.etiqueta}${p?.piloto ? ' (piloto)' : ''}`}
+                        title={`${m.codigo} | ${hostname}: ${r.etiqueta}${p?.piloto ? ' (piloto)' : ''}`}
                         className={`mx-auto block h-5 w-8 rounded ${p?.piloto ? 'ring-2 ring-accent ring-offset-1 ring-offset-panel' : ''}`}
                         style={{ background: r.hueco ? 'transparent' : r.color, border: `2px solid ${r.color}` }}
                       />
@@ -307,7 +307,7 @@ export function BitacoraMantenimiento({ idServidor, idGrupo, integrantes = [], v
                 <Indicador
                   etiqueta="Mantenimientos terminados"
                   valor={String(resumen.realizados)}
-                  detalle={`${resumen.exitosos} con tareas ejecutadas · ${resumen.sinIntervencion} sin intervención`}
+                  detalle={`${resumen.exitosos} con tareas ejecutadas | ${resumen.sinIntervencion} sin intervención`}
                 />
                 <Indicador
                   etiqueta="Terminaron bien"

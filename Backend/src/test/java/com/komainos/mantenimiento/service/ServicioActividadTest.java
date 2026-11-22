@@ -44,12 +44,12 @@ class ServicioActividadTest {
 
         assertThat(servicio.conexion(SolicitudEjecucion.conectividad(1, "SERVLNXV01", "172.31.37.104",
                 FamiliaSistemaOperativo.LINUX, 1, 2))).isEqualTo("SERVLNXV01 (172.31.37.104) por SSH (puerto 22) "
-                + "· cuenta «Cuenta genérica»: usuario komainos-sudo con llave SSH, elevación sudo con contraseña");
+                + "| cuenta «Cuenta genérica»: usuario komainos-sudo con llave SSH, elevación sudo con contraseña");
         assertThat(servicio.conexion(SolicitudEjecucion.conectividad(2, "SERVWINV01", "172.31.39.120",
                 FamiliaSistemaOperativo.WINDOWS, 2, 2))).isEqualTo("SERVWINV01 (172.31.39.120) por WinRM (HTTPS, "
-                + "puerto 5986) · cuenta «Cuenta Windows»: usuario svc_komainos con contraseña, sin elevación");
+                + "puerto 5986) | cuenta «Cuenta Windows»: usuario svc_komainos con contraseña, sin elevación");
         assertThat(servicio.conexion(SolicitudEjecucion.conectividad(3, "SERVLNXV02", "10.0.0.2",
-                FamiliaSistemaOperativo.LINUX, null, 2))).endsWith("· sin cuenta de servicio");
+                FamiliaSistemaOperativo.LINUX, null, 2))).endsWith("| sin cuenta de servicio");
     }
 
     @Test

@@ -13,7 +13,7 @@ import { ConfiguracionMantenimientoTarjeta } from '@/components/inventario/Confi
 import { ConfiguracionModal } from '@/components/inventario/ConfiguracionModal'
 import { GrupoFormulario } from '@/components/inventario/GrupoFormulario'
 import { IntegrantesModal } from '@/components/inventario/IntegrantesModal'
-import { UmbralesGrupoTarjeta } from '@/components/inventario/UmbralesGrupoTarjeta'
+import { UmbralesGrupoTarjeta } from '@/components/inventario/UmbralesAplicables'
 import { VentanaPermisivaTarjeta } from '@/components/inventario/VentanaPermisivaTarjeta'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
 import { useAvisos } from '@/components/ui/avisos-context'
@@ -215,8 +215,6 @@ export function FichaGrupoPage() {
             )}
           </Tarjeta>
 
-          <UmbralesGrupoTarjeta key={`${idGrupo}:${g.fechaActualizacion}`} idGrupo={idGrupo} integrantes={g.integrantes ?? []} />
-
           <ConectividadGrupo idGrupo={idGrupo} />
         </>
       )}
@@ -225,7 +223,13 @@ export function FichaGrupoPage() {
       {pestana === 'historial' && (
         <>
           <BitacoraMantenimiento idGrupo={idGrupo} integrantes={g.integrantes ?? []} version={versionOrdenes} />
-          <AnalisisGrupo idGrupo={idGrupo} />
+          <AnalisisGrupo idGrupo={idGrupo} nombre={g.nombre} />
+          <UmbralesGrupoTarjeta
+            key={`${idGrupo}:${g.fechaActualizacion}`}
+            idGrupo={idGrupo}
+            nombre={g.nombre}
+            integrantes={g.integrantes ?? []}
+          />
         </>
       )}
 

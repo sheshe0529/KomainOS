@@ -147,7 +147,7 @@ export function BuscadorServidor({ yaDefinidos = NINGUNO, estado, onElegir }: Bu
                 >
                   <span className="font-mono font-medium text-ink">{s.hostname}</span>
                   <span className="truncate text-xs text-ink-faint">
-                    {definido ? 'Ya definido' : [s.entorno?.nombre, s.criticidad?.nombre].filter(Boolean).join(' · ')}
+                    {definido ? 'Ya definido' : [s.entorno?.nombre, s.criticidad?.nombre].filter(Boolean).join(' | ')}
                   </span>
                 </li>
               )

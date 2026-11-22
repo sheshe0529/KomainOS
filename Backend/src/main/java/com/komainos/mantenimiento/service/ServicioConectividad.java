@@ -74,7 +74,7 @@ public class ServicioConectividad {
             return preparar(s, cuenta, List.of(finalidad));
         });
         ResultadoConexion resultado = ejecutar(prueba);
-        auditar(actor, "servidor " + prueba.hostname() + " · " + finalidad, List.of(resultado), idServidor);
+        auditar(actor, "servidor " + prueba.hostname() + " | " + finalidad, List.of(resultado), idServidor);
         return resultado;
     }
 
@@ -85,7 +85,7 @@ public class ServicioConectividad {
             return integrantes.stream().map(s -> preparar(s, cuenta, List.of(finalidad))).toList();
         });
         List<ResultadoConexion> resultados = ejecutarTodas(pruebas, "grupo " + idGrupo);
-        auditar(actor, "grupo " + idGrupo + " · " + finalidad, resultados, null);
+        auditar(actor, "grupo " + idGrupo + " | " + finalidad, resultados, null);
         return resultados;
     }
 
@@ -102,7 +102,7 @@ public class ServicioConectividad {
                     .toList();
         });
         List<ResultadoConexion> resultados = ejecutarTodas(pruebas, "servidor " + idServidor);
-        auditar(actor, "servidor " + pruebas.getFirst().hostname() + " · acceso", resultados, idServidor);
+        auditar(actor, "servidor " + pruebas.getFirst().hostname() + " | acceso", resultados, idServidor);
         return resultados;
     }
 
@@ -117,7 +117,7 @@ public class ServicioConectividad {
                     .toList();
         });
         List<ResultadoConexion> resultados = ejecutarTodas(pruebas, "grupo " + idGrupo);
-        auditar(actor, "grupo " + idGrupo + " · acceso", resultados, null);
+        auditar(actor, "grupo " + idGrupo + " | acceso", resultados, null);
         return resultados;
     }
 

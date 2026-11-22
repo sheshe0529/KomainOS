@@ -17,7 +17,7 @@ import { EncabezadoFichaServidor, type DialogoFichaServidor } from '@/components
 import { HistorialBajasServidor } from '@/components/inventario/HistorialBajasServidor'
 import { RecursosServidor } from '@/components/inventario/RecursosServidor'
 import { ServidorFormulario } from '@/components/inventario/ServidorFormulario'
-import { UmbralesServidorTarjeta } from '@/components/inventario/UmbralesServidorTarjeta'
+import { UmbralesServidorTarjeta } from '@/components/inventario/UmbralesAplicables'
 import { VentanaPermisivaTarjeta } from '@/components/inventario/VentanaPermisivaTarjeta'
 import { VentanasModal } from '@/components/inventario/VentanasModal'
 import { ProgramarModal } from '@/components/planificacion/ProgramarModal'
@@ -153,8 +153,8 @@ export function FichaServidorPage() {
       {pestana === 'historial' && (
         <>
           <BitacoraMantenimiento idServidor={idServidor} version={versionOrdenes} />
-          <AnalisisServidor idServidor={idServidor} />
-          <UmbralesServidorTarjeta idServidor={idServidor} />
+          <AnalisisServidor idServidor={idServidor} hostname={s.hostname} />
+          <UmbralesServidorTarjeta idServidor={idServidor} hostname={s.hostname} />
           {vePreparacion && <PreparacionServidorTarjeta idServidor={idServidor} />}
         </>
       )}

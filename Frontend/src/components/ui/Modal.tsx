@@ -11,16 +11,35 @@ interface ModalProps {
   pie?: ReactNode
   ancho?: 'md' | 'lg' | 'xl' | '2xl'
   posicion?: 'centro' | 'derecha'
+  /** Se cierra al pulsar fuera del panel; solo en consultas, donde cerrar no pierde nada escrito */
+  cerrarAlPulsarFuera?: boolean
 }
 
 const ANCHOS = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl', '2xl': 'max-w-6xl' }
+/** El panel lateral también crece con el ancho pedido: las tablas de consulta necesitan más espacio que un registro */
+const ANCHOS_LATERAL = { md: 'md:w-1/2 lg:w-2/5', lg: 'md:w-1/2 lg:w-2/5', xl: 'md:w-2/3 lg:w-1/2', '2xl': 'md:w-3/4 lg:w-3/5' }
 
 /** Sobre <dialog> nativo: el navegador resuelve el foco, Escape y la capa de fondo */
-export function Modal({ abierto, titulo, descripcion, onCerrar, children, pie, ancho = 'md', posicion = 'centro' }: ModalProps) {
+export function Modal({
+  abierto,
+  titulo,
+  descripcion,
+  onCerrar,
+  children,
+  pie,
+  ancho = 'md',
+  posicion = 'centro',
+  cerrarAlPulsarFuera = false,
+}: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  const alCerrar = useRef(onCerrar)
   const tituloId = useId()
   const descripcionId = useId()
   const lateral = posicion === 'derecha'
+
+  useEffect(() => {
+    alCerrar.current = onCerrar
+  }, [onCerrar])
 
   useEffect(() => {
     const dialogo = ref.current
@@ -33,6 +52,27 @@ export function Modal({ abierto, titulo, descripcion, onCerrar, children, pie, a
     }
   }, [abierto, lateral])
 
+  // El contenido ocupa todo el <dialog>: un clic cuyo destino es el propio <dialog> cae en el fondo oscurecido. Se exige
+  // que también empiece ahí para no cerrar al soltar fuera una selección de texto iniciada dentro del panel
+  useEffect(() => {
+    const dialogo = ref.current
+    if (!dialogo || !abierto || !cerrarAlPulsarFuera) return
+    let desdeFondo = false
+    const alPresionar = (e: PointerEvent) => {
+      desdeFondo = e.target === dialogo
+    }
+    const alPulsar = (e: MouseEvent) => {
+      if (desdeFondo && e.target === dialogo) alCerrar.current()
+      desdeFondo = false
+    }
+    dialogo.addEventListener('pointerdown', alPresionar)
+    dialogo.addEventListener('click', alPulsar)
+    return () => {
+      dialogo.removeEventListener('pointerdown', alPresionar)
+      dialogo.removeEventListener('click', alPulsar)
+    }
+  }, [abierto, cerrarAlPulsarFuera])
+
   return (
     <dialog
       ref={ref}
@@ -44,7 +84,7 @@ export function Modal({ abierto, titulo, descripcion, onCerrar, children, pie, a
       }}
       className={`border-line bg-panel p-0 text-ink shadow-xl backdrop:bg-black/50 ${
         lateral
-          ? 'fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-none border-l md:w-1/2 lg:w-2/5 motion-safe:open:animate-[entrada-lateral_180ms_ease-out]'
+          ? `fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-none border-l ${ANCHOS_LATERAL[ancho]} motion-safe:open:animate-[entrada-lateral_180ms_ease-out]`
           : `m-auto w-[calc(100%-2rem)] ${ANCHOS[ancho]} rounded-xl border`
       }`}
     >

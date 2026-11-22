@@ -33,7 +33,7 @@ export function EvolucionDashboard({ servidores, mantenimientos, cargando }: {
   return (
     <div className="mb-5 grid gap-5 xl:grid-cols-2">
       <ChartCard title="Servidores registrados en el tiempo"
-        description="Acumulado al cierre de cada mes · últimos 12 meses · UTC"
+        description="Acumulado al cierre de cada mes | últimos 12 meses | UTC"
         legend={<ChartLegend items={[{ label: 'Registrados', colorVar: INFORMACION }]} />}>
         <div className="relative h-full min-w-0" aria-label="Evolución mensual de servidores registrados, incluidos los retirados">
           <ResponsiveContainer width="100%" height="100%">
@@ -50,7 +50,7 @@ export function EvolucionDashboard({ servidores, mantenimientos, cargando }: {
         </div>
       </ChartCard>
       <ChartCard title="Mantenimientos ejecutados en el tiempo"
-        description="Por mes de fin de ejecución · últimos 12 meses · UTC"
+        description="Por mes de fin de ejecución | últimos 12 meses | UTC"
         legend={<ChartLegend items={[{ label: 'Finalizados', colorVar: EXITO }, { label: 'Fallidos', colorVar: ERROR }]} />}>
         <div className="relative h-full min-w-0" aria-label="Cantidad mensual de mantenimientos por servidor, finalizados y fallidos">
           <ResponsiveContainer width="100%" height="100%">

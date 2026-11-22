@@ -82,7 +82,7 @@ public class ServicioAutorizaciones {
                 ? ahora.plus(Duration.ofHours(orden.getNivelCriticidad().getPlazoAutorizacionHoras()))
                 : orden.getFechaInicioProgramada();
         SolicitudAutorizacion solicitud = solicitudes.save(SolicitudAutorizacion.abrir(orden, regla, ronda, limite, ahora));
-        String descripcion = "%s · afectación %s".formatted(regla.getEntorno().getNombre(), afectacion);
+        String descripcion = "%s | afectación %s".formatted(regla.getEntorno().getNombre(), afectacion);
 
         if (solicitud.esAutomatica()) {
             orden.cambiarEstado(EstadoOrden.AUTORIZADA, null,
@@ -96,7 +96,7 @@ public class ServicioAutorizaciones {
         }
         auditoria.registrar(actor, Operacion.de("APLICAR_POLITICA_CAMBIO", "solicitud_autorizacion", solicitud.getId())
                 .sobreOrden(orden.getId())
-                .motivo("Ronda %d · %s · %s · plazo %s".formatted(ronda, descripcion,
+                .motivo("Ronda %d | %s | %s | plazo %s".formatted(ronda, descripcion,
                         solicitud.esAutomatica() ? "automática" : aprobadores(solicitud), FECHA.format(limite))));
         for (NotificacionRegla n : politicas.notificaciones(regla.getId())) {
             notificaciones.aOrden(orden, TipoAlerta.SOLICITUD_AUTORIZACION, "Política de cambio aplicada en " + orden.getCodigo(),
@@ -151,7 +151,7 @@ public class ServicioAutorizaciones {
         }
         auditoria.registrar(alcance.actor(), Operacion.de("DECIDIR_AUTORIZACION", "autorizacion_detalle", pendiente.getId())
                 .sobreOrden(idOrden)
-                .motivo("%s · %s: %s".formatted(pendiente.getTipo(), decision, motivo)));
+                .motivo("%s | %s: %s".formatted(pendiente.getTipo(), decision, motivo)));
 
         switch (decision) {
             case RECHAZADA -> rechazar(orden, "Rechazado por el %s: %s".formatted(nombre(pendiente.getTipo()), motivo),

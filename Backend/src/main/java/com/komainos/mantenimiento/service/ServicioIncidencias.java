@@ -82,7 +82,7 @@ public class ServicioIncidencias {
                 .motivo(recortar(error, 1000)));
         notificaciones.incidencia(detalle, incidencia.getId(),
                 origen == OrigenIncidencia.TIEMPO_EXCEDIDO ? TipoAlerta.VENTANA_EXCEDIDA : TipoAlerta.INCIDENCIA_REGISTRADA,
-                "Incidencia en %s · %s".formatted(orden.getCodigo(), detalle.getServidor().getHostname()),
+                "Incidencia en %s | %s".formatted(orden.getCodigo(), detalle.getServidor().getHostname()),
                 recortar(texto, 2000));
         return incidencia;
     }

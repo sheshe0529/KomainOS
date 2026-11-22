@@ -145,7 +145,7 @@ export function UmbralesTab({ esAdmin, visita }: UmbralesTabProps) {
                     {u.lista ? (
                       <td colSpan={2} className="px-3 py-3" title={u.lista.elementos?.join(', ')}>
                         <span className="text-ink">{u.lista.nombre}</span>{' '}
-                        <span className="font-mono text-xs tabular-nums text-ink-faint">· {u.lista.elementos?.length ?? 0}</span>
+                        <span className="font-mono text-xs tabular-nums text-ink-faint">| {u.lista.elementos?.length ?? 0}</span>
                       </td>
                     ) : (
                       <>
